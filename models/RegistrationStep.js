@@ -19,7 +19,7 @@ const registrationStepSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['single-selection', 'multi-selection', 'input', 'otp-verification', 'account-creation'],
+        enum: ['single-selection', 'multi-selection', 'input', 'otp-verification', 'account-creation', 'subscription-plan'],
         required: true
     },
     field: {
@@ -45,6 +45,10 @@ const registrationStepSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    applicableRoles: {
+        type: [String],
+        default: [] // Empty means all roles
     }
 }, { timestamps: true });
 

@@ -85,6 +85,7 @@ exports.sendMessage = async (req, res) => {
         const senderId = req.user.id;
 
         // Messaging restrictions logic
+        // Messaging restrictions logic
         const previousMessage = await Message.findOne({
             $or: [
                 { sender: senderId, receiver: receiverId },
@@ -96,6 +97,15 @@ exports.sendMessage = async (req, res) => {
             const senderUser = await User.findById(senderId);
             const receiverUser = await User.findById(receiverId);
 
+            // 1. Check if sender has an active subscription
+            if (senderUser.subscription_details?.status !== 'active') {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Your subscription is not active. Please upgrade to start messaging.' 
+                });
+            }
+
+            // 2. Role-specific restrictions
             if (senderUser.role === 'freelancer') {
                 if (receiverUser.role === 'client') {
                     const Invitation = require('../models/Invitation');
@@ -111,10 +121,37 @@ exports.sendMessage = async (req, res) => {
                             message: 'Freelancers cannot initiate a conversation with a Client without an accepted invitation.' 
                         });
                     }
-                } else {
+                } else if (receiverUser.role !== 'admin') {
                     return res.status(403).json({ 
                         success: false, 
                         message: 'Freelancers can only message Clients with accepted invitations.' 
+                    });
+                }
+            } else if (senderUser.role === 'investor') {
+                if (receiverUser.role === 'startup_creator') {
+                    // Investor must have unlocked at least one idea of this creator
+                    const StartupIdea = require('../models/StartupIdea');
+                    const SubscriptionUnlock = require('../models/SubscriptionUnlock');
+                    
+                    const creatorIdeas = await StartupIdea.find({ creator: receiverId }).distinct('_id');
+                    const hasUnlocked = await SubscriptionUnlock.findOne({
+                        user_id: senderId,
+                        target_id: { $in: creatorIdeas },
+                        target_type: 'startup_idea'
+                    });
+
+                    if (!hasUnlocked) {
+                        return res.status(403).json({ 
+                            success: false, 
+                            message: 'Investors must unlock at least one idea from this Founder before messaging.' 
+                        });
+                    }
+                }
+            } else if (senderUser.role === 'startup_creator') {
+                if (receiverUser.role === 'investor' || receiverUser.role === 'client') {
+                     return res.status(403).json({ 
+                        success: false, 
+                        message: 'Founders cannot initiate messages with Investors first. Wait for them to contact you.' 
                     });
                 }
             }

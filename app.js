@@ -47,6 +47,9 @@ app.use('/api/subscription', require('./routers/subscriptionRoutes'));
 app.use('/api/payment', require('./routers/paymentRoutes'));
 app.use('/api/startup-ideas', require('./routers/startupIdeaRoutes'));
 app.use('/api/startup-categories', require('./routers/startupCategoryRoutes'));
+app.use('/api/investor', require('./routers/investorRoutes'));
+app.use('/api/meetings', require('./routers/meetingRoutes'));
+app.use('/api/kyc', require('./routers/kycRoutes'));
 
 
 // Root Route

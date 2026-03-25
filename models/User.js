@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
     },
     roles: {
         type: [String],
-        enum: ['freelancer', 'client', 'admin'],
+        enum: ['freelancer', 'client', 'admin', 'investor', 'startup_creator'],
         default: ['freelancer']
     },
     categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
@@ -52,14 +52,14 @@ const userSchema = new mongoose.Schema({
         duration_days: Number, // Project completion duration
         completion_date: Date
     }],
-    kyc_details: {
-        pancard: String, // File path/ID
-        aadhar_card: String, // File path/ID
-        is_verified: {
-            type: Boolean,
-            default: false
-        },
-        verified_at: Date
+    kyc: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'KYC'
+    },
+    kyc_status: {
+        type: String,
+        enum: ['unverified', 'basic_verified', 'fully_verified', 'premium_verified', 'rejected', 'pending'],
+        default: 'unverified'
     },
     documents: {
         educational: [String], // Array of file paths
@@ -68,7 +68,7 @@ const userSchema = new mongoose.Schema({
     work_images: [String], // Up to 5 images
     role: {
         type: String,
-        enum: ['freelancer', 'client', 'admin'],
+        enum: ['freelancer', 'client', 'admin', 'investor', 'startup_creator'],
         default: 'freelancer'
     },
     total_points: {

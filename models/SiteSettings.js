@@ -60,6 +60,18 @@ const siteSettingsSchema = new mongoose.Schema({
 
     // Startup Ideas Config
     startup_nda_template: { type: String, default: '' },
+    
+    // Subscription Page Config
+    subscription_title: { type: String, default: 'Fuel your growth with Pro Access.' },
+    subscription_subtitle: { type: String, default: 'Subscription Model' },
+    subscription_description: { type: String, default: "GoExperts runs on a clean, commission-free subscription model. No middleman, no bidding wars—just direct access to excellence." },
+    subscription_button_text: { type: String, default: 'Explore All Plans' },
+
+    // Subscription Highlights
+    subscription_highlights: [{
+        label: { type: String, required: true },
+        enabled: { type: Boolean, default: true }
+    }],
 
 }, { timestamps: true });
 

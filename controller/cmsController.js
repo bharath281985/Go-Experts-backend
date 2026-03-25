@@ -269,7 +269,8 @@ exports.updateSiteSettings = async (req, res) => {
             'points_per_rupee', 'points_signup_bonus',
             'home_stats', 'trust_badges',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass',
-            'email_from', 'email_from_name', 'email_reply_to', 'email_encryption'
+            'email_from', 'email_from_name', 'email_reply_to', 'email_encryption',
+            'subscription_highlights'
         ];
 
         const updates = {};
@@ -718,17 +719,19 @@ exports.resetRegistrationSteps = async (req, res) => {
     try {
         const seedSteps = [
             {
-                order: 1, label: 'Account Type', title: 'How do you want to use Go Experts?', description: 'Choose your primary role',
+                order: 1, label: 'Account Type', title: 'How do you want to use Go Experts?', description: 'Choose Your Primary Role',
                 type: 'single-selection', field: 'accountType',
                 options: [
                     { value: 'client', label: 'Hire Talent', emoji: '🎯', description: 'I want to hire freelancers for my projects' },
                     { value: 'freelancer', label: 'Work as Freelancer', emoji: '💼', description: 'I want to offer my services and find work' },
-                    { value: 'both', label: 'Both', emoji: '🔁', description: 'I want to hire and work as a freelancer' }
+                    { value: 'investor', label: 'Investor', emoji: '💎', description: 'I want to find and invest in startup ideas' },
+                    { value: 'startup_creator', label: 'Startup Idea Creator', emoji: '💡', description: 'I want to post my idea and find investors' }
                 ]
             },
             {
                 order: 2, label: 'Categories', title: 'What services are you interested in?', description: 'Select all that apply',
                 type: 'multi-selection', field: 'categories',
+                applicableRoles: ['client', 'freelancer'],
                 options: [
                     { value: 'uiux', label: 'UI/UX Design', icon: 'Palette' },
                     { value: 'webdev', label: 'Web Development', icon: 'Code' },
@@ -743,6 +746,7 @@ exports.resetRegistrationSteps = async (req, res) => {
             {
                 order: 3, label: 'Work Style', title: 'How do you prefer to work?', description: 'Choose your work style',
                 type: 'single-selection', field: 'workPreference',
+                applicableRoles: ['client', 'freelancer'],
                 options: [
                     { value: 'remote', label: 'Remote', icon: 'Globe' },
                     { value: 'onsite', label: 'Onsite', icon: 'MapPin' },
@@ -752,6 +756,7 @@ exports.resetRegistrationSteps = async (req, res) => {
             {
                 order: 4, label: 'Budget', title: "What's your budget or rate range?", description: 'Select the range that fits best',
                 type: 'single-selection', field: 'budgetRange',
+                applicableRoles: ['client', 'freelancer'],
                 options: [
                     { value: '5k-15k', label: '₹5K - ₹15K', subtitle: 'Starter' },
                     { value: '15k-50k', label: '₹15K - ₹50K', subtitle: 'Standard' },
@@ -762,27 +767,63 @@ exports.resetRegistrationSteps = async (req, res) => {
             {
                 order: 5, label: 'Experience', title: 'Choose your experience level', description: 'This helps us match you better',
                 type: 'single-selection', field: 'experienceLevel',
+                applicableRoles: ['client', 'freelancer'],
                 options: [
                     { value: 'beginner', label: 'Beginner', emoji: '🌱' },
                     { value: 'intermediate', label: 'Intermediate', emoji: '⚡' },
                     { value: 'expert', label: 'Expert', emoji: '🏆' }
                 ]
             },
+            // --- Investor Specific Steps ---
             {
-                order: 6, label: 'Location', title: 'Where are you based?', description: 'Optional - helps with local opportunities',
-                type: 'input', field: 'location'
-            },
-            {
-                order: 7, label: 'Availability', title: 'What is your availability?', description: 'Choose when you can start',
-                type: 'single-selection', field: 'availability',
+                order: 6, label: 'Investment Interests', title: 'What industries do you invest in?', description: 'Help us filter the best ideas for you',
+                type: 'multi-selection', field: 'categories',
+                applicableRoles: ['investor'],
                 options: [
-                    { value: 'fulltime', label: 'Full-time' },
-                    { value: 'parttime', label: 'Part-time' },
-                    { value: 'weekends', label: 'Weekends' }
+                    { value: 'fintech', label: 'FinTech', icon: 'IndianRupee' },
+                    { value: 'edtech', label: 'EdTech', icon: 'Briefcase' },
+                    { value: 'healthtech', label: 'HealthTech', icon: 'Activity' },
+                    { value: 'saas', label: 'SaaS', icon: 'Code' },
+                    { value: 'ai', label: 'AI & ML', icon: 'Sparkles' }
                 ]
             },
             {
-                order: 8, label: 'Create Account', title: 'Final Step: Create your account', description: 'Enter your details to complete registration',
+                order: 7, label: 'Investment Budget', title: 'Your typical ticket size?', description: 'Select your preferred investment range',
+                type: 'single-selection', field: 'budgetRange',
+                applicableRoles: ['investor'],
+                options: [
+                    { value: '5l-20l', label: '₹5L - ₹20L', subtitle: 'Angel' },
+                    { value: '20l-1cr', label: '₹20L - ₹1Cr', subtitle: 'Seed' },
+                    { value: '1cr+', label: '₹1Cr+', subtitle: 'Series A+' }
+                ]
+            },
+            // --- Startup Creator Specific Steps ---
+            {
+                order: 8, label: 'Idea Category', title: 'Which industry does your idea belong to?', description: 'Categorize your vision',
+                type: 'single-selection', field: 'categories',
+                applicableRoles: ['startup_creator']
+            },
+            {
+                order: 9, label: 'Funding Stage', title: 'Current stage of your startup?', description: 'Where are you currently?',
+                type: 'single-selection', field: 'experienceLevel',
+                applicableRoles: ['startup_creator'],
+                options: [
+                    { value: 'ideation', label: 'Ideation', emoji: '💡' },
+                    { value: 'mvp', label: 'MVP Ready', emoji: '🚀' },
+                    { value: 'scaling', label: 'Early Traction', emoji: '📈' }
+                ]
+            },
+            // --- Universal Steps ---
+            {
+                order: 10, label: 'Location', title: 'Where are you based?', description: 'Optional - helps with local opportunities',
+                type: 'input', field: 'location'
+            },
+            {
+                order: 11, label: 'Choose Plan', title: 'Select a Subscription Plan', description: 'Unlock premium features and credits',
+                type: 'subscription-plan', field: 'subscriptionPlan'
+            },
+            {
+                order: 12, label: 'Create Account', title: 'Final Step: Create your account', description: 'Enter your details to complete registration',
                 type: 'account-creation', field: 'account'
             }
         ];
@@ -951,3 +992,122 @@ exports.uploadNDATemplate = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to upload NDA template' });
     }
 };
+
+// ─────────────────────────────────────────────
+//  STARTUP IDEAS LEGAL (Dedicated APIs)
+// ─────────────────────────────────────────────
+
+exports.getStartupFAQs = async (req, res) => {
+    try {
+        const query = { category: 'StartupIdeas' };
+        if (!req.user?.roles?.includes('admin')) {
+            query.is_active = true;
+        }
+        const faqs = await FAQ.find(query).sort({ sort_order: 1, createdAt: 1 });
+        res.status(200).json({ success: true, count: faqs.length, faqs });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to fetch Startup FAQs' });
+    }
+};
+
+exports.createStartupFAQ = async (req, res) => {
+    try {
+        const { question, answer, sort_order } = req.body;
+        if (!question || !answer) return res.status(400).json({ success: false, message: 'Question and answer are required' });
+        const faq = await FAQ.create({ question, answer, category: 'StartupIdeas', sort_order: sort_order || 0 });
+        res.status(201).json({ success: true, message: 'Startup FAQ created', faq });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to create Startup FAQ' });
+    }
+};
+
+exports.updateStartupFAQ = async (req, res) => {
+    try {
+        const { question, answer, sort_order, is_active } = req.body;
+        const faq = await FAQ.findOne({ _id: req.params.id, category: 'StartupIdeas' });
+        if (!faq) return res.status(404).json({ success: false, message: 'FAQ not found' });
+        if (question !== undefined) faq.question = question;
+        if (answer !== undefined) faq.answer = answer;
+        if (sort_order !== undefined) faq.sort_order = sort_order;
+        if (is_active !== undefined) faq.is_active = is_active;
+        await faq.save();
+        res.status(200).json({ success: true, message: 'Startup FAQ updated', faq });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to update Startup FAQ' });
+    }
+};
+
+exports.deleteStartupFAQ = async (req, res) => {
+    try {
+        const faq = await FAQ.findOneAndDelete({ _id: req.params.id, category: 'StartupIdeas' });
+        if (!faq) return res.status(404).json({ success: false, message: 'FAQ not found' });
+        res.status(200).json({ success: true, message: 'Startup FAQ deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to delete Startup FAQ' });
+    }
+};
+
+exports.toggleStartupFAQ = async (req, res) => {
+    try {
+        const faq = await FAQ.findOne({ _id: req.params.id, category: 'StartupIdeas' });
+        if (!faq) return res.status(404).json({ success: false, message: 'FAQ not found' });
+        faq.is_active = !faq.is_active;
+        await faq.save();
+        res.status(200).json({ success: true, faq });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to toggle FAQ' });
+    }
+};
+
+exports.getStartupTerms = async (req, res) => {
+    try {
+        let page = await StaticPage.findOne({ slug: 'startup-ideas-terms' });
+        if (!page) {
+            page = await StaticPage.create({ title: 'Startup Ideas Terms & Conditions', slug: 'startup-ideas-terms', content: '', status: 'published' });
+        }
+        res.status(200).json({ success: true, data: page });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to fetch Terms' });
+    }
+};
+
+exports.updateStartupTerms = async (req, res) => {
+    try {
+        const { content } = req.body;
+        const page = await StaticPage.findOneAndUpdate(
+            { slug: 'startup-ideas-terms' },
+            { $set: { content, title: 'Startup Ideas Terms & Conditions' } },
+            { new: true, upsert: true }
+        );
+        res.status(200).json({ success: true, message: 'Terms updated', data: page });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to update Terms' });
+    }
+};
+
+exports.getStartupPrivacy = async (req, res) => {
+    try {
+        let page = await StaticPage.findOne({ slug: 'startup-ideas-privacy' });
+        if (!page) {
+            page = await StaticPage.create({ title: 'Startup Ideas Privacy Policy', slug: 'startup-ideas-privacy', content: '', status: 'published' });
+        }
+        res.status(200).json({ success: true, data: page });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to fetch Privacy Policy' });
+    }
+};
+
+exports.updateStartupPrivacy = async (req, res) => {
+    try {
+        const { content } = req.body;
+        const page = await StaticPage.findOneAndUpdate(
+            { slug: 'startup-ideas-privacy' },
+            { $set: { content, title: 'Startup Ideas Privacy Policy' } },
+            { new: true, upsert: true }
+        );
+        res.status(200).json({ success: true, message: 'Privacy Policy updated', data: page });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to update Privacy Policy' });
+    }
+};
+

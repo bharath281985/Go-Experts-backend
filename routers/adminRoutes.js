@@ -6,7 +6,8 @@ const {
     verifyUser, suspendUser, rejectUser, sendProfileCompletionReminder, sendTestEmail, bulkUserAction,
     getDisputes, updateDisputeStatus, getWithdrawRequests, updateWithdrawStatus, sendDirectEmail,
     getContactMessages, deleteContactMessage,
-    getAdminStartupIdeas, getAdminStartupIdeaById, updateStartupIdeaStatus, toggleStartupIdeaFeatured
+    getAdminStartupIdeas, getAdminStartupIdeaById, updateStartupIdeaStatus, toggleStartupIdeaFeatured,
+    getAdminMeetings, getAdminOpportunities
 } = require('../controller/adminController');
 
 const {
@@ -61,6 +62,10 @@ router.get('/startup-ideas', getAdminStartupIdeas);
 router.get('/startup-ideas/:id', getAdminStartupIdeaById);
 router.put('/startup-ideas/:id/status', updateStartupIdeaStatus);
 router.put('/startup-ideas/:id/featured', toggleStartupIdeaFeatured);
+
+// Meetings & Opportunities
+router.get('/meetings', getAdminMeetings);
+router.get('/opportunities', getAdminOpportunities);
 
 // Startup Categories
 router.get('/startup-categories', getStartupCategories);

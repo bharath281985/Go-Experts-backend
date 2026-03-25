@@ -1,6 +1,7 @@
 const StartupIdea = require('../models/StartupIdea');
 const User = require('../models/User');
 const SubscriptionUnlock = require('../models/SubscriptionUnlock');
+const Message = require('../models/Message');
 
 // @desc    Submit a new startup idea
 // @route   POST /api/startup-ideas
@@ -184,8 +185,65 @@ exports.unlockContact = async (req, res) => {
 // @access  Private
 exports.getMyIdeas = async (req, res) => {
     try {
-        const ideas = await StartupIdea.find({ creator: req.user._id }).sort({ createdAt: -1 });
-        res.json({ success: true, data: ideas });
+        const { status } = req.query;
+        let query = { creator: req.user._id };
+        if (status) query.status = status;
+
+        const ideas = await StartupIdea.find(query).sort({ createdAt: -1 });
+        res.json({ success: true, count: ideas.length, data: ideas });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// @desc    Get dashboard stats for startup creator
+// @route   GET /api/startup-ideas/my-stats
+// @access  Private (Startup Creator)
+exports.getCreatorStats = async (req, res) => {
+    try {
+        const totalIdeas = await StartupIdea.countDocuments({ creator: req.user._id });
+        const approvedCount = await StartupIdea.countDocuments({ creator: req.user._id, status: 'approved' });
+        
+        // Find how many unique investors have unlocked contact or tracked ideas
+        const ideaIds = await StartupIdea.find({ creator: req.user._id }).distinct('_id');
+        const investorLeadsCount = await SubscriptionUnlock.countDocuments({ target_id: { $in: ideaIds }, target_type: 'startup_idea' });
+
+        const unreadCount = await Message.countDocuments({ receiver: req.user._id, isRead: false });
+        res.json({
+            success: true,
+            data: {
+                totalIdeas,
+                approved: approvedCount,
+                investorLeads: investorLeadsCount,
+                profileScore: '88%', // Mock score for now
+                unreadMessages: unreadCount
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// @desc    Update startup idea (for creator)
+// @route   PUT /api/startup-ideas/:id
+// @access  Private (Creator)
+exports.updateIdea = async (req, res) => {
+    try {
+        let idea = await StartupIdea.findById(req.params.id);
+        if (!idea) {
+            return res.status(404).json({ success: false, message: 'Idea not found' });
+        }
+
+        if (idea.creator.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ success: false, message: 'Not authorized' });
+        }
+
+        idea = await StartupIdea.findByIdAndUpdate(req.params.id, req.body, {
+            new: true,
+            runValidators: true
+        });
+
+        res.json({ success: true, data: idea });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

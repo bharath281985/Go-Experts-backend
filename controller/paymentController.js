@@ -25,16 +25,21 @@ exports.initiatePayment = async (req, res) => {
         const txnid = `TXN${Date.now()}${crypto.randomBytes(4).toString('hex')}`;
         const amount = plan.price.toFixed(2);
         
+        // Easebuzz requires sanitized productinfo (alphanumeric and spaces preferred)
+        const sanitizedProductInfo = (plan.name || 'Subscription').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 100);
+        const firstname = (user.full_name?.split(' ')[0] || 'User').replace(/[^a-zA-Z]/g, '').substring(0, 30);
+        const phone = (user.phone_number || '9876543210').replace(/[^0-9]/g, '').substring(0, 10);
+        
         const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
 
         // Prepare data for hashing
         const paymentData = {
             txnid,
             amount,
-            productinfo: plan.name,
-            firstname: user.full_name?.split(' ')[0] || 'User',
+            productinfo: sanitizedProductInfo,
+            firstname,
             email: user.email,
-            phone: user.phone_number || '9876543210',
+            phone,
             surl: `${baseUrl}/api/payment/response`,
             furl: `${baseUrl}/api/payment/response`,
             udf1: planId.toString(),
@@ -50,10 +55,10 @@ exports.initiatePayment = async (req, res) => {
         postData.append('key', key);
         postData.append('txnid', txnid);
         postData.append('amount', amount);
-        postData.append('productinfo', plan.name);
-        postData.append('firstname', paymentData.firstname);
+        postData.append('productinfo', sanitizedProductInfo);
+        postData.append('firstname', firstname);
         postData.append('email', user.email);
-        postData.append('phone', paymentData.phone);
+        postData.append('phone', phone);
         postData.append('surl', paymentData.surl);
         postData.append('furl', paymentData.furl);
         postData.append('hash', hash);

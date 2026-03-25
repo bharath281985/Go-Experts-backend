@@ -5,6 +5,8 @@ const Withdrawal = require('../models/Withdrawal');
 const Gig = require('../models/Gig');
 const ContactMessage = require('../models/ContactMessage');
 const StartupIdea = require('../models/StartupIdea');
+const Meeting = require('../models/Meeting');
+const InvestorOpportunity = require('../models/InvestorOpportunity');
 const sendEmail = require('../utils/sendEmail');
 
 const Skill = require('../models/Skill');
@@ -58,7 +60,7 @@ exports.getUsers = async (req, res) => {
         const users = await User.find({ roles: { $ne: 'admin' } })
             .select('+show_password')
             .populate('skills', 'name')
-            .populate('categories', 'name')
+            .populate('categories', 'name').populate('kyc')
             .sort({ created_at: -1 });
         res.status(200).json({
             success: true,
@@ -118,7 +120,7 @@ exports.getUserById = async (req, res) => {
     try {
         const user = await User.findById(req.params.id)
             .populate('skills', 'name')
-            .populate('categories', 'name');
+            .populate('categories', 'name').populate('kyc');
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -966,6 +968,40 @@ exports.updateDisputeStatus = async (req, res) => {
         }
 
         res.status(200).json({ success: true, message: `Dispute status updated to ${status}`, dispute });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+// --- Meetings Management ---
+
+// @desc    Get all meetings
+// @route   GET /api/admin/meetings
+// @access  Private/Admin
+exports.getAdminMeetings = async (req, res) => {
+    try {
+        const meetings = await Meeting.find()
+            .populate('investor', 'full_name email')
+            .populate('founder', 'full_name email')
+            .populate('startup_idea', 'title')
+            .sort({ meeting_date: -1 });
+        res.status(200).json({ success: true, count: meetings.length, data: meetings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// --- Investor Opportunities Management ---
+
+// @desc    Get all investor opportunities
+// @route   GET /api/admin/opportunities
+// @access  Private/Admin
+exports.getAdminOpportunities = async (req, res) => {
+    try {
+        const opportunities = await InvestorOpportunity.find()
+            .populate('investor', 'full_name email')
+            .populate('startup_idea', 'title')
+            .sort({ updatedAt: -1 });
+        res.status(200).json({ success: true, count: opportunities.length, data: opportunities });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

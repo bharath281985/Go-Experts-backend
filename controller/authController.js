@@ -19,7 +19,7 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
     try {
-        const { full_name, email, password, roles, categories, location, work_preference, experience_level, availability, budget_range } = req.body;
+        const { full_name, email, password, roles, categories, location, work_preference, experience_level, availability, budget_range, subscription_plan } = req.body;
         const normalizedEmail = email.toLowerCase().trim();
 
         const user = await User.findOne({ email: normalizedEmail });
@@ -52,44 +52,59 @@ exports.register = async (req, res) => {
             experience_level,
             availability,
             budget_range,
-            total_points: 100, // Starting points for free trial
-            is_email_verified: false // Requires admin verification
+            total_points: subscription_plan ? 0 : 100, // Points will be granted by plan if selected
+            is_email_verified: false, // Requires admin verification
+            role: roles && roles.length > 0 ? roles[0] : 'freelancer'
         });
 
-        // Assign Free Trial Plan (30 Days)
-        let freePlan = await SubscriptionPlan.findOne({ name: 'Starter Free Plan' });
-        if (!freePlan) {
-            freePlan = await SubscriptionPlan.create({
-                name: 'Starter Free Plan',
-                price: 0,
-                duration_days: 30,
-                points_granted: 100,
-                project_post_limit: 36,
-                interest_click_limit: 36,
-                project_visit_limit: 36,
-                portfolio_visit_limit: 36
-            });
+        // Assign Subscription Plan
+        let selectedPlan;
+        if (subscription_plan) {
+            selectedPlan = await SubscriptionPlan.findById(subscription_plan);
+        }
+
+        if (!selectedPlan) {
+            // Assign Free Trial Plan (30 Days) as fallback
+            selectedPlan = await SubscriptionPlan.findOne({ name: 'Starter Free Plan' });
+            if (!selectedPlan) {
+                selectedPlan = await SubscriptionPlan.create({
+                    name: 'Starter Free Plan',
+                    price: 0,
+                    duration_days: 30,
+                    points_granted: 100,
+                    project_post_limit: 36,
+                    interest_click_limit: 36,
+                    project_visit_limit: 36,
+                    portfolio_visit_limit: 36
+                });
+            }
         }
 
         const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 30); // 30 Days Trial
+        endDate.setDate(endDate.getDate() + (selectedPlan.duration_days || 30));
 
         await UserSubscription.create({
             user_id: newUser._id,
-            plan_id: freePlan._id,
+            plan_id: selectedPlan._id,
             end_date: endDate,
-            remaining_project_posts: 36,
-            remaining_interest_clicks: 36,
-            remaining_project_visits: 36,
-            remaining_portfolio_visits: 36
+            remaining_project_posts: selectedPlan.project_post_limit || 36,
+            remaining_interest_clicks: selectedPlan.interest_click_limit || 36,
+            remaining_project_visits: selectedPlan.project_visit_limit || 36,
+            remaining_portfolio_visits: selectedPlan.portfolio_visit_limit || 36
         });
+
+        // Update user's total points from plan
+        newUser.total_points = selectedPlan.points_granted || 100;
+        newUser.subscription_details.plan_name = selectedPlan.name;
+        newUser.subscription_details.end_date = endDate;
+        await newUser.save();
 
         // Log the initial points transaction
         await PointTransaction.create({
             user_id: newUser._id,
-            amount: 100,
+            amount: selectedPlan.points_granted || 100,
             type: 'bonus',
-            description: 'Welcome Bonus (Free Trial)'
+            description: `Welcome Bonus (${selectedPlan.name})`
         });
 
         // Generate verification token
@@ -111,8 +126,8 @@ exports.register = async (req, res) => {
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                         <h1 style="color: #F24C20; text-align: center;">Welcome to Go Experts!</h1>
                         <p>Hi ${newUser.full_name},</p>
-                        <p>Congratulations! Your <b>30-day free trial</b> of our **Starter Free Plan** has officially started.</p>
-                        <p>You have received **36 high-value credits** to view freelancer portfolios and project details for free. After you use these 36 visits or after 30 days, you can upgrade to one of our premium professional plans.</p>
+                        <p>Congratulations! Your account has been created with the <b>${selectedPlan.name}</b>.</p>
+                        <p>You have received **${selectedPlan.points_granted || 0} credits** to explore opportunities on our platform. Your plan is active until ${endDate.toDateString()}.</p>
                         <p>To get started and access all features, please verify your email address by clicking the button below:</p>
                         <div style="text-align: center; margin: 30px 0;">
                             <a href="${verificationUrl}" style="background-color: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Verify Email Address</a>

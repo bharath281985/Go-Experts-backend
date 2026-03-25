@@ -5,7 +5,9 @@ const {
     getApprovedIdeas,
     getIdeaById,
     unlockContact,
-    getMyIdeas
+    getMyIdeas,
+    getCreatorStats,
+    updateIdea
 } = require('../controller/startupIdeaController');
 const { protect } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -15,9 +17,11 @@ router.route('/')
     .post(protect, upload.single('signednda'), submitIdea);
 
 router.get('/my-ideas', protect, getMyIdeas);
+router.get('/my-stats', protect, getCreatorStats);
 
 router.route('/:id')
-    .get(protect, getIdeaById);
+    .get(protect, getIdeaById)
+    .put(protect, updateIdea);
 
 router.route('/:id/unlock')
     .post(protect, unlockContact);

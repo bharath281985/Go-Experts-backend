@@ -30,8 +30,17 @@ const subscriptionPlanSchema = new mongoose.Schema({
     billing_cycle: { type: String, enum: ['monthly', 'yearly', 'one-time'], default: 'one-time' },
     target_role: { 
         type: String, 
-        enum: ['client', 'freelancer', 'both'], 
+        enum: ['client', 'freelancer', 'investor', 'startup_creator', 'both'], 
         default: 'client' 
+    },
+    badge: { type: String, default: '' }, // e.g. "Popular", "Popular", "Enterprise"
+    featured: { type: Boolean, default: false },
+    cta: { type: String, default: 'Get Started' },
+    description: { type: String, default: '' },
+    group: { 
+        type: String, 
+        enum: ['Freelancer Plans', 'Client Plans', 'Start-Up Idea Creator Plans', 'Investor Plans', 'Combo Plan'],
+        default: 'Freelancer Plans'
     }
 }, { timestamps: true });
 

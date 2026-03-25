@@ -22,7 +22,11 @@ const {
     getEmailTemplates, updateEmailTemplate,
     // Testimonials
     getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, toggleTestimonial,
-    uploadNDATemplate
+    uploadNDATemplate,
+    // Startup Ideas Legal
+    getStartupFAQs, createStartupFAQ, updateStartupFAQ, deleteStartupFAQ, toggleStartupFAQ,
+    getStartupTerms, updateStartupTerms,
+    getStartupPrivacy, updateStartupPrivacy
 } = require('../controller/cmsController');
 const { protect, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -38,6 +42,11 @@ router.get('/faqs', getFAQs);
 router.get('/pages/:slug', getPageBySlug);
 router.get('/menus', getMenus);
 router.get('/registration-steps', getRegistrationSteps);
+
+// Startup Ideas Public
+router.get('/startup/faqs', getStartupFAQs);
+router.get('/startup/terms', getStartupTerms);
+router.get('/startup/privacy', getStartupPrivacy);
 
 // ── Admin-only routes ──
 router.use(protect, authorize('admin'));
@@ -102,5 +111,15 @@ router.post('/testimonials', createTestimonial);
 router.put('/testimonials/:id', updateTestimonial);
 router.delete('/testimonials/:id', deleteTestimonial);
 router.patch('/testimonials/:id/toggle', toggleTestimonial);
+
+// Startup Ideas Admin
+router.get('/startup/faqs/admin', getStartupFAQs); // Fetch all for admin
+router.post('/startup/faqs', createStartupFAQ);
+router.put('/startup/faqs/:id', updateStartupFAQ);
+router.delete('/startup/faqs/:id', deleteStartupFAQ);
+router.patch('/startup/faqs/:id/toggle', toggleStartupFAQ);
+
+router.put('/startup/terms', updateStartupTerms);
+router.put('/startup/privacy', updateStartupPrivacy);
 
 module.exports = router;
