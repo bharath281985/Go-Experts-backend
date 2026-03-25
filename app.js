@@ -45,6 +45,9 @@ app.use('/api/invitations', require('./routers/invitationRoutes'));
 app.use('/api/subscription-plans', require('./routers/subscriptionPlanRoutes'));
 app.use('/api/subscription', require('./routers/subscriptionRoutes'));
 app.use('/api/payment', require('./routers/paymentRoutes'));
+app.use('/api/startup-ideas', require('./routers/startupIdeaRoutes'));
+app.use('/api/startup-categories', require('./routers/startupCategoryRoutes'));
+
 
 // Root Route
 app.get('/', (req, res) => {

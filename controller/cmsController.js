@@ -924,3 +924,30 @@ exports.toggleTestimonial = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to toggle testimonial' });
     }
 };
+
+exports.uploadNDATemplate = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Please upload a file' });
+        }
+
+        const filePath = `/uploads/templates/${req.file.filename}`;
+        
+        // Update the site settings directly
+        const settings = await SiteSettings.findByIdAndUpdate(
+            'site_settings',
+            { $set: { startup_nda_template: filePath } },
+            { new: true, upsert: true }
+        );
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'NDA Template uploaded successfully', 
+            filePath,
+            settings 
+        });
+    } catch (error) {
+        console.error('uploadNDATemplate error:', error);
+        res.status(500).json({ success: false, message: 'Failed to upload NDA template' });
+    }
+};

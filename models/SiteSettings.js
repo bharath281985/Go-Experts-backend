@@ -58,6 +58,9 @@ const siteSettingsSchema = new mongoose.Schema({
     email_encryption: { type: String, default: 'SSL' }, // TLS, SSL, or None
     footer_copyright: { type: String, default: '© 2026 Go Experts. All rights reserved.' },
 
+    // Startup Ideas Config
+    startup_nda_template: { type: String, default: '' },
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('SiteSettings', siteSettingsSchema);

@@ -12,7 +12,7 @@ const subscriptionUnlockSchema = new mongoose.Schema({
     },
     target_type: {
         type: String,
-        enum: ['project', 'freelancer'],
+        enum: ['project', 'freelancer', 'startup_idea'],
         required: true
     },
     unlocked_at: {

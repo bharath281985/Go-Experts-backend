@@ -5,8 +5,17 @@ const {
     deleteUser, getStats, getProjects, getGigs, updateGigStatus, deleteGig,
     verifyUser, suspendUser, rejectUser, sendProfileCompletionReminder, sendTestEmail, bulkUserAction,
     getDisputes, updateDisputeStatus, getWithdrawRequests, updateWithdrawStatus, sendDirectEmail,
-    getContactMessages, deleteContactMessage
+    getContactMessages, deleteContactMessage,
+    getAdminStartupIdeas, getAdminStartupIdeaById, updateStartupIdeaStatus, toggleStartupIdeaFeatured
 } = require('../controller/adminController');
+
+const {
+    getCategories: getStartupCategories,
+    addCategory: addStartupCategory,
+    updateCategory: updateStartupCategory,
+    deleteCategory: deleteStartupCategory
+} = require('../controller/startupCategoryController');
+
 const {
     getAdminGigOrders,
     getAdminGigOrderById,
@@ -46,6 +55,18 @@ router.get('/projects', getProjects);
 router.get('/gigs', getGigs);
 router.put('/gigs/:id/status', updateGigStatus);
 router.delete('/gigs/:id', deleteGig);
+
+// Startup Ideas
+router.get('/startup-ideas', getAdminStartupIdeas);
+router.get('/startup-ideas/:id', getAdminStartupIdeaById);
+router.put('/startup-ideas/:id/status', updateStartupIdeaStatus);
+router.put('/startup-ideas/:id/featured', toggleStartupIdeaFeatured);
+
+// Startup Categories
+router.get('/startup-categories', getStartupCategories);
+router.post('/startup-categories', addStartupCategory);
+router.put('/startup-categories/:id', updateStartupCategory);
+router.delete('/startup-categories/:id', deleteStartupCategory);
 
 // Gig Orders
 router.get('/gig-orders', getAdminGigOrders);

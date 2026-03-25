@@ -21,7 +21,8 @@ const {
     // Email Templates
     getEmailTemplates, updateEmailTemplate,
     // Testimonials
-    getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, toggleTestimonial
+    getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, toggleTestimonial,
+    uploadNDATemplate
 } = require('../controller/cmsController');
 const { protect, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -56,6 +57,7 @@ router.patch('/skills/:id/toggle', toggleSkill);
 // Site Settings (admin only write)
 router.get('/settings/admin', getAdminSiteSettings);
 router.put('/settings', updateSiteSettings);
+router.post('/settings/nda-template', upload.single('nda'), uploadNDATemplate);
 
 // Banners (admin)
 router.post('/banners', createBanner);

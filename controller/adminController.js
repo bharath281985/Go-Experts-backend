@@ -4,6 +4,7 @@ const Dispute = require('../models/Dispute');
 const Withdrawal = require('../models/Withdrawal');
 const Gig = require('../models/Gig');
 const ContactMessage = require('../models/ContactMessage');
+const StartupIdea = require('../models/StartupIdea');
 const sendEmail = require('../utils/sendEmail');
 
 const Skill = require('../models/Skill');
@@ -430,6 +431,96 @@ exports.deleteGig = async (req, res) => {
             success: true,
             message: 'Gig deleted successfully'
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// --- Startup Ideas Management ---
+
+// @desc    Get all startup ideas
+// @route   GET /api/admin/startup-ideas
+// @access  Private/Admin
+exports.getAdminStartupIdeas = async (req, res) => {
+    try {
+        const ideas = await StartupIdea.find()
+            .populate('creator', 'full_name email')
+            .sort({ createdAt: -1 });
+        res.status(200).json({ success: true, count: ideas.length, data: ideas });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Update startup idea status (Approve/Reject)
+// @route   PUT /api/admin/startup-ideas/:id/status
+// @access  Private/Admin
+exports.updateStartupIdeaStatus = async (req, res) => {
+    try {
+        const { status, internalNotes } = req.body;
+        const validStatuses = ['pending', 'approved', 'rejected'];
+
+        const updateData = {};
+        if (status) {
+            if (!validStatuses.includes(status)) {
+                return res.status(400).json({ success: false, message: 'Invalid status' });
+            }
+            updateData.status = status;
+        }
+        
+        if (internalNotes !== undefined) {
+            updateData.internalNotes = internalNotes;
+        }
+
+        const idea = await StartupIdea.findByIdAndUpdate(req.params.id, updateData, { new: true });
+
+        if (!idea) {
+            return res.status(404).json({ success: false, message: 'Idea not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Idea status updated to ${status}`,
+            data: idea
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get detailed startup idea
+// @route   GET /api/admin/startup-ideas/:id
+// @access  Private/Admin
+exports.getAdminStartupIdeaById = async (req, res) => {
+    try {
+        const idea = await StartupIdea.findById(req.params.id)
+            .populate('creator', 'full_name email phone_number location profile_image');
+        
+        if (!idea) {
+            return res.status(404).json({ success: false, message: 'Idea not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: idea
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Toggle feature status of a startup idea
+// @route   PUT /api/admin/startup-ideas/:id/featured
+// @access  Private/Admin
+exports.toggleStartupIdeaFeatured = async (req, res) => {
+    try {
+        const idea = await StartupIdea.findById(req.params.id);
+        if (!idea) return res.status(404).json({ success: false, message: 'Idea not found' });
+        
+        idea.isFeatured = !idea.isFeatured;
+        await idea.save();
+        
+        res.status(200).json({ success: true, data: idea });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
