@@ -85,7 +85,6 @@ exports.sendMessage = async (req, res) => {
         const senderId = req.user.id;
 
         // Messaging restrictions logic
-        // Messaging restrictions logic
         const previousMessage = await Message.findOne({
             $or: [
                 { sender: senderId, receiver: receiverId },
@@ -96,12 +95,27 @@ exports.sendMessage = async (req, res) => {
         if (!previousMessage) {
             const senderUser = await User.findById(senderId);
             const receiverUser = await User.findById(receiverId);
+            const UserSubscription = require('../models/UserSubscription');
 
-            // 1. Check if sender has an active subscription
-            if (senderUser.subscription_details?.status !== 'active') {
+            // Find active subscription for the sender
+            const subscription = await UserSubscription.findOne({
+                user_id: senderId,
+                status: 'active',
+                end_date: { $gt: new Date() }
+            });
+
+            // 1. Check if sender has an active subscription with remaining chats
+            if (!subscription) {
                 return res.status(403).json({ 
                     success: false, 
-                    message: 'Your subscription is not active. Please upgrade to start messaging.' 
+                    message: 'You need an active subscription to start new conversations.' 
+                });
+            }
+
+            if (subscription.remaining_chats <= 0) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'You have reached your chat initiation limit for this period. Please upgrade your plan.' 
                 });
             }
 
@@ -129,7 +143,6 @@ exports.sendMessage = async (req, res) => {
                 }
             } else if (senderUser.role === 'investor') {
                 if (receiverUser.role === 'startup_creator') {
-                    // Investor must have unlocked at least one idea of this creator
                     const StartupIdea = require('../models/StartupIdea');
                     const SubscriptionUnlock = require('../models/SubscriptionUnlock');
                     
@@ -155,6 +168,10 @@ exports.sendMessage = async (req, res) => {
                     });
                 }
             }
+
+            // If all checks pass, deduct one chat slot
+            subscription.remaining_chats -= 1;
+            await subscription.save();
         }
 
         const msg = await Message.create({
@@ -176,6 +193,37 @@ exports.sendMessage = async (req, res) => {
         }
         
         res.status(201).json({ success: true, data: populatedMsg });
+
+        // Non-blocking email notification
+        try {
+            const sendEmail = require('../utils/sendEmail');
+            const receiverUser = await User.findById(receiverId);
+            const senderUser = await User.findById(req.user.id);
+            
+            await sendEmail({
+                email: receiverUser.email,
+                subject: `New Message from ${senderUser.full_name}`,
+                templateTrigger: 'new_chat_message',
+                templateData: {
+                    sender_name: senderUser.full_name,
+                    message_preview: content.substring(0, 100),
+                    login_link: `${process.env.FRONTEND_URL}/signin`
+                },
+                html: `
+                    <div style="font-family: sans-serif; padding: 20px;">
+                        <h2>New Message Alert</h2>
+                        <p>You have received a new message from <strong>${senderUser.full_name}</strong> on GoExperts.</p>
+                        <blockquote style="border-left: 4px solid #F24C20; padding-left: 15px; margin: 20px 0; color: #555 italic;">
+                            "${content.substring(0, 300)}${content.length > 300 ? '...' : ''}"
+                        </blockquote>
+                        <a href="${process.env.FRONTEND_URL}/signin" style="background: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; display: inline-block;">Reply Now</a>
+                    </div>
+                `
+            });
+        } catch (mailErr) {
+            console.error('Chat notification email failed:', mailErr.message);
+        }
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

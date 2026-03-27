@@ -57,55 +57,48 @@ exports.register = async (req, res) => {
             role: roles && roles.length > 0 ? roles[0] : 'freelancer'
         });
 
-        // Assign Subscription Plan
-        let selectedPlan;
-        if (subscription_plan) {
-            selectedPlan = await SubscriptionPlan.findById(subscription_plan);
-        }
-
-        if (!selectedPlan) {
-            // Assign Free Trial Plan (30 Days) as fallback
-            selectedPlan = await SubscriptionPlan.findOne({ name: 'Starter Free Plan' });
-            if (!selectedPlan) {
-                selectedPlan = await SubscriptionPlan.create({
-                    name: 'Starter Free Plan',
-                    price: 0,
-                    duration_days: 30,
-                    points_granted: 100,
-                    project_post_limit: 36,
-                    interest_click_limit: 36,
-                    project_visit_limit: 36,
-                    portfolio_visit_limit: 36
-                });
-            }
+        // Assign 90-Day Free Trial Plan Automatically
+        let trialPlan = await SubscriptionPlan.findOne({ name: '90-Day Free Trial' });
+        
+        if (!trialPlan) {
+            trialPlan = await SubscriptionPlan.create({
+                name: '90-Day Free Trial',
+                price: 0,
+                duration_days: 90,
+                project_post_limit: 36,
+                task_post_limit: 36,
+                chat_limit: 10,
+                database_access_limit: 5,
+                features: [
+                    "Full platform access for 90 days",
+                    "Post up to 36 Projects",
+                    "Post up to 36 Tasks",
+                    "Direct chat with 10 people",
+                    "Email support from admin"
+                ],
+                target_role: 'both' // Applicable for all
+            });
         }
 
         const endDate = new Date();
-        endDate.setDate(endDate.getDate() + (selectedPlan.duration_days || 30));
+        endDate.setDate(endDate.getDate() + 90);
 
         await UserSubscription.create({
             user_id: newUser._id,
-            plan_id: selectedPlan._id,
+            plan_id: trialPlan._id,
             end_date: endDate,
-            remaining_project_posts: selectedPlan.project_post_limit || 36,
-            remaining_interest_clicks: selectedPlan.interest_click_limit || 36,
-            remaining_project_visits: selectedPlan.project_visit_limit || 36,
-            remaining_portfolio_visits: selectedPlan.portfolio_visit_limit || 36
+            remaining_project_posts: trialPlan.project_post_limit,
+            remaining_task_posts: trialPlan.task_post_limit,
+            remaining_chats: trialPlan.chat_limit,
+            remaining_db_access: trialPlan.database_access_limit,
+            status: 'active'
         });
 
-        // Update user's total points from plan
-        newUser.total_points = selectedPlan.points_granted || 100;
-        newUser.subscription_details.plan_name = selectedPlan.name;
+        // Update user's subscription record
+        newUser.subscription_details.plan_name = trialPlan.name;
         newUser.subscription_details.end_date = endDate;
+        newUser.subscription_details.status = 'active';
         await newUser.save();
-
-        // Log the initial points transaction
-        await PointTransaction.create({
-            user_id: newUser._id,
-            amount: selectedPlan.points_granted || 100,
-            type: 'bonus',
-            description: `Welcome Bonus (${selectedPlan.name})`
-        });
 
         // Generate verification token
         const verificationToken = newUser.getEmailVerificationToken();
@@ -115,32 +108,36 @@ exports.register = async (req, res) => {
         const origin = req.get('origin') || process.env.FRONTEND_URL || 'https://goexperts.in';
         const verificationUrl = `${origin}/verify-email/${verificationToken}`;
 
-        // Send Welcome Email with Verification Link
+        // Send Welcome Email
         try {
             await sendEmail({
                 email: newUser.email,
-                subject: 'Verify your Go Experts account',
+                subject: 'Welcome to Go Experts - 90 Days Free Trial Active!',
                 templateData: { name: newUser.full_name, link: verificationUrl },
-                message: `Hi ${newUser.full_name}, welcome to Go Experts. Please verify your email by clicking the link below: \n\n ${verificationUrl}`,
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                         <h1 style="color: #F24C20; text-align: center;">Welcome to Go Experts!</h1>
                         <p>Hi ${newUser.full_name},</p>
-                        <p>Congratulations! Your account has been created with the <b>${selectedPlan.name}</b>.</p>
-                        <p>You have received **${selectedPlan.points_granted || 0} credits** to explore opportunities on our platform. Your plan is active until ${endDate.toDateString()}.</p>
-                        <p>To get started and access all features, please verify your email address by clicking the button below:</p>
+                        <p>Congratulations! Your account has been created with a <b>90-Day Premium Free Trial</b>.</p>
+                        <div style="background: #fdf2f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                            <h3 style="margin-top: 0; color: #F24C20;">Your Trial Benefits:</h3>
+                            <ul style="margin-bottom: 0;">
+                                <li>90 Days Full Platform Access</li>
+                                <li>Post up to 36 Projects & Tasks</li>
+                                <li>Direct Chat with Users</li>
+                                <li>Access to Experts Library</li>
+                            </ul>
+                        </div>
+                        <p>To get started, please verify your email address by clicking the button below:</p>
                         <div style="text-align: center; margin: 30px 0;">
                             <a href="${verificationUrl}" style="background-color: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Verify Email Address</a>
                         </div>
-                        <p style="font-size: 12px; color: #777;">If the button above doesn't work, copy and paste this link into your browser:</p>
-                        <p style="font-size: 12px; color: #777;">${verificationUrl}</p>
-                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                        <p style="font-size: 11px; color: #aaa; text-align: center;">This link will expire in 24 hours.</p>
+                        <p style="font-size: 11px; color: #aaa; text-align: center;">After 90 days, you can choose to upgrade your plan from your dashboard settings.</p>
                     </div>
                 `
             });
         } catch (emailErr) {
-            console.error('Welcome/Verification email could not be sent:', emailErr);
+            console.error('Welcome email failed:', emailErr);
         }
 
         const userResponse = newUser.toObject();

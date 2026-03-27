@@ -73,6 +73,14 @@ const siteSettingsSchema = new mongoose.Schema({
         enabled: { type: Boolean, default: true }
     }],
 
+    // Subscription Category Groups
+    subscription_groups: [{
+        name: { type: String, required: true }, // e.g., "Freelancer Plans"
+        label: { type: String, required: true }, // e.g., "Freelancer"
+        icon: { type: String, default: 'Briefcase' }, // lucide icon name
+        description: { type: String, default: '' }
+    }],
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('SiteSettings', siteSettingsSchema);

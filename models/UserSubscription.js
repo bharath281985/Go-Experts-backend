@@ -19,10 +19,10 @@ const userSubscriptionSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
-    remaining_project_posts: {
-        type: Number,
-        default: 36
-    },
+    remaining_project_posts: { type: Number, default: 36 },
+    remaining_task_posts: { type: Number, default: 0 },
+    remaining_chats: { type: Number, default: 0 },
+    remaining_db_access: { type: Number, default: 0 },
     remaining_interest_clicks: {
         type: Number,
         default: 36

@@ -13,34 +13,36 @@ const subscriptionPlanSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    points_granted: {
-        type: Number,
-        required: true
-    },
-    project_post_limit: {
-        type: Number,
-        required: true,
-        default: 3 // For free plan
-    },
-    project_visit_limit: { type: Number, required: true, default: 36 },
-    portfolio_visit_limit: { type: Number, required: true, default: 36 },
-    interest_click_limit: { type: Number, required: true, default: 36 },
+    points_granted: { type: Number, default: 0 },
+    project_post_limit: { type: Number, default: 0 },
+    task_post_limit: { type: Number, default: 0 },
+    chat_limit: { type: Number, default: 0 },
+    database_access_limit: { type: Number, default: 0 },
+    project_visit_limit: { type: Number, default: 0 },
+    portfolio_visit_limit: { type: Number, default: 0 },
+    interest_click_limit: { type: Number, default: 0 },
     features: [{ type: String }],
     status: { type: String, enum: ['enabled', 'disabled'], default: 'enabled' },
-    billing_cycle: { type: String, enum: ['monthly', 'yearly', 'one-time'], default: 'one-time' },
+    billing_cycle: { type: String, enum: ['yearly', 'monthly', 'one-time'], default: 'yearly' },
+    featured: { type: Boolean, default: false },
+    badge: { type: String },
+    cta: { type: String, default: 'Choose Plan' },
+    description: { type: String },
     target_role: { 
         type: String, 
         enum: ['client', 'freelancer', 'investor', 'startup_creator', 'both'], 
         default: 'client' 
     },
-    badge: { type: String, default: '' }, // e.g. "Popular", "Popular", "Enterprise"
-    featured: { type: Boolean, default: false },
-    cta: { type: String, default: 'Get Started' },
-    description: { type: String, default: '' },
-    group: { 
-        type: String, 
+    group: {
+        type: String,
         enum: ['Freelancer Plans', 'Client Plans', 'Start-Up Idea Creator Plans', 'Investor Plans', 'Combo Plan'],
         default: 'Freelancer Plans'
+    },
+    icon: { type: String, default: 'Star' }, // Lucide icon name
+    color_theme: { 
+        type: String, 
+        enum: ['orange', 'green', 'blue', 'gold'], 
+        default: 'orange' 
     }
 }, { timestamps: true });
 

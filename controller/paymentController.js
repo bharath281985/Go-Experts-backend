@@ -187,10 +187,6 @@ exports.handlePaymentResponse = async (req, res) => {
                     portfolio_credits: plan.portfolio_visit_limit
                 };
                 
-                // Award points (e.g., 20% of price as points or fixed bonus)
-                const bonusPoints = Math.floor(plan.price * 0.1); 
-                user.total_points = (user.total_points || 0) + bonusPoints;
-                
                 await user.save();
 
                 // Send Confirmation Email
