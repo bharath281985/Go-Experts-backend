@@ -35,6 +35,26 @@ const categorySchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    is_trending: {
+        type: Boolean,
+        default: false
+    },
+    is_new: {
+        type: Boolean,
+        default: false
+    },
+    is_popular: {
+        type: Boolean,
+        default: false
+    },
+    talent_count: {
+        type: Number,
+        default: 0
+    },
+    gig_count: {
+        type: Number,
+        default: 0
+    },
     sort_order: {
         type: Number,
         default: 0

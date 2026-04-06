@@ -1,10 +1,18 @@
 const Gig = require('../models/Gig');
+const User = require('../models/User');
 
 // @desc    Post a gig (Investment Idea)
 // @route   POST /api/gigs
 // @access  Private/Freelancer
 exports.createGig = async (req, res) => {
     try {
+        const user = await User.findById(req.user.id);
+        if (!user.kyc_details?.is_verified) {
+             return res.status(403).json({
+                success: false,
+                message: 'KYC awareness check failed. Please verify your profile to create gigs.'
+            });
+        }
         req.body.freelancer_id = req.user.id;
         const file = Array.isArray(req.files) ? req.files.find(f => f.fieldname === 'thumbnail' || f.fieldname === 'gig_image') || req.files[0] : null;
         if (file) {

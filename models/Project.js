@@ -28,10 +28,18 @@ const projectSchema = new mongoose.Schema({
     skills_required: [String],
     attachments: [String],
     image: String,
+    is_featured: {
+        type: Boolean,
+        default: false
+    },
     status: {
         type: String,
-        enum: ['pending', 'live', 'closed', 'paused'],
+        enum: ['pending', 'live', 'closed', 'paused', 'completed', 'rejected', 'flagged'],
         default: 'pending'
+    },
+    hired_freelancer_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 }, { timestamps: true });
 

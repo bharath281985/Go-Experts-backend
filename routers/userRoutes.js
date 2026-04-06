@@ -10,7 +10,11 @@ const {
     getMyDisputes,
     getMyInvoices,
     toggleSaveGig,
-    getSavedGigs
+    getSavedGigs,
+    toggleFavoriteProject,
+    getFavoriteProjects,
+    toggleFavoriteIdea,
+    getFavoriteIdeas
 } = require('../controller/userController');
 const { protect } = require('../middleware/auth');
 
@@ -24,5 +28,9 @@ router.get('/my-disputes', protect, getMyDisputes);
 router.get('/my-invoices', protect, getMyInvoices);
 router.post('/saved-gigs/:id', protect, toggleSaveGig);
 router.get('/saved-gigs', protect, getSavedGigs);
+router.put('/favorites/:id', protect, toggleFavoriteProject);
+router.get('/favorites', protect, getFavoriteProjects);
+router.put('/favorites-ideas/:id', protect, toggleFavoriteIdea);
+router.get('/favorites-ideas', protect, getFavoriteIdeas);
 
 module.exports = router;

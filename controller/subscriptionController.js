@@ -7,9 +7,19 @@ const SubscriptionUnlock = require('../models/SubscriptionUnlock');
 // @access  Private
 exports.checkUnlockStatus = async (req, res) => {
     try {
+        const { targetId } = req.params;
+        const mongoose = require('mongoose');
+
+        if (!targetId || !mongoose.Types.ObjectId.isValid(targetId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid target ID provided' 
+            });
+        }
+
         const unlock = await SubscriptionUnlock.findOne({
             user_id: req.user.id,
-            target_id: req.params.targetId
+            target_id: targetId
         });
 
         res.status(200).json({
@@ -28,6 +38,14 @@ exports.unlockContent = async (req, res) => {
     try {
         const { targetId, targetType } = req.body; // 'project' or 'freelancer'
         const userId = req.user.id;
+        const mongoose = require('mongoose');
+
+        if (!targetId || !mongoose.Types.ObjectId.isValid(targetId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid target ID provided for unlocking' 
+            });
+        }
 
         // 1. Check if already unlocked
         const existingUnlock = await SubscriptionUnlock.findOne({
@@ -77,10 +95,25 @@ exports.unlockContent = async (req, res) => {
             target_type: targetType
         });
 
+        // 6. Sync redundant credits in User model if they exist
+        const syncUser = await User.findById(userId);
+        if (syncUser && syncUser.subscription_details) {
+            if (targetType === 'project') {
+                syncUser.subscription_details.project_credits = subscription.remaining_project_visits;
+            } else if (targetType === 'freelancer') {
+                syncUser.subscription_details.portfolio_credits = subscription.remaining_portfolio_visits;
+            }
+            syncUser.markModified('subscription_details');
+            await syncUser.save();
+        }
+
+        const user = await User.findById(userId);
+
         res.status(201).json({
             success: true,
             message: `One ${targetType} visit credit deducted. ${subscription[creditField]} left.`,
             creditsLeft: subscription[creditField],
+            user,
             unlock
         });
 

@@ -8,6 +8,8 @@ const siteSettingsSchema = new mongoose.Schema({
     site_name: { type: String, default: 'Go Experts' },
     site_tagline: { type: String, default: 'Find the best freelancers' },
     site_logo: { type: String, default: '/logo.png' },
+    header_logo: { type: String, default: '/logo.png' },
+    footer_logo: { type: String, default: '/logo.png' },
     site_favicon: { type: String, default: '' },
 
     // Contact

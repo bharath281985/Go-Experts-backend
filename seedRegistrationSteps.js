@@ -16,122 +16,87 @@ const connectDB = async () => {
 
 const seedSteps = [
     {
-        order: 1,
-        label: 'Account Type',
-        title: 'How do you want to use Go Experts?',
-        description: 'Choose Your Primary Role',
-        type: 'single-selection',
-        field: 'accountType',
+        order: 1, label: 'Account Type', title: 'Choose Your Journey', description: 'How do you plan to use Go Experts?',
+        type: 'single-selection', field: 'accountType', module: 'onboarding',
         options: [
-            { value: 'client', label: 'Hire Talent', emoji: '🎯', description: 'I want to hire freelancers for my projects' },
-            { value: 'freelancer', label: 'Work as Freelancer', emoji: '💼', description: 'I want to offer my services and find work' },
-            { value: 'investor', label: 'Investor', emoji: '💰', description: 'I want to invest in startup ideas' },
-            { value: 'startup_creator', label: 'Startup Creator', emoji: '🚀', description: 'I want to share my startup ideas and find investors' },
-            { value: 'both', label: 'Both', emoji: '🔁', description: 'I want to hire and work as a freelancer' }
+            { value: 'client', label: 'I want to hire talent', emoji: '🎯', description: 'Post projects and find top experts' },
+            { value: 'freelancer', label: 'I want to work', emoji: '💼', description: 'Find projects and offer your services' },
+            { value: 'investor', label: 'I want to invest', emoji: '💎', description: 'Discover early-stage startup ideas' },
+            { value: 'startup_creator', label: 'I want to build', emoji: '💡', description: 'Share your startup idea with investors' }
         ]
     },
     {
-        order: 2,
-        label: 'Plans',
-        title: 'Choose the best plan for you',
-        description: 'Select a plan that fits your needs',
-        type: 'subscription-plan',
-        field: 'subscriptionPlan'
+        order: 2, label: 'Interest Area', title: 'What is your focus?', description: 'Select your primary categories',
+        type: 'multi-selection', field: 'categories', module: 'onboarding',
+        applicableRoles: [] // All roles
     },
     {
-        order: 3,
-        label: 'Categories',
-        title: 'What services are you interested in?',
-        description: 'Select all that apply',
-        type: 'multi-selection',
-        field: 'categories',
+        order: 3, label: 'Project Goal', title: 'Tell us about your goal', description: "What's the main project you have in mind today?",
+        type: 'input', field: 'projectIntent', module: 'onboarding',
+        applicableRoles: ['client']
+    },
+    {
+        order: 4, label: 'Expertise', title: 'What are your core skills?', description: 'This helps us match you with the right projects',
+        type: 'multi-selection', field: 'skills', module: 'onboarding',
+        applicableRoles: ['freelancer']
+    },
+    {
+        order: 5, label: 'Experience', title: 'Experience Level', description: 'Select your professional seniority',
+        type: 'single-selection', field: 'experienceLevel', module: 'onboarding',
+        applicableRoles: ['freelancer'],
         options: [
-            { value: 'uiux', label: 'UI/UX Design', icon: 'Palette' },
-            { value: 'webdev', label: 'Web Development', icon: 'Code' },
-            { value: 'mobiledev', label: 'Mobile Apps', icon: 'Smartphone' },
-            { value: 'marketing', label: 'Digital Marketing', icon: 'TrendingUp' },
-            { value: 'writing', label: 'Content Writing', icon: 'FileText' },
-            { value: 'video', label: 'Video Editing', icon: 'Video' },
-            { value: 'security', label: 'Cybersecurity', icon: 'Shield' },
-            { value: 'consulting', label: 'Business Consulting', icon: 'Building' }
+            { value: 'beginner', label: 'Entry Level', emoji: '🌱' },
+            { value: 'intermediate', label: 'Intermediate', emoji: '⚡' },
+            { value: 'expert', label: 'Expert / Lead', emoji: '🏆' }
         ]
     },
     {
-        order: 4,
-        label: 'Work Style',
-        title: 'How do you prefer to work?',
-        description: 'Choose your work style',
-        type: 'single-selection',
-        field: 'workPreference',
+        order: 6, label: 'Work Style', title: 'Work Preference', description: 'Where do you prefer to do your work?',
+        type: 'single-selection', field: 'workPreference', module: 'onboarding',
+        applicableRoles: ['freelancer'],
         options: [
-            { value: 'remote', label: 'Remote', icon: 'Globe' },
-            { value: 'onsite', label: 'Onsite', icon: 'MapPin' },
-            { value: 'hybrid', label: 'Hybrid', icon: 'MapPin' }
+            { value: 'remote', label: 'Fully Remote', icon: 'Globe' },
+            { value: 'onsite', label: 'Onsite / Office', icon: 'MapPin' },
+            { value: 'hybrid', label: 'Hybrid Model', icon: 'MapPin' }
         ]
     },
     {
-        order: 5,
-        label: 'Budget',
-        title: "What's your budget or rate range?",
-        description: 'Select the range that fits best',
-        type: 'single-selection',
-        field: 'budgetRange',
+        order: 7, label: 'Project Scale', title: 'Typical Project Budget', description: 'This helps us filter the right talent for you',
+        type: 'single-selection', field: 'budgetRange', module: 'onboarding',
+        applicableRoles: ['client'],
         options: [
-            { value: '5k-15k', label: '₹5K - ₹15K', subtitle: 'Starter' },
-            { value: '15k-50k', label: '₹15K - ₹50K', subtitle: 'Standard' },
-            { value: '50k-1l', label: '₹50K - ₹1L', subtitle: 'Premium' },
+            { value: '5k-15k', label: '₹5K - ₹15K', subtitle: 'Small Tasks' },
+            { value: '15k-50k', label: '₹15K - ₹50K', subtitle: 'Standard Projects' },
+            { value: '50k-1l', label: '₹50K - ₹1L', subtitle: 'Large Scale' },
             { value: '1l+', label: '₹1L+', subtitle: 'Enterprise' }
         ]
     },
     {
-        order: 6,
-        label: 'Experience',
-        title: 'Choose your experience level',
-        description: 'This helps us match you better',
-        type: 'single-selection',
-        field: 'experienceLevel',
+        order: 8, label: 'Phase', title: 'Current Venture Phase', description: 'Where are you in the startup lifecycle?',
+        type: 'single-selection', field: 'startupPhase', module: 'onboarding',
+        applicableRoles: ['startup_creator', 'investor'],
         options: [
-            { value: 'beginner', label: 'Beginner', emoji: '🌱' },
-            { value: 'intermediate', label: 'Intermediate', emoji: '⚡' },
-            { value: 'expert', label: 'Expert', emoji: '🏆' }
+            { value: 'ideation', label: 'Ideation / MVP', emoji: '💡' },
+            { value: 'pre-seed', label: 'Pre-Seed / Seed', emoji: '🌱' },
+            { value: 'scaling', label: 'Scaling / Growth', emoji: '📈' }
         ]
     },
     {
-        order: 7,
-        label: 'Location',
-        title: 'Where are you based?',
-        description: 'Optional - helps with local opportunities',
-        type: 'input',
-        field: 'location'
+        order: 9, label: 'Location', title: 'Base Location', description: 'Where are you currently located?',
+        type: 'input', field: 'location', module: 'onboarding',
+        applicableRoles: [] // Optional for all
     },
     {
-        order: 8,
-        label: 'Availability',
-        title: 'What is your availability?',
-        description: 'Choose when you can start',
-        type: 'single-selection',
-        field: 'availability',
-        options: [
-            { value: 'fulltime', label: 'Full-time' },
-            { value: 'parttime', label: 'Part-time' },
-            { value: 'weekends', label: 'Weekends' }
-        ]
-    },
-    {
-        order: 9,
-        label: 'Create Account',
-        title: 'Final Step: Create your account',
-        description: 'Enter your details to complete registration',
-        type: 'account-creation',
-        field: 'account'
+        order: 10, label: 'Account', title: 'Create Your Secure Account', description: 'Secure your profile with your details',
+        type: 'account-creation', field: 'account', module: 'onboarding'
     }
 ];
 
 const importData = async () => {
     try {
-        await RegistrationStep.deleteMany();
+        await RegistrationStep.deleteMany({ module: 'onboarding' });
         await RegistrationStep.insertMany(seedSteps);
-        console.log('Data Imported!');
+        console.log('Onboarding Registration Steps Seeded Successfully!');
         process.exit();
     } catch (err) {
         console.error(err);

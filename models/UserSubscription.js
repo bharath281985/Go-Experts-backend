@@ -23,6 +23,8 @@ const userSubscriptionSchema = new mongoose.Schema({
     remaining_task_posts: { type: Number, default: 0 },
     remaining_chats: { type: Number, default: 0 },
     remaining_db_access: { type: Number, default: 0 },
+    remaining_startup_posts: { type: Number, default: 0 },
+    remaining_idea_unlocks: { type: Number, default: 0 },
     remaining_interest_clicks: {
         type: Number,
         default: 36

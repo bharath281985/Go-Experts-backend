@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
     getUsers, createUser, getUserById, updateUser, updateUserRoles,
-    deleteUser, getStats, getProjects, getGigs, updateGigStatus, deleteGig,
+    deleteUser, getStats, getProjects, toggleProjectFeatured, updateProjectStatus, getGigs, updateGigStatus, deleteGig,
     verifyUser, suspendUser, rejectUser, sendProfileCompletionReminder, sendTestEmail, bulkUserAction,
     getDisputes, updateDisputeStatus, getWithdrawRequests, updateWithdrawStatus, sendDirectEmail,
     getContactMessages, deleteContactMessage,
@@ -53,6 +53,8 @@ router.delete('/users/:id', deleteUser);
 
 // --- Content & Site Management ---
 router.get('/projects', getProjects);
+router.put('/projects/:id/featured', toggleProjectFeatured);
+router.put('/projects/:id/status' , updateProjectStatus);
 router.get('/gigs', getGigs);
 router.put('/gigs/:id/status', updateGigStatus);
 router.delete('/gigs/:id', deleteGig);

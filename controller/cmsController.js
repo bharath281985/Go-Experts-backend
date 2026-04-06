@@ -39,7 +39,10 @@ exports.getCategoryById = async (req, res) => {
 // POST create category
 exports.createCategory = async (req, res) => {
     try {
-        const { name, description, icon, parent, sort_order } = req.body;
+        const { 
+            name, description, icon, parent, sort_order, 
+            is_trending, is_new, is_popular, talent_count, gig_count 
+        } = req.body;
         if (!name || !name.trim()) {
             return res.status(400).json({ success: false, message: 'Category name is required' });
         }
@@ -61,7 +64,12 @@ exports.createCategory = async (req, res) => {
             icon, 
             image,
             parent: parent || null, 
-            sort_order: sort_order || 0 
+            sort_order: sort_order || 0,
+            is_trending: is_trending !== undefined ? Boolean(is_trending) : false,
+            is_new: is_new !== undefined ? Boolean(is_new) : false,
+            is_popular: is_popular !== undefined ? Boolean(is_popular) : false,
+            talent_count: Number(talent_count) || 0,
+            gig_count: Number(gig_count) || 0
         });
         res.status(201).json({ success: true, message: 'Category created successfully', category });
     } catch (error) {
@@ -76,7 +84,10 @@ exports.createCategory = async (req, res) => {
 // PUT update category
 exports.updateCategory = async (req, res) => {
     try {
-        const { name, description, icon, parent, sort_order, is_active } = req.body;
+        const { 
+            name, description, icon, parent, sort_order, is_active,
+            is_trending, is_new, is_popular, talent_count, gig_count 
+        } = req.body;
         const category = await Category.findById(req.params.id);
         if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
 
@@ -92,6 +103,15 @@ exports.updateCategory = async (req, res) => {
         if (parent !== undefined) category.parent = parent || null;
         if (sort_order !== undefined) category.sort_order = sort_order;
         if (is_active !== undefined) category.is_active = Boolean(is_active);
+
+        // Badge Highlights
+        if (is_trending !== undefined) category.is_trending = Boolean(is_trending);
+        if (is_new !== undefined) category.is_new = Boolean(is_new);
+        if (is_popular !== undefined) category.is_popular = Boolean(is_popular);
+
+        // Counts
+        if (talent_count !== undefined) category.talent_count = Number(talent_count);
+        if (gig_count !== undefined) category.gig_count = Number(gig_count);
 
         if (req.file) {
             category.image = `/uploads/categories/${req.file.filename}`;
@@ -261,16 +281,17 @@ exports.getAdminSiteSettings = async (req, res) => {
 exports.updateSiteSettings = async (req, res) => {
     try {
         const allowedFields = [
-            'site_name', 'site_tagline', 'site_logo', 'site_favicon',
+            'site_name', 'site_tagline', 'site_logo', 'header_logo', 'footer_logo', 'site_favicon',
             'contact_email', 'contact_phone', 'contact_address',
             'meta_title', 'meta_description', 'meta_keywords',
             'social_facebook', 'social_twitter', 'social_linkedin', 'social_instagram',
+            'social_github', 'social_youtube',
             'commission_rate', 'currency', 'timezone', 'maintenance_mode',
             'points_per_rupee', 'points_signup_bonus',
             'home_stats', 'trust_badges',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass',
             'email_from', 'email_from_name', 'email_reply_to', 'email_encryption',
-            'subscription_highlights'
+            'subscription_highlights', 'footer_copyright'
         ];
 
         const updates = {};
@@ -648,7 +669,11 @@ exports.toggleMenuItem = async (req, res) => {
 
 exports.getRegistrationSteps = async (req, res) => {
     try {
-        const query = req.user?.roles.includes('admin') ? {} : { isActive: true };
+        const { module } = req.query;
+        let query = req.user?.roles.includes('admin') ? {} : { isActive: true };
+        
+        if (module) query.module = module;
+        
         const steps = await RegistrationStep.find(query).sort({ order: 1 });
         res.status(200).json({ success: true, count: steps.length, data: steps });
     } catch (error) {
@@ -675,7 +700,6 @@ exports.updateRegistrationStep = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to update step' });
     }
 };
-
 exports.deleteRegistrationStep = async (req, res) => {
     try {
         const step = await RegistrationStep.findById(req.params.id);
@@ -717,117 +741,197 @@ exports.bulkUpdateRegistrationSteps = async (req, res) => {
 // Reset registration steps to default dummy data
 exports.resetRegistrationSteps = async (req, res) => {
     try {
-        const seedSteps = [
-            {
-                order: 1, label: 'Account Type', title: 'How do you want to use Go Experts?', description: 'Choose Your Primary Role',
-                type: 'single-selection', field: 'accountType',
-                options: [
-                    { value: 'client', label: 'Hire Talent', emoji: '🎯', description: 'I want to hire freelancers for my projects' },
-                    { value: 'freelancer', label: 'Work as Freelancer', emoji: '💼', description: 'I want to offer my services and find work' },
-                    { value: 'investor', label: 'Investor', emoji: '💎', description: 'I want to find and invest in startup ideas' },
-                    { value: 'startup_creator', label: 'Startup Idea Creator', emoji: '💡', description: 'I want to post my idea and find investors' }
-                ]
-            },
-            {
-                order: 2, label: 'Categories', title: 'What services are you interested in?', description: 'Select all that apply',
-                type: 'multi-selection', field: 'categories',
-                applicableRoles: ['client', 'freelancer'],
-                options: [
-                    { value: 'uiux', label: 'UI/UX Design', icon: 'Palette' },
-                    { value: 'webdev', label: 'Web Development', icon: 'Code' },
-                    { value: 'mobiledev', label: 'Mobile Apps', icon: 'Smartphone' },
-                    { value: 'marketing', label: 'Digital Marketing', icon: 'TrendingUp' },
-                    { value: 'writing', label: 'Content Writing', icon: 'FileText' },
-                    { value: 'video', label: 'Video Editing', icon: 'Video' },
-                    { value: 'security', label: 'Cybersecurity', icon: 'Shield' },
-                    { value: 'consulting', label: 'Business Consulting', icon: 'Building' }
-                ]
-            },
-            {
-                order: 3, label: 'Work Style', title: 'How do you prefer to work?', description: 'Choose your work style',
-                type: 'single-selection', field: 'workPreference',
-                applicableRoles: ['client', 'freelancer'],
-                options: [
-                    { value: 'remote', label: 'Remote', icon: 'Globe' },
-                    { value: 'onsite', label: 'Onsite', icon: 'MapPin' },
-                    { value: 'hybrid', label: 'Hybrid', icon: 'MapPin' }
-                ]
-            },
-            {
-                order: 4, label: 'Budget', title: "What's your budget or rate range?", description: 'Select the range that fits best',
-                type: 'single-selection', field: 'budgetRange',
-                applicableRoles: ['client', 'freelancer'],
-                options: [
-                    { value: '5k-15k', label: '₹5K - ₹15K', subtitle: 'Starter' },
-                    { value: '15k-50k', label: '₹15K - ₹50K', subtitle: 'Standard' },
-                    { value: '50k-1l', label: '₹50K - ₹1L', subtitle: 'Premium' },
-                    { value: '1l+', label: '₹1L+', subtitle: 'Enterprise' }
-                ]
-            },
-            {
-                order: 5, label: 'Experience', title: 'Choose your experience level', description: 'This helps us match you better',
-                type: 'single-selection', field: 'experienceLevel',
-                applicableRoles: ['client', 'freelancer'],
-                options: [
-                    { value: 'beginner', label: 'Beginner', emoji: '🌱' },
-                    { value: 'intermediate', label: 'Intermediate', emoji: '⚡' },
-                    { value: 'expert', label: 'Expert', emoji: '🏆' }
-                ]
-            },
-            // --- Investor Specific Steps ---
-            {
-                order: 6, label: 'Investment Interests', title: 'What industries do you invest in?', description: 'Help us filter the best ideas for you',
-                type: 'multi-selection', field: 'categories',
-                applicableRoles: ['investor'],
-                options: [
-                    { value: 'fintech', label: 'FinTech', icon: 'IndianRupee' },
-                    { value: 'edtech', label: 'EdTech', icon: 'Briefcase' },
-                    { value: 'healthtech', label: 'HealthTech', icon: 'Activity' },
-                    { value: 'saas', label: 'SaaS', icon: 'Code' },
-                    { value: 'ai', label: 'AI & ML', icon: 'Sparkles' }
-                ]
-            },
-            {
-                order: 7, label: 'Investment Budget', title: 'Your typical ticket size?', description: 'Select your preferred investment range',
-                type: 'single-selection', field: 'budgetRange',
-                applicableRoles: ['investor'],
-                options: [
-                    { value: '5l-20l', label: '₹5L - ₹20L', subtitle: 'Angel' },
-                    { value: '20l-1cr', label: '₹20L - ₹1Cr', subtitle: 'Seed' },
-                    { value: '1cr+', label: '₹1Cr+', subtitle: 'Series A+' }
-                ]
-            },
-            // --- Startup Creator Specific Steps ---
-            {
-                order: 8, label: 'Idea Category', title: 'Which industry does your idea belong to?', description: 'Categorize your vision',
-                type: 'single-selection', field: 'categories',
-                applicableRoles: ['startup_creator']
-            },
-            {
-                order: 9, label: 'Funding Stage', title: 'Current stage of your startup?', description: 'Where are you currently?',
-                type: 'single-selection', field: 'experienceLevel',
-                applicableRoles: ['startup_creator'],
-                options: [
-                    { value: 'ideation', label: 'Ideation', emoji: '💡' },
-                    { value: 'mvp', label: 'MVP Ready', emoji: '🚀' },
-                    { value: 'scaling', label: 'Early Traction', emoji: '📈' }
-                ]
-            },
-            // --- Universal Steps ---
-            {
-                order: 10, label: 'Location', title: 'Where are you based?', description: 'Optional - helps with local opportunities',
-                type: 'input', field: 'location'
-            },
-            {
-                order: 11, label: 'Choose Plan', title: 'Select a Subscription Plan', description: 'Unlock premium features and credits',
-                type: 'subscription-plan', field: 'subscriptionPlan'
-            },
-            {
-                order: 12, label: 'Create Account', title: 'Final Step: Create your account', description: 'Enter your details to complete registration',
-                type: 'account-creation', field: 'account'
-            }
-        ];
-        await RegistrationStep.deleteMany({});
+        const { module = 'onboarding' } = req.body;
+        let seedSteps = [];
+
+        if (module === 'project_finder') {
+            seedSteps = [
+                {
+                    order: 1, label: 'Project Type', title: 'What kind of project are you looking for?', description: 'Choose your area of expertise',
+                    type: 'single-selection', field: 'projectType', module: 'project_finder',
+                    options: [
+                        { value: 'website', label: 'Website Design', icon: 'Globe' },
+                        { value: 'mobile', label: 'Mobile App', icon: 'Smartphone' },
+                        { value: 'uiux', label: 'UI/UX Design', icon: 'Palette' },
+                        { value: 'branding', label: 'Branding', icon: 'Sparkles' },
+                        { value: 'marketing', label: 'Digital Marketing', icon: 'TrendingUp' },
+                        { value: 'writing', label: 'Content Writing', icon: 'FileText' },
+                        { value: 'video', label: 'Video Editing', icon: 'Video' },
+                        { value: 'security', label: 'Cybersecurity', icon: 'Shield' },
+                        { value: 'consulting', label: 'Business Consulting', icon: 'Briefcase' }
+                    ]
+                },
+                {
+                    order: 2, label: 'Pricing', title: 'Project Type', description: 'How do you prefer to work?',
+                    type: 'single-selection', field: 'priceType', module: 'project_finder',
+                    options: [
+                        { value: 'fixed', label: 'Fixed Price Project', description: 'One-time payment for complete project' },
+                        { value: 'hourly', label: 'Hourly Project', description: 'Pay by the hour' },
+                        { value: 'contract', label: 'Long-term Contract', description: 'Ongoing relationship' }
+                    ]
+                },
+                {
+                    order: 3, label: 'Budget', title: 'Budget Range', description: 'Select your expected budget',
+                    type: 'single-selection', field: 'budget', module: 'project_finder',
+                    options: [
+                        { value: '5k-15k', label: '₹5K - ₹15K', subtitle: 'Starter' },
+                        { value: '15k-50k', label: '₹15K - ₹50K', subtitle: 'Standard' },
+                        { value: '50k-1l', label: '₹50K - ₹1L', subtitle: 'Premium' },
+                        { value: '1l+', label: '₹1L+', subtitle: 'Enterprise' }
+                    ]
+                },
+                {
+                    order: 4, label: 'Timeline', title: 'Timeline', description: 'When can you start?',
+                    type: 'single-selection', field: 'timeline', module: 'project_finder',
+                    options: [
+                        { value: 'urgent', label: 'Urgent (1-3 days)', emoji: '🔥' },
+                        { value: '1week', label: '1 week', emoji: '⚡' },
+                        { value: '2-4weeks', label: '2-4 weeks', emoji: '📅' },
+                        { value: 'flexible', label: 'Flexible', emoji: '🕐' }
+                    ]
+                },
+                {
+                    order: 5, label: 'Experience', title: 'Experience Needed', description: 'What level of projects are you looking for?',
+                    type: 'single-selection', field: 'experience', module: 'project_finder',
+                    options: [
+                        { value: 'beginner', label: 'Beginner friendly', emoji: '🌱' },
+                        { value: 'intermediate', label: 'Intermediate', emoji: '⚡' },
+                        { value: 'expert', label: 'Expert only', emoji: '🏆' },
+                        { value: 'verified', label: 'Verified experts only', emoji: '⭐' }
+                    ]
+                },
+                {
+                    order: 6, label: 'Location', title: 'Work Preference', description: 'Where do you prefer to work?',
+                    type: 'single-selection', field: 'workPreference', module: 'project_finder',
+                    options: [
+                        { value: 'remote', label: 'Remote', icon: 'Globe' },
+                        { value: 'onsite', label: 'Onsite', icon: 'MapPin' },
+                        { value: 'hybrid', label: 'Hybrid', icon: 'MapPin' }
+                    ]
+                },
+                {
+                    order: 7, label: 'Skills', title: 'Skills Required', description: 'Select skills you have (optional)',
+                    type: 'multi-selection', field: 'skills', module: 'project_finder',
+                    options: [
+                        { value: 'figma', label: 'Figma' }, { value: 'react', label: 'React' }, { value: 'nodejs', label: 'Node.js' },
+                        { value: 'flutter', label: 'Flutter' }, { value: 'wordpress', label: 'WordPress' }, { value: 'seo', label: 'SEO' }
+                    ]
+                },
+                {
+                    order: 8, label: 'Filters', title: 'Extra Filters', description: 'Optional preferences to refine your search',
+                    type: 'multi-selection', field: 'extraFilters', module: 'project_finder',
+                    options: [
+                        { value: 'nda', label: 'NDA required' },
+                        { value: 'startup', label: 'Startup-friendly' },
+                        { value: 'communication', label: 'Quick communication' }
+                    ]
+                }
+            ];
+        } else if (module === 'talent_finder') {
+            seedSteps = [
+                { order: 1, label: "Role", title: "What do you want to hire?", description: "Choose the expertise you need.", field: "role", type: "single-selection", module: "talent_finder", options: [] },
+                { order: 2, label: "Work Type", title: "What type of engagement?", description: "How do you want to hire?", field: "workType", type: "single-selection", module: "talent_finder", options: [
+                    { value: "one-time", label: "One-time project", icon: "Briefcase" },
+                    { value: "part-time", label: "Part-time", icon: "Clock" },
+                    { value: "full-time", label: "Full-time", icon: "Clock" }
+                ]},
+                { order: 3, label: "Budget", title: "Monthly Budget Range", description: "Target budget for this hire.", field: "budget", type: "single-selection", module: "talent_finder", options: [
+                    { value: "50k-100k", label: "₹50k - ₹1L", icon: "IndianRupee" },
+                    { value: "100k-200k", label: "₹1L - ₹2L", icon: "IndianRupee" },
+                    { value: "200k+", label: "₹2L+", icon: "Award" }
+                ]},
+                { order: 4, label: "Experience", title: "Experience Level", description: "Minimum expertise level required.", field: "experience", type: "single-selection", module: "talent_finder", options: [
+                    { value: "beginner", label: "Beginner", emoji: "🌱" },
+                    { value: "intermediate", label: "Intermediate", emoji: "⚡" },
+                    { value: "expert", label: "Expert", emoji: "🏆" }
+                ]},
+                { order: 5, label: "Location", title: "Location Preference", description: "Where should the talent be located?", field: "location", type: "single-selection", module: "talent_finder", options: [
+                    { value: "remote", label: "Remote only", icon: "Globe" },
+                    { value: "hybrid", label: "Hybrid", icon: "MapPin" }
+                ]}
+            ];
+        } else {
+            // Default Onboarding steps with strict role differentiation
+            seedSteps = [
+                {
+                    order: 1, label: 'Account Type', title: 'Choose Your Journey', description: 'How do you plan to use Go Experts?',
+                    type: 'single-selection', field: 'accountType', module: 'onboarding',
+                    options: [
+                        { value: 'client', label: 'I want to hire talent', emoji: '🎯', description: 'Post projects and find top experts' },
+                        { value: 'freelancer', label: 'I want to work', emoji: '💼', description: 'Find projects and offer your services' },
+                        { value: 'investor', label: 'I want to invest', emoji: '💎', description: 'Discover early-stage startup ideas' },
+                        { value: 'startup_creator', label: 'I want to build', emoji: '💡', description: 'Share your startup idea with investors' }
+                    ]
+                },
+                {
+                    order: 2, label: 'Interest Area', title: 'What is your focus?', description: 'Select your primary categories',
+                    type: 'multi-selection', field: 'categories', module: 'onboarding',
+                    applicableRoles: [] // All roles
+                },
+                {
+                    order: 3, label: 'Project Goal', title: 'Tell us about your goal', description: "What's the main project you have in mind today?",
+                    type: 'input', field: 'projectIntent', module: 'onboarding',
+                    applicableRoles: ['client']
+                },
+                {
+                    order: 4, label: 'Expertise', title: 'What are your core skills?', description: 'This helps us match you with the right projects',
+                    type: 'multi-selection', field: 'skills', module: 'onboarding',
+                    applicableRoles: ['freelancer']
+                },
+                {
+                    order: 5, label: 'Experience', title: 'Experience Level', description: 'Select your professional seniority',
+                    type: 'single-selection', field: 'experienceLevel', module: 'onboarding',
+                    applicableRoles: ['freelancer'],
+                    options: [
+                        { value: 'beginner', label: 'Entry Level', emoji: '🌱' },
+                        { value: 'intermediate', label: 'Intermediate', emoji: '⚡' },
+                        { value: 'expert', label: 'Expert / Lead', emoji: '🏆' }
+                    ]
+                },
+                {
+                    order: 6, label: 'Work Style', title: 'Work Preference', description: 'Where do you prefer to do your work?',
+                    type: 'single-selection', field: 'workPreference', module: 'onboarding',
+                    applicableRoles: ['freelancer'],
+                    options: [
+                        { value: 'remote', label: 'Fully Remote', icon: 'Globe' },
+                        { value: 'onsite', label: 'Onsite / Office', icon: 'MapPin' },
+                        { value: 'hybrid', label: 'Hybrid Model', icon: 'MapPin' }
+                    ]
+                },
+                {
+                    order: 7, label: 'Project Scale', title: 'Typical Project Budget', description: 'This helps us filter the right talent for you',
+                    type: 'single-selection', field: 'budgetRange', module: 'onboarding',
+                    applicableRoles: ['client'],
+                    options: [
+                        { value: '5k-15k', label: '₹5K - ₹15K', subtitle: 'Small Tasks' },
+                        { value: '15k-50k', label: '₹15K - ₹50K', subtitle: 'Standard Projects' },
+                        { value: '50k-1l', label: '₹50K - ₹1L', subtitle: 'Large Scale' },
+                        { value: '1l+', label: '₹1L+', subtitle: 'Enterprise' }
+                    ]
+                },
+                {
+                    order: 8, label: 'Phase', title: 'Current Venture Phase', description: 'Where are you in the startup lifecycle?',
+                    type: 'single-selection', field: 'startupPhase', module: 'onboarding',
+                    applicableRoles: ['startup_creator', 'investor'],
+                    options: [
+                        { value: 'ideation', label: 'Ideation / MVP', emoji: '💡' },
+                        { value: 'pre-seed', label: 'Pre-Seed / Seed', emoji: '🌱' },
+                        { value: 'scaling', label: 'Scaling / Growth', emoji: '📈' }
+                    ]
+                },
+                {
+                    order: 9, label: 'Location', title: 'Base Location', description: 'Where are you currently located?',
+                    type: 'input', field: 'location', module: 'onboarding',
+                    applicableRoles: [] // Optional for all
+                },
+                {
+                    order: 10, label: 'Account', title: 'Create Your Secure Account', description: 'Secure your profile with your details',
+                    type: 'account-creation', field: 'account', module: 'onboarding'
+                }
+            ];
+        }
+
+        await RegistrationStep.deleteMany({ module });
         const steps = await RegistrationStep.insertMany(seedSteps);
 
         // Also seed categories if empty
@@ -858,8 +962,9 @@ exports.resetRegistrationSteps = async (req, res) => {
             });
         }
 
-        res.status(200).json({ success: true, message: 'Steps and categories reset to default dummy data', data: steps });
+        res.status(200).json({ success: true, message: 'Steps reset efficiently', data: steps });
     } catch (error) {
+        console.error('Reset Error:', error);
         res.status(500).json({ success: false, message: 'Failed to reset steps' });
     }
 };
@@ -990,6 +1095,50 @@ exports.uploadNDATemplate = async (req, res) => {
     } catch (error) {
         console.error('uploadNDATemplate error:', error);
         res.status(500).json({ success: false, message: 'Failed to upload NDA template' });
+    }
+};
+
+exports.uploadSiteLogo = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ success: false, message: 'Please upload a logo file' });
+        const filePath = `/uploads/branding/${req.file.filename}`;
+        const settings = await SiteSettings.findByIdAndUpdate('site_settings', { $set: { site_logo: filePath } }, { new: true, upsert: true });
+        res.status(200).json({ success: true, message: 'Site logo uploaded successfully', filePath, settings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to upload site logo' });
+    }
+};
+
+exports.uploadSiteFavicon = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ success: false, message: 'Please upload a favicon file' });
+        const filePath = `/uploads/branding/${req.file.filename}`;
+        const settings = await SiteSettings.findByIdAndUpdate('site_settings', { $set: { site_favicon: filePath } }, { new: true, upsert: true });
+        res.status(200).json({ success: true, message: 'Site favicon uploaded successfully', filePath, settings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to upload site favicon' });
+    }
+};
+
+exports.uploadHeaderLogo = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ success: false, message: 'Please upload a logo file' });
+        const filePath = `/uploads/branding/${req.file.filename}`;
+        const settings = await SiteSettings.findByIdAndUpdate('site_settings', { $set: { header_logo: filePath } }, { new: true, upsert: true });
+        res.status(200).json({ success: true, message: 'Header logo uploaded successfully', filePath, settings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to upload header logo' });
+    }
+};
+
+exports.uploadFooterLogo = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ success: false, message: 'Please upload a logo file' });
+        const filePath = `/uploads/branding/${req.file.filename}`;
+        const settings = await SiteSettings.findByIdAndUpdate('site_settings', { $set: { footer_logo: filePath } }, { new: true, upsert: true });
+        res.status(200).json({ success: true, message: 'Footer logo uploaded successfully', filePath, settings });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to upload footer logo' });
     }
 };
 

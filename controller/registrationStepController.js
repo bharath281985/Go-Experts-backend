@@ -2,7 +2,10 @@ const RegistrationStep = require('../models/RegistrationStep');
 
 exports.getSteps = async (req, res) => {
     try {
-        const steps = await RegistrationStep.find({ isActive: true }).sort('order');
+        const { module } = req.query;
+        let query = { isActive: true };
+        if (module) query.module = module;
+        const steps = await RegistrationStep.find(query).sort('order');
         res.status(200).json({ success: true, data: steps });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

@@ -14,11 +14,46 @@ exports.submitIdea = async (req, res) => {
             marketSize, competitorAnalysis, fundingAmount,
             useOfFunds, milestones, ndaRequired
         } = req.body;
+        
+        const user = await User.findById(req.user.id || req.user._id);
+
+        if (user.role === 'investor') {
+            return res.status(403).json({
+                success: false,
+                message: 'Investors cannot submit startup ideas'
+            });
+        }
+
+        if (!user.kyc_details?.is_verified) {
+            return res.status(403).json({
+                success: false,
+                message: 'KYC check required to submit startup ideas. Please complete your profile.'
+            });
+        }
+
+        // Subscription Limit Check
+        const UserSubscription = require('../models/UserSubscription');
+        const userSubscription = await UserSubscription.findOne({
+            user_id: user._id,
+            status: 'active',
+            end_date: { $gt: new Date() }
+        });
+
+        if (!userSubscription || userSubscription.remaining_startup_posts <= 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'No remaining startup idea posts in your subscription. Please upgrade your plan.'
+            });
+        }
 
         let signedNDA = null;
         if (req.file) {
             signedNDA = `/${req.file.destination}${req.file.filename}`.replace('//', '/');
         }
+
+        // Deduct from subscription
+        userSubscription.remaining_startup_posts -= 1;
+        await userSubscription.save();
 
         const newIdea = await StartupIdea.create({
             creator: req.user._id,
@@ -69,9 +104,12 @@ exports.getApprovedIdeas = async (req, res) => {
             ];
         }
 
-        const ideas = await StartupIdea.find(query)
+        const rawIdeas = await StartupIdea.find(query)
             .populate('creator', 'full_name profile_image')
             .sort({ createdAt: -1 });
+
+        // Filter out ideas where the creator document no longer exists
+        const ideas = rawIdeas.filter(idea => idea.creator);
 
         res.json({ success: true, count: ideas.length, data: ideas });
     } catch (err) {
@@ -91,6 +129,10 @@ exports.getIdeaById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Idea not found' });
         }
 
+        if (!idea.creator) {
+            return res.status(404).json({ success: false, message: 'Concept owner not found. This concept may be inactive.' });
+        }
+
         // Increment views
         idea.views += 1;
         await idea.save();
@@ -103,16 +145,18 @@ exports.getIdeaById = async (req, res) => {
         });
 
         const ideaObj = idea.toObject();
-        if (!isUnlocked && (!req.user || idea.creator._id.toString() !== req.user._id.toString())) {
+        const creatorId = idea.creator?._id || idea.creator; // Handle populated or unpopulated
+
+        if (!isUnlocked && (!req.user || creatorId?.toString() !== req.user._id.toString())) {
             // Mask contact details if not unlocked and not creator
             if (ideaObj.creator) {
                 delete ideaObj.creator.phone_number;
                 delete ideaObj.creator.email;
             }
-        } else {
+        } else if (creatorId) {
             // Already unlocked or is creator, allow contact info
-            const creator = await User.findById(idea.creator._id).select('phone_number email');
-            if (ideaObj.creator) {
+            const creator = await User.findById(creatorId).select('phone_number email');
+            if (ideaObj.creator && creator) {
                 ideaObj.creator.phone_number = creator.phone_number;
                 ideaObj.creator.email = creator.email;
             }
@@ -152,15 +196,24 @@ exports.unlockContact = async (req, res) => {
             return res.json({ success: true, message: 'Already unlocked', contact: creator });
         }
 
-        const cost = 20; 
-        const user = await User.findById(req.user._id);
+        // Check Subscription limit for unlocking
+        const UserSubscription = require('../models/UserSubscription');
+        const userSub = await UserSubscription.findOne({
+            user_id: req.user._id,
+            status: 'active',
+            end_date: { $gt: new Date() }
+        });
 
-        if (user.total_points < cost) {
-            return res.status(400).json({ success: false, message: 'Insufficient points' });
+        if (!userSub || userSub.remaining_idea_unlocks <= 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'No remaining idea unlocks in your subscription. Please upgrade your plan.'
+            });
         }
 
-        user.total_points -= cost;
-        await user.save();
+        // Deduct from subscription
+        userSub.remaining_idea_unlocks -= 1;
+        await userSub.save();
 
         await SubscriptionUnlock.create({
             user_id: req.user._id,

@@ -8,7 +8,7 @@ const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         let dest = 'uploads/';
         if (file.fieldname === 'profile') dest += 'profiles/';
-        else if (file.fieldname === 'pancard' || file.fieldname === 'aadhar_card' || file.fieldname === 'kyc_doc') dest += 'kyc/';
+        else if (file.fieldname === 'pan_card' || file.fieldname === 'aadhar_card' || file.fieldname === 'kyc_doc') dest += 'kyc/';
         else if (file.fieldname === 'educational' || file.fieldname === 'experience_letter') dest += 'documents/';
         else if (file.fieldname === 'gig_image' || file.fieldname === 'thumbnail') dest += 'gigs/';
         else if (file.fieldname === 'image' || file.fieldname === 'category_image') dest += 'categories/';
@@ -16,7 +16,8 @@ const storage = multer.diskStorage({
         else if (file.fieldname === 'work_images' || file.fieldname === 'portfolio_image') dest += 'portfolio/';
         else if (file.fieldname === 'attachments' || file.fieldname === 'signednda') dest += 'projects/';
         else if (file.fieldname === 'nda') dest += 'templates/';
-        
+        else if (file.fieldname === 'site_logo' || file.fieldname === 'site_favicon') dest += 'branding/';
+
         fs.mkdirSync(dest, { recursive: true });
         cb(null, dest);
     },

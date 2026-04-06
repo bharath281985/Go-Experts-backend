@@ -160,7 +160,7 @@ exports.handlePaymentResponse = async (req, res) => {
                 const endDate = new Date();
                 endDate.setDate(endDate.getDate() + plan.duration_days);
 
-                // Update or Create UserSubscription
+                // Update or Create UserSubscription with all defined limits
                 await UserSubscription.findOneAndUpdate(
                     { user_id: user._id },
                     {
@@ -169,9 +169,14 @@ exports.handlePaymentResponse = async (req, res) => {
                         start_date: startDate,
                         end_date: endDate,
                         remaining_project_posts: plan.project_post_limit,
+                        remaining_task_posts: plan.task_post_limit,
+                        remaining_chats: plan.chat_limit,
+                        remaining_db_access: plan.database_access_limit,
                         remaining_interest_clicks: plan.interest_click_limit,
                         remaining_project_visits: plan.project_visit_limit,
                         remaining_portfolio_visits: plan.portfolio_visit_limit,
+                        remaining_startup_posts: plan.startup_idea_post_limit || 0,
+                        remaining_idea_unlocks: plan.startup_idea_explore_limit || 0,
                         reminder_sent_10d: false
                     },
                     { upsert: true, new: true }
@@ -184,8 +189,29 @@ exports.handlePaymentResponse = async (req, res) => {
                     start_date: startDate,
                     end_date: endDate,
                     project_credits: plan.project_visit_limit,
-                    portfolio_credits: plan.portfolio_visit_limit
+                    portfolio_credits: plan.portfolio_visit_limit,
+                    task_credits: plan.task_post_limit,
+                    chat_credits: plan.chat_limit,
+                    db_credits: plan.database_access_limit
                 };
+
+                // Automatically grant roles associated with the plan if the user doesn't have them
+                if (plan.target_role && plan.target_role.length > 0) {
+                    plan.target_role.forEach(role => {
+                        if (role !== 'both') {
+                            if (!user.roles.includes(role)) {
+                                user.roles.push(role);
+                            }
+                        } else {
+                            // If role is 'both', add both client and freelancer
+                            ['client', 'freelancer'].forEach(r => {
+                                if (!user.roles.includes(r)) {
+                                    user.roles.push(r);
+                                }
+                            });
+                        }
+                    });
+                }
                 
                 await user.save();
 

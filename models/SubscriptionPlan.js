@@ -21,6 +21,8 @@ const subscriptionPlanSchema = new mongoose.Schema({
     project_visit_limit: { type: Number, default: 0 },
     portfolio_visit_limit: { type: Number, default: 0 },
     interest_click_limit: { type: Number, default: 0 },
+    startup_idea_post_limit: { type: Number, default: 0 },
+    startup_idea_explore_limit: { type: Number, default: 0 },
     features: [{ type: String }],
     status: { type: String, enum: ['enabled', 'disabled'], default: 'enabled' },
     billing_cycle: { type: String, enum: ['yearly', 'monthly', 'one-time'], default: 'yearly' },
@@ -28,16 +30,14 @@ const subscriptionPlanSchema = new mongoose.Schema({
     badge: { type: String },
     cta: { type: String, default: 'Choose Plan' },
     description: { type: String },
-    target_role: { 
+    target_role: [{ 
         type: String, 
-        enum: ['client', 'freelancer', 'investor', 'startup_creator', 'both'], 
-        default: 'client' 
-    },
-    group: {
+        enum: ['client', 'freelancer', 'investor', 'startup_creator', 'both']
+    }],
+    group: [{
         type: String,
-        enum: ['Freelancer Plans', 'Client Plans', 'Start-Up Idea Creator Plans', 'Investor Plans', 'Combo Plan'],
-        default: 'Freelancer Plans'
-    },
+        enum: ['Freelancer Plans', 'Client Plans', 'Start-Up Idea Creator Plans', 'Investor Plans', 'Combo Plan']
+    }],
     icon: { type: String, default: 'Star' }, // Lucide icon name
     color_theme: { 
         type: String, 

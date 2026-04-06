@@ -19,7 +19,7 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
     try {
-        const { full_name, email, password, roles, categories, location, work_preference, experience_level, availability, budget_range, subscription_plan } = req.body;
+        const { full_name, email, password, roles, categories, skills, location, work_preference, experience_level, availability, budget_range, subscription_plan } = req.body;
         const normalizedEmail = email.toLowerCase().trim();
 
         const user = await User.findOne({ email: normalizedEmail });
@@ -47,6 +47,7 @@ exports.register = async (req, res) => {
             password,
             roles: roles || ['freelancer'],
             categories,
+            skills,
             location,
             work_preference,
             experience_level,
@@ -59,7 +60,7 @@ exports.register = async (req, res) => {
 
         // Assign 90-Day Free Trial Plan Automatically
         let trialPlan = await SubscriptionPlan.findOne({ name: '90-Day Free Trial' });
-        
+
         if (!trialPlan) {
             trialPlan = await SubscriptionPlan.create({
                 name: '90-Day Free Trial',
@@ -69,11 +70,16 @@ exports.register = async (req, res) => {
                 task_post_limit: 36,
                 chat_limit: 10,
                 database_access_limit: 5,
+                project_visit_limit: 36,
+                portfolio_visit_limit: 36,
+                startup_idea_post_limit: 3,
+                startup_idea_explore_limit: 3,
                 features: [
                     "Full platform access for 90 days",
                     "Post up to 36 Projects",
                     "Post up to 36 Tasks",
                     "Direct chat with 10 people",
+                    "36 Project Detail Visits",
                     "Email support from admin"
                 ],
                 target_role: 'both' // Applicable for all
@@ -91,13 +97,23 @@ exports.register = async (req, res) => {
             remaining_task_posts: trialPlan.task_post_limit,
             remaining_chats: trialPlan.chat_limit,
             remaining_db_access: trialPlan.database_access_limit,
+            remaining_project_visits: trialPlan.project_visit_limit || 36,
+            remaining_portfolio_visits: trialPlan.portfolio_visit_limit || 36,
+            remaining_idea_unlocks: trialPlan.startup_idea_explore_limit || 3,
+            remaining_startup_posts: trialPlan.startup_idea_post_limit || 3,
             status: 'active'
         });
 
-        // Update user's subscription record
-        newUser.subscription_details.plan_name = trialPlan.name;
-        newUser.subscription_details.end_date = endDate;
-        newUser.subscription_details.status = 'active';
+        // Update user's subscription record summary
+        newUser.subscription_details = {
+            plan_name: trialPlan.name,
+            end_date: endDate,
+            status: 'active',
+            project_credits: trialPlan.project_post_limit,
+            task_credits: trialPlan.task_post_limit,
+            chat_credits: trialPlan.chat_limit,
+            db_credits: trialPlan.database_access_limit
+        };
         await newUser.save();
 
         // Generate verification token
@@ -501,12 +517,37 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
+// @desc    Get user by ID
+// @route   GET /api/auth/users/:id
+// @access  Private
+exports.getUserById = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.status(200).json({
+            success: true,
+            user
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // @desc    Get current user
 // @route   GET /api/auth/me
 // @access  Private
 exports.getMe = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
+        
+        // Auto-fix for users who uploaded docs but status is still unverified
+        if (user.kyc_status === 'unverified' && (user.kyc_details?.pan_card || user.kyc_details?.aadhar_card)) {
+            user.kyc_status = 'pending';
+            await user.save();
+        }
+
         res.status(200).json({
             success: true,
             user
@@ -519,6 +560,7 @@ exports.getMe = async (req, res) => {
 // @desc    Update user profile
 // @route   PUT /api/auth/update-profile
 // @access  Private
+// Update your backend updateProfile function to better handle file uploads
 exports.updateProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
@@ -526,10 +568,12 @@ exports.updateProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
+        // Handle text fields
         const allowedFields = [
             'full_name', 'email', 'location', 'bio', 'phone_number',
             'availability', 'work_preference', 'experience_level', 'skills', 'hourly_rate',
-            'categories', 'portfolio', 'kyc_details', 'documents', 'work_images', 'roles'
+            'categories', 'portfolio', 'kyc_details', 'documents', 'work_images', 'roles',
+            'budget_range'
         ];
 
         allowedFields.forEach(field => {
@@ -539,10 +583,9 @@ exports.updateProfile = async (req, res) => {
                 // Safety check for roles - prevent adding admin
                 if (field === 'roles' && Array.isArray(value)) {
                     value = value.filter(r => r !== 'admin');
-                    // Ensure at least one role remains if roles were being set
                     if (value.length === 0) return;
                 }
-                
+
                 // If it's a stringified JSON (from multipart/form-data), parse it
                 if (typeof value === 'string' && (field === 'portfolio' || field === 'kyc_details' || field === 'documents' || field === 'work_images' || field === 'categories' || field === 'skills')) {
                     try {
@@ -555,9 +598,10 @@ exports.updateProfile = async (req, res) => {
 
                 // Merge nested objects instead of overwriting
                 if ((field === 'kyc_details' || field === 'documents') && typeof value === 'object' && value !== null) {
-                    // Update specific keys within kyc_details/documents
                     Object.keys(value).forEach(key => {
-                        user.set(`${field}.${key}`, value[key]);
+                        if (value[key] !== undefined) {
+                            user.set(`${field}.${key}`, value[key]);
+                        }
                     });
                     user.markModified(field);
                 } else {
@@ -566,45 +610,52 @@ exports.updateProfile = async (req, res) => {
             }
         });
 
-        // Handle File Uploads via req.files (Multer fields)
+        // Handle File Uploads
         if (req.files) {
-            if (req.files.profile) {
+            // Profile photo
+            if (req.files.profile && req.files.profile[0]) {
                 user.profile_image = `/uploads/profiles/${req.files.profile[0].filename}`;
             }
-            
-            // Handle KYC documents (merge into kyc_details using dot notation)
-            if (req.files.pancard) {
-                user.set('kyc_details.pancard', `/uploads/kyc/${req.files.pancard[0].filename}`);
-                user.markModified('kyc_details.pancard');
+
+            // KYC documents
+            if (req.files.pan_card && req.files.pan_card[0]) {
+                user.set('kyc_details.pan_card', `/uploads/kyc/${req.files.pan_card[0].filename}`);
+                user.markModified('kyc_details');
             }
-            if (req.files.aadhar_card) {
+            if (req.files.aadhar_card && req.files.aadhar_card[0]) {
                 user.set('kyc_details.aadhar_card', `/uploads/kyc/${req.files.aadhar_card[0].filename}`);
-                user.markModified('kyc_details.aadhar_card');
+                user.markModified('kyc_details');
             }
-            
-            // Handle other documents (merge into documents)
-            if (req.files.educational) {
+
+            // Educational documents - handle multiple files
+            if (req.files.educational && req.files.educational.length > 0) {
                 const newEdu = req.files.educational.map(file => `/uploads/documents/${file.filename}`);
-                // Append to existing array
                 const currentEdu = user.documents?.educational || [];
                 user.set('documents.educational', [...currentEdu, ...newEdu]);
-                user.markModified('documents.educational');
+                user.markModified('documents');
             }
-            if (req.files.experience_letter) {
+
+            // Experience letter
+            if (req.files.experience_letter && req.files.experience_letter[0]) {
                 user.set('documents.experience_letter', `/uploads/documents/${req.files.experience_letter[0].filename}`);
-                user.markModified('documents.experience_letter');
+                user.markModified('documents');
             }
-            
-            // Handle portfolio/work images
-            if (req.files.work_images) {
+
+            // Work images
+            if (req.files.work_images && req.files.work_images.length > 0) {
                 const newImages = req.files.work_images.map(file => `/uploads/portfolio/${file.filename}`);
                 const currentImages = user.work_images || [];
                 user.work_images = [...currentImages, ...newImages];
                 user.markModified('work_images');
             }
+
+            // Set kyc_status to pending if any KYC document is uploaded
+            if (req.files.pan_card || req.files.aadhar_card || req.files.educational || req.files.experience_letter) {
+                user.kyc_status = 'pending';
+            }
         }
 
-        // Clean up any corrupted existing data in DB that would cause CastErrors during save
+        // Clean up any corrupted existing data
         const mongoose = require('mongoose');
         if (Array.isArray(user.skills)) {
             user.skills = user.skills.filter(s => s && mongoose.Types.ObjectId.isValid(s.toString()));
@@ -615,13 +666,26 @@ exports.updateProfile = async (req, res) => {
 
         await user.save();
 
+        // Return the updated user without sensitive data
+        const userResponse = user.toObject();
+        delete userResponse.password;
+        delete userResponse.resetPasswordToken;
+        delete userResponse.resetPasswordExpire;
+        delete userResponse.emailVerificationToken;
+        delete userResponse.emailVerificationExpire;
+
         res.status(200).json({
             success: true,
-            user
+            user: userResponse,
+            message: 'Profile updated successfully'
         });
     } catch (error) {
         console.error('Update Profile Error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Error updating profile',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };
 

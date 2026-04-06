@@ -249,12 +249,50 @@ exports.updateUserRoles = async (req, res) => {
 // @access  Private/Admin
 exports.getProjects = async (req, res) => {
     try {
-        const projects = await Project.find({}).sort({ created_at: -1 });
+        const projects = await Project.find({}).populate('client_id', 'full_name email').sort({ created_at: -1 });
         res.status(200).json({
             success: true,
             count: projects.length,
             projects
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Toggle feature status of a project
+// @route   PUT /api/admin/projects/:id/featured
+// @access  Private/Admin
+exports.toggleProjectFeatured = async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+        project.is_featured = !project.is_featured;
+        await project.save();
+
+        res.status(200).json({ success: true, data: project });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Update project status (Approve/Reject)
+// @route   PUT /api/admin/projects/:id/status
+// @access  Private/Admin
+exports.updateProjectStatus = async (req, res) => {
+    try {
+        const { status } = req.body;
+        const validStatuses = ['pending', 'live', 'closed', 'rejected', 'flagged'];
+
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ success: false, message: 'Invalid status' });
+        }
+
+        const project = await Project.findByIdAndUpdate(req.params.id, { status }, { new: true });
+        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+        res.status(200).json({ success: true, message: `Project marked as ${status}`, data: project });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -380,7 +418,7 @@ exports.updateWithdrawStatus = async (req, res) => {
 
         withdrawal.status = status;
         if (admin_note) withdrawal.admin_note = admin_note;
-        
+
         await withdrawal.save();
 
         res.status(200).json({ success: true, data: withdrawal });
@@ -469,7 +507,7 @@ exports.updateStartupIdeaStatus = async (req, res) => {
             }
             updateData.status = status;
         }
-        
+
         if (internalNotes !== undefined) {
             updateData.internalNotes = internalNotes;
         }
@@ -497,7 +535,7 @@ exports.getAdminStartupIdeaById = async (req, res) => {
     try {
         const idea = await StartupIdea.findById(req.params.id)
             .populate('creator', 'full_name email phone_number location profile_image');
-        
+
         if (!idea) {
             return res.status(404).json({ success: false, message: 'Idea not found' });
         }
@@ -518,10 +556,10 @@ exports.toggleStartupIdeaFeatured = async (req, res) => {
     try {
         const idea = await StartupIdea.findById(req.params.id);
         if (!idea) return res.status(404).json({ success: false, message: 'Idea not found' });
-        
+
         idea.isFeatured = !idea.isFeatured;
         await idea.save();
-        
+
         res.status(200).json({ success: true, data: idea });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -537,13 +575,13 @@ exports.verifyUser = async (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
-        
+
         // Update both email and KYC verification
         user.is_email_verified = true;
         if (!user.kyc_details) user.kyc_details = {};
         user.kyc_details.is_verified = true;
         user.kyc_details.verified_at = Date.now();
-        
+
         await user.save();
 
         // Send Verification Email
@@ -597,10 +635,10 @@ exports.suspendUser = async (req, res) => {
         try {
             const subject = user.is_suspended ? 'Your Go Experts Account has been Suspended' : 'Your Go Experts Account has been Reactivated';
             const bodyTitle = user.is_suspended ? 'Account Suspended' : 'Account Reactivated';
-            const bodyText = user.is_suspended 
-                ? 'Your account has been suspended due to a violation of our terms of service or pending administrative review.' 
+            const bodyText = user.is_suspended
+                ? 'Your account has been suspended due to a violation of our terms of service or pending administrative review.'
                 : 'Your account has been successfully reactivated. You can now login and continue using our services.';
-            
+
             await sendEmail({
                 email: user.email,
                 subject: subject,
@@ -729,7 +767,7 @@ exports.deleteUser = async (req, res) => {
         if (user.roles.includes('admin')) {
             return res.status(403).json({ success: false, message: 'Cannot delete an admin account' });
         }
-        
+
         // Send Account Deletion Email Before Actual Deletion
         try {
             await sendEmail({
@@ -911,10 +949,10 @@ exports.updateWithdrawStatus = async (req, res) => {
         // If rejecting, refund the user
         if (status === 'rejected' && withdrawal.status !== 'rejected') {
             const user = await User.findById(withdrawal.user);
-            if(user) {
+            if (user) {
                 user.wallet_balance += withdrawal.amount;
                 await user.save();
-                
+
                 // Track refund
                 const PointTransaction = require('../models/PointTransaction');
                 await PointTransaction.create({

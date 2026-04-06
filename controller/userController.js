@@ -15,8 +15,99 @@ const ProjectInterest = require('../models/ProjectInterest');
 // @access  Public
 exports.getFreelancers = async (req, res) => {
     try {
-        const freelancers = await User.find({ roles: 'freelancer' }).select('-password');
-        res.json({ success: true, data: freelancers });
+        const { categories, skills, role, search } = req.query;
+        let query = { roles: 'freelancer' };
+
+        if (search) {
+            query.$or = [
+                { full_name: { $regex: search, $options: 'i' } },
+                { bio: { $regex: search, $options: 'i' } },
+                { role: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (categories) {
+            const categoryList = Array.isArray(categories) ? categories : [categories];
+            const mongoose = require('mongoose');
+            const Category = require('../models/Category');
+
+            const resolvedCategoryIds = [];
+            const categoryNamesToResolve = [];
+
+            categoryList.forEach(c => {
+                if (mongoose.Types.ObjectId.isValid(c)) {
+                    resolvedCategoryIds.push(c);
+                } else {
+                    categoryNamesToResolve.push(c);
+                }
+            });
+
+            if (categoryNamesToResolve.length > 0) {
+                const foundCats = await Category.find({
+                    name: { $in: categoryNamesToResolve }
+                });
+                foundCats.forEach(cat => resolvedCategoryIds.push(cat._id));
+            }
+
+            if (resolvedCategoryIds.length > 0) {
+                query.categories = { $in: resolvedCategoryIds };
+            } else if (categoryList.length > 0) {
+                return res.json({ success: true, count: 0, data: [] });
+            }
+        }
+
+        // Handle role as category name search
+        if (role && role !== 'all') {
+            const Category = require('../models/Category');
+            const foundCategory = await Category.findOne({ 
+                name: { $regex: new RegExp(`^${role}$`, 'i') } 
+            });
+            if (foundCategory) {
+                query.categories = { $in: [foundCategory._id] };
+            }
+        }
+
+        if (skills) {
+            const skillList = Array.isArray(skills) ? skills : [skills];
+            const mongoose = require('mongoose');
+            const Skill = require('../models/Skill');
+            
+            // Separate valid IDs from skill names (slugs or names)
+            const resolvedSkillIds = [];
+            const skillNamesToResolve = [];
+
+            skillList.forEach(s => {
+                if (mongoose.Types.ObjectId.isValid(s)) {
+                    resolvedSkillIds.push(s);
+                } else {
+                    skillNamesToResolve.push(s);
+                }
+            });
+
+            // Resolve skill names to IDs by searching in the Skill model
+            if (skillNamesToResolve.length > 0) {
+                const foundSkills = await Skill.find({ 
+                    $or: [
+                        { name: { $in: skillNamesToResolve } },
+                        { slug: { $in: skillNamesToResolve.map(s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-')) } }
+                    ]
+                });
+                foundSkills.forEach(skill => resolvedSkillIds.push(skill._id));
+            }
+
+            if (resolvedSkillIds.length > 0) {
+                query.skills = { $in: resolvedSkillIds };
+            } else if (skillList.length > 0) {
+                // If we had skill names but none were found, return no results as the filter is invalid
+                return res.json({ success: true, count: 0, data: [] });
+            }
+        }
+
+        const freelancers = await User.find(query)
+            .select('-password')
+            .populate('categories', 'name')
+            .populate('skills', 'name');
+        res.json({ success: true, count: freelancers.length, data: freelancers });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -27,7 +118,21 @@ exports.getFreelancers = async (req, res) => {
 // @access  Public
 exports.getFreelancerById = async (req, res) => {
     try {
-        const freelancer = await User.findOne({ _id: req.params.id, roles: 'freelancer' }).select('-password');
+        const mongoose = require('mongoose');
+        const talentId = req.params.id;
+
+        // Validation Guard: Check if ID is valid and not 'undefined'
+        if (!talentId || talentId === 'undefined' || !mongoose.Types.ObjectId.isValid(talentId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid freelancer ID format' 
+            });
+        }
+
+        const freelancer = await User.findOne({ _id: talentId, roles: 'freelancer' })
+            .select('-password')
+            .populate('categories', 'name')
+            .populate('skills', 'name');
         if (!freelancer) {
             return res.status(404).json({ success: false, message: 'Freelancer not found' });
         }
@@ -328,6 +433,114 @@ exports.getSavedGigs = async (req, res) => {
         const userId = req.user.id;
         const saved = await SavedGig.find({ user: userId }).populate('gig');
         res.json({ success: true, data: saved });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Toggle favorite project
+// @route   PUT /api/users/favorites/:id
+// @access  Private
+exports.toggleFavoriteProject = async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const index = user.favorites.indexOf(projectId);
+        let isFavorited = false;
+
+        if (index === -1) {
+            user.favorites.push(projectId);
+            isFavorited = true;
+        } else {
+            user.favorites.splice(index, 1);
+            isFavorited = false;
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            isFavorited,
+            message: isFavorited ? 'Project added to favorites' : 'Project removed from favorites'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get favorite projects
+// @route   GET /api/users/favorites
+// @access  Private
+exports.getFavoriteProjects = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate({
+            path: 'favorites',
+            populate: { path: 'client_id', select: 'full_name profile_image' }
+        });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.status(200).json({ success: true, data: user.favorites });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Toggle favorite startup idea
+// @route   PUT /api/users/favorites-ideas/:id
+// @access  Private
+exports.toggleFavoriteIdea = async (req, res) => {
+    try {
+        const ideaId = req.params.id;
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const index = user.favorite_ideas.indexOf(ideaId);
+        let isFavorited = false;
+
+        if (index === -1) {
+            user.favorite_ideas.push(ideaId);
+            isFavorited = true;
+        } else {
+            user.favorite_ideas.splice(index, 1);
+            isFavorited = false;
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            isFavorited,
+            message: isFavorited ? 'Idea added to favorites' : 'Idea removed from favorites'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get favorite startup ideas
+// @route   GET /api/users/favorites-ideas
+// @access  Private
+exports.getFavoriteIdeas = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate({
+            path: 'favorite_ideas',
+            populate: { path: 'creator', select: 'full_name profile_image' }
+        });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.status(200).json({ success: true, data: user.favorite_ideas });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

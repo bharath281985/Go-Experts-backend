@@ -56,6 +56,14 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'KYC'
     },
+    kyc_details: {
+        pan_card: String,
+        aadhar_card: String,
+        is_verified: {
+            type: Boolean,
+            default: false
+        }
+    },
     kyc_status: {
         type: String,
         enum: ['unverified', 'basic_verified', 'fully_verified', 'premium_verified', 'rejected', 'pending'],
@@ -111,11 +119,23 @@ const userSchema = new mongoose.Schema({
         },
         project_credits: {
             type: Number,
-            default: 36
+            default: 0
         },
         portfolio_credits: {
             type: Number,
-            default: 36
+            default: 0
+        },
+        task_credits: {
+            type: Number,
+            default: 0
+        },
+        chat_credits: {
+            type: Number,
+            default: 0
+        },
+        db_credits: {
+            type: Number,
+            default: 0
         },
         reminder_sent_10d: {
             type: Boolean,
@@ -125,7 +145,9 @@ const userSchema = new mongoose.Schema({
     created_at: {
         type: Date,
         default: Date.now
-    }
+    },
+    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
+    favorite_ideas: [{ type: mongoose.Schema.Types.ObjectId, ref: 'StartupIdea' }]
 });
 
 // Encrypt password using bcrypt

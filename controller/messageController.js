@@ -20,8 +20,13 @@ exports.getConversations = async (req, res) => {
         const conversationsMap = new Map();
 
         messages.forEach(msg => {
+            // Safety check for deleted users
+            if (!msg.sender || !msg.receiver) return;
+
             const isSender = msg.sender._id.toString() === userId.toString();
             const otherUser = isSender ? msg.receiver : msg.sender;
+            
+            if (!otherUser || !otherUser._id) return;
             const otherUserId = otherUser._id.toString();
 
             if (!conversationsMap.has(otherUserId)) {
@@ -32,7 +37,8 @@ exports.getConversations = async (req, res) => {
                 });
             } else {
                 if (!isSender && !msg.isRead) {
-                    conversationsMap.get(otherUserId).unreadCount++;
+                    const conv = conversationsMap.get(otherUserId);
+                    if (conv) conv.unreadCount++;
                 }
             }
         });

@@ -22,7 +22,7 @@ const {
     getEmailTemplates, updateEmailTemplate,
     // Testimonials
     getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, toggleTestimonial,
-    uploadNDATemplate,
+    uploadNDATemplate, uploadSiteLogo, uploadSiteFavicon, uploadHeaderLogo, uploadFooterLogo,
     // Startup Ideas Legal
     getStartupFAQs, createStartupFAQ, updateStartupFAQ, deleteStartupFAQ, toggleStartupFAQ,
     getStartupTerms, updateStartupTerms,
@@ -67,6 +67,10 @@ router.patch('/skills/:id/toggle', toggleSkill);
 router.get('/settings/admin', getAdminSiteSettings);
 router.put('/settings', updateSiteSettings);
 router.post('/settings/nda-template', upload.single('nda'), uploadNDATemplate);
+router.post('/settings/logo', upload.single('site_logo'), uploadSiteLogo);
+router.post('/settings/favicon', upload.single('site_favicon'), uploadSiteFavicon);
+router.post('/settings/header-logo', upload.single('header_logo'), uploadHeaderLogo);
+router.post('/settings/footer-logo', upload.single('footer_logo'), uploadFooterLogo);
 
 // Banners (admin)
 router.post('/banners', createBanner);

@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const registrationStepSchema = new mongoose.Schema({
     order: {
         type: Number,
-        required: true,
-        unique: true
+        required: true
     },
     label: {
         type: String,
@@ -16,6 +15,11 @@ const registrationStepSchema = new mongoose.Schema({
     },
     description: {
         type: String
+    },
+    module: {
+        type: String,
+        enum: ['onboarding', 'project_finder', 'talent_finder'],
+        default: 'onboarding'
     },
     type: {
         type: String,
@@ -51,5 +55,7 @@ const registrationStepSchema = new mongoose.Schema({
         default: [] // Empty means all roles
     }
 }, { timestamps: true });
+
+registrationStepSchema.index({ module: 1, order: 1 }, { unique: true });
 
 module.exports = mongoose.model('RegistrationStep', registrationStepSchema);
