@@ -86,8 +86,9 @@ exports.register = async (req, res) => {
             });
         }
 
+        const trialDuration = trialPlan.duration_days || 90;
         const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 90);
+        endDate.setDate(endDate.getDate() + trialDuration);
 
         await UserSubscription.create({
             user_id: newUser._id,
@@ -97,10 +98,10 @@ exports.register = async (req, res) => {
             remaining_task_posts: trialPlan.task_post_limit,
             remaining_chats: trialPlan.chat_limit,
             remaining_db_access: trialPlan.database_access_limit,
-            remaining_project_visits: trialPlan.project_visit_limit || 36,
-            remaining_portfolio_visits: trialPlan.portfolio_visit_limit || 36,
-            remaining_idea_unlocks: trialPlan.startup_idea_explore_limit || 3,
-            remaining_startup_posts: trialPlan.startup_idea_post_limit || 3,
+            remaining_project_visits: trialPlan.project_visit_limit ?? 36,
+            remaining_portfolio_visits: trialPlan.portfolio_visit_limit ?? 36,
+            remaining_idea_unlocks: trialPlan.startup_idea_explore_limit ?? 3,
+            remaining_startup_posts: trialPlan.startup_idea_post_limit ?? 3,
             status: 'active'
         });
 
@@ -128,19 +129,19 @@ exports.register = async (req, res) => {
         try {
             await sendEmail({
                 email: newUser.email,
-                subject: 'Welcome to Go Experts - 90 Days Free Trial Active!',
+                subject: `Welcome to Go Experts - ${trialDuration} Days Free Trial Active!`,
                 templateData: { name: newUser.full_name, link: verificationUrl },
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                         <h1 style="color: #F24C20; text-align: center;">Welcome to Go Experts!</h1>
                         <p>Hi ${newUser.full_name},</p>
-                        <p>Congratulations! Your account has been created with a <b>90-Day Premium Free Trial</b>.</p>
+                        <p>Congratulations! Your account has been created with a <b>${trialDuration}-Day Premium Free Trial</b>.</p>
                         <div style="background: #fdf2f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
                             <h3 style="margin-top: 0; color: #F24C20;">Your Trial Benefits:</h3>
                             <ul style="margin-bottom: 0;">
-                                <li>90 Days Full Platform Access</li>
-                                <li>Post up to 36 Projects & Tasks</li>
-                                <li>Direct Chat with Users</li>
+                                <li>${trialDuration} Days Full Platform Access</li>
+                                <li>Post up to ${trialPlan.project_post_limit ?? 36} Projects & Tasks</li>
+                                <li>Direct Chat with ${trialPlan.chat_limit ?? 10} people</li>
                                 <li>Access to Experts Library</li>
                             </ul>
                         </div>
@@ -148,7 +149,7 @@ exports.register = async (req, res) => {
                         <div style="text-align: center; margin: 30px 0;">
                             <a href="${verificationUrl}" style="background-color: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Verify Email Address</a>
                         </div>
-                        <p style="font-size: 11px; color: #aaa; text-align: center;">After 90 days, you can choose to upgrade your plan from your dashboard settings.</p>
+                        <p style="font-size: 11px; color: #aaa; text-align: center;">After ${trialDuration} days, you can choose to upgrade your plan from your dashboard settings.</p>
                     </div>
                 `
             });

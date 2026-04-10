@@ -14,6 +14,7 @@ exports.createGig = async (req, res) => {
             });
         }
         req.body.freelancer_id = req.user.id;
+        req.body.status = 'live'; 
         const file = Array.isArray(req.files) ? req.files.find(f => f.fieldname === 'thumbnail' || f.fieldname === 'gig_image') || req.files[0] : null;
         if (file) {
             req.body.thumbnail = `/uploads/gigs/${file.filename}`;

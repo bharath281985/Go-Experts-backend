@@ -72,12 +72,12 @@ exports.submitIdea = async (req, res) => {
             milestones,
             ndaRequired,
             signedNDA,
-            status: 'pending' // Admin approval required
+            status: 'approved' // Approved by default as requested
         });
 
         res.status(201).json({
             success: true,
-            message: 'Idea submitted successfully and is pending admin approval',
+            message: 'Idea submitted successfully and is now live on the platform',
             data: newIdea
         });
     } catch (err) {
@@ -162,7 +162,7 @@ exports.getIdeaById = async (req, res) => {
             }
         }
         
-        ideaObj.isUnlocked = !!isUnlocked;
+        ideaObj.isUnlocked = !!isUnlocked || (req.user && creatorId?.toString() === req.user._id.toString());
 
         res.json({ success: true, data: ideaObj });
     } catch (err) {
@@ -238,11 +238,25 @@ exports.unlockContact = async (req, res) => {
 // @access  Private
 exports.getMyIdeas = async (req, res) => {
     try {
-        const { status } = req.query;
+        const { status, category, search } = req.query;
         let query = { creator: req.user._id };
         if (status) query.status = status;
 
-        const ideas = await StartupIdea.find(query).sort({ createdAt: -1 });
+        if (category) {
+            query.category = category;
+        }
+
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { shortDescription: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const ideas = await StartupIdea.find(query)
+            .populate('creator', 'full_name profile_image')
+            .sort({ createdAt: -1 });
+
         res.json({ success: true, count: ideas.length, data: ideas });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

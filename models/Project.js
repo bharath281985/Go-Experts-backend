@@ -40,6 +40,16 @@ const projectSchema = new mongoose.Schema({
     hired_freelancer_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    client_review: {
+        rating: Number,
+        comment: String,
+        created_at: { type: Date, default: Date.now }
+    },
+    freelancer_review: {
+        rating: Number,
+        comment: String,
+        created_at: { type: Date, default: Date.now }
     }
 }, { timestamps: true });
 

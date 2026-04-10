@@ -31,6 +31,7 @@ exports.createProject = async (req, res) => {
         }
 
         req.body.client_id = req.user.id;
+        req.body.status = 'live';
         
         // Handle attachments
         if (req.files && req.files.length > 0) {
@@ -139,13 +140,18 @@ exports.getProjectById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Project not found' });
         }
         
-        const proposals = await ProjectInterest.countDocuments({ project_id: req.params.id });
+        const proposals = await ProjectInterest.countDocuments({ project_id: req.params.id }); 
         
+        // Check if current user applied
+        const userId = req.user?.id;
+        const interest = userId ? await ProjectInterest.findOne({ project_id: req.params.id, freelancer_id: userId }) : null;
+
         res.json({ 
             success: true, 
             data: {
                 ...project.toObject(),
-                proposals 
+                proposals,
+                isApplied: !!interest
             }
         });
     } catch (error) {
@@ -385,3 +391,35 @@ exports.completeProject = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+// @desc    Submit a review for a completed project
+// @route   POST /api/projects/:id/review
+// @access  Private
+exports.submitReview = async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+        if (project.status !== 'completed') {
+            return res.status(400).json({ success: false, message: 'Reviews only allowed for completed projects' });
+        }
+
+        const { rating, comment } = req.body;
+        const isClient = project.client_id.toString() === req.user.id;
+        const isFreelancer = project.hired_freelancer_id?.toString() === req.user.id;
+
+        if (isClient) {
+            project.client_review = { rating, comment, created_at: Date.now() };
+        } else if (isFreelancer) {
+            project.freelancer_review = { rating, comment, created_at: Date.now() };
+        } else {
+            return res.status(403).json({ success: false, message: 'Only participants can submit reviews' });
+        }
+
+        await project.save();
+        res.json({ success: true, message: 'Review submitted successfully', data: project });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
