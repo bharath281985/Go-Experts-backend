@@ -2,6 +2,7 @@ const ContactMessage = require('../models/ContactMessage');
 const OTP = require('../models/OTP');
 const sendEmail = require('../utils/sendEmail');
 const SiteSettings = require('../models/SiteSettings');
+const User = require('../models/User');
 
 // Helper to generate 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -120,5 +121,61 @@ exports.submitContactMessage = async (req, res) => {
     } catch (error) {
         console.error('submitContactMessage error:', error);
         res.status(500).json({ success: false, message: 'Failed to submit inquiry' });
+    }
+};
+
+exports.contactFreelancer = async (req, res) => {
+    try {
+        const { freelancerId, name, email, subject, message } = req.body;
+
+        if (!freelancerId || !name || !email || !subject || !message) {
+            return res.status(400).json({ success: false, message: 'All fields are required' });
+        }
+
+        const freelancer = await User.findById(freelancerId);
+        if (!freelancer) {
+            return res.status(404).json({ success: false, message: 'Freelancer not found' });
+        }
+
+        // Send email to freelancer
+        await sendEmail({
+            email: freelancer.email,
+            subject: `Inquiry from Go Experts: ${subject}`,
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; color: #333;">
+                    <h2 style="color: #F24C20;">You have a new inquiry!</h2>
+                    <p>Hello ${freelancer.full_name},</p>
+                    <p>A visitor on your Go Experts profile has sent you a message:</p>
+                    <div style="background: #fdfdfd; padding: 20px; border: 1px solid #eee; border-radius: 12px; margin-top: 20px;">
+                        <p><b>From:</b> ${name} (<a href="mailto:${email}">${email}</a>)</p>
+                        <p><b>Subject:</b> ${subject}</p>
+                        <p><b>Message:</b></p>
+                        <p style="white-space: pre-line;">${message}</p>
+                    </div>
+                    <p style="margin-top: 20px; font-size: 13px; color: #777;">
+                        Do not reply directly to this email. Use the contact information provided above to get in touch with the sender.
+                    </p>
+                </div>
+            `
+        });
+
+        // Send confirmation email to sender
+        await sendEmail({
+            email,
+            subject: `Message Sent to ${freelancer.full_name} - Go Experts`,
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; color: #333;">
+                    <h2 style="color: #F24C20;">Message Delivered</h2>
+                    <p>Hello ${name},</p>
+                    <p>Your message has been successfully sent to <b>${freelancer.full_name}</b>.</p>
+                    <p>They will contact you directly via your email (${email}) if they are interested.</p>
+                </div>
+            `
+        });
+
+        res.status(200).json({ success: true, message: 'Your message has been sent to the freelancer!' });
+    } catch (error) {
+        console.error('contactFreelancer error:', error);
+        res.status(500).json({ success: false, message: 'Failed to send message' });
     }
 };

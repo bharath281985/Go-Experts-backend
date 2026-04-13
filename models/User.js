@@ -6,6 +6,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please add a name']
     },
+    username: {
+        type: String,
+        unique: true,
+        sparse: true, // Allows nulls to be unique
+        lowercase: true,
+        trim: true
+    },
     email: {
         type: String,
         required: [true, 'Please add an email'],
@@ -44,6 +51,23 @@ const userSchema = new mongoose.Schema({
         default: 0
     },
     skills: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Skill' }],
+    experience_details: [{
+        year_range: String,
+        title: String,
+        company: String,
+        description: String
+    }],
+    education_details: [{
+        year_range: String,
+        title: String,
+        institution: String,
+        description: String
+    }],
+    role_title: String,
+    languages: [String],
+    completed_projects: { type: Number, default: 0 },
+    happy_customers: { type: Number, default: 0 },
+    review_score: { type: Number, default: 0 },
     portfolio: [{
         title: String,
         image: String, // Thumbnail for the project
@@ -147,7 +171,18 @@ const userSchema = new mongoose.Schema({
         default: Date.now
     },
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
-    favorite_ideas: [{ type: mongoose.Schema.Types.ObjectId, ref: 'StartupIdea' }]
+    favorite_ideas: [{ type: mongoose.Schema.Types.ObjectId, ref: 'StartupIdea' }],
+    social_links: {
+        facebook: String,
+        twitter: String,
+        linkedin: String,
+        instagram: String,
+        github: String,
+        behance: String,
+        dribbble: String,
+        youtube: String
+    },
+    landing_page_image: String
 });
 
 // Encrypt password using bcrypt

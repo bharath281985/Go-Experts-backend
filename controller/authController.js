@@ -518,12 +518,22 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
-// @desc    Get user by ID
-// @route   GET /api/auth/users/:id
-// @access  Private
 exports.getUserById = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).select('-password');
+        const mongoose = require('mongoose');
+        const identifier = req.params.id;
+        
+        let query = {};
+        
+        // If it's a valid ObjectId, search by _id, otherwise search by username
+        if (mongoose.Types.ObjectId.isValid(identifier)) {
+            query._id = identifier;
+        } else {
+            query.username = identifier.toLowerCase();
+        }
+
+        const user = await User.findOne(query).select('-password');
+        
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -573,8 +583,8 @@ exports.updateProfile = async (req, res) => {
         const allowedFields = [
             'full_name', 'email', 'location', 'bio', 'phone_number',
             'availability', 'work_preference', 'experience_level', 'skills', 'hourly_rate',
-            'categories', 'portfolio', 'kyc_details', 'documents', 'work_images', 'roles',
-            'budget_range'
+            'categories', 'portfolio', 'experience_details', 'education_details', 'role_title', 'languages', 'completed_projects', 'happy_customers', 'review_score', 'kyc_details', 'documents', 'work_images', 'roles',
+            'budget_range', 'landing_page_image', 'social_links'
         ];
 
         allowedFields.forEach(field => {
@@ -588,7 +598,7 @@ exports.updateProfile = async (req, res) => {
                 }
 
                 // If it's a stringified JSON (from multipart/form-data), parse it
-                if (typeof value === 'string' && (field === 'portfolio' || field === 'kyc_details' || field === 'documents' || field === 'work_images' || field === 'categories' || field === 'skills')) {
+                if (typeof value === 'string' && (field === 'portfolio' || field === 'kyc_details' || field === 'documents' || field === 'work_images' || field === 'categories' || field === 'skills' || field === 'experience_details' || field === 'education_details' || field === 'languages' || field === 'social_links')) {
                     try {
                         const parsed = JSON.parse(value);
                         value = parsed;
@@ -598,7 +608,7 @@ exports.updateProfile = async (req, res) => {
                 }
 
                 // Merge nested objects instead of overwriting
-                if ((field === 'kyc_details' || field === 'documents') && typeof value === 'object' && value !== null) {
+                if ((field === 'kyc_details' || field === 'documents' || field === 'social_links') && typeof value === 'object' && value !== null) {
                     Object.keys(value).forEach(key => {
                         if (value[key] !== undefined) {
                             user.set(`${field}.${key}`, value[key]);
@@ -616,6 +626,11 @@ exports.updateProfile = async (req, res) => {
             // Profile photo
             if (req.files.profile && req.files.profile[0]) {
                 user.profile_image = `/uploads/profiles/${req.files.profile[0].filename}`;
+            }
+
+            // Landing Page Header image
+            if (req.files.landing_image && req.files.landing_image[0]) {
+                user.landing_page_image = `/uploads/profiles/${req.files.landing_image[0].filename}`;
             }
 
             // KYC documents

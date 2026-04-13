@@ -121,18 +121,27 @@ exports.getFreelancerById = async (req, res) => {
         const mongoose = require('mongoose');
         const talentId = req.params.id;
 
-        // Validation Guard: Check if ID is valid and not 'undefined'
-        if (!talentId || talentId === 'undefined' || !mongoose.Types.ObjectId.isValid(talentId)) {
+        if (!talentId || talentId === 'undefined') {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Invalid freelancer ID format' 
+                message: 'Freelancer ID or username is required' 
             });
         }
 
-        const freelancer = await User.findOne({ _id: talentId, roles: 'freelancer' })
+        let query = { roles: 'freelancer' };
+        
+        // If it's a valid ObjectId, search by _id, otherwise search by username
+        if (mongoose.Types.ObjectId.isValid(talentId)) {
+            query._id = talentId;
+        } else {
+            query.username = talentId.toLowerCase();
+        }
+
+        const freelancer = await User.findOne(query)
             .select('-password')
             .populate('categories', 'name')
             .populate('skills', 'name');
+
         if (!freelancer) {
             return res.status(404).json({ success: false, message: 'Freelancer not found' });
         }
@@ -156,6 +165,7 @@ exports.getUserStats = async (req, res) => {
 
         const stats = {
             roles: user.roles,
+            username: user.username,
             wallet_balance: user.wallet_balance || 0,
             total_points: user.total_points || 0
         };

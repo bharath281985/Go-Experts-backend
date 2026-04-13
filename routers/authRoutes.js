@@ -17,6 +17,7 @@ router.get('/verify-email/:token', verifyEmail);
 // Protected routes
 const uploadFields = upload.fields([
     { name: 'profile', maxCount: 1 },
+    { name: 'landing_image', maxCount: 1 },
     { name: 'pan_card', maxCount: 1 },
     { name: 'aadhar_card', maxCount: 1 },
     { name: 'educational', maxCount: 5 },
