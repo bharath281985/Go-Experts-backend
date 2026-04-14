@@ -50,6 +50,7 @@ app.use('/api/startup-categories', require('./routers/startupCategoryRoutes'));
 app.use('/api/investor', require('./routers/investorRoutes'));
 app.use('/api/meetings', require('./routers/meetingRoutes'));
 app.use('/api/kyc', require('./routers/kycRoutes'));
+app.use('/api/reviews', require('./routers/reviewRoutes'));
 
 
 // Root Route

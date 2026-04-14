@@ -58,7 +58,7 @@ exports.getStats = async (req, res) => {
 exports.getUsers = async (req, res) => {
     try {
         const users = await User.find({ roles: { $ne: 'admin' } })
-            .select('+show_password')
+            .select('-password')
             .populate('skills', 'name')
             .populate('categories', 'name').populate('kyc')
             .sort({ created_at: -1 });
@@ -93,7 +93,7 @@ exports.createUser = async (req, res) => {
             email,
             phone_number: phone,
             password, // Mongoose middleware will hash this
-            show_password: password, // Store plain text for admin display (DEMO ONLY)
+
             roles: role === 'both' ? ['client', 'freelancer'] : [role],
             location: `${location}, ${country}`,
             is_email_verified: verified || false,

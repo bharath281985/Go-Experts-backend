@@ -145,7 +145,18 @@ exports.getFreelancerById = async (req, res) => {
         if (!freelancer) {
             return res.status(404).json({ success: false, message: 'Freelancer not found' });
         }
-        res.json({ success: true, data: freelancer });
+
+        // Attach real review stats
+        const Review = require('../models/Review');
+        const reviewStats = await Review.aggregate([
+            { $match: { freelancer_id: freelancer._id } },
+            { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } }
+        ]);
+        const freelancerObj = freelancer.toObject();
+        freelancerObj.review_score = reviewStats.length > 0 ? +reviewStats[0].avg.toFixed(1) : 0;
+        freelancerObj.review_count = reviewStats.length > 0 ? reviewStats[0].count : 0;
+
+        res.json({ success: true, data: freelancerObj });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

@@ -28,10 +28,7 @@ const userSchema = new mongoose.Schema({
         minlength: 6,
         select: false
     },
-    show_password: {
-        type: String, // Storing plain text for admin display (DEMO ONLY)
-        select: false
-    },
+
     roles: {
         type: [String],
         enum: ['freelancer', 'client', 'admin', 'investor', 'startup_creator'],
@@ -68,6 +65,7 @@ const userSchema = new mongoose.Schema({
     completed_projects: { type: Number, default: 0 },
     happy_customers: { type: Number, default: 0 },
     review_score: { type: Number, default: 0 },
+    review_count: { type: Number, default: 0 },
     portfolio: [{
         title: String,
         image: String, // Thumbnail for the project
