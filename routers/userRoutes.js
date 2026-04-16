@@ -14,7 +14,9 @@ const {
     toggleFavoriteProject,
     getFavoriteProjects,
     toggleFavoriteIdea,
-    getFavoriteIdeas
+    getFavoriteIdeas,
+    toggleFavoriteUser,
+    getFavoriteUsers
 } = require('../controller/userController');
 const { protect } = require('../middleware/auth');
 
@@ -32,5 +34,7 @@ router.put('/favorites/:id', protect, toggleFavoriteProject);
 router.get('/favorites', protect, getFavoriteProjects);
 router.put('/favorites-ideas/:id', protect, toggleFavoriteIdea);
 router.get('/favorites-ideas', protect, getFavoriteIdeas);
+router.put('/favorites-users/:id', protect, toggleFavoriteUser);
+router.get('/favorites-users', protect, getFavoriteUsers);
 
 module.exports = router;

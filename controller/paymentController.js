@@ -160,6 +160,9 @@ exports.handlePaymentResponse = async (req, res) => {
                 const endDate = new Date();
                 endDate.setDate(endDate.getDate() + plan.duration_days);
 
+                const bonusPoints = plan.points_granted || 0;
+                user.total_points = (user.total_points || 0) + bonusPoints;
+
                 // Update or Create UserSubscription with all defined limits
                 await UserSubscription.findOneAndUpdate(
                     { user_id: user._id },

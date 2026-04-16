@@ -10,7 +10,8 @@ const {
   awardProject, 
   acceptProjectAward, 
   completeProject, 
-  submitReview 
+  submitReview,
+  updateProject
 } = require('../controller/projectController');
 const { protect, authorize, optionalProtect } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -22,7 +23,8 @@ router.route('/')
 router.get('/my', protect, authorize('client', 'freelancer'), getMyProjects);
 
 router.route('/:id')
-    .get(optionalProtect, getProjectById);
+    .get(optionalProtect, getProjectById)
+    .put(protect, authorize('client'), upload.array('attachments', 5), updateProject);
 
 router.post('/:id/interest', protect, authorize('freelancer'), expressInterest);
 router.post('/:id/review', protect, submitReview);

@@ -7,7 +7,7 @@ const fs = require('fs');
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         let dest = 'uploads/';
-        if (file.fieldname === 'profile') dest += 'profiles/';
+        if (file.fieldname === 'profile' || file.fieldname === 'landing_image') dest += 'profiles/';
         else if (file.fieldname === 'pan_card' || file.fieldname === 'aadhar_card' || file.fieldname === 'kyc_doc') dest += 'kyc/';
         else if (file.fieldname === 'educational' || file.fieldname === 'experience_letter') dest += 'documents/';
         else if (file.fieldname === 'gig_image' || file.fieldname === 'thumbnail') dest += 'gigs/';

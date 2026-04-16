@@ -9,6 +9,7 @@ const Invoice = require('../models/Invoice');
 const SavedGig = require('../models/SavedGig');
 const Withdrawal = require('../models/Withdrawal');
 const ProjectInterest = require('../models/ProjectInterest');
+const Review = require('../models/Review');
 
 // @desc    Get all freelancers
 // @route   GET /api/users/freelancers
@@ -16,7 +17,13 @@ const ProjectInterest = require('../models/ProjectInterest');
 exports.getFreelancers = async (req, res) => {
     try {
         const { categories, skills, role, search } = req.query;
-        let query = { roles: 'freelancer' };
+        let query = {
+            $and: [
+                { roles: 'freelancer' },
+                { roles: { $nin: ['admin'] } }
+            ],
+            is_suspended: { $ne: true }
+        };
 
         if (search) {
             query.$or = [
@@ -128,7 +135,13 @@ exports.getFreelancerById = async (req, res) => {
             });
         }
 
-        let query = { roles: 'freelancer' };
+        let query = {
+            $and: [
+                { roles: 'freelancer' },
+                { roles: { $nin: ['admin'] } }
+            ],
+            is_suspended: { $ne: true }
+        };
         
         // If it's a valid ObjectId, search by _id, otherwise search by username
         if (mongoose.Types.ObjectId.isValid(talentId)) {
@@ -168,41 +181,158 @@ exports.getFreelancerById = async (req, res) => {
 exports.getUserStats = async (req, res) => {
     try {
         const userId = req.user.id;
-        const user = await User.findById(userId);
+        const user = await User.findById(userId)
+            .populate('categories', 'name')
+            .populate('skills', 'name');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
         const stats = {
+            _id: user._id,
             roles: user.roles,
             username: user.username,
             wallet_balance: user.wallet_balance || 0,
-            total_points: user.total_points || 0
+            total_points: user.total_points || 0,
+            profile: {
+                _id: user._id,
+                full_name: user.full_name,
+                username: user.username,
+                email: user.email,
+                phone_number: user.phone_number,
+                profile_image: user.profile_image,
+                bio: user.bio,
+                location: user.location,
+                role_title: user.role_title,
+                hourly_rate: user.hourly_rate || 0,
+                review_score: user.review_score || 0,
+                review_count: user.review_count || 0,
+                completed_projects: user.completed_projects || 0,
+                happy_customers: user.happy_customers || 0,
+                kyc_status: user.kyc_status,
+                is_verified: Boolean(user.kyc_details?.is_verified),
+                landing_page_image: user.landing_page_image,
+                portfolio_count: Array.isArray(user.portfolio) ? user.portfolio.length : 0,
+                categories: Array.isArray(user.categories)
+                    ? user.categories.map((category) => category.name || category)
+                    : [],
+                skills: Array.isArray(user.skills)
+                    ? user.skills.map((skill) => skill.name || skill)
+                    : [],
+                social_links: user.social_links || {}
+            }
         };
 
         // Client stats
         if (user.roles.includes('client')) {
-            const projects = await Project.find({ client_id: userId });
-            const ordersAsBuyer = await GigOrder.find({ buyer_id: userId });
+            const [projects, ordersAsBuyer, projectInterests, disputeCount] = await Promise.all([
+                Project.find({ client_id: userId }),
+                GigOrder.find({ buyer_id: userId }).sort({ createdAt: -1 }),
+                ProjectInterest.find({ client_id: userId })
+                    .populate('freelancer_id', 'full_name profile_image')
+                    .populate('project_id', 'title')
+                    .sort({ createdAt: -1 }),
+                Dispute.countDocuments({ $or: [{ buyer: userId }, { seller: userId }] })
+            ]);
+
+            const completedProjects = projects.filter(p => p.status === 'completed').length;
+            const liveProjects = projects.filter(p => p.status === 'live').length;
+            const totalProjects = projects.length;
+
+            // Spending Trend (Last 6 Months)
+            const spendingTrend = [];
+            const now = new Date();
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthName = d.toLocaleString('default', { month: 'short' });
+                const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+                const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+
+                const monthlyTotal = ordersAsBuyer
+                    .filter(o => o.payment_status === 'paid' && o.createdAt >= monthStart && o.createdAt <= monthEnd)
+                    .reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+
+                spendingTrend.push({ month: monthName, amount: monthlyTotal });
+            }
+
+            // Category Breakdown
+            const categoriesMap = {};
+            projects.forEach(p => {
+                const cat = p.category || 'Other';
+                categoriesMap[cat] = (categoriesMap[cat] || 0) + 1;
+            });
+            const categoryBreakdown = Object.keys(categoriesMap).map((name, index) => ({
+                name,
+                value: Math.round((categoriesMap[name] / totalProjects) * 100),
+                color: ['#F24C20', '#044071', '#10b981', '#64748b', '#f59e0b', '#8b5cf6'][index % 6]
+            }));
+
+            // Recent Activity combined Feed
+            const recentActivity = [];
+            
+            // Add Project Applications (Interests)
+            projectInterests.slice(0, 3).forEach(interest => {
+                recentActivity.push({
+                    type: 'project',
+                    title: `Application for "${interest.project_id?.title || 'Project'}"`,
+                    time: interest.createdAt.toLocaleString(),
+                    icon: 'Users',
+                    color: 'text-blue-500'
+                });
+            });
+
+            // Add Payments
+            ordersAsBuyer.filter(o => o.payment_status === 'paid').slice(0, 2).forEach(order => {
+                recentActivity.push({
+                    type: 'payment',
+                    title: `Payment: ₹${order.total_amount.toLocaleString()}`,
+                    time: order.createdAt.toLocaleString(),
+                    icon: 'IndianRupee',
+                    color: 'text-green-500'
+                });
+            });
 
             stats.client = {
-                total_projects: projects.length,
-                live_projects: projects.filter(p => p.status === 'live').length,
+                total_projects: totalProjects,
+                live_projects: liveProjects,
+                completed_projects: completedProjects,
                 total_spent: ordersAsBuyer
                     .filter(o => o.payment_status === 'paid')
                     .reduce((acc, curr) => acc + (curr.total_amount || 0), 0),
-                ongoing_gig_orders: ordersAsBuyer.filter(o => ['pending', 'in_progress', 'delivered'].includes(o.status)).length
+                spending_trend: spendingTrend,
+                category_breakdown: categoryBreakdown,
+                recent_activity: recentActivity.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5),
+                ongoing_gig_orders: ordersAsBuyer.filter(o => ['pending', 'in_progress', 'delivered'].includes(o.status)).length,
+                dispute_count: disputeCount
             };
         }
 
         // Freelancer stats
         if (user.roles.includes('freelancer')) {
-            const gigs = await Gig.find({ freelancer_id: userId });
-            const ordersAsSeller = await GigOrder.find({ seller_id: userId })
-                .populate('gig_id', 'title')
-                .populate('buyer_id', 'full_name')
-                .sort({ createdAt: -1 });
+            const [gigs, ordersAsSeller, hiredProjects, activeProposals, reviewSummary, disputeCount] = await Promise.all([
+                Gig.find({ freelancer_id: userId }),
+                GigOrder.find({ seller_id: userId })
+                    .populate('gig_id', 'title')
+                    .populate('buyer_id', 'full_name')
+                    .sort({ createdAt: -1 }),
+                Project.find({ hired_freelancer_id: userId }).sort({ updatedAt: -1 }),
+                ProjectInterest.find({
+                    freelancer_id: userId,
+                    status: { $in: ['awarded', 'accepted'] }
+                }).populate('project_id', 'title status updatedAt createdAt'),
+                Review.aggregate([
+                    { $match: { freelancer_id: user._id } },
+                    {
+                        $group: {
+                            _id: null,
+                            avg: { $avg: '$rating' },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ]),
+                Dispute.countDocuments({ $or: [{ buyer: userId }, { seller: userId }] })
+            ]);
             
             // Calculate Current & Previous Month Earnings for Trend
             const now = new Date();
@@ -220,6 +350,21 @@ exports.getUserStats = async (req, res) => {
             const lastMonthEarnings = lastMonthOrders.reduce((acc, curr) => acc + (curr.price || 0), 0);
             
             const earningsTrend = lastMonthEarnings === 0 ? 100 : Math.round(((currentMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100);
+            const completedGigOrders = ordersAsSeller.filter(o => o.status === 'completed');
+            const completedProjectContracts = hiredProjects.filter(project => project.status === 'completed');
+            const activeProjectContracts = activeProposals.filter((proposal) => proposal.project_id && proposal.project_id.status !== 'completed');
+            const totalOrders = ordersAsSeller.length + hiredProjects.length;
+            const totalCompletedWork = completedGigOrders.length + completedProjectContracts.length;
+            const totalTrackedWork = totalOrders;
+            const completionRate = totalTrackedWork > 0 ? Math.round((totalCompletedWork / totalTrackedWork) * 100) : 0;
+            const completedWithDeadline = completedGigOrders.filter(order => order.delivery_date);
+            const onTimeDelivery = completedWithDeadline.length > 0
+                ? Math.round(
+                    (completedWithDeadline.filter(order => new Date(order.updatedAt) <= new Date(order.delivery_date)).length / completedWithDeadline.length) * 100
+                )
+                : 0;
+            const satisfaction = reviewSummary.length > 0 ? Number(reviewSummary[0].avg.toFixed(1)) : (user.review_score || 0);
+            const reviewCount = reviewSummary.length > 0 ? reviewSummary[0].count : (user.review_count || 0);
 
             // Last 6 Months for Chart
             const chartData = [];
@@ -239,7 +384,8 @@ exports.getUserStats = async (req, res) => {
             stats.freelancer = {
                 total_gigs: gigs.length,
                 live_gigs: gigs.filter(g => g.status === 'live').length,
-                completed_projects: ordersAsSeller.filter(o => o.status === 'completed').length,
+                total_orders: totalOrders,
+                completed_projects: totalCompletedWork,
                 total_earnings: ordersAsSeller
                     .filter(o => o.status === 'completed' || o.payment_status === 'paid')
                     .reduce((acc, curr) => acc + (curr.price || 0), 0),
@@ -249,7 +395,7 @@ exports.getUserStats = async (req, res) => {
                     .filter(o => ['in_progress', 'delivered'].includes(o.status) && o.payment_status === 'paid')
                     .reduce((acc, curr) => acc + (curr.price || 0), 0),
                 pipeline: {
-                    in_progress: ordersAsSeller.filter(o => o.status === 'in_progress').length,
+                    in_progress: ordersAsSeller.filter(o => o.status === 'in_progress').length + activeProjectContracts.length,
                     delivered: ordersAsSeller.filter(o => o.status === 'delivered').length,
                     pending: ordersAsSeller.filter(o => o.status === 'pending').length
                 },
@@ -262,41 +408,40 @@ exports.getUserStats = async (req, res) => {
                     client_name: o.buyer_id?.full_name || 'Anonymous Client'
                 })),
                 chart_data: chartData,
+                profile_summary: {
+                    portfolio_items: Array.isArray(user.portfolio) ? user.portfolio.length : 0,
+                    skills_count: Array.isArray(user.skills) ? user.skills.length : 0,
+                    categories_count: Array.isArray(user.categories) ? user.categories.length : 0,
+                    hourly_rate: user.hourly_rate || 0,
+                    review_count: reviewCount
+                },
                 performance: {
-                    completion_rate: 95, // Mocking these complex calcs for now until review model exists
-                    on_time_delivery: 98,
-                    satisfaction: 4.9
-                }
+                    completion_rate: completionRate,
+                    on_time_delivery: onTimeDelivery,
+                    satisfaction
+                },
+                dispute_count: disputeCount
             };
         }
 
         // Subscription info
         const subscription = await UserSubscription.findOne({ user_id: userId, status: 'active' }).populate('plan_id');
         stats.subscription = subscription ? {
-            plan_name: subscription.plan_id.name,
+            plan_name: subscription.plan_id?.name || 'Active Plan',
             start_date: subscription.start_date,
             end_date: subscription.end_date,
-            
-            // Usage stats
             remaining_project_posts: subscription.remaining_project_posts,
-            total_project_posts: subscription.plan_id.project_post_limit,
-            
+            total_project_posts: subscription.plan_id?.project_post_limit ?? 0,
             remaining_interest_clicks: subscription.remaining_interest_clicks,
-            total_interest_clicks: subscription.plan_id.interest_click_limit,
-            
+            total_interest_clicks: subscription.plan_id?.interest_click_limit ?? 0,
             remaining_project_visits: subscription.remaining_project_visits,
-            total_project_visits: subscription.plan_id.project_visit_limit,
-            
+            total_project_visits: subscription.plan_id?.project_visit_limit ?? 0,
             remaining_portfolio_visits: subscription.remaining_portfolio_visits,
-            total_portfolio_visits: subscription.plan_id.portfolio_visit_limit,
-
+            total_portfolio_visits: subscription.plan_id?.portfolio_visit_limit ?? 0,
             status: subscription.status
         } : null;
 
-        res.status(200).json({
-            success: true,
-            data: stats
-        });
+        res.status(200).json({ success: true, data: stats });
     } catch (error) {
         console.error('Get Stats Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -562,6 +707,61 @@ exports.getFavoriteIdeas = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         res.status(200).json({ success: true, data: user.favorite_ideas });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Toggle favorite user (talent)
+// @route   PUT /api/users/favorites-users/:id
+// @access  Private
+exports.toggleFavoriteUser = async (req, res) => {
+    try {
+        const targetUserId = req.params.id;
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const index = user.favorite_users.indexOf(targetUserId);
+        let isFavorited = false;
+
+        if (index === -1) {
+            user.favorite_users.push(targetUserId);
+            isFavorited = true;
+        } else {
+            user.favorite_users.splice(index, 1);
+            isFavorited = false;
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            isFavorited,
+            message: isFavorited ? 'User added to bookmarks' : 'User removed from bookmarks'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Get favorite users
+// @route   GET /api/users/favorites-users
+// @access  Private
+exports.getFavoriteUsers = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate({
+            path: 'favorite_users',
+            select: 'full_name profile_image location role_title hourly_rate review_score review_count completed_projects skills',
+            populate: { path: 'skills', select: 'name' }
+        });
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        res.status(200).json({ success: true, data: user.favorite_users });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

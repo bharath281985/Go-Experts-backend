@@ -13,8 +13,8 @@ exports.getConversations = async (req, res) => {
             $or: [{ sender: userId }, { receiver: userId }]
         })
         .sort({ createdAt: -1 })
-        .populate('sender', 'full_name profile_image')
-        .populate('receiver', 'full_name profile_image');
+        .populate('sender', 'full_name username email profile_image')
+        .populate('receiver', 'full_name username email profile_image');
 
         // Group by unique user id
         const conversationsMap = new Map();
@@ -186,7 +186,7 @@ exports.sendMessage = async (req, res) => {
             content
         });
 
-        const populatedMsg = await msg.populate('sender', 'full_name profile_image');
+        const populatedMsg = await msg.populate('sender', 'full_name username email profile_image');
         
         try {
             const socketHandler = require('../utils/socket');

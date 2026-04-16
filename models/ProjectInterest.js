@@ -17,7 +17,7 @@ const projectInterestSchema = new mongoose.Schema({
     portfolio_link: String,
     status: {
         type: String,
-        enum: ['pending', 'awarded', 'accepted', 'rejected', 'expired'],
+        enum: ['pending', 'interviewing', 'awarded', 'accepted', 'rejected', 'expired'],
         default: 'pending'
     },
     created_at: {

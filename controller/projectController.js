@@ -53,9 +53,6 @@ exports.createProject = async (req, res) => {
         subscription.remaining_project_posts -= 1;
         await subscription.save();
 
-        // Deduct points (optional logic if required)
-        // For now based on your initial prompt logic
-
         res.status(201).json({ success: true, data: project });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -105,21 +102,17 @@ exports.getProjects = async (req, res) => {
             .populate('client_id', 'full_name profile_image created_at kyc_details')
             .sort({ createdAt: -1 });
             
-        // Get user ID if logged in (passed via optional auth middleware)
         const userId = req.user?.id;
 
-        // Map to include proposals count (Interest clicks), isUnlocked, and isApplied status
         const projectData = await Promise.all(projects.map(async (project) => {
-            const [proposals, unlock, interest] = await Promise.all([
+            const [proposals, interest] = await Promise.all([
                 ProjectInterest.countDocuments({ project_id: project._id }),
-                userId ? SubscriptionUnlock.findOne({ user_id: userId, target_id: project._id }) : null,
                 userId ? ProjectInterest.findOne({ project_id: project._id, freelancer_id: userId }) : null
             ]);
 
             return {
                 ...project.toObject(),
                 proposals,
-                isUnlocked: !!unlock,
                 isApplied: !!interest
             };
         }));
@@ -135,14 +128,21 @@ exports.getProjects = async (req, res) => {
 // @access  Public
 exports.getProjectById = async (req, res) => {
     try {
-        const project = await Project.findById(req.params.id).populate('client_id', 'full_name profile_image created_at kyc_details');
+        const project = await Project.findById(req.params.id)
+            .populate('client_id', 'full_name profile_image created_at kyc_details')
+            .populate('hired_freelancer_id', 'full_name profile_image location');
+            
         if (!project) {
             return res.status(404).json({ success: false, message: 'Project not found' });
         }
         
-        const proposals = await ProjectInterest.countDocuments({ project_id: req.params.id }); 
+        const Invitation = require('../models/Invitation');
+        const [proposals, interviewing, invites] = await Promise.all([
+            ProjectInterest.countDocuments({ project_id: req.params.id }),
+            ProjectInterest.countDocuments({ project_id: req.params.id, status: 'interviewing' }),
+            Invitation.countDocuments({ project_id: req.params.id })
+        ]);
         
-        // Check if current user applied
         const userId = req.user?.id;
         const interest = userId ? await ProjectInterest.findOne({ project_id: req.params.id, freelancer_id: userId }) : null;
 
@@ -151,7 +151,12 @@ exports.getProjectById = async (req, res) => {
             data: {
                 ...project.toObject(),
                 proposals,
-                isApplied: !!interest
+                isApplied: !!interest,
+                stats: {
+                    proposals,
+                    interviewing,
+                    invites
+                }
             }
         });
     } catch (error) {
@@ -194,7 +199,6 @@ exports.expressInterest = async (req, res) => {
             portfolio_link: req.body.portfolio_link
         });
 
-        // Deduct limit
         subscription.remaining_interest_clicks -= 1;
         await subscription.save();
 
@@ -207,23 +211,20 @@ exports.expressInterest = async (req, res) => {
     }
 };
 
-// @desc    Get my projects (Client) or interested projects (Freelancer)
+// @desc    Get my projects
 // @route   GET /api/projects/my
 // @access  Private
 exports.getMyProjects = async (req, res) => {
     try {
         const userId = req.user.id;
-        const requestedRole = req.query.role; // 'client' or 'freelancer'
+        const requestedRole = req.query.role;
 
         if (requestedRole === 'client') {
             const projects = await Project.find({ client_id: userId }).sort({ createdAt: -1 });
-            
-            // Populate proposal count for each
             const projectsWithStats = await Promise.all(projects.map(async (p) => {
                 const proposals = await ProjectInterest.countDocuments({ project_id: p._id });
                 return { ...p.toObject(), proposals };
             }));
-
             return res.json({ success: true, data: projectsWithStats });
         }
 
@@ -248,41 +249,25 @@ exports.getMyProjects = async (req, res) => {
             return res.json({ success: true, data: formattedProjects });
         }
 
-        // Default logic if no query param
-        const user = await User.findById(userId);
-        if (user.roles.includes('client')) {
-            const projects = await Project.find({ client_id: userId }).sort({ createdAt: -1 });
-            return res.json({ success: true, data: projects });
-        }
-
-        if (user.roles.includes('freelancer')) {
-            const interests = await ProjectInterest.find({ freelancer_id: userId }).populate('project_id');
-            return res.json({ success: true, data: interests.map(i => i.project_id) });
-        }
-
         res.status(400).json({ success: false, message: 'Invalid role' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-// @desc    Get all proposals for a project (Owner Only)
+
+// @desc    Get all proposals for a project
 // @route   GET /api/projects/:id/proposals
 // @access  Private/Client
 exports.getProjectProposals = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
-        
-        if (!project) {
-            return res.status(404).json({ success: false, message: 'Project not found' });
-        }
-
-        if (project.client_id.toString() !== req.user.id) {
-            return res.status(403).json({ success: false, message: 'Only project owners can view proposals' });
+        if (!project || project.client_id.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
         }
 
         const proposals = await ProjectInterest.find({ project_id: req.params.id })
-            .populate('freelancer_id', 'full_name profile_image created_at kyc_details')
-            .sort({ bid_amount: 1 }); // Sorted by lowest bid by default
+            .populate('freelancer_id', 'full_name profile_image location kyc_details')
+            .sort({ created_at: -1 });
 
         res.json({ success: true, data: proposals });
     } catch (error) {
@@ -290,23 +275,14 @@ exports.getProjectProposals = async (req, res) => {
     }
 };
 
-// @desc    Award project to a freelancer
+// @desc    Award project
 // @route   PUT /api/projects/:id/award/:proposalId
 // @access  Private/Client
 exports.awardProject = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
-        
-        if (!project) {
-            return res.status(404).json({ success: false, message: 'Project not found' });
-        }
-
-        if (project.client_id.toString() !== req.user.id) {
-            return res.status(403).json({ success: false, message: 'Only project owners can award projects' });
-        }
-
-        if (project.status === 'closed') {
-            return res.status(400).json({ success: false, message: 'Project is already closed/awarded' });
+        if (!project || project.client_id.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
         }
 
         const proposal = await ProjectInterest.findById(req.params.proposalId);
@@ -314,28 +290,25 @@ exports.awardProject = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Proposal not found' });
         }
 
-        // 1. Mark the winning proposal as awarded (pending acceptance)
         proposal.status = 'awarded';
         await proposal.save();
 
-        // 2. Mark the project as awarded/closed and save the winner
         project.status = 'closed';
         project.hired_freelancer_id = proposal.freelancer_id;
         await project.save();
 
-        // 3. Expire all other proposals for this project
         await ProjectInterest.updateMany(
             { project_id: req.params.id, _id: { $ne: req.params.proposalId } },
             { status: 'expired' }
         );
 
-        res.json({ success: true, message: 'Project successfully awarded to freelancer. Awaiting their acceptance.', data: proposal });
+        res.json({ success: true, message: 'Project awarded successfully. Waiting for freelancer to accept.', data: proposal });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// @desc    Freelancer accepts a project award
+// @desc    Accept project award
 // @route   PUT /api/projects/:id/accept
 // @access  Private/Freelancer
 exports.acceptProjectAward = async (req, res) => {
@@ -350,57 +323,78 @@ exports.acceptProjectAward = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Award not found or already accepted' });
         }
 
-        // 1. Mark the proposal as accepted
         proposal.status = 'accepted';
         await proposal.save();
 
-        res.json({ success: true, message: 'Project award accepted! You can now start working.', data: proposal });
+        res.json({ success: true, message: 'Award accepted!', data: proposal });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// @desc    Mark project as completed
+// @desc    Update project
+// @route   PUT /api/projects/:id
+// @access  Private/Client
+exports.updateProject = async (req, res) => {
+    try {
+        let project = await Project.findById(req.params.id);
+        if (!project || project.client_id.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        if (req.files && req.files.length > 0) {
+            const newAttachments = req.files.map(file => `/${file.path.replace(/\\/g, '/')}`);
+            req.body.attachments = [...(project.attachments || []), ...newAttachments];
+        }
+
+        if (typeof req.body.skills_required === 'string') {
+            try {
+                req.body.skills_required = JSON.parse(req.body.skills_required);
+            } catch (e) {
+                req.body.skills_required = [req.body.skills_required];
+            }
+        }
+
+        project = await Project.findByIdAndUpdate(req.params.id, req.body, {
+            new: true,
+            runValidators: true
+        });
+
+        res.status(200).json({ success: true, data: project });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Complete project
 // @route   PUT /api/projects/:id/complete
 // @access  Private
 exports.completeProject = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
-        if (!project) {
-            return res.status(404).json({ success: false, message: 'Project not found' });
-        }
+        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
         const isOwner = project.client_id.toString() === req.user.id;
         const isHired = project.hired_freelancer_id?.toString() === req.user.id;
-
-        if (!isOwner && !isHired) {
-            return res.status(403).json({ success: false, message: 'Access denied' });
-        }
+        if (!isOwner && !isHired) return res.status(403).json({ success: false, message: 'Not authorized' });
 
         project.status = 'completed';
         await project.save();
 
-        // Also mark the proposal as completed
-        await ProjectInterest.findOneAndUpdate(
-            { project_id: req.params.id, freelancer_id: project.hired_freelancer_id },
-            { status: 'accepted' } // Already accepted, could have a 'completed' status too but for now let's keep it accepted
-        );
-
-        res.json({ success: true, message: 'Project marked as completed!', data: project });
+        res.json({ success: true, message: 'Project completed', data: project });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-// @desc    Submit a review for a completed project
+
+// @desc    Submit review
 // @route   POST /api/projects/:id/review
 // @access  Private
 exports.submitReview = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
-        if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-
-        if (project.status !== 'completed') {
-            return res.status(400).json({ success: false, message: 'Reviews only allowed for completed projects' });
+        if (!project || project.status !== 'completed') {
+            return res.status(400).json({ success: false, message: 'Invalid project status for review' });
         }
 
         const { rating, comment } = req.body;
@@ -412,14 +406,12 @@ exports.submitReview = async (req, res) => {
         } else if (isFreelancer) {
             project.freelancer_review = { rating, comment, created_at: Date.now() };
         } else {
-            return res.status(403).json({ success: false, message: 'Only participants can submit reviews' });
+            return res.status(403).json({ success: false, message: 'Not authorized' });
         }
 
         await project.save();
-        res.json({ success: true, message: 'Review submitted successfully', data: project });
+        res.json({ success: true, message: 'Review submitted', data: project });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
-

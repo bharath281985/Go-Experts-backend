@@ -12,6 +12,96 @@ const SiteSettings = require('./models/SiteSettings');
 const uri = process.env.MONGODB_URI;
 
 const plans = [
+    // --- FREE TRIAL PLANS ---
+    {
+        name: "Freelancer Free Trial",
+        price: 0,
+        duration_days: 14,
+        project_post_limit: 0,
+        project_visit_limit: 5,
+        portfolio_visit_limit: 2,
+        interest_click_limit: 5,
+        chat_limit: 2,
+        features: [
+            "14-Day Free Trial",
+            "Apply to 5 projects",
+            "Basic profile visibility"
+        ],
+        badge: "Trial",
+        cta: "Start 14-Day Free Trial",
+        featured: false,
+        group: "Freelancer Plans",
+        target_role: "freelancer",
+        billing_cycle: "one-time",
+        status: "enabled",
+        icon: "Gift",
+        color_theme: "orange"
+    },
+    {
+        name: "Client Free Trial",
+        price: 0,
+        duration_days: 14,
+        project_post_limit: 1,
+        task_post_limit: 1,
+        chat_limit: 5,
+        features: [
+            "14-Day Free Trial",
+            "Post 1 project",
+            "Evaluate up to 5 freelancers"
+        ],
+        badge: "Trial",
+        cta: "Start 14-Day Free Trial",
+        featured: false,
+        group: "Client Plans",
+        target_role: "client",
+        billing_cycle: "one-time",
+        status: "enabled",
+        icon: "Gift",
+        color_theme: "orange"
+    },
+    {
+        name: "Investor Free Trial",
+        price: 0,
+        duration_days: 14,
+        project_post_limit: 0,
+        database_access_limit: 5,
+        features: [
+            "14-Day Free Trial",
+            "View up to 5 startup ideas",
+            "Test platform features"
+        ],
+        badge: "Trial",
+        cta: "Start 14-Day Free Trial",
+        featured: false,
+        group: "Investor Plans",
+        target_role: "investor",
+        billing_cycle: "one-time",
+        status: "enabled",
+        icon: "Gift",
+        color_theme: "orange"
+    },
+    {
+        name: "Startup Creator Free Trial",
+        price: 0,
+        duration_days: 14,
+        startup_idea_post_limit: 1,
+        chat_limit: 5,
+        features: [
+            "14-Day Free Trial",
+            "Post 1 startup idea",
+            "Connect with limited investors"
+        ],
+        badge: "Trial",
+        cta: "Start 14-Day Free Trial",
+        featured: false,
+        group: "Start-Up Idea Creator Plans",
+        target_role: "startup_creator",
+        billing_cycle: "one-time",
+        status: "enabled",
+        icon: "Gift",
+        color_theme: "orange"
+    },
+
     // --- CLIENT PLANS (NEW UPDATED) ---
     {
         name: "Basic Client",

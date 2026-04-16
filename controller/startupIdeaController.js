@@ -37,7 +37,18 @@ exports.submitIdea = async (req, res) => {
             user_id: user._id,
             status: 'active',
             end_date: { $gt: new Date() }
-        });
+        }).populate('plan_id');
+
+        if (userSubscription?.plan_id) {
+            const planLimit = Number(userSubscription.plan_id.startup_idea_post_limit || 0);
+            const usedStartupPosts = await StartupIdea.countDocuments({ creator: user._id });
+            const expectedRemainingPosts = Math.max(planLimit - usedStartupPosts, 0);
+
+            if (expectedRemainingPosts > (userSubscription.remaining_startup_posts || 0)) {
+                userSubscription.remaining_startup_posts = expectedRemainingPosts;
+                await userSubscription.save();
+            }
+        }
 
         if (!userSubscription || userSubscription.remaining_startup_posts <= 0) {
             return res.status(403).json({
@@ -137,7 +148,6 @@ exports.getIdeaById = async (req, res) => {
         idea.views += 1;
         await idea.save();
 
-        // Check if user has unlocked contact
         const isUnlocked = await SubscriptionUnlock.findOne({
             user_id: req.user._id,
             target_id: idea._id,
@@ -145,14 +155,22 @@ exports.getIdeaById = async (req, res) => {
         });
 
         const ideaObj = idea.toObject();
-        const creatorId = idea.creator?._id || idea.creator; // Handle populated or unpopulated
+        const creatorId = idea.creator?._id || idea.creator;
+        const isOwner = req.user && creatorId?.toString() === req.user._id.toString();
 
-        if (!isUnlocked && (!req.user || creatorId?.toString() !== req.user._id.toString())) {
-            // Mask contact details if not unlocked and not creator
+        if (!isUnlocked && !isOwner) {
+            // Mask contact details
             if (ideaObj.creator) {
                 delete ideaObj.creator.phone_number;
                 delete ideaObj.creator.email;
             }
+            // Mask sensitive business details
+            ideaObj.problem = "Unlock detailed roadmap to view the defined problem statement.";
+            ideaObj.solution = "Unlock detailed roadmap to view the proposed solution.";
+            ideaObj.uniqueness = "Unlock detailed roadmap to view why this concept is unique.";
+            ideaObj.useOfFunds = "Unlock detailed roadmap to see capital allocation.";
+            ideaObj.milestones = "Unlock detailed roadmap to view tactical milestones.";
+            ideaObj.marketSize = "Restricted";
         } else if (creatorId) {
             // Already unlocked or is creator, allow contact info
             const creator = await User.findById(creatorId).select('phone_number email');
@@ -162,7 +180,7 @@ exports.getIdeaById = async (req, res) => {
             }
         }
         
-        ideaObj.isUnlocked = !!isUnlocked || (req.user && creatorId?.toString() === req.user._id.toString());
+        ideaObj.isUnlocked = !!isUnlocked || isOwner;
 
         res.json({ success: true, data: ideaObj });
     } catch (err) {
@@ -227,7 +245,7 @@ exports.unlockContact = async (req, res) => {
         }
 
         const creator = await User.findById(idea.creator).select('phone_number email');
-        res.json({ success: true, message: 'Contact unlocked successfully', contact: creator, remainingPoints: user.total_points });
+        res.json({ success: true, message: 'Contact unlocked successfully', contact: creator });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

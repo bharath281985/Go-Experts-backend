@@ -1,6 +1,42 @@
 const User = require('../models/User');
 const UserSubscription = require('../models/UserSubscription');
 const SubscriptionUnlock = require('../models/SubscriptionUnlock');
+const StartupIdea = require('../models/StartupIdea');
+const mongoose = require('mongoose');
+
+const syncStartupCreditsFromPlan = async (subscription, userId) => {
+    if (!subscription?.plan_id) return subscription;
+
+    const plan = subscription.plan_id;
+    const planPostLimit = Number(plan.startup_idea_post_limit || 0);
+    const planUnlockLimit = Number(plan.startup_idea_explore_limit || 0);
+
+    const usedStartupPosts = await StartupIdea.countDocuments({ creator: userId });
+    const usedIdeaUnlocks = await SubscriptionUnlock.countDocuments({
+        user_id: userId,
+        target_type: 'startup_idea'
+    });
+
+    const expectedRemainingPosts = Math.max(planPostLimit - usedStartupPosts, 0);
+    const expectedRemainingUnlocks = Math.max(planUnlockLimit - usedIdeaUnlocks, 0);
+    let changed = false;
+
+    if (expectedRemainingPosts > (subscription.remaining_startup_posts || 0)) {
+        subscription.remaining_startup_posts = expectedRemainingPosts;
+        changed = true;
+    }
+
+    if (expectedRemainingUnlocks > (subscription.remaining_idea_unlocks || 0)) {
+        subscription.remaining_idea_unlocks = expectedRemainingUnlocks;
+        changed = true;
+    }
+
+    if (changed) {
+        await subscription.save();
+    }
+
+    return subscription;
+};
 
 // @desc    Check if content is unlocked for user
 // @route   GET /api/subscription/is-unlocked/:targetId
@@ -8,7 +44,6 @@ const SubscriptionUnlock = require('../models/SubscriptionUnlock');
 exports.checkUnlockStatus = async (req, res) => {
     try {
         const { targetId } = req.params;
-        const mongoose = require('mongoose');
 
         if (!targetId || !mongoose.Types.ObjectId.isValid(targetId)) {
             return res.status(400).json({ 
@@ -19,7 +54,7 @@ exports.checkUnlockStatus = async (req, res) => {
 
         const unlock = await SubscriptionUnlock.findOne({
             user_id: req.user.id,
-            target_id: targetId
+            target_id: new mongoose.Types.ObjectId(targetId)
         });
 
         res.status(200).json({
@@ -38,7 +73,6 @@ exports.unlockContent = async (req, res) => {
     try {
         const { targetId, targetType } = req.body; // 'project' or 'freelancer'
         const userId = req.user.id;
-        const mongoose = require('mongoose');
 
         if (!targetId || !mongoose.Types.ObjectId.isValid(targetId)) {
             return res.status(400).json({ 
@@ -47,10 +81,14 @@ exports.unlockContent = async (req, res) => {
             });
         }
 
+        const targetIdObj = new mongoose.Types.ObjectId(targetId);
+        const userIdObj = new mongoose.Types.ObjectId(userId);
+
         // 1. Check if already unlocked
         const existingUnlock = await SubscriptionUnlock.findOne({
-            user_id: userId,
-            target_id: targetId
+            user_id: userIdObj,
+            target_id: targetIdObj,
+            target_type: targetType
         });
 
         if (existingUnlock) {
@@ -63,7 +101,7 @@ exports.unlockContent = async (req, res) => {
 
         // 2. Check active subscription
         const subscription = await UserSubscription.findOne({
-            user_id: userId
+            user_id: userIdObj
         });
 
         if (!subscription || subscription.status !== 'active') {
@@ -90,13 +128,13 @@ exports.unlockContent = async (req, res) => {
 
         // 5. Create unlock record
         const unlock = await SubscriptionUnlock.create({
-            user_id: userId,
-            target_id: targetId,
+            user_id: userIdObj,
+            target_id: targetIdObj,
             target_type: targetType
         });
 
         // 6. Sync redundant credits in User model if they exist
-        const syncUser = await User.findById(userId);
+        const syncUser = await User.findById(userIdObj);
         if (syncUser && syncUser.subscription_details) {
             if (targetType === 'project') {
                 syncUser.subscription_details.project_credits = subscription.remaining_project_visits;
@@ -107,7 +145,7 @@ exports.unlockContent = async (req, res) => {
             await syncUser.save();
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findById(userIdObj);
 
         res.status(201).json({
             success: true,
@@ -139,6 +177,7 @@ exports.getMySubscription = async (req, res) => {
         }
 
         const isGracePeriod = subscription.status === 'active' && new Date() > new Date(subscription.end_date);
+        await syncStartupCreditsFromPlan(subscription, req.user.id);
 
         res.status(200).json({
             success: true,

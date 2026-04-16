@@ -21,11 +21,18 @@ exports.register = async (req, res) => {
     try {
         const { full_name, email, password, roles, categories, skills, location, work_preference, experience_level, availability, budget_range, subscription_plan } = req.body;
         const normalizedEmail = email.toLowerCase().trim();
+        const requestedRoles = Array.isArray(roles) && roles.length > 0 ? roles : ['freelancer'];
+        const primaryRole = requestedRoles[0];
+        const roleGroupMap = {
+            freelancer: 'Freelancer Plans',
+            client: 'Client Plans',
+            investor: 'Investor Plans',
+            startup_creator: 'Start-Up Idea Creator Plans'
+        };
 
         const user = await User.findOne({ email: normalizedEmail });
         if (user) {
             // Check if user already has any of the requested roles
-            const requestedRoles = roles || ['freelancer'];
             const overlappingRoles = requestedRoles.filter(role => user.roles.includes(role));
 
             if (overlappingRoles.length > 0) {
@@ -45,7 +52,7 @@ exports.register = async (req, res) => {
             full_name,
             email: normalizedEmail,
             password,
-            roles: roles || ['freelancer'],
+            roles: requestedRoles,
             categories,
             skills,
             location,
@@ -55,15 +62,38 @@ exports.register = async (req, res) => {
             budget_range,
             total_points: subscription_plan ? 0 : 100, // Points will be granted by plan if selected
             is_email_verified: false, // Requires admin verification
-            role: roles && roles.length > 0 ? roles[0] : 'freelancer'
+            role: primaryRole
         });
 
-        // Assign 90-Day Free Trial Plan Automatically
-        let trialPlan = await SubscriptionPlan.findOne({ name: '90-Day Free Trial' });
+        // Assign the admin-managed free trial plan that matches the signup role.
+        const targetGroup = roleGroupMap[primaryRole];
+        let trialPlan = await SubscriptionPlan.findOne({
+            price: 0,
+            status: 'enabled',
+            target_role: primaryRole,
+            $or: [
+                { group: 'Free Trial Plan' },
+                ...(targetGroup ? [{ group: targetGroup }] : []),
+                { name: new RegExp(`${primaryRole.replace('_', '[ _-]?')}.*free\\s*trial`, 'i') }
+            ]
+        }).sort({ updatedAt: -1 });
+
+        // Backward-compatible fallback for older shared free-trial records.
+        if (!trialPlan) {
+            trialPlan = await SubscriptionPlan.findOne({
+                price: 0,
+                status: 'enabled',
+                $or: [
+                    { target_role: 'both' },
+                    { group: 'Free Trial Plan' },
+                    { name: '90-Day Free Trial' }
+                ]
+            }).sort({ updatedAt: -1 });
+        }
 
         if (!trialPlan) {
             trialPlan = await SubscriptionPlan.create({
-                name: '90-Day Free Trial',
+                name: `90-Day ${primaryRole.replace('_', ' ')} Free Trial`,
                 price: 0,
                 duration_days: 90,
                 project_post_limit: 36,
@@ -82,40 +112,50 @@ exports.register = async (req, res) => {
                     "36 Project Detail Visits",
                     "Email support from admin"
                 ],
-                target_role: 'both' // Applicable for all
+                target_role: [primaryRole],
+                group: ['Free Trial Plan', ...(targetGroup ? [targetGroup] : [])],
+                billing_cycle: 'one-time',
+                badge: 'Free Trial',
+                cta: 'Start Free Trial',
+                description: `Admin-managed onboarding plan for new ${primaryRole.replace('_', ' ')} users.`,
+                color_theme: 'green',
+                icon: 'Shield'
             });
         }
 
-        const trialDuration = trialPlan.duration_days || 90;
+        const isTrialEnabled = trialPlan?.status === 'enabled';
+        const trialDuration = trialPlan?.duration_days || 90;
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + trialDuration);
 
-        await UserSubscription.create({
-            user_id: newUser._id,
-            plan_id: trialPlan._id,
-            end_date: endDate,
-            remaining_project_posts: trialPlan.project_post_limit,
-            remaining_task_posts: trialPlan.task_post_limit,
-            remaining_chats: trialPlan.chat_limit,
-            remaining_db_access: trialPlan.database_access_limit,
-            remaining_project_visits: trialPlan.project_visit_limit ?? 36,
-            remaining_portfolio_visits: trialPlan.portfolio_visit_limit ?? 36,
-            remaining_idea_unlocks: trialPlan.startup_idea_explore_limit ?? 3,
-            remaining_startup_posts: trialPlan.startup_idea_post_limit ?? 3,
-            status: 'active'
-        });
+        if (isTrialEnabled) {
+            await UserSubscription.create({
+                user_id: newUser._id,
+                plan_id: trialPlan._id,
+                end_date: endDate,
+                remaining_project_posts: trialPlan.project_post_limit,
+                remaining_task_posts: trialPlan.task_post_limit,
+                remaining_chats: trialPlan.chat_limit,
+                remaining_db_access: trialPlan.database_access_limit,
+                remaining_project_visits: trialPlan.project_visit_limit ?? 36,
+                remaining_portfolio_visits: trialPlan.portfolio_visit_limit ?? 36,
+                remaining_idea_unlocks: trialPlan.startup_idea_explore_limit ?? 3,
+                remaining_startup_posts: trialPlan.startup_idea_post_limit ?? 3,
+                status: 'active'
+            });
 
-        // Update user's subscription record summary
-        newUser.subscription_details = {
-            plan_name: trialPlan.name,
-            end_date: endDate,
-            status: 'active',
-            project_credits: trialPlan.project_post_limit,
-            task_credits: trialPlan.task_post_limit,
-            chat_credits: trialPlan.chat_limit,
-            db_credits: trialPlan.database_access_limit
-        };
-        await newUser.save();
+            // Update user's subscription record summary
+            newUser.subscription_details = {
+                plan_name: trialPlan.name,
+                end_date: endDate,
+                status: 'active',
+                project_credits: trialPlan.project_post_limit,
+                task_credits: trialPlan.task_post_limit,
+                chat_credits: trialPlan.chat_limit,
+                db_credits: trialPlan.database_access_limit
+            };
+            await newUser.save();
+        }
 
         // Generate verification token
         const verificationToken = newUser.getEmailVerificationToken();
@@ -127,14 +167,7 @@ exports.register = async (req, res) => {
 
         // Send Welcome Email
         try {
-            await sendEmail({
-                email: newUser.email,
-                subject: `Welcome to Go Experts - ${trialDuration} Days Free Trial Active!`,
-                templateData: { name: newUser.full_name, link: verificationUrl },
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h1 style="color: #F24C20; text-align: center;">Welcome to Go Experts!</h1>
-                        <p>Hi ${newUser.full_name},</p>
+            const trialMessageHtml = isTrialEnabled ? `
                         <p>Congratulations! Your account has been created with a <b>${trialDuration}-Day Premium Free Trial</b>.</p>
                         <div style="background: #fdf2f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
                             <h3 style="margin-top: 0; color: #F24C20;">Your Trial Benefits:</h3>
@@ -144,12 +177,23 @@ exports.register = async (req, res) => {
                                 <li>Direct Chat with ${trialPlan.chat_limit ?? 10} people</li>
                                 <li>Access to Experts Library</li>
                             </ul>
-                        </div>
+                        </div>` : `
+                        <p>Your account has been created successfully. Please verify your email to continue.</p>`;
+
+            await sendEmail({
+                email: newUser.email,
+                subject: isTrialEnabled ? `Welcome to Go Experts - ${trialDuration} Days Free Trial Active!` : 'Welcome to Go Experts',
+                templateData: { name: newUser.full_name, link: verificationUrl },
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h1 style="color: #F24C20; text-align: center;">Welcome to Go Experts!</h1>
+                        <p>Hi ${newUser.full_name},</p>
+                        ${trialMessageHtml}
                         <p>To get started, please verify your email address by clicking the button below:</p>
                         <div style="text-align: center; margin: 30px 0;">
                             <a href="${verificationUrl}" style="background-color: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Verify Email Address</a>
                         </div>
-                        <p style="font-size: 11px; color: #aaa; text-align: center;">After ${trialDuration} days, you can choose to upgrade your plan from your dashboard settings.</p>
+                        ${isTrialEnabled ? `<p style="font-size: 11px; color: #aaa; text-align: center;">After ${trialDuration} days, you can choose to upgrade your plan from your dashboard settings.</p>` : ''}
                     </div>
                 `
             });
@@ -571,12 +615,16 @@ exports.getMe = async (req, res) => {
 // @desc    Update user profile
 // @route   PUT /api/auth/update-profile
 // @access  Private
-// Update your backend updateProfile function to better handle file uploads
 exports.updateProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Normalize legacy data so file-only updates do not fail validation.
+        if (typeof user.bio === 'string' && user.bio.length > 500) {
+            user.bio = user.bio.slice(0, 500).trim();
         }
 
         // Handle text fields
@@ -598,7 +646,7 @@ exports.updateProfile = async (req, res) => {
                 }
 
                 // If it's a stringified JSON (from multipart/form-data), parse it
-                if (typeof value === 'string' && (field === 'portfolio' || field === 'kyc_details' || field === 'documents' || field === 'work_images' || field === 'categories' || field === 'skills' || field === 'experience_details' || field === 'education_details' || field === 'languages' || field === 'social_links')) {
+                if (typeof value === 'string' && (field === 'portfolio' || field === 'kyc_details' || field === 'documents' || field === 'work_images' || field === 'categories' || field === 'skills' || field === 'experience_details' || field === 'education_details' || field === 'languages' || field === 'social_links' || field === 'roles')) {
                     try {
                         const parsed = JSON.parse(value);
                         value = parsed;
@@ -616,57 +664,94 @@ exports.updateProfile = async (req, res) => {
                     });
                     user.markModified(field);
                 } else {
+                    if (field === 'bio' && typeof value === 'string') {
+                        value = value.slice(0, 500).trim();
+                    }
+                    if (field === 'portfolio' && Array.isArray(value)) {
+                        value = value.map(project => ({
+                            ...project,
+                            description: typeof project?.description === 'string'
+                                ? project.description.slice(0, 500).trim()
+                                : project?.description
+                        }));
+                    }
                     user[field] = value;
                 }
             }
         });
 
         // Handle File Uploads
+        const fileMap = {};
         if (req.files) {
+            if (Array.isArray(req.files)) {
+                req.files.forEach(f => {
+                    if (!fileMap[f.fieldname]) fileMap[f.fieldname] = [];
+                    fileMap[f.fieldname].push(f);
+                });
+            }
+
             // Profile photo
-            if (req.files.profile && req.files.profile[0]) {
-                user.profile_image = `/uploads/profiles/${req.files.profile[0].filename}`;
+            if (fileMap.profile && fileMap.profile[0]) {
+                user.profile_image = `/uploads/profiles/${fileMap.profile[0].filename}`;
             }
 
             // Landing Page Header image
-            if (req.files.landing_image && req.files.landing_image[0]) {
-                user.landing_page_image = `/uploads/profiles/${req.files.landing_image[0].filename}`;
+            if (fileMap.landing_image && fileMap.landing_image[0]) {
+                user.landing_page_image = `/uploads/profiles/${fileMap.landing_image[0].filename}`;
             }
 
             // KYC documents
-            if (req.files.pan_card && req.files.pan_card[0]) {
-                user.set('kyc_details.pan_card', `/uploads/kyc/${req.files.pan_card[0].filename}`);
+            if (fileMap.pan_card && fileMap.pan_card[0]) {
+                user.set('kyc_details.pan_card', `/uploads/kyc/${fileMap.pan_card[0].filename}`);
                 user.markModified('kyc_details');
             }
-            if (req.files.aadhar_card && req.files.aadhar_card[0]) {
-                user.set('kyc_details.aadhar_card', `/uploads/kyc/${req.files.aadhar_card[0].filename}`);
+            if (fileMap.aadhar_card && fileMap.aadhar_card[0]) {
+                user.set('kyc_details.aadhar_card', `/uploads/kyc/${fileMap.aadhar_card[0].filename}`);
                 user.markModified('kyc_details');
             }
 
             // Educational documents - handle multiple files
-            if (req.files.educational && req.files.educational.length > 0) {
-                const newEdu = req.files.educational.map(file => `/uploads/documents/${file.filename}`);
+            if (fileMap.educational && fileMap.educational.length > 0) {
+                const newEdu = fileMap.educational.map(file => `/uploads/documents/${file.filename}`);
                 const currentEdu = user.documents?.educational || [];
                 user.set('documents.educational', [...currentEdu, ...newEdu]);
                 user.markModified('documents');
             }
 
             // Experience letter
-            if (req.files.experience_letter && req.files.experience_letter[0]) {
-                user.set('documents.experience_letter', `/uploads/documents/${req.files.experience_letter[0].filename}`);
+            if (fileMap.experience_letter && fileMap.experience_letter[0]) {
+                user.set('documents.experience_letter', `/uploads/documents/${fileMap.experience_letter[0].filename}`);
                 user.markModified('documents');
             }
 
             // Work images
-            if (req.files.work_images && req.files.work_images.length > 0) {
-                const newImages = req.files.work_images.map(file => `/uploads/portfolio/${file.filename}`);
+            if (fileMap.work_images && fileMap.work_images.length > 0) {
+                const newImages = fileMap.work_images.map(file => `/uploads/portfolio/${file.filename}`);
                 const currentImages = user.work_images || [];
                 user.work_images = [...currentImages, ...newImages];
                 user.markModified('work_images');
             }
 
+            // Portfolio Project Images (portfolio_images_0, portfolio_images_1, etc.)
+            if (user.portfolio && Array.isArray(user.portfolio)) {
+                Object.keys(fileMap).forEach(key => {
+                    if (key.startsWith('portfolio_images_')) {
+                        const index = parseInt(key.replace('portfolio_images_', ''));
+                        if (!isNaN(index) && user.portfolio[index]) {
+                            const currentProjectImages = user.portfolio[index].images || [];
+                            const projectImages = fileMap[key].map(file => `/uploads/portfolio/${file.filename}`);
+                            user.portfolio[index].images = [...currentProjectImages, ...projectImages];
+                            if (projectImages.length > 0) {
+                                user.portfolio[index].image = user.portfolio[index].images[0];
+                            }
+                        }
+                    }
+                });
+                user.markModified('portfolio');
+            }
+
             // Set kyc_status to pending if any KYC document is uploaded
-            if (req.files.pan_card || req.files.aadhar_card || req.files.educational || req.files.experience_letter) {
+            if (fileMap.pan_card || fileMap.aadhar_card || fileMap.educational || fileMap.experience_letter) {
                 user.kyc_status = 'pending';
             }
         }

@@ -15,19 +15,10 @@ router.put('/reset-password/:token', resetPassword);
 router.get('/verify-email/:token', verifyEmail);
 
 // Protected routes
-const uploadFields = upload.fields([
-    { name: 'profile', maxCount: 1 },
-    { name: 'landing_image', maxCount: 1 },
-    { name: 'pan_card', maxCount: 1 },
-    { name: 'aadhar_card', maxCount: 1 },
-    { name: 'educational', maxCount: 5 },
-    { name: 'experience_letter', maxCount: 1 },
-    { name: 'work_images', maxCount: 5 }
-]);
-
+// Use upload.any() to support dynamically added fields for portfolio images
 router.get('/me', protect, getMe);
 router.post('/resend-verification', protect, resendVerificationEmail);
-router.put('/update-profile', protect, uploadFields, updateProfile);
+router.put('/update-profile', protect, upload.any(), updateProfile);
 router.put('/update-password', protect, updatePassword);
 router.get('/users/:id', protect, getUserById);
 router.delete('/delete-account', protect, deleteAccount);

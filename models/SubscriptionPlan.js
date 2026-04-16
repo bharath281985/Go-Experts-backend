@@ -36,7 +36,7 @@ const subscriptionPlanSchema = new mongoose.Schema({
     }],
     group: [{
         type: String,
-        enum: ['Freelancer Plans', 'Client Plans', 'Start-Up Idea Creator Plans', 'Investor Plans', 'Combo Plan']
+        enum: ['Free Trial Plan', 'Freelancer Plans', 'Client Plans', 'Start-Up Idea Creator Plans', 'Investor Plans', 'Combo Plan']
     }],
     icon: { type: String, default: 'Star' }, // Lucide icon name
     color_theme: { 
