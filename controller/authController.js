@@ -133,14 +133,28 @@ exports.register = async (req, res) => {
                 user_id: newUser._id,
                 plan_id: trialPlan._id,
                 end_date: endDate,
-                remaining_project_posts: trialPlan.project_post_limit,
-                remaining_task_posts: trialPlan.task_post_limit,
-                remaining_chats: trialPlan.chat_limit,
-                remaining_db_access: trialPlan.database_access_limit,
-                remaining_project_visits: trialPlan.project_visit_limit ?? 36,
-                remaining_portfolio_visits: trialPlan.portfolio_visit_limit ?? 36,
-                remaining_idea_unlocks: trialPlan.startup_idea_explore_limit ?? 3,
-                remaining_startup_posts: trialPlan.startup_idea_post_limit ?? 3,
+                // Remaining limits - Strictly from Admin's plan record
+                remaining_project_posts: Number(trialPlan.project_post_limit || 0),
+                remaining_task_posts: Number(trialPlan.task_post_limit || 0),
+                remaining_chats: Number(trialPlan.chat_limit || 0),
+                remaining_db_access: Number(trialPlan.database_access_limit || 0),
+                remaining_project_visits: Number(trialPlan.project_visit_limit || 0),
+                remaining_portfolio_visits: Number(trialPlan.portfolio_visit_limit || 0),
+                remaining_idea_unlocks: Number(trialPlan.startup_idea_explore_limit || 0),
+                remaining_startup_posts: Number(trialPlan.startup_idea_post_limit || 0),
+                remaining_interest_clicks: Number(trialPlan.interest_click_limit || 0),
+
+                // Store total snapshots for accurate dashboard bars
+                total_project_posts: Number(trialPlan.project_post_limit || 0),
+                total_task_posts: Number(trialPlan.task_post_limit || 0),
+                total_chats: Number(trialPlan.chat_limit || 0),
+                total_db_access: Number(trialPlan.database_access_limit || 0),
+                total_project_visits: Number(trialPlan.project_visit_limit || 0),
+                total_portfolio_visits: Number(trialPlan.portfolio_visit_limit || 0),
+                total_idea_unlocks: Number(trialPlan.startup_idea_explore_limit || 0),
+                total_startup_posts: Number(trialPlan.startup_idea_post_limit || 0),
+                total_interest_clicks: Number(trialPlan.interest_click_limit || 0),
+                
                 status: 'active'
             });
 
@@ -148,11 +162,7 @@ exports.register = async (req, res) => {
             newUser.subscription_details = {
                 plan_name: trialPlan.name,
                 end_date: endDate,
-                status: 'active',
-                project_credits: trialPlan.project_post_limit,
-                task_credits: trialPlan.task_post_limit,
-                chat_credits: trialPlan.chat_limit,
-                db_credits: trialPlan.database_access_limit
+                plan_type: 'trial'
             };
             await newUser.save();
         }
@@ -222,21 +232,28 @@ exports.register = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
     try {
         const crypto = require('crypto');
-        // Get hashed token
+        const rawToken = req.params.token?.trim().toLowerCase();
+        
         const emailVerificationToken = crypto
             .createHash('sha256')
-            .update(req.params.token)
+            .update(rawToken)
             .digest('hex');
 
-        const user = await User.findOne({
-            emailVerificationToken,
-            emailVerificationExpire: { $gt: Date.now() }
-        });
+        // First find the user by token without checking expiry
+        const user = await User.findOne({ emailVerificationToken });
 
         if (!user) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid or expired verification link. Please request a new one.'
+                message: 'Invalid verification link. It may have been used already or replaced by a newer one.'
+            });
+        }
+
+        // Check if token is expired
+        if (user.emailVerificationExpire < Date.now()) {
+            return res.status(400).json({
+                success: false,
+                message: 'This verification link has expired. Please request a new one.'
             });
         }
 

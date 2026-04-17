@@ -111,6 +111,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    is_email_verified: {
+        type: Boolean,
+        default: false
+    },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
     emailVerificationToken: String,
@@ -144,6 +148,17 @@ const userSchema = new mongoose.Schema({
         youtube: String
     },
     landing_page_image: String
+}, {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+});
+
+// Virtual for KYC relationship
+userSchema.virtual('kyc', {
+    ref: 'KYC',
+    localField: '_id',
+    foreignField: 'user',
+    justOne: true
 });
 
 userSchema.pre('save', async function () {

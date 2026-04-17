@@ -60,7 +60,8 @@ exports.getUsers = async (req, res) => {
         const users = await User.find({ roles: { $ne: 'admin' } })
             .select('-password')
             .populate('skills', 'name')
-            .populate('categories', 'name').populate('kyc')
+            .populate('categories', 'name')
+            .populate({ path: 'kyc', strictPopulate: false })
             .sort({ created_at: -1 });
         res.status(200).json({
             success: true,
@@ -120,7 +121,8 @@ exports.getUserById = async (req, res) => {
     try {
         const user = await User.findById(req.params.id)
             .populate('skills', 'name')
-            .populate('categories', 'name').populate('kyc');
+            .populate('categories', 'name')
+            .populate({ path: 'kyc', strictPopulate: false });
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }

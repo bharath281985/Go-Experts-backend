@@ -37,6 +37,16 @@ const userSubscriptionSchema = new mongoose.Schema({
         type: Number,
         default: 36
     },
+    // Total limits (snapshotted at creation)
+    total_project_posts: { type: Number, default: 0 },
+    total_task_posts: { type: Number, default: 0 },
+    total_chats: { type: Number, default: 0 },
+    total_db_access: { type: Number, default: 0 },
+    total_startup_posts: { type: Number, default: 0 },
+    total_idea_unlocks: { type: Number, default: 0 },
+    total_interest_clicks: { type: Number, default: 0 },
+    total_project_visits: { type: Number, default: 0 },
+    total_portfolio_visits: { type: Number, default: 0 },
     reminder_sent_10d: {
         type: Boolean,
         default: false

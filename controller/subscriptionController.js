@@ -179,12 +179,34 @@ exports.getMySubscription = async (req, res) => {
         const isGracePeriod = subscription.status === 'active' && new Date() > new Date(subscription.end_date);
         await syncStartupCreditsFromPlan(subscription, req.user.id);
 
+        // Backfill missing totals for existing users to match the current plan master
+        if (!subscription.total_chats && subscription.plan_id) {
+            subscription.total_chats = subscription.plan_id.chat_limit || 0;
+            subscription.total_db_access = subscription.plan_id.database_access_limit || 0;
+            subscription.total_idea_unlocks = subscription.plan_id.startup_idea_explore_limit || 0;
+            subscription.total_startup_posts = subscription.plan_id.startup_idea_post_limit || 0;
+            subscription.total_project_visits = subscription.plan_id.project_visit_limit || 0;
+            subscription.total_portfolio_visits = subscription.plan_id.portfolio_visit_limit || 0;
+            subscription.total_interest_clicks = subscription.plan_id.interest_click_limit || 0;
+            subscription.total_project_posts = subscription.plan_id.project_post_limit || 0;
+            await subscription.save();
+        }
+
         res.status(200).json({
             success: true,
             subscription: {
                 ...subscription.toObject(),
-                plan_name: subscription.plan_id?.name || 'Starter Plan', // fallback
-                is_grace_period: isGracePeriod
+                plan_name: subscription.plan_id?.name || 'Starter Plan',
+                is_grace_period: isGracePeriod,
+                // Add explicit totals for usage bars - Prioritize record values then plan values
+                total_interest_clicks: subscription.total_interest_clicks || subscription.plan_id?.interest_click_limit || 0,
+                total_project_visits: subscription.total_project_visits || subscription.plan_id?.project_visit_limit || 0,
+                total_startup_posts: subscription.total_startup_posts || subscription.plan_id?.startup_idea_post_limit || 0,
+                total_idea_unlocks: subscription.total_idea_unlocks || subscription.plan_id?.startup_idea_explore_limit || 0,
+                total_chats: subscription.total_chats || subscription.plan_id?.chat_limit || 0,
+                total_db_access: subscription.total_db_access || subscription.plan_id?.database_access_limit || 0,
+                total_portfolio_visits: subscription.total_portfolio_visits || subscription.plan_id?.portfolio_visit_limit || 0,
+                total_project_posts: subscription.total_project_posts || subscription.plan_id?.project_post_limit || 0
             }
         });
     } catch (error) {
