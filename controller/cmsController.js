@@ -291,7 +291,8 @@ exports.updateSiteSettings = async (req, res) => {
             'home_stats', 'trust_badges',
             'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass',
             'email_from', 'email_from_name', 'email_reply_to', 'email_encryption',
-            'subscription_highlights', 'footer_copyright'
+            'subscription_highlights', 'footer_copyright',
+            'referral_reward_amount', 'min_withdrawal_amount'
         ];
 
         const updates = {};

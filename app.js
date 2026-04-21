@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const connectDB = require('./config/db');
 const { connectRedis } = require('./config/redis');
@@ -27,11 +28,18 @@ app.use(express.urlencoded({ extended: true }));
 // Enable CORS
 app.use(cors());
 
+// Set Security Headers
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Required for local image loading if needed
+}));
+
 // Set static folder for uploads
+app.use('/uploads/branding', express.static(path.join(__dirname, 'uploads/branding')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Mount routers
 app.use('/api/auth', require('./routers/authRoutes'));
+app.use('/api/mobile/auth', require('./routers/mobile/mobileAuthRoutes'));
 app.use('/api/users', require('./routers/userRoutes'));
 app.use('/api/projects', require('./routers/projectRoutes'));
 app.use('/api/gigs', require('./routers/gigRoutes'));
@@ -51,6 +59,7 @@ app.use('/api/investor', require('./routers/investorRoutes'));
 app.use('/api/meetings', require('./routers/meetingRoutes'));
 app.use('/api/kyc', require('./routers/kycRoutes'));
 app.use('/api/reviews', require('./routers/reviewRoutes'));
+app.use('/api/wallet', require('./routers/walletRoutes'));
 
 
 // Root Route

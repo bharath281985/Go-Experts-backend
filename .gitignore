@@ -24,3 +24,18 @@ backup/
 *.bak
 *.tmp
 *.temp
+
+# One-off scripts, debug files, and scratch work
+scratch/
+debug_*.js
+test-db*.js
+check-*.js
+patch_*.js
+fix_*.js
+update_*.js
+seed*.js
+seedAdmin*.js
+migrate-*.js
+
+# Redundant cron helper (logic is in utils/cronJobs.js)
+cron/subscriptionReminder.js

@@ -2,6 +2,8 @@ const SubscriptionPlan = require('../models/SubscriptionPlan');
 const UserSubscription = require('../models/UserSubscription');
 const PaymentTransaction = require('../models/PaymentTransaction');
 const User = require('../models/User');
+const SiteSettings = require('../models/SiteSettings');
+const WalletTransaction = require('../models/WalletTransaction');
 const { generatePaymentHash, verifyResponseHash } = require('../utils/easebuzz');
 const axios = require('axios');
 const formData = require('form-data');
@@ -217,6 +219,64 @@ exports.handlePaymentResponse = async (req, res) => {
                 }
                 
                 await user.save();
+
+                // ── Referral Reward on First Paid Subscription ───────────────────────
+                // Only credit the referrer if:
+                //   1. This user was referred by someone
+                //   2. The purchased plan is a PAID plan (price > 0)
+                //   3. This is their FIRST paid subscription (no previous success transactions)
+                if (user.referred_by && plan.price > 0) {
+                    const previousPaidSubs = await PaymentTransaction.countDocuments({
+                        user_id: user._id,
+                        status: 'success',
+                        _id: { $ne: transaction._id } // exclude current transaction
+                    });
+
+                    if (previousPaidSubs === 0) {
+                        // This is their 1st paid subscription
+                        try {
+                            const settings = await SiteSettings.findById('site_settings');
+                            const reward = settings?.referral_reward_amount || 50;
+                            const referrer = await User.findById(user.referred_by);
+
+                            if (referrer) {
+                                referrer.wallet_balance = (referrer.wallet_balance || 0) + reward;
+                                await referrer.save();
+
+                                await WalletTransaction.create({
+                                    user: referrer._id,
+                                    amount: reward,
+                                    type: 'referral_reward',
+                                    description: `Referral reward: ${user.full_name} bought ${plan.name}`,
+                                    reference_id: user._id,
+                                    balance_after: referrer.wallet_balance
+                                });
+
+                                // Notify referrer via email
+                                sendEmail({
+                                    email: referrer.email,
+                                    subject: `You earned ₹${reward} – Referral Reward!`,
+                                    html: `
+                                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                                            <h1 style="color: #F24C20; text-align: center;">🎉 Referral Reward!</h1>
+                                            <p>Hi ${referrer.full_name},</p>
+                                            <p>Great news! Your referral <strong>${user.full_name}</strong> just subscribed to the <strong>${plan.name}</strong> plan.</p>
+                                            <div style="background: #fdf2f0; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                                                <h2 style="color: #F24C20; margin: 0;">₹${reward} Added to Your Wallet!</h2>
+                                            </div>
+                                            <p>Your new wallet balance is ₹${referrer.wallet_balance}. Keep referring to earn more!</p>
+                                        </div>
+                                    `
+                                }).catch(e => console.error('Referral reward email failed:', e));
+
+                                console.log(`Referral reward of ₹${reward} credited to ${referrer.email} for referring ${user.email}`);
+                            }
+                        } catch (refErr) {
+                            console.error('Referral reward processing failed:', refErr);
+                        }
+                    }
+                }
+                // ─────────────────────────────────────────────────────────────────────
 
                 // Send Confirmation Email
                 try {

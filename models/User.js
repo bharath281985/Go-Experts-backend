@@ -35,16 +35,19 @@ const userSchema = new mongoose.Schema({
     },
     categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
     location: String,
+    latitude: Number,
+    longitude: Number,
     work_preference: String,
     experience_level: String,
     availability: String,
     budget_range: String,
     bio: {
         type: String,
-        maxlength: [500, 'Bio cannot exceed 500 characters'],
-        trim: true
+        trim: true,
+        maxlength: [5000, 'Bio cannot exceed 5000 characters']
     },
     phone_number: String,
+    country_code: String,
     profile_image: String,
     hourly_rate: {
         type: Number,
@@ -75,7 +78,7 @@ const userSchema = new mongoose.Schema({
         images: [String],
         description: {
             type: String,
-            maxlength: [500, 'Project description cannot exceed 500 characters']
+            maxlength: [5000, 'Project description cannot exceed 5000 characters']
         },
         links: [String],
         duration_days: Number,
@@ -106,6 +109,15 @@ const userSchema = new mongoose.Schema({
     wallet_balance: {
         type: Number,
         default: 0
+    },
+    referral_code: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
+    referred_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     },
     is_suspended: {
         type: Boolean,
@@ -162,9 +174,42 @@ userSchema.virtual('kyc', {
 });
 
 userSchema.pre('save', async function () {
-    if (!this.isModified('password')) return;
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    // 1. Generate Referral Code if new
+    if (this.isNew && !this.referral_code) {
+        const now = new Date();
+        const dateStr = now.getDate().toString().padStart(2, '0') + 
+                        (now.getMonth() + 1).toString().padStart(2, '0') + 
+                        now.getFullYear().toString().slice(-2);
+        const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+        this.referral_code = `GE${dateStr}${randomStr}`;
+    }
+
+    // 2. Generate Unique Username (Slug) if missing 
+    if (!this.username && this.full_name) {
+        let slug = this.full_name
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+        
+        // Ensure uniqueness
+        const User = this.constructor;
+        let finalUsername = slug;
+        let exists = await User.findOne({ username: finalUsername });
+        
+        while (exists && exists._id.toString() !== this._id.toString()) {
+            finalUsername = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+            exists = await User.findOne({ username: finalUsername });
+        }
+        
+        this.username = finalUsername;
+    }
+
+    if (this.isModified('password')) {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+    }
 });
 
 userSchema.methods.getResetPasswordToken = function () {

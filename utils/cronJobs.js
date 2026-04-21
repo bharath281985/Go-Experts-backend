@@ -64,19 +64,24 @@ const dailyPointsExpiry = () => {
 
                 // B. Notifications for Active Subs
                 const diffDays = Math.ceil((sub.end_date - now) / (1000 * 60 * 60 * 24));
+                const renewalLink = `${process.env.FRONTEND_URL || 'https://goexperts.in'}/dashboard/subscription`;
+                const expiryDate = sub.end_date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
                 // 10-Day Reminder
                 if (diffDays <= 10 && diffDays > 3 && !sub.reminder_sent_10d) {
                     await sendEmail({
                         email: user.email,
-                        subject: '🔔 GoExperts Alert: 10 Days Remaining',
-                        message: `Your plan is ending in 10 days. Upgrade to a Pro plan for unlimited access.`,
+                        subject: '⏳ Your Go Experts subscription expires in 10 days',
                         html: `
-                            <div style="font-family: sans-serif; max-width: 600px; padding: 20px; border: 1px solid #eee; border-radius: 15px;">
-                                <h1 style="color: #F24C20;">10 Days Left!</h1>
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+                                <h1 style="color: #F24C20; text-align: center;">Subscription Expiring Soon</h1>
                                 <p>Hi ${user.full_name},</p>
-                                <p>Your trial/plan ends in 10 days. Upgrade today to avoid interruptions.</p>
-                                <a href="${process.env.FRONTEND_URL}/subscription" style="background: #044071; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">View Advance Plans</a>
+                                <p>Your Go Experts subscription will expire in <strong>${diffDays} days</strong> on <strong>${expiryDate}</strong>.</p>
+                                <p>Renew now to avoid any interruption to your premium access and active credits.</p>
+                                <div style="text-align: center; margin: 30px 0;">
+                                    <a href="${renewalLink}" style="background-color: #F24C20; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">Renew My Subscription</a>
+                                </div>
+                                <p style="font-size: 12px; color: #888; text-align: center;">Need help? Contact support@goexperts.in</p>
                             </div>
                         `
                     });
@@ -88,14 +93,17 @@ const dailyPointsExpiry = () => {
                 if (diffDays <= 3 && diffDays > 0 && !sub.reminder_sent_3d) {
                     await sendEmail({
                         email: user.email,
-                        subject: '⏰ FINAL NOTICE: 3 Days Left on GoExperts!',
-                        message: `ACT NOW! Your plan expires in 3 days.`,
+                        subject: '🚨 Final reminder: Your subscription expires in 3 days!',
                         html: `
-                            <div style="font-family: sans-serif; max-width: 600px; padding: 20px; border: 1px solid #eee; border-radius: 15px;">
-                                <h1 style="color: red;">FINAL NOTICE</h1>
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+                                <h1 style="color: #e74c3c; text-align: center;">Only ${diffDays} Day${diffDays > 1 ? 's' : ''} Left!</h1>
                                 <p>Hi ${user.full_name},</p>
-                                <p>Your plan is set to expire in just 3 days. Renew now to preserve your progress.</p>
-                                <a href="${process.env.FRONTEND_URL}/subscription" style="background: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold;">Renew Now</a>
+                                <p>This is your final reminder — your Go Experts subscription expires in just <strong>${diffDays} day${diffDays > 1 ? 's' : ''}</strong> on <strong>${expiryDate}</strong>.</p>
+                                <p>After expiry, you will lose access to premium features and your remaining credits. Renew now to stay uninterrupted!</p>
+                                <div style="text-align: center; margin: 30px 0;">
+                                    <a href="${renewalLink}" style="background-color: #F24C20; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">Renew Now — Don't Lose Access</a>
+                                </div>
+                                <p style="font-size: 12px; color: #888; text-align: center;">Need help? Contact support@goexperts.in</p>
                             </div>
                         `
                     });

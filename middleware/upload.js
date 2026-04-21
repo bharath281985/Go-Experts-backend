@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
         else if (file.fieldname === 'work_images' || file.fieldname === 'portfolio_image') dest += 'portfolio/';
         else if (file.fieldname === 'attachments' || file.fieldname === 'signednda') dest += 'projects/';
         else if (file.fieldname === 'nda') dest += 'templates/';
-        else if (file.fieldname === 'site_logo' || file.fieldname === 'site_favicon') dest += 'branding/';
+        else if (file.fieldname === 'site_logo' || file.fieldname === 'site_favicon' || file.fieldname === 'header_logo' || file.fieldname === 'footer_logo') dest += 'branding/';
 
         fs.mkdirSync(dest, { recursive: true });
         cb(null, dest);

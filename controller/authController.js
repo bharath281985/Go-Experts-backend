@@ -6,6 +6,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const sendEmail = require('../utils/sendEmail');
 const OTP = require('../models/OTP');
+const SiteSettings = require('../models/SiteSettings');
+const WalletTransaction = require('../models/WalletTransaction');
 
 // Generate JWT
 const generateToken = (id) => {
@@ -19,7 +21,12 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
     try {
-        const { full_name, email, password, roles, categories, skills, location, work_preference, experience_level, availability, budget_range, subscription_plan } = req.body;
+        const { full_name, email, password, roles, categories, skills, location, latitude, longitude, work_preference, experience_level, availability, budget_range, subscription_plan } = req.body;
+        
+        if (!password || password.length < 8) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long' });
+        }
+
         const normalizedEmail = email.toLowerCase().trim();
         const requestedRoles = Array.isArray(roles) && roles.length > 0 ? roles : ['freelancer'];
         const primaryRole = requestedRoles[0];
@@ -47,6 +54,15 @@ exports.register = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Email already exists. Please login.' });
         }
 
+        // Handle referral code if provided
+        let referredBy = null;
+        if (req.body.referral_code) {
+            const referrer = await User.findOne({ referral_code: req.body.referral_code.toUpperCase() });
+            if (referrer) {
+                referredBy = referrer._id;
+            }
+        }
+
         // Create user
         const newUser = await User.create({
             full_name,
@@ -56,109 +72,98 @@ exports.register = async (req, res) => {
             categories,
             skills,
             location,
+            latitude,
+            longitude,
             work_preference,
             experience_level,
             availability,
             budget_range,
             total_points: subscription_plan ? 0 : 100, // Points will be granted by plan if selected
             is_email_verified: false, // Requires admin verification
-            role: primaryRole
+            role: primaryRole,
+            referred_by: referredBy
         });
 
-        // Assign the admin-managed free trial plan that matches the signup role.
-        const targetGroup = roleGroupMap[primaryRole];
-        let trialPlan = await SubscriptionPlan.findOne({
+        // Referral is tracked, reward will be credited when referred user buys a paid subscription
+        if (referredBy) {
+            newUser.referred_by = referredBy;
+        }
+
+        // ── Dynamic Free Trial Plan Assignment ──────────────────────────────────
+        // Reads ONLY from admin-configured plans. No plans are auto-created here.
+        // Admin must set up a plan in the Admin Panel with:
+        //   • Price = 0
+        //   • Status = enabled
+        //   • Group = "Free Trial Plan"
+        //   • Target Role = the relevant role (freelancer / client / investor / etc.)
+
+        let trialPlan = null;
+
+        // Priority 1: Exact match — Free Trial Plan group + matching role
+        trialPlan = await SubscriptionPlan.findOne({
             price: 0,
             status: 'enabled',
             target_role: primaryRole,
-            $or: [
-                { group: 'Free Trial Plan' },
-                ...(targetGroup ? [{ group: targetGroup }] : []),
-                { name: new RegExp(`${primaryRole.replace('_', '[ _-]?')}.*free\\s*trial`, 'i') }
-            ]
+            group: 'Free Trial Plan'
         }).sort({ updatedAt: -1 });
 
-        // Backward-compatible fallback for older shared free-trial records.
+        // Priority 2: Any enabled price-0 plan targeting this role
+        if (!trialPlan) {
+            trialPlan = await SubscriptionPlan.findOne({
+                price: 0,
+                status: 'enabled',
+                target_role: primaryRole
+            }).sort({ updatedAt: -1 });
+        }
+
+        // Priority 3: Shared Free Trial Plan (target_role = 'both' or no specific role)
         if (!trialPlan) {
             trialPlan = await SubscriptionPlan.findOne({
                 price: 0,
                 status: 'enabled',
                 $or: [
                     { target_role: 'both' },
-                    { group: 'Free Trial Plan' },
-                    { name: '90-Day Free Trial' }
+                    { group: 'Free Trial Plan' }
                 ]
             }).sort({ updatedAt: -1 });
         }
 
-        if (!trialPlan) {
-            trialPlan = await SubscriptionPlan.create({
-                name: `90-Day ${primaryRole.replace('_', ' ')} Free Trial`,
-                price: 0,
-                duration_days: 90,
-                project_post_limit: 36,
-                task_post_limit: 36,
-                chat_limit: 10,
-                database_access_limit: 5,
-                project_visit_limit: 36,
-                portfolio_visit_limit: 36,
-                startup_idea_post_limit: 3,
-                startup_idea_explore_limit: 3,
-                features: [
-                    "Full platform access for 90 days",
-                    "Post up to 36 Projects",
-                    "Post up to 36 Tasks",
-                    "Direct chat with 10 people",
-                    "36 Project Detail Visits",
-                    "Email support from admin"
-                ],
-                target_role: [primaryRole],
-                group: ['Free Trial Plan', ...(targetGroup ? [targetGroup] : [])],
-                billing_cycle: 'one-time',
-                badge: 'Free Trial',
-                cta: 'Start Free Trial',
-                description: `Admin-managed onboarding plan for new ${primaryRole.replace('_', ' ')} users.`,
-                color_theme: 'green',
-                icon: 'Shield'
-            });
-        }
-
-        const isTrialEnabled = trialPlan?.status === 'enabled';
-        const trialDuration = trialPlan?.duration_days || 90;
+        // If admin has not configured any free trial plan, user registers without a subscription.
+        // Admin should create a plan in the Admin Panel → Subscription Plans section.
+        const isTrialEnabled = !!trialPlan;
+        const trialDuration = trialPlan?.duration_days || 0;
         const endDate = new Date();
-        endDate.setDate(endDate.getDate() + trialDuration);
+        if (trialDuration > 0) endDate.setDate(endDate.getDate() + trialDuration);
 
         if (isTrialEnabled) {
             await UserSubscription.create({
                 user_id: newUser._id,
                 plan_id: trialPlan._id,
                 end_date: endDate,
-                // Remaining limits - Strictly from Admin's plan record
-                remaining_project_posts: Number(trialPlan.project_post_limit || 0),
-                remaining_task_posts: Number(trialPlan.task_post_limit || 0),
-                remaining_chats: Number(trialPlan.chat_limit || 0),
-                remaining_db_access: Number(trialPlan.database_access_limit || 0),
-                remaining_project_visits: Number(trialPlan.project_visit_limit || 0),
-                remaining_portfolio_visits: Number(trialPlan.portfolio_visit_limit || 0),
-                remaining_idea_unlocks: Number(trialPlan.startup_idea_explore_limit || 0),
-                remaining_startup_posts: Number(trialPlan.startup_idea_post_limit || 0),
-                remaining_interest_clicks: Number(trialPlan.interest_click_limit || 0),
-
-                // Store total snapshots for accurate dashboard bars
-                total_project_posts: Number(trialPlan.project_post_limit || 0),
-                total_task_posts: Number(trialPlan.task_post_limit || 0),
-                total_chats: Number(trialPlan.chat_limit || 0),
-                total_db_access: Number(trialPlan.database_access_limit || 0),
-                total_project_visits: Number(trialPlan.project_visit_limit || 0),
-                total_portfolio_visits: Number(trialPlan.portfolio_visit_limit || 0),
-                total_idea_unlocks: Number(trialPlan.startup_idea_explore_limit || 0),
-                total_startup_posts: Number(trialPlan.startup_idea_post_limit || 0),
-                total_interest_clicks: Number(trialPlan.interest_click_limit || 0),
-                
+                // Remaining limits — read directly from admin's plan record
+                remaining_project_posts:    Number(trialPlan.project_post_limit          || 0),
+                remaining_task_posts:       Number(trialPlan.task_post_limit             || 0),
+                remaining_chats:            Number(trialPlan.chat_limit                  || 0),
+                remaining_db_access:        Number(trialPlan.database_access_limit       || 0),
+                remaining_project_visits:   Number(trialPlan.project_visit_limit         || 0),
+                remaining_portfolio_visits: Number(trialPlan.portfolio_visit_limit       || 0),
+                remaining_idea_unlocks:     Number(trialPlan.startup_idea_explore_limit  || 0),
+                remaining_startup_posts:    Number(trialPlan.startup_idea_post_limit     || 0),
+                remaining_interest_clicks:  Number(trialPlan.interest_click_limit        || 0),
+                // Snapshot totals for dashboard usage bars
+                total_project_posts:        Number(trialPlan.project_post_limit          || 0),
+                total_task_posts:           Number(trialPlan.task_post_limit             || 0),
+                total_chats:                Number(trialPlan.chat_limit                  || 0),
+                total_db_access:            Number(trialPlan.database_access_limit       || 0),
+                total_project_visits:       Number(trialPlan.project_visit_limit         || 0),
+                total_portfolio_visits:     Number(trialPlan.portfolio_visit_limit       || 0),
+                total_idea_unlocks:         Number(trialPlan.startup_idea_explore_limit  || 0),
+                total_startup_posts:        Number(trialPlan.startup_idea_post_limit     || 0),
+                total_interest_clicks:      Number(trialPlan.interest_click_limit        || 0),
                 status: 'active'
             });
 
-            // Update user's subscription record summary
+            // Attach subscription summary to user record
             newUser.subscription_details = {
                 plan_name: trialPlan.name,
                 end_date: endDate,
@@ -330,8 +335,9 @@ exports.resendVerificationEmail = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        const normalizedEmail = email.toLowerCase().trim();
 
-        const user = await User.findOne({ email }).select('+password');
+        const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'No details found, please sign up' });
@@ -639,17 +645,13 @@ exports.updateProfile = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Normalize legacy data so file-only updates do not fail validation.
-        if (typeof user.bio === 'string' && user.bio.length > 500) {
-            user.bio = user.bio.slice(0, 500).trim();
-        }
 
         // Handle text fields
         const allowedFields = [
             'full_name', 'email', 'location', 'bio', 'phone_number',
             'availability', 'work_preference', 'experience_level', 'skills', 'hourly_rate',
             'categories', 'portfolio', 'experience_details', 'education_details', 'role_title', 'languages', 'completed_projects', 'happy_customers', 'review_score', 'kyc_details', 'documents', 'work_images', 'roles',
-            'budget_range', 'landing_page_image', 'social_links'
+            'budget_range', 'landing_page_image', 'social_links', 'latitude', 'longitude'
         ];
 
         allowedFields.forEach(field => {
@@ -681,17 +683,6 @@ exports.updateProfile = async (req, res) => {
                     });
                     user.markModified(field);
                 } else {
-                    if (field === 'bio' && typeof value === 'string') {
-                        value = value.slice(0, 500).trim();
-                    }
-                    if (field === 'portfolio' && Array.isArray(value)) {
-                        value = value.map(project => ({
-                            ...project,
-                            description: typeof project?.description === 'string'
-                                ? project.description.slice(0, 500).trim()
-                                : project?.description
-                        }));
-                    }
                     user[field] = value;
                 }
             }

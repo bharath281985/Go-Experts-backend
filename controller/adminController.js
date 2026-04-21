@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Project = require('../models/Project');
 const Dispute = require('../models/Dispute');
 const Withdrawal = require('../models/Withdrawal');
+const WalletTransaction = require('../models/WalletTransaction');
 const Gig = require('../models/Gig');
 const ContactMessage = require('../models/ContactMessage');
 const StartupIdea = require('../models/StartupIdea');
@@ -190,6 +191,7 @@ exports.updateUser = async (req, res) => {
         if (is_email_verified !== undefined) user.is_email_verified = Boolean(is_email_verified);
         if (is_suspended !== undefined) user.is_suspended = Boolean(is_suspended);
         if (location !== undefined) user.location = location;
+        
         if (bio !== undefined) user.bio = bio;
 
         await user.save();
@@ -406,25 +408,104 @@ exports.getWithdrawRequests = async (req, res) => {
 exports.updateWithdrawStatus = async (req, res) => {
     try {
         const { status, admin_note } = req.body;
-        const withdrawal = await Withdrawal.findById(req.params.id).populate('user');
+        const withdrawal = await Withdrawal.findById(req.params.id);
 
         if (!withdrawal) {
             return res.status(404).json({ success: false, message: 'Withdrawal request not found' });
         }
 
-        if (status === 'approved' && withdrawal.status !== 'approved') {
-            // Deduct from wallet if not already deducted or handled during request
-            // Typically, money is locked/deducted when requesting.
-            withdrawal.processed_at = Date.now();
+        if (withdrawal.status !== 'pending' && status !== withdrawal.status) {
+             return res.status(400).json({ success: false, message: 'Only pending requests can be changed' });
         }
 
-        withdrawal.status = status;
-        if (admin_note) withdrawal.admin_note = admin_note;
+        const updateData = { status };
+        if (admin_note) updateData.admin_note = admin_note;
+        
+        if (status === 'approved' && withdrawal.status === 'pending') {
+            updateData.processed_at = Date.now();
+            
+            // Mark transaction as completed if reference_id matches
+            await WalletTransaction.findOneAndUpdate(
+                { reference_id: withdrawal._id, type: 'withdrawal' },
+                { $set: { status: 'completed' } }
+            );
+        }
 
-        await withdrawal.save();
+        if (status === 'rejected' && withdrawal.status === 'pending') {
+            // Refund the user
+            const user = await User.findById(withdrawal.user);
+            if (user) {
+                user.wallet_balance += withdrawal.amount;
+                await user.save();
 
-        res.status(200).json({ success: true, data: withdrawal });
+                // Create refund transaction
+                await WalletTransaction.create({
+                    user: user._id,
+                    amount: withdrawal.amount,
+                    type: 'refund',
+                    status: 'completed',
+                    description: `Refund for rejected withdrawal request #${withdrawal._id.toString().slice(-6)}`,
+                    reference_id: withdrawal._id,
+                    balance_after: user.wallet_balance
+                });
+
+                // Mark original transaction as failed
+                await WalletTransaction.findOneAndUpdate(
+                    { reference_id: withdrawal._id, type: 'withdrawal' },
+                    { $set: { status: 'failed' } }
+                );
+            }
+        }
+
+        const updatedWithdrawal = await Withdrawal.findByIdAndUpdate(
+            req.params.id,
+            { $set: updateData },
+            { new: true, runValidators: false }
+        ).populate('user');
+
+        res.status(200).json({ success: true, data: updatedWithdrawal });
     } catch (error) {
+        console.error('updateWithdrawStatus error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Adjust user wallet balance manually
+// @route   PUT /api/admin/users/:id/wallet
+// @access  Private/Admin
+exports.adjustUserWallet = async (req, res) => {
+    try {
+        const { amount, type, description } = req.body; // amount can be positive (add) or negative (subtract)
+        
+        if (amount === undefined || isNaN(amount)) {
+            return res.status(400).json({ success: false, message: 'Valid amount is required' });
+        }
+
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.wallet_balance = (user.wallet_balance || 0) + Number(amount);
+        await user.save();
+
+        // Create transaction record
+        await WalletTransaction.create({
+            user: user._id,
+            amount: Number(amount),
+            type: type || (amount >= 0 ? 'bonus' : 'withdrawal'),
+            status: 'completed',
+            description: description || `Admin adjustment: ${amount >= 0 ? 'Added' : 'Subtracted'} ₹${Math.abs(amount)}`,
+            balance_after: user.wallet_balance
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `Wallet updated. New balance: ₹${user.wallet_balance}`,
+            balance: user.wallet_balance
+        });
+    } catch (error) {
+        console.error('adjustUserWallet error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -752,6 +833,58 @@ exports.sendProfileCompletionReminder = async (req, res) => {
         }
 
         res.status(200).json({ success: true, message: 'Profile completion reminder sent.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Admin triggered password reset for user
+// @route   POST /api/admin/users/:id/reset-password
+// @access  Private/Admin
+exports.resetUserPassword = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Get reset token
+        const resetToken = user.getResetPasswordToken();
+        await user.save({ validateBeforeSave: false });
+
+        // Create reset url
+        const origin = process.env.FRONTEND_URL || 'https://goexperts.in';
+        const resetUrl = `${origin}/reset-password/${resetToken}`;
+
+        // Send Reset Email
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: 'Reset Your Go Experts Password (Admin Request)',
+                templateData: { name: user.full_name, link: resetUrl },
+                message: `Hi ${user.full_name}, an administrator has initiated a password reset for your Go Experts account. Click the link below to set a new password: \n\n ${resetUrl}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h1 style="color: #F24C20; text-align: center;">Secure Password Reset</h1>
+                        <p>Hi ${user.full_name},</p>
+                        <p>Our administration team has initiated a password reset for your account to ensure your security or assist with access.</p>
+                        <p>Please click the button below to set a new password for your Go Experts account:</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${resetUrl}" style="background-color: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Reset My Password</a>
+                        </div>
+                        <p>This secure link will <b>expire in 1 hour</b>.</p>
+                        <p style="font-size: 12px; color: #777;">If you did not expect this or have questions, please contact our support team immediately.</p>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                        <p style="font-size: 11px; color: #aaa; text-align: center;">Go Experts Administration</p>
+                    </div>
+                `
+            });
+        } catch (emailErr) {
+            console.error('Admin password reset email failed:', emailErr);
+            return res.status(500).json({ success: false, message: 'User found but reset email could not be sent. Check email configuration.' });
+        }
+
+        res.status(200).json({ success: true, message: 'Password reset link sent to user email.' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

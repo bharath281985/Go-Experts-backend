@@ -3,9 +3,9 @@ const router = express.Router();
 const {
     getUsers, createUser, getUserById, updateUser, updateUserRoles,
     deleteUser, getStats, getProjects, toggleProjectFeatured, updateProjectStatus, getGigs, updateGigStatus, deleteGig,
-    verifyUser, suspendUser, rejectUser, sendProfileCompletionReminder, sendTestEmail, bulkUserAction,
+    verifyUser, suspendUser, rejectUser, sendProfileCompletionReminder, resetUserPassword, sendTestEmail, bulkUserAction,
     getDisputes, updateDisputeStatus, getWithdrawRequests, updateWithdrawStatus, sendDirectEmail,
-    getContactMessages, deleteContactMessage,
+    getContactMessages, deleteContactMessage, adjustUserWallet,
     getAdminStartupIdeas, getAdminStartupIdeaById, updateStartupIdeaStatus, toggleStartupIdeaFeatured,
     getAdminMeetings, getAdminOpportunities
 } = require('../controller/adminController');
@@ -40,10 +40,12 @@ router.post('/users/bulk', bulkUserAction);
 
 // Specific ID-based operations (Fixed order to avoid conflicts)
 router.post('/users/:id/remind-complete', sendProfileCompletionReminder);
+router.post('/users/:id/reset-password', resetUserPassword);
 router.put('/users/:id/verify', verifyUser);
 router.put('/users/:id/suspend', suspendUser);
 router.put('/users/:id/reject', rejectUser);
 router.put('/users/:id/roles', updateUserRoles);
+router.put('/users/:id/wallet', adjustUserWallet);
 router.post('/users/:id/send-email', sendDirectEmail);
 
 // General ID-based operations

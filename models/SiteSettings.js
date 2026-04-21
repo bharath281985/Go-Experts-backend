@@ -37,8 +37,9 @@ const siteSettingsSchema = new mongoose.Schema({
     maintenance_mode: { type: Boolean, default: false },
 
     // Points system
-    points_per_rupee: { type: Number, default: 1 },
-    points_signup_bonus: { type: Number, default: 100 },
+    // Referral & Wallet System
+    referral_reward_amount: { type: Number, default: 50 },  // Reward in currency units (e.g. 50 INR)
+    min_withdrawal_amount:   { type: Number, default: 500 }, // Minimum amount to withdraw
 
     // Home Page CMS (Mock data elimination)
     home_stats: [{
