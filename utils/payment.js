@@ -1,14 +1,10 @@
 const crypto = require('crypto');
 const axios = require('axios');
 
-const EASEBUZZ_MERCHANT_KEY = process.env.EASEBUZZ_MERCHANT_KEY;
-const EASEBUZZ_SALT_KEY = process.env.EASEBUZZ_SALT_KEY;
-const EASEBUZZ_ENV = process.env.EASEBUZZ_ENV; // 'test' or 'prod'
-
+const EASEBUZZ_MERCHANT_KEY = process.env.EASEBUZZ_MERCHANT_KEY || process.env.EASEBUZZ_KEY;
+const EASEBUZZ_SALT_KEY = process.env.EASEBUZZ_SALT_KEY || process.env.EASEBUZZ_SALT;
 const getBaseUrl = () => {
-    return EASEBUZZ_ENV === 'test'
-        ? 'https://testpay.easebuzz.in'
-        : 'https://pay.easebuzz.in';
+    return 'https://pay.easebuzz.in';
 };
 
 /**

@@ -75,9 +75,7 @@ exports.initiatePayment = async (req, res) => {
         postData.append('udf9', '');
         postData.append('udf10', '');
 
-        const initiateUrl = process.env.EASEBUZZ_ENV === 'prod' 
-            ? 'https://pay.easebuzz.in/payment/initiateLink' 
-            : 'https://testpay.easebuzz.in/payment/initiateLink';
+        const initiateUrl = 'https://pay.easebuzz.in/payment/initiateLink';
 
         const ebResponse = await axios.post(initiateUrl, postData.toString(), {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
@@ -98,9 +96,7 @@ exports.initiatePayment = async (req, res) => {
 
             // The access_key is in ebResponse.data.data
             // Full checkout URL: base_url + access_key
-            const baseUrl = process.env.EASEBUZZ_ENV === 'prod' 
-                ? 'https://pay.easebuzz.in/pay/' 
-                : 'https://testpay.easebuzz.in/pay/';
+            const baseUrl = 'https://pay.easebuzz.in/pay/';
             
             res.status(200).json({
                 success: true,

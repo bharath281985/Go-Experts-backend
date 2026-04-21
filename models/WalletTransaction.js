@@ -12,7 +12,7 @@ const walletTransactionSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['referral_reward', 'withdrawal', 'refund', 'bonus'],
+        enum: ['referral_reward', 'withdrawal', 'refund', 'bonus', 'subscription_payment'],
         required: true
     },
     status: {

@@ -86,26 +86,8 @@ exports.register = async (req, res) => {
             total_points: 100
         });
 
-        // Credit Referrer if applicable
-        if (referredBy) {
-            const settings = await SiteSettings.findById('site_settings');
-            const reward = settings?.referral_reward_amount || 50;
-            
-            const referrerUser = await User.findById(referredBy);
-            if (referrerUser) {
-                referrerUser.wallet_balance = (referrerUser.wallet_balance || 0) + reward;
-                await referrerUser.save();
-
-                await WalletTransaction.create({
-                    user: referredBy,
-                    amount: reward,
-                    type: 'referral_reward',
-                    description: `Reward for referring ${full_name}`,
-                    reference_id: user._id,
-                    balance_after: referrerUser.wallet_balance
-                });
-            }
-        }
+        // Referral is tracked here, but reward is credited only after the referred user
+        // buys their first paid subscription (not on signup / free trial).
 
         // Dynamic Free Trial Assignment (logic copied from existing controller to maintain consistency)
         let trialPlan = await SubscriptionPlan.findOne({
