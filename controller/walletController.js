@@ -8,7 +8,7 @@ const SiteSettings = require('../models/SiteSettings');
 // @access  Private
 exports.getMyWallet = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('wallet_balance referral_code');
+        const user = await User.findById(req.user.id).select('wallet_balance referral_code full_name email phone_number');
         const transactions = await WalletTransaction.find({ user: req.user.id }).sort({ createdAt: -1 });
         const settings = await SiteSettings.findById('site_settings');
 
@@ -16,6 +16,9 @@ exports.getMyWallet = async (req, res) => {
             success: true,
             balance: user.wallet_balance || 0,
             referral_code: user.referral_code,
+            full_name: user.full_name,
+            email: user.email,
+            phone_number: user.phone_number,
             transactions,
             min_withdrawal: settings?.min_withdrawal_amount || 500,
             referral_reward: settings?.referral_reward_amount || 50

@@ -331,3 +331,163 @@ exports.handlePaymentResponse = async (req, res) => {
         res.status(500).send('An unexpected error occurred during payment processing.');
     }
 };
+
+/**
+ * @desc    Pay for a subscription plan using wallet balance
+ * @route   POST /api/payment/pay-with-wallet
+ * @access  Private
+ */
+exports.payWithWallet = async (req, res) => {
+    try {
+        const { planId } = req.body;
+        const user = await User.findById(req.user.id);
+        const plan = await SubscriptionPlan.findById(planId);
+
+        if (!plan) return res.status(404).json({ success: false, message: 'Plan not found' });
+        if (plan.price <= 0) return res.status(400).json({ success: false, message: 'This plan is free — no payment needed' });
+        if ((user.wallet_balance || 0) < plan.price) {
+            return res.status(400).json({
+                success: false,
+                message: `Insufficient wallet balance. You need ₹${plan.price} but have ₹${user.wallet_balance || 0}.`
+            });
+        }
+
+        // Deduct from wallet
+        user.wallet_balance -= plan.price;
+
+        // Activate subscription
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + plan.duration_days);
+        const bonusPoints = plan.points_granted || 0;
+        user.total_points = (user.total_points || 0) + bonusPoints;
+
+        await UserSubscription.findOneAndUpdate(
+            { user_id: user._id },
+            {
+                plan_id: plan._id,
+                status: 'active',
+                start_date: startDate,
+                end_date: endDate,
+                remaining_project_posts: plan.project_post_limit,
+                remaining_task_posts: plan.task_post_limit,
+                remaining_chats: plan.chat_limit,
+                remaining_db_access: plan.database_access_limit,
+                remaining_interest_clicks: plan.interest_click_limit,
+                remaining_project_visits: plan.project_visit_limit,
+                remaining_portfolio_visits: plan.portfolio_visit_limit,
+                remaining_startup_posts: plan.startup_idea_post_limit || 0,
+                remaining_idea_unlocks: plan.startup_idea_explore_limit || 0,
+                reminder_sent_10d: false,
+                reminder_sent_3d: false,
+                reminder_sent_exp: false
+            },
+            { upsert: true, new: true }
+        );
+
+        user.subscription_details = {
+            plan_name: plan.name,
+            status: 'active',
+            start_date: startDate,
+            end_date: endDate,
+            project_credits: plan.project_visit_limit,
+            portfolio_credits: plan.portfolio_visit_limit,
+            task_credits: plan.task_post_limit,
+            chat_credits: plan.chat_limit,
+            db_credits: plan.database_access_limit
+        };
+
+        // Grant roles if applicable
+        if (plan.target_role && plan.target_role.length > 0) {
+            plan.target_role.forEach(role => {
+                if (role === 'both') {
+                    ['client', 'freelancer'].forEach(r => { if (!user.roles.includes(r)) user.roles.push(r); });
+                } else if (!user.roles.includes(role)) {
+                    user.roles.push(role);
+                }
+            });
+        }
+
+        await user.save();
+
+        // Create transaction record
+        const txnid = `WLT${Date.now()}${crypto.randomBytes(4).toString('hex')}`;
+        const transaction = await PaymentTransaction.create({
+            user_id: user._id,
+            plan_id: plan._id,
+            payment_id: txnid,
+            txnid,
+            amount: plan.price,
+            status: 'success',
+            payment_method: 'wallet'
+        });
+
+        // Wallet debit entry
+        await WalletTransaction.create({
+            user: user._id,
+            amount: -plan.price,
+            type: 'subscription_payment',
+            description: `Paid for ${plan.name} subscription`,
+            reference_id: transaction._id,
+            balance_after: user.wallet_balance
+        });
+
+        // Handle referral reward (same logic as Easebuzz payment)
+        if (user.referred_by && plan.price > 0) {
+            const previousPaidSubs = await PaymentTransaction.countDocuments({
+                user_id: user._id,
+                status: 'success',
+                _id: { $ne: transaction._id }
+            });
+            if (previousPaidSubs === 0) {
+                try {
+                    const settings = await SiteSettings.findById('site_settings');
+                    const reward = settings?.referral_reward_amount || 50;
+                    const referrer = await User.findById(user.referred_by);
+                    if (referrer) {
+                        referrer.wallet_balance = (referrer.wallet_balance || 0) + reward;
+                        await referrer.save();
+                        await WalletTransaction.create({
+                            user: referrer._id,
+                            amount: reward,
+                            type: 'referral_reward',
+                            description: `Referral reward: ${user.full_name} bought ${plan.name}`,
+                            reference_id: user._id,
+                            balance_after: referrer.wallet_balance
+                        });
+                    }
+                } catch (refErr) {
+                    console.error('Wallet pay referral reward error:', refErr);
+                }
+            }
+        }
+
+        // Confirmation email
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: `Subscription Activated via Wallet – ${plan.name}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+                        <h1 style="color: #F24C20; text-align: center;">Subscription Activated!</h1>
+                        <p>Hi ${user.full_name},</p>
+                        <p>₹${plan.price} was deducted from your Go Experts wallet to activate <strong>${plan.name}</strong>.</p>
+                        <p><strong>Valid Until:</strong> ${endDate.toLocaleDateString('en-IN')}</p>
+                        <p><strong>Remaining Wallet Balance:</strong> ₹${user.wallet_balance}</p>
+                    </div>
+                `
+            });
+        } catch (emailErr) {
+            console.error('Wallet subscription email error:', emailErr);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `₹${plan.price} deducted from wallet. ${plan.name} is now active!`,
+            wallet_balance: user.wallet_balance
+        });
+    } catch (err) {
+        console.error('Pay with wallet error:', err);
+        res.status(500).json({ success: false, message: 'Wallet payment failed' });
+    }
+};
