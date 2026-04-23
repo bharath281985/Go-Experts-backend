@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, sendOTP, verifyOTP } = require('../../controller/mobile/mobileAuthController');
+const { register, login, sendOTP, verifyOTP, forgotPassword, resetPassword } = require('../../controller/mobile/mobileAuthController');
 const validate = require('../../middleware/validate');
 const { registerSchema, loginSchema } = require('../../utils/validationSchemas');
 const rateLimit = require('express-rate-limit');
@@ -29,5 +29,10 @@ router.post('/login', validate(loginSchema), login);
 // OTP routes for mobile
 router.post('/send-otp', sendOTP);
 router.post('/verify-otp', verifyOTP);
+
+// Password Reset routes for mobile
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+
 
 module.exports = router;

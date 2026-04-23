@@ -40,6 +40,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Mount routers
 app.use('/api/auth', require('./routers/authRoutes'));
 app.use('/api/mobile/auth', require('./routers/mobile/mobileAuthRoutes'));
+app.use('/api/mobile/user', require('./routers/mobile/mobileUserRoutes'));
 app.use('/api/users', require('./routers/userRoutes'));
 app.use('/api/projects', require('./routers/projectRoutes'));
 app.use('/api/gigs', require('./routers/gigRoutes'));
