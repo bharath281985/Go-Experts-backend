@@ -58,15 +58,123 @@ exports.getStats = async (req, res) => {
 // @access  Private/Admin
 exports.getUsers = async (req, res) => {
     try {
-        const users = await User.find({ roles: { $ne: 'admin' } })
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 30, 1), 100);
+        const search = (req.query.search || '').trim();
+        const status = (req.query.status || 'all').trim();
+        const role = (req.query.role || 'all').trim();
+        const skip = (page - 1) * limit;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const baseQuery = { roles: { $ne: 'admin' } };
+
+        if (search) {
+            baseQuery.$or = [
+                { full_name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (role !== 'all') {
+            baseQuery.roles = role;
+        }
+
+        const statusQueryMap = {
+            all: {},
+            new: { created_at: { $gte: sevenDaysAgo } },
+            active: {
+                is_suspended: false,
+                is_email_verified: true
+            },
+            kyc_not_verified: {
+                $and: [
+                    { kyc_status: { $ne: 'fully_verified' } },
+                    { 'kyc_details.is_verified': { $ne: true } }
+                ]
+            },
+            suspended: { is_suspended: true },
+            blocked: {
+                $or: [
+                    { is_blocked: true },
+                    { blocked: true },
+                    { status: 'blocked' }
+                ]
+            },
+            deleted: {
+                $or: [
+                    { is_deleted: true },
+                    { deleted_at: { $exists: true, $ne: null } },
+                    { status: 'deleted' }
+                ]
+            },
+            paid: {
+                $or: [
+                    { 'subscription_details.plan_type': 'premium' },
+                    { is_paid_user: true },
+                    { total_paid_amount: { $gt: 0 } },
+                    { 'subscription_details.plan_name': { $exists: true, $nin: [null, '', 'Starter Free Plan'] } }
+                ]
+            }
+        };
+
+        const statusQuery = statusQueryMap[status] || statusQueryMap.all;
+        const finalQuery = { ...baseQuery, ...statusQuery };
+
+        const [users, totalUsers] = await Promise.all([
+            User.find(finalQuery)
             .select('-password')
             .populate('skills', 'name')
             .populate('categories', 'name')
             .populate({ path: 'kyc', strictPopulate: false })
-            .sort({ created_at: -1 });
+            .sort({ created_at: -1 })
+            .skip(skip)
+            .limit(limit),
+            User.countDocuments(finalQuery)
+        ]);
+
+        const countQueryFromStatus = (statusKey) => User.countDocuments({
+            ...baseQuery,
+            ...(statusQueryMap[statusKey] || {})
+        });
+
+        const [
+            allCount,
+            newCount,
+            activeCount,
+            kycNotVerifiedCount,
+            suspendedCount,
+            blockedCount,
+            deletedCount,
+            paidCount
+        ] = await Promise.all([
+            User.countDocuments(baseQuery),
+            countQueryFromStatus('new'),
+            countQueryFromStatus('active'),
+            countQueryFromStatus('kyc_not_verified'),
+            countQueryFromStatus('suspended'),
+            countQueryFromStatus('blocked'),
+            countQueryFromStatus('deleted'),
+            countQueryFromStatus('paid')
+        ]);
+
         res.status(200).json({
             success: true,
             count: users.length,
+            total: totalUsers,
+            page,
+            limit,
+            totalPages: Math.ceil(totalUsers / limit),
+            summary: {
+                all: allCount,
+                new: newCount,
+                active: activeCount,
+                kyc_not_verified: kycNotVerifiedCount,
+                suspended: suspendedCount,
+                blocked: blockedCount,
+                deleted: deletedCount,
+                paid: paidCount
+            },
             users
         });
     } catch (error) {
@@ -664,8 +772,19 @@ exports.verifyUser = async (req, res) => {
         if (!user.kyc_details) user.kyc_details = {};
         user.kyc_details.is_verified = true;
         user.kyc_details.verified_at = Date.now();
+        user.kyc_status = 'fully_verified';
 
         await user.save();
+
+        // Also update associated KYC document if exists
+        const KYC = require('../models/KYC');
+        await KYC.findOneAndUpdate(
+            { user: user._id },
+            { 
+                status: 'fully_verified',
+                verified_at: Date.now()
+            }
+        );
 
         // Send Verification Email
         try {

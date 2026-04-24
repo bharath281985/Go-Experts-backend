@@ -12,7 +12,7 @@ exports.submitIdea = async (req, res) => {
             category, title, shortDescription, detailedDescription,
             problem, solution, uniqueness, targetAudience,
             marketSize, competitorAnalysis, fundingAmount,
-            useOfFunds, milestones, ndaRequired
+            useOfFunds, milestones, ndaRequired, youtubeUrl
         } = req.body;
         
         const user = await User.findById(req.user.id || req.user._id);
@@ -57,10 +57,30 @@ exports.submitIdea = async (req, res) => {
             });
         }
 
+        const signedNdaFile = req.files?.signednda?.[0];
+        const pitchDeckFile = req.files?.pitchDeck?.[0];
+        const ideaImageFiles = req.files?.ideaImages || [];
+        const legacyAttachments = req.files?.attachments || [];
+
+        const resolvedPitchDeckFile = pitchDeckFile
+            || legacyAttachments.find(file => /\.(pdf|ppt|pptx)$/i.test(file.originalname || ''));
+
+        const resolvedIdeaImageFiles = ideaImageFiles.length > 0
+            ? ideaImageFiles
+            : legacyAttachments.filter(file => file.mimetype?.startsWith('image/'));
+
         let signedNDA = null;
-        if (req.file) {
-            signedNDA = `/${req.file.destination}${req.file.filename}`.replace('//', '/');
+        if (signedNdaFile) {
+            signedNDA = `/${signedNdaFile.destination}${signedNdaFile.filename}`.replace('//', '/');
         }
+
+        const pitchDeck = resolvedPitchDeckFile
+            ? `/${resolvedPitchDeckFile.destination}${resolvedPitchDeckFile.filename}`.replace('//', '/')
+            : null;
+
+        const ideaImages = resolvedIdeaImageFiles.map(file =>
+            `/${file.destination}${file.filename}`.replace('//', '/')
+        );
 
         // Deduct from subscription
         userSubscription.remaining_startup_posts -= 1;
@@ -83,6 +103,10 @@ exports.submitIdea = async (req, res) => {
             milestones,
             ndaRequired,
             signedNDA,
+            pitchDeck,
+            youtubeUrl,
+            ideaImages,
+            attachments: ideaImages,
             status: 'approved' // Approved by default as requested
         });
 

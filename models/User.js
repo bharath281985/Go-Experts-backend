@@ -47,6 +47,24 @@ const userSchema = new mongoose.Schema({
         maxlength: [5000, 'Bio cannot exceed 5000 characters']
     },
     phone_number: String,
+    whatsapp_country_code: {
+        type: String,
+        required: [true, 'Please add a WhatsApp country code'],
+        trim: true
+    },
+    whatsapp_number: {
+        type: String,
+        required: [true, 'Please add a WhatsApp number'],
+        trim: true
+    },
+    business_or_alternative_country_code: {
+        type: String,
+        trim: true
+    },
+    business_or_alternative_number: {
+        type: String,
+        trim: true
+    },
     country_code: String,
     profile_image: String,
     hourly_rate: {

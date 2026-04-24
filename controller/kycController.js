@@ -3,14 +3,29 @@ const User = require('../models/User');
 
 exports.getKYCStatus = async (req, res) => {
     try {
+        const user = await User.findById(req.user.id);
         const kyc = await KYC.findOne({ user: req.user.id });
+
+        // Determine effective status from User model or KYC model
+        let effectiveStatus = user.kyc_status || 'unverified';
+        
+        // Fallback: If User.kyc_details.is_verified is true, force fully_verified
+        if (user.kyc_details?.is_verified && effectiveStatus !== 'premium_verified') {
+            effectiveStatus = 'fully_verified';
+        }
+
         if (!kyc) {
             return res.status(200).json({ 
                 success: true, 
-                data: { status: 'unverified' } 
+                data: { status: effectiveStatus } 
             });
         }
-        res.status(200).json({ success: true, data: kyc });
+
+        // Return KYC doc but with the effective status
+        const kycData = kyc.toObject();
+        kycData.status = effectiveStatus;
+        
+        res.status(200).json({ success: true, data: kycData });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Server error' });
     }

@@ -9,6 +9,8 @@ const OTP = require('../models/OTP');
 const SiteSettings = require('../models/SiteSettings');
 const WalletTransaction = require('../models/WalletTransaction');
 
+const PHONE_NUMBER_REGEX = /^\d{7,15}$/;
+
 // Generate JWT
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -21,10 +23,56 @@ const generateToken = (id) => {
 // @access  Public
 exports.register = async (req, res) => {
     try {
-        const { full_name, email, password, roles, categories, skills, location, latitude, longitude, work_preference, experience_level, availability, budget_range, subscription_plan } = req.body;
+        const {
+            full_name,
+            email,
+            password,
+            roles,
+            categories,
+            skills,
+            location,
+            latitude,
+            longitude,
+            work_preference,
+            experience_level,
+            availability,
+            budget_range,
+            subscription_plan,
+            whatsapp_country_code,
+            whatsapp_number,
+            business_or_alternative_country_code,
+            business_or_alternative_number
+        } = req.body;
         
         if (!password || password.length < 8) {
             return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long' });
+        }
+
+        if (
+            !whatsapp_country_code?.trim() ||
+            !whatsapp_number?.trim()
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'WhatsApp country code and WhatsApp number are required'
+            });
+        }
+
+        const sanitizedWhatsappNumber = whatsapp_number.replace(/\D/g, '');
+        const sanitizedBusinessNumber = (business_or_alternative_number || '').replace(/\D/g, '');
+
+        if (!PHONE_NUMBER_REGEX.test(sanitizedWhatsappNumber)) {
+            return res.status(400).json({
+                success: false,
+                message: 'WhatsApp number must be 7 to 15 digits'
+            });
+        }
+
+        if (sanitizedBusinessNumber && !PHONE_NUMBER_REGEX.test(sanitizedBusinessNumber)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Business or alternative number must be 7 to 15 digits'
+            });
         }
 
         const normalizedEmail = email.toLowerCase().trim();
@@ -68,6 +116,11 @@ exports.register = async (req, res) => {
             full_name,
             email: normalizedEmail,
             password,
+            country_code: whatsapp_country_code.trim(),
+            whatsapp_country_code: whatsapp_country_code.trim(),
+            whatsapp_number: sanitizedWhatsappNumber,
+            business_or_alternative_country_code: business_or_alternative_country_code?.trim() || '',
+            business_or_alternative_number: sanitizedBusinessNumber,
             roles: requestedRoles,
             categories,
             skills,
@@ -648,7 +701,7 @@ exports.updateProfile = async (req, res) => {
 
         // Handle text fields
         const allowedFields = [
-            'full_name', 'email', 'location', 'bio', 'phone_number',
+            'full_name', 'email', 'location', 'bio', 'phone_number', 'country_code', 'whatsapp_country_code', 'whatsapp_number', 'business_or_alternative_country_code', 'business_or_alternative_number',
             'availability', 'work_preference', 'experience_level', 'skills', 'hourly_rate',
             'categories', 'portfolio', 'experience_details', 'education_details', 'role_title', 'languages', 'completed_projects', 'happy_customers', 'review_score', 'kyc_details', 'documents', 'work_images', 'roles',
             'budget_range', 'landing_page_image', 'social_links', 'latitude', 'longitude'

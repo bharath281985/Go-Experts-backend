@@ -17,6 +17,9 @@ const startupIdeaSchema = new mongoose.Schema({
     milestones: { type: String },
     ndaRequired: { type: String, enum: ['Yes', 'No'], default: 'No' },
     signedNDA: { type: String }, // Path to the uploaded signed PDF
+    pitchDeck: { type: String },
+    youtubeUrl: { type: String },
+    ideaImages: [{ type: String }],
     attachments: [{ type: String }],
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     views: { type: Number, default: 0 },

@@ -14,7 +14,7 @@ const storage = multer.diskStorage({
         else if (file.fieldname === 'image' || file.fieldname === 'category_image') dest += 'categories/';
         else if (file.fieldname === 'image1' || file.fieldname === 'image2' || file.fieldname === 'banner') dest += 'pages/';
         else if (file.fieldname === 'work_images' || file.fieldname === 'portfolio_image') dest += 'portfolio/';
-        else if (file.fieldname === 'attachments' || file.fieldname === 'signednda') dest += 'projects/';
+        else if (file.fieldname === 'attachments' || file.fieldname === 'signednda' || file.fieldname === 'pitchDeck' || file.fieldname === 'ideaImages') dest += 'projects/';
         else if (file.fieldname === 'nda') dest += 'templates/';
         else if (file.fieldname === 'site_logo' || file.fieldname === 'site_favicon' || file.fieldname === 'header_logo' || file.fieldname === 'footer_logo') dest += 'branding/';
 
@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
 
 // Check file type
 function checkFileType(file, cb) {
-    const filetypes = /jpeg|jpg|png|gif|webp|pdf|doc|docx/;
+    const filetypes = /jpeg|jpg|png|gif|webp|pdf|doc|docx|ppt|pptx/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = filetypes.test(file.mimetype);
 
