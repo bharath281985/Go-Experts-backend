@@ -22,7 +22,8 @@ exports.getFreelancers = async (req, res) => {
                 { roles: 'freelancer' },
                 { roles: { $nin: ['admin'] } }
             ],
-            is_suspended: { $ne: true }
+            is_suspended: { $ne: true },
+            kyc_status: { $ne: 'rejected' }
         };
 
         if (search) {
@@ -140,14 +141,19 @@ exports.getFreelancerById = async (req, res) => {
                 { roles: 'freelancer' },
                 { roles: { $nin: ['admin'] } }
             ],
-            is_suspended: { $ne: true }
+            is_suspended: { $ne: true },
+            kyc_status: { $ne: 'rejected' }
         };
         
-        // If it's a valid ObjectId, search by _id, otherwise search by username
+        // If it's a valid ObjectId, search by _id, otherwise search by slug or username.
         if (mongoose.Types.ObjectId.isValid(talentId)) {
             query._id = talentId;
         } else {
-            query.username = talentId.toLowerCase();
+            const normalizedTalentId = talentId.toLowerCase();
+            query.$or = [
+                { slug: normalizedTalentId },
+                { username: normalizedTalentId }
+            ];
         }
 
         const freelancer = await User.findOne(query)

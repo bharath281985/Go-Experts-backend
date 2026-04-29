@@ -1,24 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const {
-    getMe,
-    updateProfile,
-    getWalletHistory,
-    getMobileKYC,
-    updateMobileKYC,
-    changePassword
-} = require('../../controller/mobile/mobileUserController');
-const { protect } = require('../../middleware/auth'); // Assuming protect middleware exists here
+const { protect } = require('../../middleware/auth');
 const upload = require('../../middleware/upload');
+const {
+    getMobileKYC,
+    updateMobileKYC
+} = require('../../controller/mobile/mobileUserController');
 
-// All routes here are protected
 router.use(protect);
 
-router.get('/me', getMe);
-router.post('/update', updateProfile);
-router.get('/wallet', getWalletHistory);
-router.get('/kyc', getMobileKYC);
-router.put('/kyc', upload.fields([
+router.get('/', getMobileKYC);
+router.put('/', upload.fields([
     { name: 'profile_photo', maxCount: 1 },
     { name: 'pan_card', maxCount: 1 },
     { name: 'aadhar_card', maxCount: 1 },
@@ -39,7 +31,5 @@ router.put('/kyc', upload.fields([
     { name: 'educational', maxCount: 10 },
     { name: 'experience_letter', maxCount: 1 }
 ]), updateMobileKYC);
-router.post('/change-password', changePassword);
-
 
 module.exports = router;

@@ -33,7 +33,9 @@ exports.register = async (req, res) => {
             latitude,
             longitude,
             phone_number,
-            country_code
+            country_code,
+            whatsapp_number,
+            whatsapp_country_code
         } = req.body;
 
         if (!password || password.length < 8) {
@@ -79,8 +81,10 @@ exports.register = async (req, res) => {
             location,
             latitude,
             longitude,
-            phone_number,
-            country_code,
+            phone_number: phone_number || whatsapp_number,
+            country_code: country_code || whatsapp_country_code,
+            whatsapp_number: whatsapp_number || phone_number,
+            whatsapp_country_code: whatsapp_country_code || country_code,
             referred_by: referredBy,
             is_email_verified: false,
             total_points: 100
@@ -258,7 +262,9 @@ exports.login = async (req, res) => {
                     role: Array.isArray(user.roles) ? user.roles[0] : (user.role || 'user'),
                     has_subscription: has_active_sub,
                     phone_number: user.phone_number || '',
-                    country_code: user.country_code || ''
+                    country_code: user.country_code || '',
+                    whatsapp_number: user.whatsapp_number || '',
+                    whatsapp_country_code: user.whatsapp_country_code || ''
                 }
             });
         }

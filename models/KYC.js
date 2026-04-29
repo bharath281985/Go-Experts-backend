@@ -9,7 +9,7 @@ const kycSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['investor', 'startup_creator'],
+        enum: ['freelancer', 'client', 'investor', 'startup_creator'],
         required: true
     },
     status: {

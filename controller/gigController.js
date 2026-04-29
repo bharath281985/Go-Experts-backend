@@ -27,13 +27,23 @@ exports.createGig = async (req, res) => {
     }
 };
 
-// @desc    Get all live gigs
-// @route   GET /api/gigs
-// @access  Public
 exports.getGigs = async (req, res) => {
     try {
-        const gigs = await Gig.find({ status: 'live' }).populate('freelancer_id', 'full_name profile_image');
-        res.json({ success: true, data: gigs });
+        // Fetch all live gigs and populate freelancer info
+        const gigs = await Gig.find({ status: 'live' })
+            .populate({
+                path: 'freelancer_id',
+                select: 'full_name profile_image is_suspended kyc_status',
+                match: { 
+                    is_suspended: { $ne: true },
+                    kyc_status: { $ne: 'rejected' }
+                }
+            });
+            
+        // Filter out gigs where the freelancer doesn't meet the active criteria (populate returns null for freelancer_id if match fails)
+        const activeGigs = gigs.filter(gig => gig.freelancer_id !== null);
+        
+        res.json({ success: true, count: activeGigs.length, data: activeGigs });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

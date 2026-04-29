@@ -8,8 +8,26 @@ const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         let dest = 'uploads/';
         if (file.fieldname === 'profile' || file.fieldname === 'landing_image') dest += 'profiles/';
-        else if (file.fieldname === 'pan_card' || file.fieldname === 'aadhar_card' || file.fieldname === 'kyc_doc') dest += 'kyc/';
-        else if (file.fieldname === 'educational' || file.fieldname === 'experience_letter') dest += 'documents/';
+        else if ([
+            'pan_card',
+            'aadhar_card',
+            'kyc_doc',
+            'profile_photo',
+            'passport',
+            'driving_license',
+            'address_proof',
+            'cancelled_cheque',
+            'pitch_deck',
+            'business_plan',
+            'financial_projections',
+            'demo_screenshots',
+            'inc_certificate',
+            'gst_certificate',
+            'company_pan',
+            'startup_india_cert',
+            'digital_signature'
+        ].includes(file.fieldname)) dest += 'kyc/';
+        else if (file.fieldname === 'educational' || file.fieldname === 'academic_certificates' || file.fieldname === 'experience_letter') dest += 'documents/';
         else if (file.fieldname === 'gig_image' || file.fieldname === 'thumbnail') dest += 'gigs/';
         else if (file.fieldname === 'image' || file.fieldname === 'category_image') dest += 'categories/';
         else if (file.fieldname === 'image1' || file.fieldname === 'image2' || file.fieldname === 'banner') dest += 'pages/';

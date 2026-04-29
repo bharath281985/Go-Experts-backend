@@ -99,8 +99,18 @@ exports.getProjects = async (req, res) => {
         }
 
         let projects = await Project.find(query)
-            .populate('client_id', 'full_name profile_image created_at kyc_details')
+            .populate({
+                path: 'client_id',
+                select: 'full_name profile_image created_at kyc_details is_suspended kyc_status',
+                match: {
+                    is_suspended: { $ne: true },
+                    kyc_status: { $ne: 'rejected' }
+                }
+            })
             .sort({ createdAt: -1 });
+            
+        // Filter out projects where the client is suspended or rejected
+        projects = projects.filter(project => project.client_id !== null);
             
         const userId = req.user?.id;
 

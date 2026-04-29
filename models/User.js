@@ -13,6 +13,28 @@ const userSchema = new mongoose.Schema({
         lowercase: true,
         trim: true
     },
+    slug: {
+        type: String,
+        unique: true,
+        sparse: true,
+        lowercase: true,
+        trim: true
+    },
+    meta_title: {
+        type: String,
+        trim: true,
+        maxlength: [180, 'Meta title cannot exceed 180 characters']
+    },
+    meta_keywords: {
+        type: String,
+        trim: true,
+        maxlength: [500, 'Meta keywords cannot exceed 500 characters']
+    },
+    meta_description: {
+        type: String,
+        trim: true,
+        maxlength: [500, 'Meta description cannot exceed 500 characters']
+    },
     email: {
         type: String,
         required: [true, 'Please add an email'],
@@ -202,26 +224,43 @@ userSchema.pre('save', async function () {
         this.referral_code = `GE${dateStr}${randomStr}`;
     }
 
-    // 2. Generate Unique Username (Slug) if missing 
-    if (!this.username && this.full_name) {
-        let slug = this.full_name
+    // 2. Generate Unique Username and public slug if missing.
+    if ((!this.username || !this.slug) && this.full_name) {
+        const primaryRole = Array.isArray(this.roles) && this.roles.length
+            ? this.roles.find(role => role !== 'admin') || this.roles[0]
+            : 'user';
+        let nameSlug = this.full_name
             .toLowerCase()
             .trim()
             .replace(/[^a-z0-9]/g, '-')
             .replace(/-+/g, '-')
             .replace(/^-|-$/g, '');
         
-        // Ensure uniqueness
         const User = this.constructor;
-        let finalUsername = slug;
-        let exists = await User.findOne({ username: finalUsername });
-        
-        while (exists && exists._id.toString() !== this._id.toString()) {
-            finalUsername = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
-            exists = await User.findOne({ username: finalUsername });
+        if (!this.username) {
+            let finalUsername = nameSlug;
+            let exists = await User.findOne({ username: finalUsername });
+            
+            while (exists && exists._id.toString() !== this._id.toString()) {
+                finalUsername = `${nameSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+                exists = await User.findOne({ username: finalUsername });
+            }
+            
+            this.username = finalUsername;
         }
-        
-        this.username = finalUsername;
+
+        if (!this.slug) {
+            const baseSlug = `${primaryRole}-${nameSlug}`;
+            let finalSlug = baseSlug;
+            let exists = await User.findOne({ slug: finalSlug });
+            
+            while (exists && exists._id.toString() !== this._id.toString()) {
+                finalSlug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+                exists = await User.findOne({ slug: finalSlug });
+            }
+            
+            this.slug = finalSlug;
+        }
     }
 
     if (this.isModified('password')) {

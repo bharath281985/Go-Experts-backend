@@ -41,6 +41,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', require('./routers/authRoutes'));
 app.use('/api/mobile/auth', require('./routers/mobile/mobileAuthRoutes'));
 app.use('/api/mobile/user', require('./routers/mobile/mobileUserRoutes'));
+app.use('/api/mobile/kyc', require('./routers/mobile/mobileKycRoutes'));
+app.use('/api/mobile/subscription-plans', require('./routers/mobile/mobileSubscriptionPlanRoutes'));
 app.use('/api/users', require('./routers/userRoutes'));
 app.use('/api/projects', require('./routers/projectRoutes'));
 app.use('/api/gigs', require('./routers/gigRoutes'));

@@ -14,6 +14,7 @@ const siteSettingsSchema = new mongoose.Schema({
 
     // Contact
     contact_email: { type: String, default: '' },
+    admin_alert_email: { type: String, default: '' }, // Dedicated email for registration and subscription alerts
     contact_phone: { type: String, default: '' },
     contact_address: { type: String, default: '' },
 

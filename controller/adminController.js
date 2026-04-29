@@ -81,24 +81,28 @@ exports.getUsers = async (req, res) => {
         }
 
         const statusQueryMap = {
-            all: {},
-            new: { created_at: { $gte: sevenDaysAgo } },
+            all: { is_deleted: { $ne: true } },
+            new: { 
+                created_at: { $gte: sevenDaysAgo },
+                is_deleted: { $ne: true }
+            },
             active: {
-                is_suspended: false,
-                is_email_verified: true
+                is_suspended: { $ne: true },
+                is_email_verified: true,
+                is_deleted: { $ne: true }
             },
             kyc_not_verified: {
-                $and: [
-                    { kyc_status: { $ne: 'fully_verified' } },
-                    { 'kyc_details.is_verified': { $ne: true } }
-                ]
+                kyc_status: { $nin: ['fully_verified', 'rejected'] },
+                'kyc_details.is_verified': { $ne: true },
+                is_deleted: { $ne: true }
             },
-            suspended: { is_suspended: true },
+            suspended: { is_suspended: true, is_deleted: { $ne: true } },
             blocked: {
                 $or: [
+                    { is_suspended: true },
                     { is_blocked: true },
-                    { blocked: true },
-                    { status: 'blocked' }
+                    { status: 'blocked' },
+                    { kyc_status: 'rejected' }
                 ]
             },
             deleted: {
@@ -114,7 +118,8 @@ exports.getUsers = async (req, res) => {
                     { is_paid_user: true },
                     { total_paid_amount: { $gt: 0 } },
                     { 'subscription_details.plan_name': { $exists: true, $nin: [null, '', 'Starter Free Plan'] } }
-                ]
+                ],
+                is_deleted: { $ne: true }
             }
         };
 
@@ -158,6 +163,19 @@ exports.getUsers = async (req, res) => {
             countQueryFromStatus('paid')
         ]);
 
+        const summaryData = {
+            all: allCount,
+            new: newCount,
+            active: activeCount,
+            kyc_not_verified: kycNotVerifiedCount,
+            suspended: suspendedCount,
+            blocked: blockedCount,
+            deleted: deletedCount,
+            paid: paidCount
+        };
+
+
+
         res.status(200).json({
             success: true,
             count: users.length,
@@ -165,16 +183,7 @@ exports.getUsers = async (req, res) => {
             page,
             limit,
             totalPages: Math.ceil(totalUsers / limit),
-            summary: {
-                all: allCount,
-                new: newCount,
-                active: activeCount,
-                kyc_not_verified: kycNotVerifiedCount,
-                suspended: suspendedCount,
-                blocked: blockedCount,
-                deleted: deletedCount,
-                paid: paidCount
-            },
+            summary: summaryData,
             users
         });
     } catch (error) {
@@ -235,9 +244,15 @@ exports.getUserById = async (req, res) => {
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
+        const UserSubscription = require('../models/UserSubscription');
+        const activeSub = await UserSubscription.findOne({ user_id: req.params.id, status: 'active' }).populate('plan_id');
+        
+        const userObj = user.toObject();
+        userObj.active_subscription = activeSub;
+
         res.status(200).json({
             success: true,
-            user
+            user: userObj
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -249,7 +264,11 @@ exports.getUserById = async (req, res) => {
 // @access  Private/Admin
 exports.updateUser = async (req, res) => {
     try {
-        const { full_name, email, phone_number, roles, total_points, is_email_verified, is_suspended, location, bio } = req.body;
+        const { 
+            full_name, email, phone_number, roles, total_points, is_email_verified, is_suspended, location, bio,
+            whatsapp_country_code, whatsapp_number, business_or_alternative_country_code, business_or_alternative_number,
+            slug, meta_title, meta_keywords, meta_description, subscription_plan_id
+        } = req.body;
 
         const user = await User.findById(req.params.id);
         if (!user) {
@@ -299,8 +318,24 @@ exports.updateUser = async (req, res) => {
         if (is_email_verified !== undefined) user.is_email_verified = Boolean(is_email_verified);
         if (is_suspended !== undefined) user.is_suspended = Boolean(is_suspended);
         if (location !== undefined) user.location = location;
-        
         if (bio !== undefined) user.bio = bio;
+
+        // Apply Admin Edit User Profile Modal specific fields
+        if (whatsapp_country_code !== undefined) user.whatsapp_country_code = whatsapp_country_code;
+        if (whatsapp_number !== undefined) user.whatsapp_number = whatsapp_number;
+        if (business_or_alternative_country_code !== undefined) user.business_or_alternative_country_code = business_or_alternative_country_code;
+        if (business_or_alternative_number !== undefined) user.business_or_alternative_number = business_or_alternative_number;
+        
+        if (slug !== undefined) user.slug = slug;
+        if (meta_title !== undefined) user.meta_title = meta_title;
+        if (meta_keywords !== undefined) user.meta_keywords = meta_keywords;
+        if (meta_description !== undefined) user.meta_description = meta_description;
+        
+        if (subscription_plan_id !== undefined) {
+            // Note: If you want this to fully assign limits like trial assignment, you'd need logic here.
+            // But simple assignment allows the profile to load.
+            user.subscription_plan_id = subscription_plan_id;
+        }
 
         await user.save();
 
@@ -607,6 +642,46 @@ exports.adjustUserWallet = async (req, res) => {
             balance_after: user.wallet_balance
         });
 
+        // Send Email Notification
+        try {
+            const isAddition = Number(amount) >= 0;
+            const actionText = isAddition ? 'Added to' : 'Deducted from';
+            const statusColor = isAddition ? '#10b981' : '#ef4444';
+            
+            await sendEmail({
+                email: user.email,
+                subject: `Wallet Update: ₹${Math.abs(amount)} ${isAddition ? 'Credited' : 'Debited'}`,
+                templateData: { name: user.full_name },
+                message: `Hi ${user.full_name}, ₹${Math.abs(amount)} has been ${actionText} your Go Experts wallet. Your new balance is ₹${user.wallet_balance}.`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                        <h1 style="color: ${statusColor}; text-align: center;">Wallet Balance Updated</h1>
+                        <p>Hi ${user.full_name},</p>
+                        <p>This is to inform you that an adjustment has been made to your <b>Go Experts Wallet</b> by the administrative team.</p>
+                        
+                        <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                            <div style="font-size: 14px; color: #666; margin-bottom: 5px;">${isAddition ? 'Amount Credited' : 'Amount Debited'}</div>
+                            <div style="font-size: 32px; font-bold: bold; color: ${statusColor};">₹${Math.abs(amount)}</div>
+                        </div>
+
+                        <div style="margin: 20px 0; border-top: 1px solid #eee; pt: 20px;">
+                            <p><b>Transaction Details:</b></p>
+                            <p style="color: #666; font-size: 14px;">${description || `Admin adjustment: ${amount >= 0 ? 'Added' : 'Subtracted'}`}</p>
+                            <p><b>New Wallet Balance:</b> ₹${user.wallet_balance}</p>
+                        </div>
+
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${process.env.FRONTEND_URL || 'https://goexperts.in'}/dashboard" style="background-color: #F24C20; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View Wallet</a>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                        <p style="font-size: 11px; color: #aaa; text-align: center;">Go Experts Accounts Department</p>
+                    </div>
+                `
+            });
+        } catch (emailErr) {
+            console.error('Wallet adjustment email failed:', emailErr);
+        }
+
         res.status(200).json({
             success: true,
             message: `Wallet updated. New balance: ₹${user.wallet_balance}`,
@@ -831,7 +906,19 @@ exports.suspendUser = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
         // Toggle suspension status
-        const statusMessage = user.is_suspended ? 'User suspended' : 'User activated';
+        user.is_suspended = !user.is_suspended;
+        
+        // If activating, clear all other blocking flags to ensure they move to active
+        if (!user.is_suspended) {
+            user.is_blocked = false;
+            user.blocked = false;
+            if (user.status === 'blocked') {
+                user.status = 'active';
+            }
+        }
+        
+        await user.save({ validateBeforeSave: false });
+        const statusMessage = user.is_suspended ? 'User Blocked' : 'User Activated';
 
         // Send Email Notification
         try {
@@ -877,9 +964,12 @@ exports.rejectUser = async (req, res) => {
     try {
         const { reason } = req.body;
         const user = await User.findById(req.params.id);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
+        // Update KYC status in database
+        user.kyc_status = 'rejected';
+        if (user.kyc_details) {
+            user.kyc_details.is_verified = false;
         }
+        await user.save({ validateBeforeSave: false });
 
         // Send Rejection Email
         try {
@@ -1022,28 +1112,10 @@ exports.deleteUser = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Cannot delete an admin account' });
         }
 
-        // Send Account Deletion Email Before Actual Deletion
-        try {
-            await sendEmail({
-                email: user.email,
-                subject: 'Your Go Experts Account has been Deleted',
-                message: `Hi ${user.full_name}, your Go Experts account has been deleted by an administrator. If you think this is a mistake, please contact support.`,
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h1 style="color: #ef4444; text-align: center;">Account Deleted</h1>
-                        <p>Hi ${user.full_name},</p>
-                        <p>We are writing to inform you that your account on <b>Go Experts</b> has been permanently deleted by an administrator.</p>
-                        <p>If you have any active projects, disputes, or balance, please contact our support team immediately for assistance.</p>
-                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                        <p style="font-size: 11px; color: #aaa; text-align: center;">Go Experts Administration</p>
-                    </div>
-                `
-            });
-        } catch (emailErr) {
-            console.error('Account deletion email failed:', emailErr);
-        }
 
-        await User.deleteOne({ _id: req.params.id });
+        user.is_deleted = true;
+        user.deleted_at = Date.now();
+        await user.save({ validateBeforeSave: false });
         res.status(200).json({ success: true, message: 'User deleted successfully' });
     } catch (error) {
         console.error('deleteUser error:', error);
@@ -1066,7 +1138,13 @@ exports.bulkUserAction = async (req, res) => {
             case 'delete':
                 const adminCheck = await User.find({ _id: { $in: userIds }, roles: 'admin' });
                 if (adminCheck.length > 0) return res.status(403).json({ success: false, message: 'Cannot delete admin accounts' });
-                result = await User.deleteMany({ _id: { $in: userIds } });
+                result = await User.updateMany(
+                    { _id: { $in: userIds } },
+                    { 
+                        is_deleted: true,
+                        deleted_at: Date.now()
+                    }
+                );
                 break;
             case 'verify':
                 result = await User.updateMany({ _id: { $in: userIds } }, { is_email_verified: true });

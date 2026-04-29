@@ -269,6 +269,49 @@ exports.register = async (req, res) => {
             console.error('Welcome email failed:', emailErr);
         }
 
+        // Live Admin Notification & Email
+        try {
+            const socketHandler = require('../utils/socket');
+            const io = socketHandler.getIo();
+            io.emit('admin_notification', {
+                type: 'NEW_REGISTRATION',
+                title: 'New User Registered',
+                message: `${newUser.full_name} (${newUser.role}) has joined the platform.`,
+                timestamp: new Date(),
+                data: { userId: newUser._id, role: newUser.role }
+            });
+        } catch(err) {
+            console.error('Socket admin emit error:', err.message);
+        }
+
+        try {
+            const SiteSettings = require('../models/SiteSettings');
+            const settings = await SiteSettings.findById('site_settings');
+            const adminEmail = settings?.admin_alert_email || process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+            if (adminEmail) {
+                await sendEmail({
+                    email: adminEmail,
+                    subject: `🚀 New User Registration: ${newUser.full_name}`,
+                    templateData: {},
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                            <h2 style="color: #F24C20;">New User Alert</h2>
+                            <p>A new user has just registered on the platform.</p>
+                            <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                                <p><strong>Name:</strong> ${newUser.full_name}</p>
+                                <p><strong>Email:</strong> ${newUser.email}</p>
+                                <p><strong>Role:</strong> ${newUser.role}</p>
+                            </div>
+                            <br/>
+                            <a href="https://go-experts.com/admin" style="background-color: #044071; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View in Admin Panel</a>
+                        </div>
+                    `
+                });
+            }
+        } catch(adminEmailErr) {
+            console.error('Admin notification email failed:', adminEmailErr);
+        }
+
         const userResponse = newUser.toObject();
         delete userResponse.password;
 
@@ -704,7 +747,8 @@ exports.updateProfile = async (req, res) => {
             'full_name', 'email', 'location', 'bio', 'phone_number', 'country_code', 'whatsapp_country_code', 'whatsapp_number', 'business_or_alternative_country_code', 'business_or_alternative_number',
             'availability', 'work_preference', 'experience_level', 'skills', 'hourly_rate',
             'categories', 'portfolio', 'experience_details', 'education_details', 'role_title', 'languages', 'completed_projects', 'happy_customers', 'review_score', 'kyc_details', 'documents', 'work_images', 'roles',
-            'budget_range', 'landing_page_image', 'social_links', 'latitude', 'longitude'
+            'budget_range', 'landing_page_image', 'social_links', 'latitude', 'longitude',
+            'meta_title', 'meta_keywords', 'meta_description'
         ];
 
         allowedFields.forEach(field => {
@@ -736,7 +780,7 @@ exports.updateProfile = async (req, res) => {
                     });
                     user.markModified(field);
                 } else {
-                    user[field] = value;
+                    user[field] = value; // Trigger nodemon restart
                 }
             }
         });

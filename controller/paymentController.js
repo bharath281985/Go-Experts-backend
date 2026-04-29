@@ -217,19 +217,14 @@ exports.handlePaymentResponse = async (req, res) => {
                 await user.save();
 
                 // ── Referral Reward on First Paid Subscription ───────────────────────
-                // Only credit the referrer if:
-                //   1. This user was referred by someone
-                //   2. The purchased plan is a PAID plan (price > 0)
-                //   3. This is their FIRST paid subscription (no previous success transactions)
                 if (user.referred_by && plan.price > 0) {
                     const previousPaidSubs = await PaymentTransaction.countDocuments({
                         user_id: user._id,
                         status: 'success',
-                        _id: { $ne: transaction._id } // exclude current transaction
+                        _id: { $ne: transaction._id }
                     });
 
                     if (previousPaidSubs === 0) {
-                        // This is their 1st paid subscription
                         try {
                             const settings = await SiteSettings.findById('site_settings');
                             const reward = settings?.referral_reward_amount || 50;
@@ -264,29 +259,18 @@ exports.handlePaymentResponse = async (req, res) => {
                                         </div>
                                     `
                                 }).catch(e => console.error('Referral reward email failed:', e));
-
-                                console.log(`Referral reward of ₹${reward} credited to ${referrer.email} for referring ${user.email}`);
                             }
                         } catch (refErr) {
                             console.error('Referral reward processing failed:', refErr);
                         }
                     }
                 }
-                // ─────────────────────────────────────────────────────────────────────
 
                 // Send Confirmation Email
                 try {
                     await sendEmail({
                         email: user.email,
                         subject: `Sucessfully Upgraded to ${plan.name} - Go Experts`,
-                        templateTrigger: 'subscription_success', // Pre-configured template in DB
-                        templateData: {
-                            name: user.full_name,
-                            plan: plan.name,
-                            expiry: endDate.toLocaleDateString(),
-                            points: bonusPoints.toString()
-                        },
-                        // Fallback text if template not found
                         html: `
                             <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px;">
                                 <div style="text-align: center; margin-bottom: 20px;">
@@ -309,6 +293,49 @@ exports.handlePaymentResponse = async (req, res) => {
                     });
                 } catch (emailErr) {
                     console.error('Subscription email failed:', emailErr);
+                }
+
+                // ── Live Admin Notification & Email for Subscription ─────────────
+                try {
+                    const socketHandler = require('../utils/socket');
+                    const io = socketHandler.getIo();
+                    io.emit('admin_notification', {
+                        type: 'NEW_SUBSCRIPTION',
+                        title: 'New Paid Subscription',
+                        message: `${user.full_name} subscribed to ${plan.name} (₹${plan.price})`,
+                        timestamp: new Date(),
+                        data: { userId: user._id, planName: plan.name, amount: plan.price }
+                    });
+                } catch(err) {
+                    console.error('Socket admin subscription emit error:', err.message);
+                }
+
+                try {
+                    const settings = await SiteSettings.findById('site_settings');
+                    const adminEmail = settings?.admin_alert_email || process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+                    if (adminEmail) {
+                        await sendEmail({
+                            email: adminEmail,
+                            subject: `💰 New Paid Subscription: ${plan.name} by ${user.full_name}`,
+                            html: `
+                                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                                    <h2 style="color: #F24C20;">Subscription Purchase Alert</h2>
+                                    <p>A user has successfully purchased a paid subscription plan.</p>
+                                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                                        <p><strong>User:</strong> ${user.full_name} (${user.email})</p>
+                                        <p><strong>Plan:</strong> ${plan.name}</p>
+                                        <p><strong>Amount:</strong> ₹${plan.price}</p>
+                                        <p><strong>Payment Method:</strong> Easebuzz</p>
+                                        <p><strong>Transaction ID:</strong> ${data.txnid}</p>
+                                    </div>
+                                    <br/>
+                                    <a href="https://go-experts.com/admin/users" style="background-color: #044071; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View User Details</a>
+                                </div>
+                            `
+                        });
+                    }
+                } catch(adminEmailErr) {
+                    console.error('Admin subscription notification email failed:', adminEmailErr);
                 }
             }
 
@@ -475,6 +502,49 @@ exports.payWithWallet = async (req, res) => {
             });
         } catch (emailErr) {
             console.error('Wallet subscription email error:', emailErr);
+        }
+
+        // ── Live Admin Notification & Email for Wallet Subscription ────────
+        try {
+            const socketHandler = require('../utils/socket');
+            const io = socketHandler.getIo();
+            io.emit('admin_notification', {
+                type: 'NEW_SUBSCRIPTION',
+                title: 'New Paid Subscription (Wallet)',
+                message: `${user.full_name} subscribed to ${plan.name} (₹${plan.price})`,
+                timestamp: new Date(),
+                data: { userId: user._id, planName: plan.name, amount: plan.price }
+            });
+        } catch(err) {
+            console.error('Socket admin wallet subscription emit error:', err.message);
+        }
+
+        try {
+            const settings = await SiteSettings.findById('site_settings');
+            const adminEmail = settings?.admin_alert_email || process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+            if (adminEmail) {
+                await sendEmail({
+                    email: adminEmail,
+                    subject: `💰 New Wallet Subscription: ${plan.name} by ${user.full_name}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                            <h2 style="color: #F24C20;">Subscription Purchase Alert (Wallet)</h2>
+                            <p>A user has successfully purchased a paid subscription plan using their wallet balance.</p>
+                            <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                                <p><strong>User:</strong> ${user.full_name} (${user.email})</p>
+                                <p><strong>Plan:</strong> ${plan.name}</p>
+                                <p><strong>Amount:</strong> ₹${plan.price}</p>
+                                <p><strong>Payment Method:</strong> Wallet</p>
+                                <p><strong>Transaction ID:</strong> ${txnid}</p>
+                            </div>
+                            <br/>
+                            <a href="https://go-experts.com/admin/users" style="background-color: #044071; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">View User Details</a>
+                        </div>
+                    `
+                });
+            }
+        } catch(adminEmailErr) {
+            console.error('Admin wallet subscription notification email failed:', adminEmailErr);
         }
 
         res.status(200).json({

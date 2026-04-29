@@ -282,7 +282,7 @@ exports.updateSiteSettings = async (req, res) => {
     try {
         const allowedFields = [
             'site_name', 'site_tagline', 'site_logo', 'header_logo', 'footer_logo', 'site_favicon',
-            'contact_email', 'contact_phone', 'contact_address',
+            'contact_email', 'admin_alert_email', 'contact_phone', 'contact_address',
             'meta_title', 'meta_description', 'meta_keywords',
             'social_facebook', 'social_twitter', 'social_linkedin', 'social_instagram',
             'social_github', 'social_youtube',
