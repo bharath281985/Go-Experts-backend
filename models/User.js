@@ -95,13 +95,25 @@ const userSchema = new mongoose.Schema({
     },
     skills: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Skill' }],
     experience_details: [{
-        year_range: String,
+        year_range: String, // Keeping for backward compatibility
+        start_month: String,
+        start_year: String,
+        end_month: String,
+        end_year: String,
+        is_present: { type: Boolean, default: false },
+        local_date_time: Date,
         title: String,
         company: String,
         description: String
     }],
     education_details: [{
-        year_range: String,
+        year_range: String, // Keeping for backward compatibility
+        start_month: String,
+        start_year: String,
+        end_month: String,
+        end_year: String,
+        is_present: { type: Boolean, default: false },
+        local_date_time: Date,
         title: String,
         institution: String,
         description: String

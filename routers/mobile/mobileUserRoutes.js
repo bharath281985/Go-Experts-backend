@@ -1,45 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const {
-    getMe,
-    updateProfile,
-    getWalletHistory,
-    getMobileKYC,
-    updateMobileKYC,
-    changePassword
-} = require('../../controller/mobile/mobileUserController');
-const { protect } = require('../../middleware/auth'); // Assuming protect middleware exists here
-const upload = require('../../middleware/upload');
+const { protect } = require('../../middleware/auth');
 
-// All routes here are protected
+// Sub-Routers
+const profileRoutes = require('./user/profileRoutes');
+const kycRoutes = require('./user/kycRoutes');
+const walletRoutes = require('./user/walletRoutes');
+const landingPageRoutes = require('./user/landingPageRoutes');
+const resumeRoutes = require('./user/resumeRoutes');
+const portfolioRoutes = require('./user/portfolioRoutes');
+
+// All mobile user routes are protected
 router.use(protect);
 
-router.get('/me', getMe);
-router.post('/update', updateProfile);
-router.get('/wallet', getWalletHistory);
-router.get('/kyc', getMobileKYC);
-router.put('/kyc', upload.fields([
-    { name: 'profile_photo', maxCount: 1 },
-    { name: 'pan_card', maxCount: 1 },
-    { name: 'aadhar_card', maxCount: 1 },
-    { name: 'passport', maxCount: 1 },
-    { name: 'driving_license', maxCount: 1 },
-    { name: 'address_proof', maxCount: 1 },
-    { name: 'cancelled_cheque', maxCount: 1 },
-    { name: 'pitch_deck', maxCount: 1 },
-    { name: 'business_plan', maxCount: 1 },
-    { name: 'financial_projections', maxCount: 1 },
-    { name: 'demo_screenshots', maxCount: 10 },
-    { name: 'inc_certificate', maxCount: 1 },
-    { name: 'gst_certificate', maxCount: 1 },
-    { name: 'company_pan', maxCount: 1 },
-    { name: 'startup_india_cert', maxCount: 1 },
-    { name: 'digital_signature', maxCount: 1 },
-    { name: 'academic_certificates', maxCount: 10 },
-    { name: 'educational', maxCount: 10 },
-    { name: 'experience_letter', maxCount: 1 }
-]), updateMobileKYC);
-router.post('/change-password', changePassword);
-
+// Mount Sub-Routers at the root of /api/mobile/user/
+// Each sub-router now defines its own specific paths (e.g., /me, /kyc, /portfolio)
+router.use('/', profileRoutes);
+router.use('/', kycRoutes);
+router.use('/', walletRoutes);
+router.use('/', landingPageRoutes);
+router.use('/', resumeRoutes);
+router.use('/', portfolioRoutes);
 
 module.exports = router;
