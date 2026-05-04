@@ -9,6 +9,7 @@ const walletRoutes = require('./user/walletRoutes');
 const landingPageRoutes = require('./user/landingPageRoutes');
 const resumeRoutes = require('./user/resumeRoutes');
 const portfolioRoutes = require('./user/portfolioRoutes');
+const projectRoutes = require('./user/projectRoutes');
 
 // All mobile user routes are protected
 router.use(protect);
@@ -21,5 +22,6 @@ router.use('/', walletRoutes);
 router.use('/', landingPageRoutes);
 router.use('/', resumeRoutes);
 router.use('/', portfolioRoutes);
+router.use('/', projectRoutes);
 
 module.exports = router;
