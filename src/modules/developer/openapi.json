@@ -1,0 +1,243 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Go Experts Enterprise API Platform",
+    "description": "Production-ready developer API documentation for Go Experts Super Admin system resources, automation workflows, subscription plans, wallets, and system telemetry.",
+    "version": "2.0.0",
+    "contact": {
+      "name": "API Developer Support",
+      "email": "developer-support@goexperts.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.goexperts.com/api/v2",
+      "description": "Production v2 gateway"
+    },
+    {
+      "url": "https://api.goexperts.com/api/v1",
+      "description": "Legacy v1 gateway (Warning: Deprecated)"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    },
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Authenticate Administrative User",
+        "description": "Verifies administrative user email and password credentials, creates a login attempt audit log, and issues new Access & Refresh JWT tokens.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "admin@goexperts.com" },
+                  "password": { "type": "string", "example": "Password123!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "accessToken": { "type": "string" },
+                    "refreshToken": { "type": "string" },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "email": { "type": "string" },
+                        "fullName": { "type": "string" },
+                        "role": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid login email or password." }
+        }
+      }
+    },
+    "/admin/system/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Check System Health Status",
+        "description": "Runs intensive live checks on database connectivity/speed, storage directories, memory allocation, active sessions, and queues.",
+        "responses": {
+          "200": {
+            "description": "System is healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "status": { "type": "string", "example": "healthy" },
+                        "uptime": { "type": "number" },
+                        "database": { "type": "object" },
+                        "memory": { "type": "object" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/system/operations-dashboard": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Retrieve System Operations Metrics",
+        "description": "Returns a real-time consolidated dashboard report of api traffic rate, active database connection metrics, memory usage percent, active background schedules, alert states, and latest backups.",
+        "responses": {
+          "200": {
+            "description": "Operations dashboard metrics."
+          }
+        }
+      }
+    },
+    "/admin/system/api-logs": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Fetch API Request Logs",
+        "description": "Returns paginated request logs showing request duration, methods, urls, client IPs, and status codes.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+        ],
+        "responses": {
+          "200": { "description": "API logs list." }
+        }
+      }
+    },
+    "/admin/system/alerts": {
+      "get": {
+        "tags": ["System"],
+        "summary": "List System Alerts",
+        "description": "Retrieves alerts created due to errors (disk full, backup failed, api spikes).",
+        "responses": {
+          "200": { "description": "Alerts list." }
+        }
+      }
+    },
+    "/admin/keys": {
+      "post": {
+        "tags": ["Settings"],
+        "summary": "Generate a new Developer API Key",
+        "description": "Generates a cryptographically strong, SHA-256 hashed API key with specified scopes and role mappings.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "Mobile App API Key" },
+                  "scopes": { "type": "string", "example": "read:all,write:projects" },
+                  "roleMapping": { "type": "string", "example": "manager" },
+                  "expiresDays": { "type": "integer", "example": 90 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API Key created successfully. Raw key is returned ONLY once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "maskedKey": { "type": "string", "example": "gk_live_8f3d...0a2b" },
+                        "rawKey": { "type": "string", "example": "gk_live_8f3dcb1c209841f3d8a901032bf20a2b" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/webhooks": {
+      "post": {
+        "tags": ["Settings"],
+        "summary": "Subscribe to Webhook Events",
+        "description": "Registers an endpoint URL to receive events payload using cryptographically secure signatures.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "url", "events"],
+                "properties": {
+                  "name": { "type": "string", "example": "Payment Sync Endpoint" },
+                  "url": { "type": "string", "format": "uri", "example": "https://client-crm.com/webhooks" },
+                  "events": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "example": ["payment.success", "subscription.purchased"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Webhook registered successfully."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

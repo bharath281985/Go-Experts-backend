@@ -1,0 +1,153 @@
+export const SETTINGS_DEFAULTS = {
+  general: {
+    platformName: "Go Experts",
+    tagline: "Working With You. For You.",
+    supportEmail: "support@goexperts.io",
+    timezone: "Asia/Kolkata (UTC+05:30)",
+    defaultCurrency: "INR ₹",
+    defaultLanguage: "English",
+    description:
+      "Go Experts connects freelancers, clients, investors and startup founders on a single trusted platform.",
+    maintenanceMode: false,
+  },
+  branding: {
+    primaryColor: "#E30613",
+    sidebarColor: "#111111",
+  },
+  email: {
+    provider: "SendGrid",
+    apiKey: "",
+    host: "smtp.sendgrid.net",
+    port: 587,
+    username: "apikey",
+    fromEmail: "noreply@goexperts.io",
+    fromName: "Go Experts",
+    enabled: true,
+  },
+  sms: {
+    provider: "Twilio",
+    apiKey: "",
+    senderId: "GOEXPERT",
+    enabled: true,
+  },
+  whatsapp: {
+    provider: "Meta Cloud API",
+    apiKey: "",
+    phoneNumberId: "",
+    businessAccountId: "",
+    enabled: true,
+  },
+  payments: {
+    provider: "Stripe",
+    apiKey: "",
+    webhookSecret: "",
+    currency: "INR",
+    enabled: true,
+  },
+  security: {
+    mfaRequired: true,
+    sessionTimeoutMinutes: 60,
+    maxLoginAttempts: 5,
+    passwordMinLength: 8,
+    ipAllowlist: "",
+    auditRetentionDays: 90,
+  },
+  roles: [
+    { name: "Super Admin", users: 2, perms: "Full access" },
+    { name: "Admin", users: 8, perms: "All except billing & roles" },
+    { name: "Content Manager", users: 6, perms: "CMS & content only" },
+    { name: "Support Executive", users: 14, perms: "Tickets & chat" },
+  ],
+  apiKeys: [
+    {
+      name: "Production Live API Key",
+      key: "ge_live_••••••••••••••4821",
+      created: "2026-01-12",
+      status: "active",
+    },
+    {
+      name: "Staging sandbox Key",
+      key: "ge_test_••••••••••••••3104",
+      created: "2026-02-04",
+      status: "active",
+    },
+  ],
+  environment: {
+    variables: [
+      { key: "SUPABASE_URL", value: "https://nxkswlsqyzkpx.supabase.co", secret: false },
+      { key: "SUPABASE_ANON_KEY", value: "eyJhY2Nlc3Nfa2V5IjoiMTI4NCJ9...", secret: true },
+    ],
+  },
+  backups: [
+    {
+      id: "BKP-001",
+      size: "24.5 MB",
+      type: "Full Database Snapshot",
+      created: "2026-07-01 02:00 AM",
+      status: "Successful",
+    },
+    {
+      id: "BKP-002",
+      size: "23.9 MB",
+      type: "Full Database Snapshot",
+      created: "2026-07-02 02:00 AM",
+      status: "Successful",
+    },
+  ],
+  auditTrails: [
+    {
+      who: "Rohan Admin",
+      action: "Updated SMTP server details",
+      target: "Email Gateway",
+      when: "2m ago",
+    },
+    {
+      who: "Priya Kapoor",
+      action: "Approved freelancer portfolio verification",
+      target: "FRL-1024",
+      when: "12m ago",
+    },
+    {
+      who: "System cron",
+      action: "Completed full nightly snapshot backup",
+      target: "BKP-002",
+      when: "1h ago",
+    },
+  ],
+  systemLogs: [
+    {
+      id: "LOG-1",
+      type: "auth",
+      level: "info",
+      text: "User rohan@goexperts.io successfully logged in.",
+      time: "10 seconds ago",
+      ip: "103.11.20.12",
+    },
+    {
+      id: "LOG-2",
+      type: "gateway",
+      level: "warning",
+      text: "Stripe callback took 450ms (higher than threshold).",
+      time: "2 minutes ago",
+      ip: "Stripe Server",
+    },
+    {
+      id: "LOG-3",
+      type: "cron",
+      level: "info",
+      text: "Nightly cron backup successfully mapped.",
+      time: "4 hours ago",
+      ip: "Cron Daemon",
+    },
+    {
+      id: "LOG-4",
+      type: "security",
+      level: "danger",
+      text: "Suspicious API access query from unverified IP.",
+      time: "12 hours ago",
+      ip: "89.24.120.4",
+    },
+  ],
+} as const;
+
+export type SettingsSection = keyof typeof SETTINGS_DEFAULTS;

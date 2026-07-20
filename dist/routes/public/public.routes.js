@@ -1,0 +1,605 @@
+import { Router } from "express";
+import { prisma } from "../../config/database.js";
+import { getHomeCmsContent, getHomePagePayload, getHomePageFallbackPayload, getPublicCategories, getPublicPlatformStats, getPublicSkills, } from "../../services/public/home.service.js";
+import { parseCatalogListBody, parseFreelancersListBody, parseSkillsListBody } from "../../common/helpers/catalog-body.js";
+import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreelancers, } from "../../services/public/freelancers.service.js";
+import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
+const router = Router();
+function parseListParams(req) {
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 50;
+    const search = req.query.search || undefined;
+    const orderBy = req.query.orderBy || undefined;
+    const ascending = req.query.ascending === "true" || req.query.ascending === undefined;
+    let filters = {};
+    if (req.query.filters) {
+        try {
+            filters = JSON.parse(req.query.filters);
+        }
+        catch {
+            filters = {};
+        }
+    }
+    return { page, pageSize, search, orderBy, ascending, filters };
+}
+function parseFreelancerQueryFilters(req) {
+    const { page, pageSize, search, orderBy, ascending, filters } = parseListParams(req);
+    const experienceFromQuery = typeof req.query.experience === "string"
+        ? req.query.experience.split(",").map((value) => value.trim()).filter(Boolean)
+        : undefined;
+    const skillsFromQuery = typeof req.query.skills === "string"
+        ? req.query.skills.split(",").map((value) => value.trim()).filter(Boolean)
+        : undefined;
+    const rateMin = Number(req.query.rateMin);
+    const rateMax = Number(req.query.rateMax);
+    return parseFreelancersListBody({
+        page,
+        pageSize,
+        search,
+        orderBy,
+        ascending: ascending === true,
+        categoryId: req.query.categoryId,
+        industryId: req.query.industryId,
+        experience: experienceFromQuery?.length
+            ? experienceFromQuery
+            : filters?.freelancerProfile?.experience?.in,
+        skills: skillsFromQuery,
+        rateMin: Number.isFinite(rateMin) ? rateMin : filters?.freelancerProfile?.hourlyRate?.gte,
+        rateMax: Number.isFinite(rateMax) ? rateMax : filters?.freelancerProfile?.hourlyRate?.lte,
+    });
+}
+function getPrismaDelegate(modelName) {
+    const camelCase = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+    return prisma[camelCase] ?? prisma[modelName];
+}
+async function listModel({ req, res, next, modelName, searchColumns, include, defaultWhere, forceWhere, }) {
+    try {
+        const { page, pageSize, search, orderBy, ascending, filters } = parseListParams(req);
+        // Start with filters from client, then apply defaults/overrides.
+        const where = { ...(filters || {}), ...(defaultWhere || {}) };
+        if (forceWhere)
+            Object.assign(where, forceWhere);
+        // Search columns (OR contains) if provided.
+        if (search && searchColumns.length > 0) {
+            where.OR = searchColumns.map((col) => ({
+                [col]: { contains: search },
+            }));
+        }
+        const db = getPrismaDelegate(modelName);
+        if (!db) {
+            throw new Error(`Model ${String(modelName)} does not exist in Prisma Client.`);
+        }
+        // Exclude soft deleted rows when the model supports deletedAt.
+        const modelFields = prisma._dmmf?.modelMap?.[modelName]?.fields || [];
+        const hasDeletedAt = modelFields.some((f) => f.name === "deletedAt");
+        if (hasDeletedAt && where.deletedAt === undefined) {
+            where.deletedAt = null;
+        }
+        const total = await db.count({ where });
+        const rows = await db.findMany({
+            where,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            orderBy: orderBy
+                ? { [orderBy]: ascending ? "asc" : "desc" }
+                : { createdAt: "desc" },
+            ...(include ? { include } : {}),
+        });
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+}
+router.get("/freelancers", async (req, res, next) => {
+    try {
+        const body = parseFreelancerQueryFilters(req);
+        const { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+        res.json({ success: true, rows, total, degraded, categoryId });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/freelancers", async (req, res, next) => {
+    try {
+        const body = parseFreelancersListBody(req.body ?? {});
+        const { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+        res.json({ success: true, rows, total, degraded, categoryId });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/experience_levels", async (req, res, next) => {
+    try {
+        const body = parseCatalogListBody(req.body ?? {});
+        const { rows, total } = await listPublicExperienceLevels(body.pageSize ?? 50);
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/experience_levels", async (req, res, next) => {
+    try {
+        const pageSize = parseInt(req.query.pageSize) || 50;
+        const { rows, total } = await listPublicExperienceLevels(pageSize);
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/freelancers/filters", async (_req, res, next) => {
+    try {
+        const data = await getPublicFreelancerFilters();
+        res.json({ success: true, data });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/freelancers/filters", async (_req, res, next) => {
+    try {
+        const data = await getPublicFreelancerFilters();
+        res.json({ success: true, data });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/home", async (_req, res, next) => {
+    try {
+        const data = await getHomePagePayload();
+        res.json({ success: true, data });
+    }
+    catch (err) {
+        console.error("Public home payload failed, returning fallback:", err);
+        res.json({ success: true, data: getHomePageFallbackPayload() });
+    }
+});
+router.get("/cms_pages", async (req, res, next) => {
+    await listModel({
+        req,
+        res,
+        next,
+        modelName: "CmsPage",
+        searchColumns: ["name", "category"],
+        defaultWhere: { status: "active" },
+    });
+});
+router.get("/cms_pages/:name", async (req, res, next) => {
+    try {
+        const row = await prisma.cmsPage.findFirst({
+            where: {
+                name: req.params.name,
+                status: "active",
+                deletedAt: null,
+            },
+        });
+        if (!row) {
+            if (req.params.name === "home") {
+                const cms = await getHomeCmsContent();
+                return res.json({ success: true, data: { name: "home", content: cms } });
+            }
+            return res.status(404).json({ success: false, message: "CMS page not found" });
+        }
+        let content = null;
+        if (row.content) {
+            try {
+                content = JSON.parse(row.content);
+            }
+            catch {
+                content = row.content;
+            }
+        }
+        res.json({ success: true, data: { ...row, content } });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/industries", async (req, res, next) => {
+    try {
+        const pageSize = parseInt(req.query.pageSize) || 50;
+        const { rows, total } = await getPublicCategories({ pageSize });
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/categories", async (req, res, next) => {
+    try {
+        const body = parseCatalogListBody(req.body ?? {});
+        const { rows, total } = await getPublicCategories(body);
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/categories", async (req, res, next) => {
+    try {
+        const pageSize = parseInt(req.query.pageSize) || 50;
+        const { rows, total } = await getPublicCategories({ pageSize });
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/skills", async (req, res, next) => {
+    try {
+        const body = parseSkillsListBody(req.body ?? {});
+        const { rows, total, degraded, industry, categoryId } = await getPublicSkills(body);
+        res.json({
+            success: true,
+            rows,
+            total,
+            degraded,
+            categoryId: categoryId ?? null,
+            industry: industry ?? null,
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/skills", async (req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 50;
+        const search = req.query.search || undefined;
+        let categoryId = req.query.categoryId || req.query.industryId || undefined;
+        let industry;
+        if (req.query.filters) {
+            try {
+                const filters = JSON.parse(req.query.filters);
+                categoryId = categoryId || filters.categoryId || filters.industryId;
+                industry = filters.industry ?? filters.category;
+            }
+            catch {
+                industry = undefined;
+            }
+        }
+        const { rows, total, degraded, industry: resolvedIndustry, categoryId: resolvedCategoryId } = await getPublicSkills({
+            page,
+            pageSize,
+            search,
+            categoryId,
+            industry,
+        });
+        res.json({
+            success: true,
+            rows,
+            total,
+            degraded,
+            categoryId: resolvedCategoryId ?? null,
+            industry: resolvedIndustry ?? null,
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/stats", async (_req, res, next) => {
+    try {
+        const stats = await getPublicPlatformStats();
+        res.json({ success: true, stats });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/post-project", async (_req, res, next) => {
+    try {
+        const data = await getPostProjectPagePayload();
+        res.json({ success: true, data });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/post-project", async (_req, res, next) => {
+    try {
+        const data = await getPostProjectPagePayload();
+        res.json({ success: true, data });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/projects", async (req, res, next) => {
+    try {
+        const body = parseCatalogListBody({
+            page: req.query.page,
+            pageSize: req.query.pageSize,
+            search: req.query.search,
+        });
+        const category = typeof req.query.category === "string" ? req.query.category : undefined;
+        const { rows, total } = await listPublicProjects({
+            page: body.page,
+            pageSize: body.pageSize,
+            search: body.search,
+            category,
+        });
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/projects", async (req, res, next) => {
+    try {
+        const body = parseCatalogListBody(req.body ?? {});
+        const category = typeof req.body?.category === "string"
+            ? req.body.category
+            : undefined;
+        const categoryId = typeof req.body?.categoryId === "string"
+            ? req.body.categoryId
+            : undefined;
+        const { rows, total } = await listPublicProjects({
+            page: body.page,
+            pageSize: body.pageSize,
+            search: body.search,
+            category,
+            categoryId,
+        });
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/pricing_plans", async (req, res, next) => {
+    await listModel({
+        req,
+        res,
+        next,
+        modelName: "SubscriptionPlan",
+        searchColumns: ["name", "role"],
+        defaultWhere: { status: "active", visibility: "public" },
+    });
+});
+router.get("/startup_ideas", async (req, res, next) => {
+    await listModel({
+        req,
+        res,
+        next,
+        modelName: "StartupIdea",
+        searchColumns: ["startup", "founder", "industry"],
+        defaultWhere: { status: "active", visibility: "Public" },
+    });
+});
+router.get("/startup_ideas/:id", async (req, res, next) => {
+    try {
+        const idOrSlug = String(req.params.id || "").trim();
+        const row = await prisma.startupIdea.findFirst({
+            where: {
+                deletedAt: null,
+                status: "active",
+                OR: [
+                    { id: idOrSlug },
+                    { startup: { equals: idOrSlug } },
+                ],
+            },
+        });
+        if (!row) {
+            return res.status(404).json({ success: false, message: "Startup not found" });
+        }
+        await prisma.startupIdea.update({
+            where: { id: row.id },
+            data: { views: { increment: 1 } },
+        }).catch(() => { });
+        res.json({ success: true, data: row });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/blogs", async (req, res, next) => {
+    await listModel({
+        req,
+        res,
+        next,
+        modelName: "Blog",
+        searchColumns: ["title", "category", "author"],
+        defaultWhere: { status: "active" },
+    });
+});
+router.get("/blogs/:id", async (req, res, next) => {
+    try {
+        const key = String(req.params.id || "").trim();
+        const slugify = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        let row = await prisma.blog.findFirst({
+            where: { id: key, status: "active", deletedAt: null },
+        });
+        if (!row) {
+            const candidates = await prisma.blog.findMany({
+                where: { status: "active", deletedAt: null },
+                take: 200,
+            });
+            row = candidates.find((b) => slugify(b.title) === key || slugify(b.title) === slugify(key)) || null;
+        }
+        if (!row) {
+            return res.status(404).json({ success: false, message: "Blog post not found" });
+        }
+        res.json({ success: true, data: row });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/search", async (req, res, next) => {
+    try {
+        const q = String(req.query.q || req.query.search || "").trim();
+        if (!q) {
+            return res.json({ success: true, data: { freelancers: [], projects: [], startups: [], blogs: [] } });
+        }
+        const [freelancers, projects, startups, blogs] = await Promise.all([
+            prisma.user.findMany({
+                where: {
+                    role: "freelancer",
+                    deletedAt: null,
+                    OR: [
+                        { fullName: { contains: q } },
+                        { bio: { contains: q } },
+                        { freelancerProfile: { skills: { contains: q } } },
+                    ],
+                },
+                take: 10,
+                include: { freelancerProfile: true },
+            }),
+            prisma.project.findMany({
+                where: {
+                    deletedAt: null,
+                    OR: [
+                        { title: { contains: q } },
+                        { category: { contains: q } },
+                        { technology: { contains: q } },
+                    ],
+                },
+                take: 10,
+            }),
+            prisma.startupIdea.findMany({
+                where: {
+                    deletedAt: null,
+                    status: "active",
+                    OR: [
+                        { startup: { contains: q } },
+                        { founder: { contains: q } },
+                        { industry: { contains: q } },
+                    ],
+                },
+                take: 10,
+            }),
+            prisma.blog.findMany({
+                where: {
+                    deletedAt: null,
+                    status: "active",
+                    OR: [{ title: { contains: q } }, { category: { contains: q } }, { author: { contains: q } }],
+                },
+                take: 10,
+            }),
+        ]);
+        res.json({ success: true, data: { freelancers, projects, startups, blogs, q } });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/projects/create", async (req, res, next) => {
+    try {
+        // Prefer authenticated client; allow header Authorization via optional check
+        const authHeader = req.headers.authorization;
+        let clientLabel = String(req.body?.client || "Anonymous").trim();
+        let userId = null;
+        if (authHeader?.startsWith("Bearer ")) {
+            try {
+                const jwt = await import("jsonwebtoken");
+                const { env } = await import("../../config/env.js");
+                const decoded = jwt.default.verify(authHeader.split(" ")[1], env.JWT_SECRET);
+                if (decoded.type === "portal" || decoded.role) {
+                    const user = await prisma.user.findFirst({ where: { id: decoded.id, deletedAt: null } });
+                    if (user) {
+                        if (String(user.role).toLowerCase() !== "client") {
+                            return res.status(403).json({ success: false, message: "Only clients can create projects" });
+                        }
+                        userId = user.id;
+                        clientLabel = user.fullName || user.email;
+                        const profile = await prisma.clientProfile.findUnique({ where: { userId: user.id } });
+                        if (profile?.company)
+                            clientLabel = profile.company;
+                    }
+                }
+            }
+            catch {
+                return res.status(401).json({ success: false, message: "Invalid or expired token" });
+            }
+        }
+        else {
+            return res.status(401).json({ success: false, message: "Authentication required to create a project" });
+        }
+        const title = String(req.body?.title || "").trim();
+        if (!title) {
+            return res.status(400).json({ success: false, message: "Project title is required" });
+        }
+        const project = await prisma.project.create({
+            data: {
+                title,
+                client: clientLabel,
+                category: String(req.body?.category || req.body?.industry || "General"),
+                technology: String(req.body?.skills || req.body?.technology || ""),
+                budgetMin: Number(req.body?.budgetMin ?? req.body?.budget ?? 0) || 0,
+                budgetMax: Number(req.body?.budgetMax ?? req.body?.budget ?? 0) || 0,
+                timeline: String(req.body?.timeline || req.body?.duration || ""),
+                status: "pending",
+                description: String(req.body?.description || ""),
+            },
+        });
+        if (userId) {
+            await prisma.clientProfile.updateMany({
+                where: { userId },
+                data: { projectsPosted: { increment: 1 } },
+            }).catch(() => { });
+        }
+        res.status(201).json({ success: true, data: project, message: "Project created" });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/faqs", async (req, res, next) => {
+    await listModel({
+        req,
+        res,
+        next,
+        modelName: "Faq",
+        searchColumns: ["question", "answer", "category"],
+        defaultWhere: { status: "active" },
+    });
+});
+router.get("/testimonials", async (req, res, next) => {
+    await listModel({
+        req,
+        res,
+        next,
+        modelName: "Testimonial",
+        searchColumns: ["name", "role", "content"],
+        defaultWhere: { status: "active" },
+    });
+});
+// Contact / hire forms submit support tickets publicly.
+router.post("/support_tickets", async (req, res, next) => {
+    try {
+        const body = req.body ?? {};
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const email = typeof body.email === "string" ? body.email.trim() : "";
+        const company = typeof body.company === "string" ? body.company.trim() : "";
+        const message = typeof body.message === "string" ? body.message.trim() : "";
+        const subject = (typeof body.subject === "string" && body.subject.trim()) ||
+            (message ? message.slice(0, 120) : "Website inquiry");
+        const user = (typeof body.user === "string" && body.user.trim()) ||
+            [name && email ? `${name} <${email}>` : name || email, company, message]
+                .filter(Boolean)
+                .join(" | ") ||
+            "Guest";
+        const created = await prisma.supportTicket.create({
+            data: {
+                subject,
+                user,
+                category: (typeof body.category === "string" && body.category.trim()) || "Website Guest Inquiry",
+                priority: (typeof body.priority === "string" && body.priority.trim()) || "Medium",
+                status: (typeof body.status === "string" && body.status.trim()) || "Open",
+                assignedTo: typeof body.assignedTo === "string" ? body.assignedTo : undefined,
+            },
+        });
+        res.status(201).json({ success: true, data: created });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+export default router;

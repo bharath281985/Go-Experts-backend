@@ -1,0 +1,15 @@
+import { Router } from "express";
+import { authMiddleware } from "../../middleware/auth.middleware.js";
+import { getDashboardStats, getUserStats, getProjectStats, getStartupStats, getInvestmentStats, getFinancialStats, getSupportStats, getSystemStats, refreshCache } from "./analytics.controller.js";
+const router = Router();
+router.use(authMiddleware);
+router.get("/dashboard", getDashboardStats);
+router.get("/users", getUserStats);
+router.get("/projects", getProjectStats);
+router.get("/startups", getStartupStats);
+router.get("/investments", getInvestmentStats);
+router.get("/financials", getFinancialStats);
+router.get("/support", getSupportStats);
+router.get("/system", getSystemStats);
+router.post("/refresh", refreshCache);
+export default router;

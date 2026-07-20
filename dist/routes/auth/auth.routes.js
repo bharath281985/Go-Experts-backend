@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { login, register, logout, refresh, me, forgotPassword, resetPassword, changePassword, sendOtp, } from "../../controllers/auth/auth.controller.js";
+import { authMiddleware } from "../../middlewares/auth.middleware.js";
+const router = Router();
+router.post("/login", login);
+router.post("/register", register);
+router.post("/logout", authMiddleware, logout);
+router.post("/refresh", refresh);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
+router.post("/change-password", authMiddleware, changePassword);
+router.get("/me", authMiddleware, me);
+router.post("/send-otp", sendOtp);
+export default router;

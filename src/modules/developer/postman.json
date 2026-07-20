@@ -1,0 +1,123 @@
+{
+  "info": {
+    "_postman_id": "4b6c31a7-e02b-47fb-89c0-ea2197f0ba2f",
+    "name": "Go Experts Developer Platform",
+    "description": "Enterprise API requests for authenticating admin users, fetching metrics, creating and revoking API keys, and managing webhook listeners.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@goexperts.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin APIs",
+      "item": [
+        {
+          "name": "System Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/system/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "system", "health"]
+            }
+          }
+        },
+        {
+          "name": "Operations Dashboard Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/system/operations-dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "system", "operations-dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Developer APIs (API Key Protected)",
+      "item": [
+        {
+          "name": "Submit Project (Public Integration)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Build CRM System\",\n  \"description\": \"API integrated submission\",\n  \"budget\": 5000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5001/api/v2",
+      "type": "string"
+    },
+    {
+      "key": "jwtToken",
+      "value": "your_jwt_here",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "gk_live_yourkeyhere",
+      "type": "string"
+    }
+  ]
+}

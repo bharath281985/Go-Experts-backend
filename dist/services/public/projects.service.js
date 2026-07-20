@@ -1,0 +1,119 @@
+import { prisma } from "../../config/database.js";
+import { resolveIndustryNameById } from "../../common/helpers/prisma-compat.js";
+function formatBudget(value) {
+    if (value >= 1000)
+        return `$${Math.round(value / 1000)}k`;
+    return `$${Math.round(value)}`;
+}
+function formatTimeline(timeline) {
+    if (!timeline?.trim())
+        return "4–10 weeks";
+    return timeline;
+}
+export async function listPublicProjects(options) {
+    try {
+        const page = options?.page ?? 1;
+        const pageSize = options?.pageSize ?? 6;
+        const search = options?.search?.trim();
+        const categoryName = (await resolveIndustryNameById(options?.categoryId, options?.category)) ??
+            options?.category;
+        const where = {
+            deletedAt: null,
+            status: "open",
+        };
+        if (categoryName)
+            where.category = categoryName;
+        if (search) {
+            where.OR = [
+                { title: { contains: search } },
+                { category: { contains: search } },
+                { technology: { contains: search } },
+            ];
+        }
+        const total = await prisma.project.count({ where });
+        const rows = await prisma.project.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            select: {
+                id: true,
+                title: true,
+                budget: true,
+                category: true,
+                technology: true,
+                timeline: true,
+                status: true,
+            },
+        });
+        return {
+            rows: rows.map((row) => ({
+                id: row.id,
+                title: row.title,
+                budget: row.budget,
+                budgetLabel: `${formatBudget(row.budget * 0.8)} – ${formatBudget(row.budget * 1.2)}`,
+                category: row.category,
+                technology: row.technology,
+                timeline: formatTimeline(row.timeline),
+                status: row.status,
+            })),
+            total,
+        };
+    }
+    catch {
+        return { rows: [], total: 0 };
+    }
+}
+export async function getPostProjectStats() {
+    try {
+        const [projects, freelancers, proposals] = await Promise.all([
+            prisma.project.count({ where: { deletedAt: null } }),
+            prisma.user.count({ where: { role: "freelancer", deletedAt: null } }),
+            prisma.proposal.count(),
+        ]);
+        const avgProposals = projects > 0 ? Math.max(1, Math.round(proposals / projects)) : 12;
+        const budgets = await prisma.project.aggregate({
+            where: { deletedAt: null },
+            _min: { budget: true },
+            _max: { budget: true },
+        });
+        const timelines = await prisma.project.findMany({
+            where: { deletedAt: null, timeline: { not: null } },
+            select: { timeline: true },
+            distinct: ["timeline"],
+            take: 10,
+        });
+        return {
+            projects,
+            freelancers,
+            proposals,
+            avgProposals,
+            budgetRange: {
+                min: Math.floor(budgets._min.budget ?? 1000),
+                max: Math.ceil(budgets._max.budget ?? 50000),
+            },
+            timelines: timelines
+                .map((row) => row.timeline)
+                .filter((value) => Boolean(value?.trim())),
+        };
+    }
+    catch {
+        return {
+            projects: 0,
+            freelancers: 0,
+            proposals: 0,
+            avgProposals: 12,
+            budgetRange: { min: 1000, max: 50000 },
+            timelines: ["< 1 month", "1–3 months", "3–6 months", "6+ months"],
+        };
+    }
+}
+export async function getPostProjectPagePayload() {
+    const stats = await getPostProjectStats();
+    const projects = await listPublicProjects({ pageSize: 6 });
+    return {
+        stats,
+        exampleProjects: projects.rows,
+        degraded: projects.rows.length === 0,
+    };
+}
