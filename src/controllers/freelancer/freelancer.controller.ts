@@ -268,6 +268,21 @@ function isDueToday(dueDate: string | null | undefined) {
   return iso === today;
 }
 
+const safeFreelancerProfileSelect = {
+  select: {
+    id: true,
+    userId: true,
+    industry: true,
+    skills: true,
+    hourlyRate: true,
+    rating: true,
+    experience: true,
+    portfolioJson: true,
+    createdAt: true,
+    updatedAt: true,
+  },
+};
+
 export const getFreelancerDashboard = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -282,7 +297,7 @@ export const getFreelancerDashboard = async (
     const user = await prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
       include: {
-        freelancerProfile: true,
+        freelancerProfile: safeFreelancerProfileSelect,
         wallet: true,
       },
     });
@@ -761,7 +776,7 @@ export const getFreelancerProfile = async (
 
     const user = await prisma.user.findFirst({
       where: { id: req.user.id, deletedAt: null },
-      include: { freelancerProfile: true },
+      include: { freelancerProfile: safeFreelancerProfileSelect },
     });
 
     if (!user) {
@@ -826,7 +841,7 @@ export const updateFreelancerProfile = async (
 
     const existing = await prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
-      include: { freelancerProfile: true },
+      include: { freelancerProfile: safeFreelancerProfileSelect },
     });
     if (!existing) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -1153,7 +1168,7 @@ export const getFreelancerVerification = async (
 
     const user = await prisma.user.findFirst({
       where: { id: req.user.id, deletedAt: null },
-      include: { freelancerProfile: true },
+      include: { freelancerProfile: safeFreelancerProfileSelect },
     });
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -1210,7 +1225,7 @@ export const updateFreelancerVerification = async (
 
     const user = await prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
-      include: { freelancerProfile: true },
+      include: { freelancerProfile: safeFreelancerProfileSelect },
     });
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
