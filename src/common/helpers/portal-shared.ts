@@ -142,6 +142,7 @@ export async function creditWalletForSelf(userId: string, amount: number, type: 
           message: `Your wallet has been credited with ₹${amt.toLocaleString()} by Super Admin.`,
           channel: "in_app",
           priority: "high",
+          status: "unread",
         },
       });
     } catch {
@@ -185,6 +186,7 @@ export async function debitWalletForSelf(userId: string, amount: number, type: s
           message: `Your wallet transaction of ₹${amt.toLocaleString()} has been processed.`,
           channel: "in_app",
           priority: "high",
+          status: "unread",
         },
       });
     } catch {}

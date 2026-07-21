@@ -282,6 +282,7 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
             message: `Meeting "${title}" with ${user.fullName} & ${participant} scheduled for ${date} at ${time} (${mode}).`,
             channel: "in_app",
             priority: "normal",
+            status: "unread",
           },
         }).catch(() => null);
       }
