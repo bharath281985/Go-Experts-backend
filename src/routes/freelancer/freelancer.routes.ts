@@ -62,7 +62,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware as any);
-router.use(portalRoleMiddleware(["freelancer"]) as any);
+router.use(portalRoleMiddleware(["freelancer", "client", "investor", "founder", "admin", "super_admin"]) as any);
 
 router.get("/dashboard", getFreelancerDashboard as any);
 router.get("/profile", getFreelancerProfile as any);
