@@ -100,7 +100,9 @@ export async function getUserWalletPayload(userId: string) {
   return {
     id: wallet.id,
     balance: Number(wallet.balance),
+    available: Number(wallet.balance),
     currency: wallet.currency,
+    totalEarnings: totalCredits,
     totalCredits,
     totalDebits,
     transactions: transactions.map(mapWalletTx),
@@ -130,6 +132,22 @@ export async function creditWalletForSelf(userId: string, amount: number, type: 
         balanceAfter: updated.balance,
       },
     });
+
+    try {
+      await tx.notification.create({
+        data: {
+          userId,
+          type: "wallet",
+          title: "Wallet Credited",
+          message: `Your wallet has been credited with ₹${amt.toLocaleString()} by Super Admin.`,
+          channel: "in_app",
+          priority: "high",
+        },
+      });
+    } catch {
+      // ignore notification error
+    }
+
     return { wallet: updated, transaction };
   });
 }
