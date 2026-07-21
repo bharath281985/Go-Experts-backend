@@ -26,6 +26,7 @@ import {
   updateFreelancerTask,
   listFreelancerMeetings,
   createFreelancerMeeting,
+  createFreelancerNotification,
   listFreelancerMessages,
   createFreelancerMessage,
   listFreelancerReviews,
@@ -70,6 +71,7 @@ router.put("/profile", updateFreelancerProfile as any);
 router.patch("/profile/cover", updateFreelancerCover as any);
 
 router.get("/notifications", listFreelancerNotifications as any);
+router.post("/notifications", createFreelancerNotification as any);
 router.patch("/notifications/read-all", markAllFreelancerNotificationsRead as any);
 router.patch("/notifications/:id/read", markFreelancerNotificationRead as any);
 

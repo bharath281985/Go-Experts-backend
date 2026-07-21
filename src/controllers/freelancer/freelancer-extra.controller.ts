@@ -307,6 +307,30 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
   }
 };
 
+export const createFreelancerNotification = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const body = req.body || {};
+    const userId = body.userId || req.user?.id;
+    if (!userId) return res.status(400).json({ success: false, message: "userId is required" });
+
+    const notif = await prisma.notification.create({
+      data: {
+        userId: String(userId),
+        type: String(body.type || "project"),
+        title: String(body.title || "New Notification"),
+        message: String(body.message || ""),
+        channel: String(body.channel || "in_app"),
+        priority: String(body.priority || "high"),
+        status: "unread",
+      },
+    });
+
+    res.status(201).json({ success: true, message: "Notification created", data: notif });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
 // ==========================================
 // MESSAGES
 // ==========================================
