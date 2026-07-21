@@ -471,6 +471,15 @@ export async function listConversationsForUser(user: PortalUser) {
   const needles = userNeedles(user);
   const or: any[] = needles.map((n) => ({ name: { contains: n } }));
   if (storedIds.length) or.push({ id: { in: storedIds } });
+
+  const myMessages = await prisma.message.findMany({
+    where: { from: user.id },
+    select: { conversationId: true },
+    distinct: ["conversationId"],
+  }).catch(() => []);
+  const msgConvIds = myMessages.map((m) => m.conversationId).filter(Boolean);
+  if (msgConvIds.length) or.push({ id: { in: msgConvIds } });
+
   if (!or.length) return [];
 
   const rows = await prisma.conversation.findMany({
@@ -483,6 +492,8 @@ export async function listConversationsForUser(user: PortalUser) {
 async function userOwnsConversation(user: PortalUser, conversationId: string) {
   const storedIds = await getJsonSetting<string[]>(user.id, CONVERSATIONS_SETTING_KEY, []);
   if (storedIds.includes(conversationId)) return true;
+  const msg = await prisma.message.findFirst({ where: { conversationId, from: user.id } }).catch(() => null);
+  if (msg) return true;
   const needles = userNeedles(user);
   if (!needles.length) return false;
   const conv = await prisma.conversation.findFirst({
