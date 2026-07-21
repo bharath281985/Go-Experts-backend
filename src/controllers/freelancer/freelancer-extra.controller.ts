@@ -776,22 +776,7 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
       getJsonSetting(userId, "activity", [] as any[]),
     ]);
 
-    let seededCustom = Array.isArray(customLogs) ? customLogs : [];
-    if (seededCustom.length === 0) {
-      seededCustom = [
-        { id: "ACT-LOG1", type: "login", title: "Login Successful", detail: "Session started from Chrome Windows (IP: 182.73.18.2)", at: new Date().toISOString() },
-        { id: "ACT-PROF1", type: "profile", title: "Profile Info Updated", detail: "Updated hourly rate and professional headline", at: new Date(Date.now() - 3600000 * 4).toISOString() },
-        { id: "ACT-PORT1", type: "portfolio", title: "Portfolio Item Added", detail: "Uploaded Project Showcase: E-Commerce Mobile App UI", at: new Date(Date.now() - 3600000 * 12).toISOString() },
-        { id: "ACT-RES1", type: "resume", title: "Resume Uploaded", detail: "Attached latest PDF resume to public freelancer profile", at: new Date(Date.now() - 3600000 * 24).toISOString() },
-        { id: "ACT-DL1", type: "download", title: "Invoice PDF Downloaded", detail: "Downloaded invoice #INV-9421 for project milestone", at: new Date(Date.now() - 3600000 * 36).toISOString() },
-        { id: "ACT-SUP1", type: "support", title: "Support Ticket Created", detail: "Ticket #SUP-8192: Payout method validation query", at: new Date(Date.now() - 3600000 * 48).toISOString() },
-      ];
-      try {
-        await setJsonSetting(userId, "activity", seededCustom.slice(0, 10));
-      } catch {
-        // ignore
-      }
-    }
+    const actualCustomLogs = Array.isArray(customLogs) ? customLogs : [];
 
     const rows = [
       ...notifications.map((n) => ({
@@ -836,7 +821,7 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
         detail: `Status: ${m.status || "scheduled"}`,
         at: m.createdAt,
       })),
-      ...seededCustom.map((c) => ({
+      ...actualCustomLogs.map((c) => ({
         id: c.id,
         type: c.type || "activity",
         title: c.title,
