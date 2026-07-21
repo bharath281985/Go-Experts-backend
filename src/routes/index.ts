@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import { prisma } from "../config/database.js";
+import { creditWalletForSelf } from "../common/helpers/portal-shared.js";
 import authRoutes from "./auth/auth.routes.js";
 import dashboardRoutes from "./dashboard/dashboard.routes.js";
 import notificationRoutes, { queueRouter, logsRouter } from "./notifications/notification.routes.js";
@@ -737,6 +738,11 @@ adminFreelancersRouter.put("/:id", async (req: Request, res: Response, next: Nex
       await upsertFreelancerProfileCompat(req.params.id, profileData);
     }
 
+    const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+    if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+      await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+    }
+
     const row = await prisma.user.findUnique({
       where: { id: req.params.id },
       include: freelancerInclude,
@@ -939,6 +945,11 @@ adminClientsRouter.put("/:id", async (req: Request, res: Response, next: NextFun
       });
     }
 
+    const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+    if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+      await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+    }
+
     const row = await prisma.user.findUnique({
       where: { id: req.params.id },
       include: clientInclude,
@@ -1102,6 +1113,11 @@ adminInvestorsRouter.put("/:id", async (req: Request, res: Response, next: NextF
           ...profileData,
         },
       });
+    }
+
+    const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+    if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+      await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
     }
 
     const row = await prisma.user.findUnique({
@@ -1268,6 +1284,11 @@ adminFoundersRouter.put("/:id", async (req: Request, res: Response, next: NextFu
           ...profileData,
         },
       });
+    }
+
+    const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+    if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+      await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
     }
 
     const row = await prisma.user.findUnique({
