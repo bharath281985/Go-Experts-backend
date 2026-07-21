@@ -277,7 +277,6 @@ const safeFreelancerProfileSelect = {
     hourlyRate: true,
     rating: true,
     experience: true,
-    portfolioJson: true,
     createdAt: true,
     updatedAt: true,
   },
