@@ -310,22 +310,43 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
 export const createFreelancerNotification = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const body = req.body || {};
-    const userId = body.userId || req.user?.id;
-    if (!userId) return res.status(400).json({ success: false, message: "userId is required" });
+    const inputUser = body.userId || body.target || body.targetName;
+    const senderId = req.user?.id;
 
-    const notif = await prisma.notification.create({
-      data: {
-        userId: String(userId),
-        type: String(body.type || "project"),
-        title: String(body.title || "New Notification"),
-        message: String(body.message || ""),
-        channel: String(body.channel || "in_app"),
-        priority: String(body.priority || "high"),
-        status: "unread",
-      },
-    });
+    let targetUserId = inputUser;
+    if (inputUser) {
+      const dbUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { id: String(inputUser) },
+            { email: String(inputUser) },
+            { fullName: String(inputUser) },
+          ],
+        },
+        select: { id: true },
+      });
+      if (dbUser) targetUserId = dbUser.id;
+    }
 
-    res.status(201).json({ success: true, message: "Notification created", data: notif });
+    const recipientIds = Array.from(new Set([targetUserId, senderId].filter(Boolean) as string[]));
+
+    const createdNotifs: any[] = [];
+    for (const uid of recipientIds) {
+      const notif = await prisma.notification.create({
+        data: {
+          userId: uid,
+          type: String(body.type || "project"),
+          title: String(body.title || "New Notification"),
+          message: String(body.message || ""),
+          channel: String(body.channel || "in_app"),
+          priority: String(body.priority || "high"),
+          status: "unread",
+        },
+      });
+      createdNotifs.push(notif);
+    }
+
+    res.status(201).json({ success: true, message: "Notification created", data: createdNotifs[0] });
   } catch (err) {
     handleError(err, res, next);
   }
