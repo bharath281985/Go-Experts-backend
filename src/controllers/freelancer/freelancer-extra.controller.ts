@@ -16,10 +16,12 @@ import {
   getUserWalletPayload,
 } from "../../common/helpers/portal-shared.js";
 
+import { FREELANCER_PROFILE_LIST_SELECT } from "../../common/helpers/prisma-compat.js";
+
 async function loadFreelancerUser(userId: string) {
   return prisma.user.findFirst({
     where: { id: userId, deletedAt: null },
-    include: { freelancerProfile: true },
+    include: { freelancerProfile: { select: FREELANCER_PROFILE_LIST_SELECT } },
   });
 }
 
