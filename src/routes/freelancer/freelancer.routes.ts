@@ -53,6 +53,7 @@ import {
   getFreelancerReferrals,
   getFreelancerEarnings,
   listFreelancerActivity,
+  createFreelancerActivity,
 } from "../../controllers/freelancer/freelancer-extra.controller.js";
 
 const router = Router();
@@ -128,6 +129,7 @@ router.put("/resume", putFreelancerResume as any);
 router.get("/referrals", getFreelancerReferrals as any);
 router.get("/earnings", getFreelancerEarnings as any);
 router.get("/activity", listFreelancerActivity as any);
+router.post("/activity", createFreelancerActivity as any);
 
 // Portal media upload (images/docs for avatar, verification, portfolio)
 router.post("/media/upload", upload.single("file"), uploadFile as any);

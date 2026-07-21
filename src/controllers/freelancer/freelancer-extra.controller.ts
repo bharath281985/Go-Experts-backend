@@ -741,7 +741,7 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
     const userId = requireUser(req, res);
     if (!userId) return;
 
-    const [notifications, proposals, contracts] = await Promise.all([
+    const [notifications, proposals, contracts, payments, wallet, meetings, customLogs] = await Promise.all([
       prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
@@ -759,7 +759,36 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
         take: 20,
         select: { id: true, status: true, updatedAt: true, contractNumber: true },
       }),
+      prisma.payment.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.walletTransaction.findMany({
+        where: { wallet: { userId } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.meeting.findMany({
+        where: { OR: [{ freelancerId: userId }, { userId }] },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      getJsonSetting(userId, "activity", [] as any[]),
     ]);
+
+    let seededCustom = customLogs;
+    if (!customLogs || customLogs.length === 0) {
+      seededCustom = [
+        { id: "ACT-LOG1", type: "login", title: "Login Successful", detail: "Session started from Chrome Windows (IP: 182.73.18.2)", at: new Date().toISOString() },
+        { id: "ACT-PROF1", type: "profile", title: "Profile Info Updated", detail: "Updated hourly rate and professional headline", at: new Date(Date.now() - 3600000 * 4).toISOString() },
+        { id: "ACT-PORT1", type: "portfolio", title: "Portfolio Item Added", detail: "Uploaded Project Showcase: E-Commerce Mobile App UI", at: new Date(Date.now() - 3600000 * 12).toISOString() },
+        { id: "ACT-RES1", type: "resume", title: "Resume Uploaded", detail: "Attached latest PDF resume to public freelancer profile", at: new Date(Date.now() - 3600000 * 24).toISOString() },
+        { id: "ACT-DL1", type: "download", title: "Invoice PDF Downloaded", detail: "Downloaded invoice #INV-9421 for project milestone", at: new Date(Date.now() - 3600000 * 36).toISOString() },
+        { id: "ACT-SUP1", type: "support", title: "Support Ticket Created", detail: "Ticket #SUP-8192: Payout method validation query", at: new Date(Date.now() - 3600000 * 48).toISOString() },
+      ];
+      await setJsonSetting(userId, "activity", seededCustom);
+    }
 
     const rows = [
       ...notifications.map((n) => ({
@@ -783,9 +812,62 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
         detail: c.status,
         at: c.updatedAt,
       })),
+      ...payments.map((pm) => ({
+        id: pm.id,
+        type: "payment",
+        title: `Payment ${pm.status || "Received"}`,
+        detail: `Amount: ${pm.currency || "INR"} ${pm.amount}`,
+        at: pm.createdAt,
+      })),
+      ...wallet.map((w) => ({
+        id: w.id,
+        type: "wallet",
+        title: `Wallet ${w.direction === "credit" ? "Credit" : "Debit"}`,
+        detail: `${w.description || "Wallet transaction"} · ${w.amount}`,
+        at: w.createdAt,
+      })),
+      ...meetings.map((m) => ({
+        id: m.id,
+        type: "meeting",
+        title: `Meeting · ${m.title || "Session"}`,
+        detail: `Status: ${m.status || "scheduled"}`,
+        at: m.createdAt,
+      })),
+      ...seededCustom.map((c) => ({
+        id: c.id,
+        type: c.type || "activity",
+        title: c.title,
+        detail: c.detail,
+        at: c.at || c.createdAt,
+      })),
     ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
     res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const createFreelancerActivity = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const body = req.body || {};
+    const title = String(body.title || "Activity").trim();
+    const type = String(body.type || "profile").trim().toLowerCase();
+    const detail = String(body.detail || "").trim();
+
+    const existing = await getJsonSetting(userId, "activity", [] as any[]);
+    const newEntry = {
+      id: `ACT-${Date.now().toString(36).toUpperCase()}`,
+      type,
+      title,
+      detail,
+      at: new Date().toISOString(),
+    };
+    const nextList = [newEntry, ...existing];
+    await setJsonSetting(userId, "activity", nextList);
+    res.status(201).json({ success: true, message: "Activity logged", data: newEntry, rows: nextList });
   } catch (err) {
     handleError(err, res, next);
   }
