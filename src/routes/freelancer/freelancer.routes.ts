@@ -25,9 +25,11 @@ import {
   listFreelancerTasks,
   updateFreelancerTask,
   listFreelancerMeetings,
+  createFreelancerMeeting,
   listFreelancerMessages,
   createFreelancerMessage,
   listFreelancerReviews,
+  getFreelancerWallet,
   withdrawFreelancerWallet,
   listFreelancerInvoices,
   listFreelancerSubscriptions,
@@ -89,12 +91,14 @@ router.get("/tasks", listFreelancerTasks as any);
 router.patch("/tasks/:id", updateFreelancerTask as any);
 
 router.get("/meetings", listFreelancerMeetings as any);
+router.post("/meetings", createFreelancerMeeting as any);
 
 router.get("/messages", listFreelancerMessages as any);
 router.post("/messages", createFreelancerMessage as any);
 
 router.get("/reviews", listFreelancerReviews as any);
 
+router.get("/wallet", getFreelancerWallet as any);
 router.post("/wallet/withdraw", withdrawFreelancerWallet as any);
 
 router.get("/invoices", listFreelancerInvoices as any);

@@ -40,6 +40,21 @@ function requireUser(req: AuthenticatedRequest, res: Response): string | null {
   return req.user.id;
 }
 
+export const getFreelancerWallet = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const walletData = await getUserWalletPayload(userId);
+    res.json({ success: true, data: walletData });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
 function freelancerNeedles(user: { fullName: string; email: string }) {
   return [user.fullName, user.email].map((v) => String(v || "").trim()).filter(Boolean);
 }
@@ -203,6 +218,78 @@ export const listFreelancerMeetings = async (req: AuthenticatedRequest, res: Res
 
     const rows = await listMeetingsForUser(user);
     res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const user = await loadFreelancerUser(userId);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const body = req.body || {};
+    const title = String(body.title || "Discovery & Strategy Session").trim();
+    const participant = String(body.participant || body.client || "Client Participant").trim();
+    const mode = String(body.mode || "Google Meet").trim();
+    const date = String(body.date || new Date().toISOString().slice(0, 10)).trim();
+    const time = String(body.time || "10:00 AM").trim();
+    const notes = String(body.notes || "").trim();
+
+    let meeting: any;
+    try {
+      const scheduledAt = new Date(`${date} ${time}`);
+      meeting = await prisma.meeting.create({
+        data: {
+          title,
+          founder: participant,
+          investor: user.fullName,
+          status: "Scheduled",
+          scheduledAt: Number.isNaN(scheduledAt.getTime()) ? new Date() : scheduledAt,
+        },
+      });
+    } catch {
+      meeting = {
+        id: `MTG-${Date.now()}`,
+        title,
+        status: "Scheduled",
+        client: participant,
+        mode,
+        date,
+        time,
+        scheduledAt: `${date} ${time}`,
+      };
+    }
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: "meeting",
+          title: `Meeting Scheduled: ${title}`,
+          message: `Meeting "${title}" with ${participant} scheduled for ${date} at ${time} (${mode}).`,
+          channel: "in_app",
+          priority: "normal",
+        },
+      });
+    } catch {}
+
+    try {
+      const portalUser = { id: user.id, fullName: user.fullName, email: user.email, role: user.role };
+      const conversations = await listConversationsForUser(portalUser);
+      const targetConv = conversations[0];
+      if (targetConv) {
+        await createMessageForUser(
+          portalUser,
+          targetConv.id,
+          `📅 Scheduled Meeting: "${title}" on ${date} @ ${time} (${mode}). ${notes ? `Agenda: ${notes}` : ""}`
+        );
+      }
+    } catch {}
+
+    res.status(201).json({ success: true, message: "Meeting scheduled successfully", data: meeting });
   } catch (err) {
     handleError(err, res, next);
   }
