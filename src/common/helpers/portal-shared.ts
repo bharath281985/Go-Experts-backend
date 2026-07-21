@@ -564,6 +564,7 @@ export async function createMessageForUser(
           OR: [
             { id: recipientId },
             { email: recipientId },
+            { fullName: recipientId },
             { referralCode: recipientId }
           ]
         }
