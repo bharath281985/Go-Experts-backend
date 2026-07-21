@@ -1,3 +1,4 @@
+import fs from "fs";
 import { Request, Response, NextFunction } from "express";
 import { sendResponse } from "../common/helpers/response.helper.js";
 
@@ -62,7 +63,7 @@ function getFriendlyErrorMessage(err: Error | ApiError, statusCode: number) {
   }
 
   if (/Invalid `prisma\./i.test(message) || /PrismaClient/i.test(message)) {
-    require('fs').appendFileSync('prisma-debug.log', `[${new Date().toISOString()}] PRISMA ERROR:\n${message}\n\n`);
+    fs.appendFileSync('prisma-debug.log', `[${new Date().toISOString()}] PRISMA ERROR:\n${message}\n\n`);
     // Extract the most relevant part of the Prisma error to show to the user
     const lines = message.split('\n').map(l => l.trim()).filter(Boolean);
     const relevantLine = lines.find(l => l.includes('Argument') || l.includes('Type') || l.includes('Unknown') || l.includes('Invalid')) || lines[lines.length - 1];

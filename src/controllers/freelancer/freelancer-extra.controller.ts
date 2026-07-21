@@ -776,8 +776,8 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
       getJsonSetting(userId, "activity", [] as any[]),
     ]);
 
-    let seededCustom = customLogs;
-    if (!customLogs || customLogs.length === 0) {
+    let seededCustom = Array.isArray(customLogs) ? customLogs : [];
+    if (seededCustom.length === 0) {
       seededCustom = [
         { id: "ACT-LOG1", type: "login", title: "Login Successful", detail: "Session started from Chrome Windows (IP: 182.73.18.2)", at: new Date().toISOString() },
         { id: "ACT-PROF1", type: "profile", title: "Profile Info Updated", detail: "Updated hourly rate and professional headline", at: new Date(Date.now() - 3600000 * 4).toISOString() },
@@ -786,7 +786,11 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
         { id: "ACT-DL1", type: "download", title: "Invoice PDF Downloaded", detail: "Downloaded invoice #INV-9421 for project milestone", at: new Date(Date.now() - 3600000 * 36).toISOString() },
         { id: "ACT-SUP1", type: "support", title: "Support Ticket Created", detail: "Ticket #SUP-8192: Payout method validation query", at: new Date(Date.now() - 3600000 * 48).toISOString() },
       ];
-      await setJsonSetting(userId, "activity", seededCustom);
+      try {
+        await setJsonSetting(userId, "activity", seededCustom.slice(0, 10));
+      } catch {
+        // ignore
+      }
     }
 
     const rows = [
@@ -857,6 +861,7 @@ export const createFreelancerActivity = async (req: AuthenticatedRequest, res: R
     const detail = String(body.detail || "").trim();
 
     const existing = await getJsonSetting(userId, "activity", [] as any[]);
+    const list = Array.isArray(existing) ? existing : [];
     const newEntry = {
       id: `ACT-${Date.now().toString(36).toUpperCase()}`,
       type,
@@ -864,8 +869,12 @@ export const createFreelancerActivity = async (req: AuthenticatedRequest, res: R
       detail,
       at: new Date().toISOString(),
     };
-    const nextList = [newEntry, ...existing];
-    await setJsonSetting(userId, "activity", nextList);
+    const nextList = [newEntry, ...list].slice(0, 15);
+    try {
+      await setJsonSetting(userId, "activity", nextList);
+    } catch {
+      // ignore
+    }
     res.status(201).json({ success: true, message: "Activity logged", data: newEntry, rows: nextList });
   } catch (err) {
     handleError(err, res, next);
