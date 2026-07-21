@@ -452,9 +452,9 @@ export const listAllInvestors = async (req: AuthenticatedRequest, res: Response,
     const userId = requireUser(req, res);
     if (!userId) return;
     
-    // Fetch all users with the role 'investor'
+    // Fetch all users exactly as the Admin Panel does
     const users = await prisma.user.findMany({
-      where: { role: "investor", deletedAt: null },
+      where: { role: { in: ["investor", "Investor"] }, deletedAt: null },
       include: { investorProfile: true },
     });
 
