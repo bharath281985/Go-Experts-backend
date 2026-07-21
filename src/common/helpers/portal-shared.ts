@@ -452,11 +452,20 @@ export async function getJsonSetting<T = any>(userId: string, key: string, fallb
 
 export async function setJsonSetting(userId: string, key: string, value: unknown, category = "portal") {
   const k = settingKey(userId, key);
-  await prisma.setting.upsert({
-    where: { key: k },
-    update: { value: JSON.stringify(value), category },
-    create: { key: k, value: JSON.stringify(value), category },
-  });
+  try {
+    let finalValue = value;
+    if (Array.isArray(value) && value.length > 50) {
+      finalValue = value.slice(-50);
+    }
+    const strVal = JSON.stringify(finalValue);
+    await prisma.setting.upsert({
+      where: { key: k },
+      update: { value: strVal, category },
+      create: { key: k, value: strVal, category },
+    });
+  } catch (err) {
+    console.error(`[SETTING ERROR] Failed to save key ${k}:`, err);
+  }
   return value;
 }
 
