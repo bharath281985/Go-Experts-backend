@@ -447,6 +447,30 @@ export const listFounderInvestors = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+export const listAllInvestors = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    
+    // Fetch all users with the role 'investor'
+    const users = await prisma.user.findMany({
+      where: { role: "investor", deletedAt: null },
+      include: { investorProfile: true },
+    });
+
+    const rows = users.map((u) => ({
+      name: u.fullName,
+      userId: u.id,
+      email: u.email,
+      firm: u.investorProfile?.firm || null,
+    }));
+
+    res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
 // ==========================================
 // TEAM / DOCUMENTS / MILESTONES (settings-backed JSON)
 // ==========================================

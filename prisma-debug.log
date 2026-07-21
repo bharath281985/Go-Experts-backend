@@ -1,0 +1,22 @@
+[2026-07-21T06:08:37.653Z] PRISMA ERROR:
+
+Invalid `prisma.setting.upsert()` invocation in
+C:\Users\Bharath\Downloads\goexperts-ai\goexperts-ai\backend\src\common\helpers\portal-shared.ts:421:24
+
+  418 
+  419 export async function setJsonSetting(userId: string, key: string, value: unknown, category = "portal") {
+  420   const k = settingKey(userId, key);
+→ 421   await prisma.setting.upsert(
+The provided value for the column is too long for the column's type. Column: value
+
+[2026-07-21T07:45:43.755Z] PRISMA ERROR:
+
+Invalid `prisma.setting.upsert()` invocation in
+C:\Users\Bharath\Downloads\goexperts-ai\goexperts-ai\backend\src\common\helpers\portal-shared.ts:455:24
+
+  452 
+  453 export async function setJsonSetting(userId: string, key: string, value: unknown, category = "portal") {
+  454   const k = settingKey(userId, key);
+→ 455   await prisma.setting.upsert(
+The provided value for the column is too long for the column's type. Column: value
+

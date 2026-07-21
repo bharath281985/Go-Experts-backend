@@ -17,6 +17,7 @@ import {
   listInvestorRequests,
   respondInvestorRequest,
   listFounderInvestors,
+  listAllInvestors,
   listFounderTeam,
   addFounderTeamMember,
   deleteFounderTeamMember,
@@ -71,6 +72,7 @@ router.get("/investor-requests", listInvestorRequests as any);
 router.post("/investor-requests/:id/respond", respondInvestorRequest as any);
 
 router.get("/investors", listFounderInvestors as any);
+router.get("/all-investors", listAllInvestors as any);
 
 router.get("/team", listFounderTeam as any);
 router.post("/team", addFounderTeamMember as any);
