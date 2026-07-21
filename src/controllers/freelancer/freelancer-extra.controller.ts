@@ -770,7 +770,6 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
         take: 20,
       }),
       prisma.meeting.findMany({
-        where: { OR: [{ freelancerId: userId }, { userId }] },
         orderBy: { createdAt: "desc" },
         take: 20,
       }),
