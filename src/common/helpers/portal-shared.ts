@@ -529,7 +529,20 @@ export async function listConversationsForUser(user: PortalUser) {
     orderBy: { updatedAt: "desc" },
     take: 50,
   });
-  return rows;
+
+  // Deduplicate conversations per person so each contact appears once in sidebar
+  const uniqueMap = new Map<string, any>();
+  for (const r of rows) {
+    let nameKey = String(r.name || "").trim().toLowerCase();
+    const match = `${r.name} ${r.msg}`.match(/(?:with|between|for|to|from)\s+([A-Za-z0-9\s]+?)(?:\s+&|\s+on|\s+at|\.|\(|$)/i);
+    if (match && match[1] && match[1].trim().length > 2) {
+      nameKey = match[1].trim().toLowerCase();
+    }
+    if (!uniqueMap.has(nameKey)) {
+      uniqueMap.set(nameKey, r);
+    }
+  }
+  return Array.from(uniqueMap.values());
 }
 
 async function userOwnsConversation(user: PortalUser, conversationId: string) {
@@ -621,16 +634,49 @@ export async function createMessageForUser(
       }
     }
 
-    const conv = await prisma.conversation.create({
-      data: {
-        name: convName,
-        role: user.role,
-        msg: text,
-        time: "now",
-        status: "active",
-      },
-    });
-    convId = conv.id;
+    // Reuse existing conversation thread if one already exists between sender and recipient
+    if (!convId && dbUser) {
+      const userConvs = await getJsonSetting<string[]>(user.id, CONVERSATIONS_SETTING_KEY, []);
+      const recipientConvs = await getJsonSetting<string[]>(dbUser.id, CONVERSATIONS_SETTING_KEY, []);
+      const commonIds = userConvs.filter((id) => recipientConvs.includes(id));
+
+      let existingConv: any = null;
+      if (commonIds.length) {
+        existingConv = await prisma.conversation.findFirst({
+          where: { id: { in: commonIds }, deletedAt: null },
+          orderBy: { updatedAt: "desc" },
+        });
+      }
+      if (!existingConv && user.fullName && dbUser.fullName) {
+        existingConv = await prisma.conversation.findFirst({
+          where: {
+            deletedAt: null,
+            AND: [
+              { OR: [{ name: { contains: user.fullName } }, { msg: { contains: user.fullName } }] },
+              { OR: [{ name: { contains: dbUser.fullName } }, { msg: { contains: dbUser.fullName } }] }
+            ]
+          },
+          orderBy: { updatedAt: "desc" }
+        });
+      }
+
+      if (existingConv) {
+        convId = existingConv.id;
+      }
+    }
+
+    if (!convId) {
+      const conv = await prisma.conversation.create({
+        data: {
+          name: convName,
+          role: user.role,
+          msg: text,
+          time: "now",
+          status: "active",
+        },
+      });
+      convId = conv.id;
+    }
 
     const storedIds = await getJsonSetting<string[]>(user.id, CONVERSATIONS_SETTING_KEY, []);
     if (!storedIds.includes(convId)) {
