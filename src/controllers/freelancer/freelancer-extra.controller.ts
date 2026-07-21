@@ -264,16 +264,27 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
     }
 
     try {
-      await prisma.notification.create({
-        data: {
-          userId,
-          type: "meeting",
-          title: `Meeting Scheduled: ${title}`,
-          message: `Meeting "${title}" with ${participant} scheduled for ${date} at ${time} (${mode}).`,
-          channel: "in_app",
-          priority: "normal",
+      const targetUser = await prisma.user.findFirst({
+        where: {
+          OR: [{ email: participant }, { fullName: participant }],
         },
+        select: { id: true },
       });
+
+      const notifUserIds = Array.from(new Set([userId, targetUser?.id].filter(Boolean) as string[]));
+
+      for (const uid of notifUserIds) {
+        await prisma.notification.create({
+          data: {
+            userId: uid,
+            type: "meeting",
+            title: `New Meeting Scheduled: ${title}`,
+            message: `Meeting "${title}" with ${user.fullName} & ${participant} scheduled for ${date} at ${time} (${mode}).`,
+            channel: "in_app",
+            priority: "normal",
+          },
+        }).catch(() => null);
+      }
     } catch {}
 
     try {

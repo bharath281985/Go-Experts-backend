@@ -175,6 +175,20 @@ export async function debitWalletForSelf(userId: string, amount: number, type: s
         balanceAfter: updated.balance,
       },
     });
+
+    try {
+      await tx.notification.create({
+        data: {
+          userId,
+          type: "wallet",
+          title: "Wallet Debited / Withdrawal Requested",
+          message: `Your wallet transaction of ₹${amt.toLocaleString()} has been processed.`,
+          channel: "in_app",
+          priority: "high",
+        },
+      });
+    } catch {}
+
     return { wallet: updated, transaction };
   });
 }
