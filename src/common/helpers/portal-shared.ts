@@ -387,9 +387,15 @@ export async function createMeetingForUser(
     data.investor = counterpart;
   }
   const meeting = await prisma.meeting.create({ data });
-  if (body.email) {
+  if (body.email || counterpart !== "TBD") {
     try {
-      const recipient = await prisma.user.findFirst({ where: { email: body.email } });
+      let recipient = null;
+      if (body.email) {
+        recipient = await prisma.user.findFirst({ where: { email: body.email } });
+      } else {
+        recipient = await prisma.user.findFirst({ where: { fullName: counterpart, deletedAt: null } });
+      }
+
       const { NotificationService } = await import("../../modules/notifications/notification.service.js");
       
       if (recipient) {
@@ -404,7 +410,7 @@ export async function createMeetingForUser(
           metadata: { meetingId: meeting.id }
         });
 
-        // 2) Send chat message to freelancer
+        // 2) Send chat message to counterpart
         await createMessageForUser(
           { id: user.id, fullName: user.fullName, email: user.email, role: user.role || "client" },
           {
