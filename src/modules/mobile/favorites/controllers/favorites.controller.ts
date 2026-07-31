@@ -259,7 +259,18 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
       } catch (e) {
         console.error('Error populating favorite details', e);
       }
-      return details || item;
+      return {
+        id: item.id,
+        entityType: item.entityType,
+        entityId: item.entityId,
+        note: item.note,
+        createdAt: item.createdAt,
+        details: details || null,
+        investor: item.entityType === 'investor' ? details : null,
+        founder: item.entityType === 'founder' || item.entityType === 'startup' ? details : null,
+        freelancer: item.entityType === 'freelancer' ? details : null,
+        client: item.entityType === 'client' ? details : null,
+      };
     })
   );
 };
