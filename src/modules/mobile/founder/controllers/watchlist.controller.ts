@@ -36,32 +36,39 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
 };
 
 const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]> => {
-  return Promise.all(
-    items.map(async (item) => {
-      let investorDetails: any = null;
-      try {
-        investorDetails = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { id: item.investorId },
-              { investorProfile: { id: item.investorId } }
-            ]
-          },
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            avatarUrl: true,
-            city: true,
-            country: true,
-            bio: true,
-            createdAt: true,
-            investorProfile: true,
-          },
-        });
-      } catch (e) {
-        console.error('Error populating watchlist investor', e);
+  if (items.length === 0) return [];
+  const investorIds = items.map(i => i.investorId);
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        OR: [
+          { id: { in: investorIds } },
+          { investorProfile: { id: { in: investorIds } } }
+        ]
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        avatarUrl: true,
+        city: true,
+        country: true,
+        bio: true,
+        createdAt: true,
+        investorProfile: true,
+      },
+    });
+
+    const userMap = new Map<string, any>();
+    users.forEach(u => {
+      userMap.set(u.id, u);
+      if (u.investorProfile?.id) {
+        userMap.set(u.investorProfile.id, u);
       }
+    });
+
+    return items.map(item => {
+      const investorDetails = userMap.get(item.investorId) || null;
       return {
         // Watchlist metadata
         watchlistId: item.id,
@@ -76,11 +83,14 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         ...(investorDetails || {}),
 
         // Nested details for extra safety
-        details: investorDetails || null,
-        investor: investorDetails || null,
+        details: investorDetails,
+        investor: investorDetails,
       };
-    })
-  );
+    });
+  } catch (e) {
+    console.error('Error populating watchlist investor', e);
+    return items;
+  }
 };
 
 export const getWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {

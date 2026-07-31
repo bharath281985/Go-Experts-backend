@@ -31,84 +31,89 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
 };
 
 const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]> => {
-  return Promise.all(
-    items.map(async (item) => {
-      let startupDetails: any = null;
-      try {
-        const idea = await prisma.startupIdea.findUnique({
-          where: { id: item.startupId },
-        });
-        if (idea) {
-          const founderUser = await prisma.user.findFirst({
-            where: { id: idea.founder, role: 'founder' },
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-              avatarUrl: true,
-              city: true,
-              country: true,
-              bio: true,
-              createdAt: true,
-              founderProfile: {
-                select: {
-                  id: true,
-                  startupName: true,
-                  industry: true,
-                  stage: true,
-                  raised: true,
-                  teamSize: true,
-                },
-              },
-            },
-          });
-          let founderInfo = null;
-          if (founderUser) {
-            founderInfo = {
-              id: founderUser.id,
-              fullName: founderUser.fullName,
-              email: founderUser.email,
-              avatarUrl: founderUser.avatarUrl,
-              city: founderUser.city,
-              country: founderUser.country,
-              bio: founderUser.bio,
-              createdAt: founderUser.createdAt,
-              profileId: founderUser.founderProfile?.id ?? null,
-              startupName: founderUser.founderProfile?.startupName ?? null,
-              industry: founderUser.founderProfile?.industry ?? null,
-              stage: founderUser.founderProfile?.stage ?? null,
-              raised: founderUser.founderProfile?.raised ?? null,
-              teamSize: founderUser.founderProfile?.teamSize ?? null,
-            };
-          }
-          startupDetails = {
-            id: idea.id,
-            startup: idea.startup,
-            industry: idea.industry,
-            category: idea.category,
-            stage: idea.stage,
-            funding: idea.funding,
-            equity: idea.equity,
-            visibility: idea.visibility,
-            pitchDeck: idea.pitchDeck,
-            businessPlan: idea.businessPlan,
-            logo: idea.logo,
-            coverUrl: idea.coverUrl,
-            status: idea.status,
-            views: idea.views,
-            interestedInvestors: idea.interestedInvestors,
-            createdAt: idea.createdAt,
-            updatedAt: idea.updatedAt,
-            deletedAt: idea.deletedAt,
-            founderId: idea.founder,
-            isSaved: true,
-            hasInvested: false,
-            founder: founderInfo,
-          };
-        }
-      } catch (e) {
-        console.error('Error populating watchlist startup', e);
-      }
+  if (items.length === 0) return [];
+  const startupIds = items.map(i => i.startupId);
+  try {
+    const ideas = await prisma.startupIdea.findMany({
+      where: { id: { in: startupIds } },
+    });
+
+    const founderIds = Array.from(new Set(ideas.map(idea => idea.founder).filter(Boolean))) as string[];
+    const founders = founderIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: founderIds }, role: 'founder' },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        avatarUrl: true,
+        city: true,
+        country: true,
+        bio: true,
+        createdAt: true,
+        founderProfile: {
+          select: {
+            id: true,
+            startupName: true,
+            industry: true,
+            stage: true,
+            raised: true,
+            teamSize: true,
+          },
+        },
+      },
+    }) : [];
+
+    const founderMap = new Map<string, any>();
+    founders.forEach(f => {
+      founderMap.set(f.id, {
+        id: f.id,
+        fullName: f.fullName,
+        email: f.email,
+        avatarUrl: f.avatarUrl,
+        city: f.city,
+        country: f.country,
+        bio: f.bio,
+        createdAt: f.createdAt,
+        profileId: f.founderProfile?.id ?? null,
+        startupName: f.founderProfile?.startupName ?? null,
+        industry: f.founderProfile?.industry ?? null,
+        stage: f.founderProfile?.stage ?? null,
+        raised: f.founderProfile?.raised ?? null,
+        teamSize: f.founderProfile?.teamSize ?? null,
+      });
+    });
+
+    const ideaMap = new Map<string, any>();
+    ideas.forEach(idea => {
+      const founderInfo = founderMap.get(idea.founder) || null;
+      ideaMap.set(idea.id, {
+        id: idea.id,
+        startup: idea.startup,
+        industry: idea.industry,
+        category: idea.category,
+        stage: idea.stage,
+        funding: idea.funding,
+        equity: idea.equity,
+        visibility: idea.visibility,
+        pitchDeck: idea.pitchDeck,
+        businessPlan: idea.businessPlan,
+        logo: idea.logo,
+        coverUrl: idea.coverUrl,
+        status: idea.status,
+        views: idea.views,
+        interestedInvestors: idea.interestedInvestors,
+        createdAt: idea.createdAt,
+        updatedAt: idea.updatedAt,
+        deletedAt: idea.deletedAt,
+        founderId: idea.founder,
+        isSaved: true,
+        hasInvested: false,
+        founder: founderInfo,
+      });
+    });
+
+    return items.map(item => {
+      const startupDetails = ideaMap.get(item.startupId) || null;
       return {
         // Watchlist metadata
         watchlistId: item.id,
@@ -126,8 +131,11 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
         details: startupDetails || null,
         startup: startupDetails || null,
       };
-    })
-  );
+    });
+  } catch (e) {
+    console.error('Error populating watchlist startup', e);
+    return items;
+  }
 };
 
 export const getWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
