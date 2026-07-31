@@ -88,6 +88,7 @@ router.get("/states", async (req: Request, res: Response, next: NextFunction) =>
 
     let states: any[] = [];
     try {
+      // @ts-ignore
       const csc = await import("country-state-city");
       if (csc?.State) {
         states = csc.State.getStatesOfCountry(isoCode).map((s: any) => ({
