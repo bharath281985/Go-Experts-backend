@@ -260,11 +260,17 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
         console.error('Error populating favorite details', e);
       }
       return {
-        id: item.id,
+        // Favorite metadata
+        favoriteId: item.id,
         entityType: item.entityType,
         entityId: item.entityId,
         note: item.note,
-        createdAt: item.createdAt,
+        favoritedAt: item.createdAt,
+
+        // Flat details at root level
+        ...(details || {}),
+
+        // Nested helper keys for backward compatibility
         details: details || null,
         investor: item.entityType === 'investor' ? details : null,
         founder: item.entityType === 'founder' || item.entityType === 'startup' ? details : null,
