@@ -70,13 +70,21 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
     return items.map(item => {
       const investorDetails = userMap.get(item.investorId) || null;
       const investorProfile = investorDetails?.investorProfile ? {
-        ...investorDetails.investorProfile,
+        id: investorDetails.investorProfile.id,
+        userId: investorDetails.investorProfile.userId,
         fullName: investorDetails.fullName,
         email: investorDetails.email,
         avatarUrl: investorDetails.avatarUrl,
         city: investorDetails.city,
         country: investorDetails.country,
         bio: investorDetails.bio,
+        firm: investorDetails.investorProfile.firm,
+        ticketMin: investorDetails.investorProfile.ticketMin,
+        ticketMax: investorDetails.investorProfile.ticketMax,
+        focusAreas: investorDetails.investorProfile.focusAreas,
+        deals: investorDetails.investorProfile.deals,
+        createdAt: investorDetails.investorProfile.createdAt,
+        updatedAt: investorDetails.investorProfile.updatedAt,
       } : null;
 
       return {
