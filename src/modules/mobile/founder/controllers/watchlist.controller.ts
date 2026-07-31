@@ -101,7 +101,16 @@ export const getWatchlist = async (req: AuthRequest, res: Response, next: NextFu
   try {
     const items = await readList(req.user.id);
     const populated = await populateFounderWatchlist(items);
-    return res.json(successResponse('Watchlist retrieved', populated, { total: items.length }));
+    
+    const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    const sorted = [...populated].sort((a, b) => {
+      const weightA = priorityWeight[String(a.priority).toLowerCase()] || 0;
+      const weightB = priorityWeight[String(b.priority).toLowerCase()] || 0;
+      if (weightA !== weightB) return weightB - weightA;
+      return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+    });
+
+    return res.json(successResponse('Watchlist retrieved', sorted, { total: items.length }));
   } catch (error) {
     next(error);
   }
