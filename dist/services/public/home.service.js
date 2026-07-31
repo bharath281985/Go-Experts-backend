@@ -112,25 +112,52 @@ export async function getPublicCategories(options) {
     try {
         const page = options?.page ?? 1;
         const pageSize = options?.pageSize ?? 50;
-        const search = options?.search?.trim();
+        const search = options?.search?.trim()?.toLowerCase();
+        const targetIndustry = (options?.industryId || options?.industry || "")?.trim();
+        let resolvedIndustryId = targetIndustry;
+        let resolvedIndustryName = targetIndustry;
+        if (targetIndustry) {
+            const indRow = await prisma.industry.findFirst({
+                where: { OR: [{ id: targetIndustry }, { name: targetIndustry }] },
+                select: { id: true, name: true },
+            }).catch(() => null);
+            if (indRow) {
+                resolvedIndustryId = indRow.id;
+                resolvedIndustryName = indRow.name;
+            }
+        }
         const where = { status: "active" };
         if (search)
             where.name = { contains: search };
-        const total = await prisma.industry.count({ where });
-        const industries = await prisma.industry.findMany({
+        if (targetIndustry) {
+            const conditions = [
+                { industryId: resolvedIndustryId },
+                { industryId: targetIndustry },
+            ];
+            if (resolvedIndustryId) {
+                conditions.push({ industry: { id: resolvedIndustryId } });
+            }
+            if (resolvedIndustryName) {
+                conditions.push({ industry: { name: resolvedIndustryName } });
+            }
+            where.OR = conditions;
+        }
+        const dbCategories = await prisma.skillCategory.findMany({
             where,
-            orderBy: { name: "asc" },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
             skip: (page - 1) * pageSize,
             take: pageSize,
-        });
-        const rows = await Promise.all(industries.map(async (industry) => {
-            const count = await countFreelancersForIndustry(industry.name);
+        }).catch(() => []);
+        const total = await prisma.skillCategory.count({ where }).catch(() => dbCategories.length);
+        const rows = await Promise.all(dbCategories.map(async (c) => {
+            const count = await countFreelancersForIndustry(c.name);
             return {
-                id: industry.id,
-                slug: slugifyCategory(industry.name),
-                name: industry.name,
+                id: c.id,
+                slug: slugifyCategory(c.name),
+                name: c.name,
                 count: count || 0,
-                status: industry.status,
+                status: c.status,
+                industryId: c.industryId ?? resolvedIndustryId ?? null,
             };
         }));
         return { rows, total };

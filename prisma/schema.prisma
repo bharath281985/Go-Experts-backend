@@ -727,24 +727,28 @@ model InvoiceItem {
 }
 
 model Industry {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  status    String   @default("active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String          @id @default(uuid())
+  name       String          @unique
+  status     String          @default("active")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  categories SkillCategory[]
 
   @@map("industries")
 }
 
 model SkillCategory {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  status    String   @default("active")
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  skills    Skill[]
+  id         String    @id @default(uuid())
+  name       String    @unique
+  industryId String?   @map("industry_id")
+  status     String    @default("active")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  skills     Skill[]
+  industry   Industry? @relation(fields: [industryId], references: [id], onDelete: SetNull)
 
+  @@index([industryId], map: "skill_categories_industry_id_fkey")
   @@map("skill_categories")
 }
 
@@ -926,6 +930,24 @@ model Testimonial {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("testimonials")
+}
+
+model MasterOption {
+  id        String   @id @default(uuid())
+  type      String   // company_size, ticket_size, investor_type, founder_type, business_type, team_size, service_taxonomy, experience_level, startup_stage
+  label     String
+  value     String
+  min       Float?
+  max       Float?
+  groupKey  String?  @map("group_key")
+  sortOrder Int      @default(0) @map("sort_order")
+  metadata  Json?
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([type, status])
+  @@map("master_options")
 }
 
 model MediaFile {

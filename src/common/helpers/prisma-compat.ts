@@ -94,12 +94,29 @@ export async function listSkillsCompat(
   search?: string,
   filters?: SkillListFilters,
 ) {
-  const { industryName: industry } = await parseSkillListFilters(filters);
+  const { categoryId, industryName: industry } = await parseSkillListFilters(filters);
 
   try {
     const where: Prisma.SkillWhereInput = {};
     if (search) where.OR = [{ name: { contains: search } }];
-    if (industry) where.industry = industry;
+
+    if (categoryId) {
+      const catRow = await prisma.skillCategory.findFirst({
+        where: { OR: [{ id: categoryId }, { name: categoryId }] },
+        select: { id: true, name: true }
+      }).catch(() => null);
+
+      const targetId = catRow?.id || categoryId;
+      const targetName = catRow?.name || categoryId;
+
+      where.OR = [
+        { categoryId: targetId },
+        { category: { is: { name: targetName } } },
+        { industry: targetName },
+      ];
+    } else if (industry) {
+      where.industry = industry;
+    }
 
     let total = await prisma.skill.count({ where });
     let rows = await prisma.skill.findMany({
@@ -109,7 +126,7 @@ export async function listSkillsCompat(
       orderBy: { createdAt: "desc" },
     });
 
-    if (rows.length === 0 && industry) {
+    if (rows.length === 0 && (categoryId || industry)) {
       const fallbackWhere: Prisma.SkillWhereInput = {};
       if (search) fallbackWhere.OR = [{ name: { contains: search } }];
       total = await prisma.skill.count({ where: fallbackWhere });

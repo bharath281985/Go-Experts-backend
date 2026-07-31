@@ -14,13 +14,75 @@ router.get("/settings/general", async (req, res) => {
     const result = await getSettingsSection("general");
     res.json(result);
 });
+const COUNTRY_INFO_MAP = {
+    "india": { code: "IN", phoneCode: "+91", flag: "🇮🇳", currencyCode: "INR" },
+    "usa": { code: "US", phoneCode: "+1", flag: "🇺🇸", currencyCode: "USD" },
+    "uk": { code: "GB", phoneCode: "+44", flag: "🇬🇧", currencyCode: "GBP" },
+    "uae": { code: "AE", phoneCode: "+971", flag: "🇦🇪", currencyCode: "AED" },
+    "canada": { code: "CA", phoneCode: "+1", flag: "🇨🇦", currencyCode: "CAD" },
+    "australia": { code: "AU", phoneCode: "+61", flag: "🇦🇺", currencyCode: "AUD" },
+    "germany": { code: "DE", phoneCode: "+49", flag: "🇩🇪", currencyCode: "EUR" },
+    "france": { code: "FR", phoneCode: "+33", flag: "🇫🇷", currencyCode: "EUR" },
+    "singapore": { code: "SG", phoneCode: "+65", flag: "🇸🇬", currencyCode: "SGD" },
+    "japan": { code: "JP", phoneCode: "+81", flag: "🇯🇵", currencyCode: "JPY" },
+};
 router.get("/countries", async (_req, res, next) => {
     try {
         const countries = await prisma.country.findMany({
             where: { status: "active" },
             orderBy: [{ isDefault: "desc" }, { name: "asc" }],
         });
-        res.json({ success: true, count: countries.length, data: countries });
+        const enriched = countries.map((row) => {
+            const normName = (row.name || "").trim().toLowerCase();
+            const info = COUNTRY_INFO_MAP[normName];
+            return {
+                ...row,
+                code: row.code || info?.code || null,
+                phoneCode: row.phoneCode || info?.phoneCode || null,
+                flag: row.flag || info?.flag || null,
+                currencyCode: row.currencyCode || info?.currencyCode || null,
+            };
+        });
+        res.json({ success: true, count: enriched.length, data: enriched });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/states", async (req, res, next) => {
+    try {
+        const rawParam = String(req.query.countryCode || req.query.countryId || req.query.country || "IN").trim();
+        let isoCode = rawParam.toUpperCase();
+        if (rawParam.length > 3) {
+            const dbRow = await prisma.country.findFirst({
+                where: { OR: [{ id: rawParam }, { name: rawParam }] },
+            }).catch(() => null);
+            if (dbRow?.code) {
+                isoCode = dbRow.code.toUpperCase();
+            }
+            else if (dbRow?.name) {
+                const info = COUNTRY_INFO_MAP[dbRow.name.trim().toLowerCase()];
+                if (info?.code)
+                    isoCode = info.code;
+            }
+        }
+        let states = [];
+        try {
+            // @ts-ignore
+            const csc = await import("country-state-city");
+            if (csc?.State) {
+                states = csc.State.getStatesOfCountry(isoCode).map((s) => ({
+                    id: s.isoCode,
+                    code: s.isoCode,
+                    name: s.name,
+                    countryCode: s.countryCode,
+                }));
+            }
+        }
+        catch (e) {
+            console.error("Failed to dynamically import country-state-city in public.routes:", e);
+        }
+        res.json({ success: true, count: states.length, data: states, rows: states });
     }
     catch (err) {
         next(err);
@@ -401,7 +463,8 @@ router.get("/industries", async (req, res, next) => {
 router.post("/categories", async (req, res, next) => {
     try {
         const body = parseCatalogListBody(req.body ?? {});
-        const { rows, total } = await getPublicCategories(body);
+        const industryId = (req.body?.industryId || req.body?.industry_id || req.body?.industry);
+        const { rows, total } = await getPublicCategories({ ...body, industryId });
         res.json({ success: true, rows, total });
     }
     catch (err) {
@@ -411,7 +474,10 @@ router.post("/categories", async (req, res, next) => {
 router.get("/categories", async (req, res, next) => {
     try {
         const pageSize = parseInt(req.query.pageSize) || 50;
-        const { rows, total } = await getPublicCategories({ pageSize });
+        const page = parseInt(req.query.page) || 1;
+        const search = (req.query.search || req.query.q);
+        const industryId = (req.query.industryId || req.query.industry_id || req.query.industry);
+        const { rows, total } = await getPublicCategories({ page, pageSize, search, industryId });
         res.json({ success: true, rows, total });
     }
     catch (err) {
@@ -550,6 +616,32 @@ router.get("/pricing_plans", async (req, res, next) => {
         searchColumns: ["name", "role"],
         defaultWhere: { status: "active", visibility: "public" },
     });
+});
+router.get("/business-types", async (req, res, next) => {
+    try {
+        const types = await prisma.masterOption.findMany({
+            where: { type: "business_type", status: "active" },
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, label: true, value: true }
+        });
+        return res.json({ success: true, data: types || [], rows: types || [] });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/business_types", async (req, res, next) => {
+    try {
+        const types = await prisma.masterOption.findMany({
+            where: { type: "business_type", status: "active" },
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, label: true, value: true }
+        });
+        return res.json({ success: true, data: types || [], rows: types || [] });
+    }
+    catch (err) {
+        next(err);
+    }
 });
 router.get("/startup_ideas", async (req, res, next) => {
     await listModel({

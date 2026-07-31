@@ -354,6 +354,47 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           }
         }
 
+        let pUrls: any = {};
+        if (typeof req.body?.portfolioUrls === "string") {
+          try {
+            pUrls = JSON.parse(req.body.portfolioUrls);
+          } catch {
+            pUrls = {};
+          }
+        } else if (typeof req.body?.portfolioUrls === "object" && req.body?.portfolioUrls !== null) {
+          pUrls = req.body.portfolioUrls;
+        }
+
+        const portfolioUrl = pUrls.portfolio || req.body?.portfolioUrl || "";
+        const githubUrl = pUrls.github || req.body?.githubUrl || "";
+        const attachmentUrl = pUrls.attachment || req.body?.portfolioFileUrl || "";
+
+        let initialPortfolioJson: string | undefined = undefined;
+        if (portfolioUrl || githubUrl || attachmentUrl) {
+          const initialDraftItem = {
+            id: `PF-INIT-${Date.now().toString(36).toUpperCase()}`,
+            title: "Initial Project (From Signup)",
+            thumb: attachmentUrl || "",
+            category: industryName || "General",
+            tech: skills ? String(skills).split(",").slice(0, 4).join(", ") : "General",
+            industry: industryName || "",
+            client: "Self Project",
+            duration: "Ongoing",
+            team: 1,
+            role: "Primary Contributor",
+            status: "Draft",
+            views: 0,
+            likes: 0,
+            shares: 0,
+            created: new Date().toISOString().slice(0, 10),
+            overview: bio || "Project details and attachments uploaded during account registration.",
+            githubUrl: githubUrl || "",
+            liveUrl: portfolioUrl || "",
+            pdfUrl: attachmentUrl || "",
+          };
+          initialPortfolioJson = JSON.stringify([initialDraftItem]);
+        }
+
         await tx.freelancerProfile.upsert({
           where: { userId: created.id },
           create: {
@@ -363,6 +404,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             hourlyRate: Number.isFinite(hourlyRate) ? hourlyRate : null,
             experience: req.body?.experience ? String(req.body.experience) : null,
             verificationJson: verificationData,
+            portfolioJson: initialPortfolioJson,
           },
           update: {
             industry: industryName,
@@ -370,6 +412,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             hourlyRate: Number.isFinite(hourlyRate) ? hourlyRate : null,
             experience: req.body?.experience ? String(req.body.experience) : null,
             verificationJson: verificationData,
+            ...(initialPortfolioJson ? { portfolioJson: initialPortfolioJson } : {}),
           },
         });
       }
@@ -1332,6 +1375,14 @@ export const sendVerificationLink = async (req: Request, res: Response, next: Ne
     const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email) {
       return res.status(400).json({ success: false, message: "Email is required" });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser && existingUser.password && !existingUser.deletedAt && existingUser.status !== "pending") {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists. Please log in instead.",
+      });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();

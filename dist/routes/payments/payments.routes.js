@@ -111,12 +111,62 @@ router.get("/public/payment_gateways", async (req, res) => {
 // POST /checkout — supports authenticated users & guest signup checkout
 router.post("/checkout", async (req, res) => {
     try {
-        const { gateway, amount, currency, purpose, metadata, userId: bodyUserId } = req.body;
+        const { gateway, currency, purpose, metadata, userId: bodyUserId } = req.body;
+        let amount = Number(req.body?.amount || 0);
+        const planId = String(req.body?.planId || req.body?.plan_id || "").trim();
+        if (planId) {
+            // 1. Check SubscriptionPlan table in DB
+            const dbPlan = await prisma.subscriptionPlan.findFirst({
+                where: {
+                    OR: [
+                        { id: planId },
+                        { name: { contains: planId } },
+                    ],
+                },
+            }).catch(() => null);
+            if (dbPlan) {
+                amount = Number(dbPlan.price || dbPlan.amount || 0);
+            }
+            else {
+                // 2. Check MasterOption table in DB (managed in Admin Panel Masters)
+                const masterPlan = await prisma.masterOption?.findFirst({
+                    where: {
+                        type: "subscription_plan",
+                        OR: [
+                            { id: planId },
+                            { value: planId },
+                            { label: { contains: planId } },
+                        ],
+                    },
+                }).catch(() => null);
+                if (masterPlan) {
+                    amount = Number(masterPlan.min || masterPlan.max || masterPlan.value || 0);
+                }
+                else {
+                    // 3. Check Setting table in DB (managed in Admin Panel CMS Settings)
+                    const pricingSetting = await prisma.setting.findUnique({
+                        where: { key: "settings:section:pricing" },
+                    }).catch(() => null);
+                    if (pricingSetting?.value) {
+                        try {
+                            const plansObj = JSON.parse(pricingSetting.value);
+                            const matched = Array.isArray(plansObj)
+                                ? plansObj.find((p) => p.id === planId || p.name === planId || p.code === planId)
+                                : null;
+                            if (matched?.price || matched?.amount) {
+                                amount = Number(matched.price || matched.amount);
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
         if (!gateway || !["stripe", "razorpay", "easebuzz"].includes(gateway)) {
             return res.status(400).json({ success: false, message: "gateway must be stripe|razorpay|easebuzz" });
         }
         if (amount == null || Number(amount) <= 0) {
-            return res.status(400).json({ success: false, message: "amount must be a positive number" });
+            return res.status(400).json({ success: false, message: "Invalid subscription plan or amount" });
         }
         const userId = await resolveCheckoutUserId(req, bodyUserId, req.body?.email);
         const cur = (currency || "INR").toUpperCase();

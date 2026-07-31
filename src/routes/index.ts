@@ -146,6 +146,8 @@ const tableModelMapping: Record<string, string> = {
   reviews: "Review",
   // Masters:
   industries: "Industry",
+  categories: "SkillCategory",
+  skill_categories: "SkillCategory",
   skills: "Skill",
   countries: "Country",
   currencies: "Currency",

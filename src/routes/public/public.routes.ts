@@ -527,7 +527,8 @@ router.get("/industries", async (req: Request, res: Response, next: NextFunction
 router.post("/categories", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = parseCatalogListBody(req.body ?? {});
-    const { rows, total } = await getPublicCategories(body);
+    const industryId = (req.body?.industryId || req.body?.industry_id || req.body?.industry) as string | undefined;
+    const { rows, total } = await getPublicCategories({ ...body, industryId });
     res.json({ success: true, rows, total });
   } catch (err) {
     next(err);
@@ -537,7 +538,10 @@ router.post("/categories", async (req: Request, res: Response, next: NextFunctio
 router.get("/categories", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const pageSize = parseInt(req.query.pageSize as string) || 50;
-    const { rows, total } = await getPublicCategories({ pageSize });
+    const page = parseInt(req.query.page as string) || 1;
+    const search = (req.query.search || req.query.q) as string | undefined;
+    const industryId = (req.query.industryId || req.query.industry_id || req.query.industry) as string | undefined;
+    const { rows, total } = await getPublicCategories({ page, pageSize, search, industryId });
     res.json({ success: true, rows, total });
   } catch (err) {
     next(err);
@@ -683,6 +687,258 @@ router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunct
     searchColumns: ["name", "role"],
     defaultWhere: { status: "active", visibility: "public" },
   });
+});
+
+router.get("/business-types", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const types = await prisma.masterOption.findMany({
+      where: { type: "business_type", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: types || [], rows: types || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/business_types", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const types = await prisma.masterOption.findMany({
+      where: { type: "business_type", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: types || [], rows: types || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/team-sizes", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sizes = await prisma.masterOption.findMany({
+      where: { type: "team_size", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: sizes || [], rows: sizes || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/team_sizes", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sizes = await prisma.masterOption.findMany({
+      where: { type: "team_size", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: sizes || [], rows: sizes || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/founder-types", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const types = await prisma.masterOption.findMany({
+      where: { type: "founder_type", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: types || [], rows: types || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/startup-stages", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const stages = await prisma.masterOption.findMany({
+      where: { type: "startup_stage", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: stages || [], rows: stages || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/startup_stages", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const stages = await prisma.masterOption.findMany({
+      where: { type: "startup_stage", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: stages || [], rows: stages || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/founder_types", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const types = await prisma.masterOption.findMany({
+      where: { type: "founder_type", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: types || [], rows: types || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/client-goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "client_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/founder-goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "founder_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/founder_goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "founder_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/investment-modes", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const modes = await prisma.masterOption.findMany({
+      where: { type: "investment_mode", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: modes || [], rows: modes || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/investment_modes", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const modes = await prisma.masterOption.findMany({
+      where: { type: "investment_mode", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: modes || [], rows: modes || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/investor-goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "investor_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/investor_goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "investor_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/client_goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "client_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/expansion-goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "expansion_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/expansion_goals", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const goals = await prisma.masterOption.findMany({
+      where: { type: "expansion_goal", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true }
+    });
+
+    return res.json({ success: true, data: goals || [], rows: goals || [] });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get("/startup_ideas", async (req: Request, res: Response, next: NextFunction) => {

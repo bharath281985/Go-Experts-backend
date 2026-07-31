@@ -32,35 +32,61 @@ const readCatalogParam = (req: Request, ...keys: string[]): string | undefined =
   return undefined;
 };
 
-type CategoryRow = { id: string; name: string; sortOrder: number };
+type CategoryRow = { id: string; name: string; sortOrder: number; industryId?: string | null };
 
-const loadCategoryRows = async (search: string): Promise<CategoryRow[]> => {
-  const nameFilter = search
-    ? { name: { contains: search } }
-    : undefined;
+const loadCategoryRows = async (search: string, industryId?: string): Promise<CategoryRow[]> => {
+  const where: any = { status: 'active' };
+  if (search) where.name = { contains: search };
 
-  try {
-    const categories = await prisma.skillCategory.findMany({
-      where: { status: 'active', ...(nameFilter ?? {}) },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      select: { id: true, name: true, sortOrder: true },
-    });
-    if (categories.length > 0) return categories;
-  } catch (error) {
-    if (!isLegacySkillSchemaError(error)) throw error;
+  if (industryId) {
+    const indRow = await prisma.industry.findFirst({
+      where: { OR: [{ id: industryId }, { name: industryId }] },
+      select: { id: true, name: true },
+    }).catch(() => null);
+
+    const targetId = indRow?.id || industryId;
+    const targetName = indRow?.name || industryId;
+
+    const conditions: any[] = [
+      { industryId: targetId },
+      { industryId: industryId },
+      { industryId: null },
+    ];
+    if (targetId) {
+      conditions.push({ industry: { id: targetId } });
+    }
+    if (targetName) {
+      conditions.push({ industry: { name: targetName } });
+    }
+    where.OR = conditions;
   }
 
-  // skill_categories may be empty — industries already hold the catalog.
-  const industries = await prisma.industry.findMany({
-    where: { status: 'active', ...(nameFilter ?? {}) },
-    orderBy: { name: 'asc' },
-    select: { id: true, name: true },
-  });
-  return industries.map((row, index) => ({
-    id: row.id,
-    name: row.name,
-    sortOrder: index,
-  }));
+  try {
+    let categories = await prisma.skillCategory.findMany({
+      where,
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true, sortOrder: true, industryId: true },
+    });
+
+    if (categories.length === 0 && industryId) {
+      const fallbackWhere: any = { status: 'active' };
+      if (search) fallbackWhere.name = { contains: search };
+      categories = await prisma.skillCategory.findMany({
+        where: fallbackWhere,
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        select: { id: true, name: true, sortOrder: true, industryId: true },
+      });
+    }
+
+    return categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      sortOrder: c.sortOrder ?? 0,
+      industryId: c.industryId ?? industryId ?? null,
+    }));
+  } catch (error) {
+    return [];
+  }
 };
 
 export const getHomeData = async (req: Request, res: Response, next: NextFunction) => {
@@ -78,7 +104,8 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
   try {
     const { page, limit, skip } = parsePagination(req);
     const search = readCatalogParam(req, 'search', 'q') || '';
-    const all = await loadCategoryRows(search);
+    const industryId = readCatalogParam(req, 'industryId', 'industry_id', 'industry');
+    const all = await loadCategoryRows(search, industryId);
     const total = all.length;
     const categories = all.slice(skip, skip + limit);
     return res.json(
@@ -143,16 +170,14 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
       };
 
       if (categoryId) {
-        // Strict category filter. Uncategorized skills (null category_id) only
-        // belong to Technology — never return the full list for other categories.
-        if (isTechnology) {
-          where.OR = [{ categoryId }, { categoryId: null }];
-        } else {
-          where.categoryId = categoryId;
-        }
+        where.OR = [
+          { categoryId },
+          { categoryId: null },
+          { category: { is: { id: categoryId } } }
+        ];
       }
 
-      const [skills, total] = await Promise.all([
+      let [skills, total] = await Promise.all([
         prisma.skill.findMany({
           where,
           orderBy: { name: 'asc' },
@@ -162,6 +187,20 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
         }),
         prisma.skill.count({ where }),
       ]);
+
+      if (skills.length === 0 && categoryId) {
+        const fallbackWhere = { status: 'active', ...nameFilter };
+        [skills, total] = await Promise.all([
+          prisma.skill.findMany({
+            where: fallbackWhere,
+            orderBy: { name: 'asc' },
+            skip,
+            take: limit,
+            select: { id: true, name: true, categoryId: true },
+          }),
+          prisma.skill.count({ where: fallbackWhere }),
+        ]);
+      }
 
       return respond(skills, total);
     } catch (error) {
@@ -195,173 +234,189 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
 
 export const getIndustries = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    let industries = await prisma.industry.findMany({ where: { status: 'active' }, orderBy: { name: 'asc' } });
-    if (industries.length === 0) {
-      const defaults = [
-        'Technology', 'Finance', 'HealthTech', 'E-Commerce', 'Education',
-        'Agriculture', 'Logistics', 'Real Estate', 'Media & Entertainment', 'Marketing'
-      ];
-      industries = defaults.map((name, index) => ({ id: `ind_${index + 1}`, name, status: 'active', createdAt: new Date(), updatedAt: new Date() } as any));
-    }
+    const industries = await prisma.industry.findMany({ where: { status: 'active' }, orderBy: { name: 'asc' } });
     return res.json(successResponse('Industries retrieved', industries));
   } catch (error) { next(error); }
 };
 
 export const getExperienceLevels = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const levels = [
-      { id: 'exp_1', label: 'Beginner (0-2 yrs)', value: 'Beginner' },
-      { id: 'exp_2', label: 'Intermediate (2-5 yrs)', value: 'Intermediate' },
-      { id: 'exp_3', label: 'Senior (5-8 yrs)', value: 'Senior' },
-      { id: 'exp_4', label: 'Expert (8+ yrs)', value: 'Expert' }
-    ];
-    return res.json(successResponse('Experience levels retrieved', levels));
+    const dbLevels = await prisma.experienceLevel.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' }
+    }).catch(() => []);
+
+    if (dbLevels.length > 0) {
+      const levels = dbLevels.map((l) => ({ id: l.id, label: l.name, value: l.name }));
+      return res.json(successResponse('Experience levels retrieved', levels));
+    }
+
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: 'experience_level', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Experience levels retrieved', options || []));
   } catch (error) { next(error); }
 };
 
 export const getStartupStages = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const stages = [
-      { id: 'stage_1', label: 'Idea Phase', value: 'Idea' },
-      { id: 'stage_2', label: 'MVP / Prototype', value: 'MVP' },
-      { id: 'stage_3', label: 'Early Traction', value: 'Early Traction' },
-      { id: 'stage_4', label: 'Growth & Scaling', value: 'Growth' },
-      { id: 'stage_5', label: 'Pre-Seed / Seed', value: 'Seed' },
-      { id: 'stage_6', label: 'Series A / B', value: 'Series A' }
-    ];
-    return res.json(successResponse('Startup stages retrieved', stages));
+    const dbStages = await prisma.startupStage.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' }
+    }).catch(() => []);
+
+    if (dbStages.length > 0) {
+      const stages = dbStages.map((s) => ({ id: s.id, label: s.name, value: s.name }));
+      return res.json(successResponse('Startup stages retrieved', stages));
+    }
+
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: 'startup_stage', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Startup stages retrieved', options || []));
   } catch (error) { next(error); }
 };
 
 export const getCompanySizes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const sizes = [
-      { id: 'size_1', label: '1-10 employees', value: '1-10' },
-      { id: 'size_2', label: '11-50 employees', value: '11-50' },
-      { id: 'size_3', label: '51-200 employees', value: '51-200' },
-      { id: 'size_4', label: '201-500 employees', value: '201-500' },
-      { id: 'size_5', label: '500+ employees', value: '500+' }
-    ];
-    return res.json(successResponse('Company sizes retrieved', sizes));
+    const sizes = await (prisma as any).masterOption?.findMany({
+      where: { type: 'company_size', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Company sizes retrieved', sizes || []));
   } catch (error) { next(error); }
 };
 
 export const getTicketSizes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const tickets = [
-      { id: 'tkt_1', label: '₹1 Lakh - ₹5 Lakhs', min: 100000, max: 500000 },
-      { id: 'tkt_2', label: '₹5 Lakhs - ₹25 Lakhs', min: 500000, max: 2500000 },
-      { id: 'tkt_3', label: '₹25 Lakhs - ₹1 Crore', min: 2500000, max: 10000000 },
-      { id: 'tkt_4', label: '₹1 Crore - ₹5 Crores', min: 10000000, max: 50000000 },
-      { id: 'tkt_5', label: '₹5 Crores+', min: 50000000, max: 250000000 }
-    ];
-    return res.json(successResponse('Ticket sizes retrieved', tickets));
+    const dbTickets = await (prisma as any).masterOption?.findMany({
+      where: { type: 'ticket_size', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true, min: true, max: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Ticket sizes retrieved', dbTickets || []));
   } catch (error) { next(error); }
 };
 
 export const getInvestorTypes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const types = [
-      { id: 'invtype_1', label: 'Angel', value: 'Angel' },
-      { id: 'invtype_2', label: 'Individual', value: 'Individual' },
-      { id: 'invtype_3', label: 'Family office', value: 'Family office' },
-      { id: 'invtype_4', label: 'VC', value: 'VC' },
-      { id: 'invtype_5', label: 'Corporate', value: 'Corporate' },
-      { id: 'invtype_6', label: 'PE', value: 'PE' },
-      { id: 'invtype_7', label: 'Incubator/Accelerator', value: 'Incubator/Accelerator' },
-      { id: 'invtype_8', label: 'NRI Investor', value: 'NRI Investor' }
-    ];
-    return res.json(successResponse('Investor types retrieved', types));
+    const types = await (prisma as any).masterOption?.findMany({
+      where: { type: 'investor_type', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Investor types retrieved', types || []));
   } catch (error) { next(error); }
 };
 
 export const getFounderTypes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const types = [
-      { id: 'ft_1', label: 'Idea Creator', value: 'Idea Creator' },
-      { id: 'ft_2', label: 'Solo Founder', value: 'Solo Founder' },
-      { id: 'ft_3', label: 'Co-Founder', value: 'Co-Founder' },
-      { id: 'ft_4', label: 'Startup Team', value: 'Startup Team' },
-      { id: 'ft_5', label: 'Existing Business Founder', value: 'Existing Business Founder' },
-      { id: 'ft_6', label: 'Student Founder', value: 'Student Founder' },
-      { id: 'ft_7', label: 'Tech Founder', value: 'Tech Founder' },
-      { id: 'ft_8', label: 'Non-Tech Founder', value: 'Non-Tech Founder' }
-    ];
-    return res.json(successResponse('Founder types retrieved', types));
+    const types = await (prisma as any).masterOption?.findMany({
+      where: { type: 'founder_type', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Founder types retrieved', types || []));
   } catch (error) { next(error); }
 };
 
 export const getBusinessTypes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const types = [
-      { id: 'bt_1', label: 'Individual Client', value: 'Individual Client' },
-      { id: 'bt_2', label: 'Small Business', value: 'Small Business' },
-      { id: 'bt_3', label: 'Startup', value: 'Startup' },
-      { id: 'bt_4', label: 'Agency', value: 'Agency' },
-      { id: 'bt_5', label: 'Enterprise', value: 'Enterprise' },
-      { id: 'bt_6', label: 'Shop Owner', value: 'Shop Owner' },
-      { id: 'bt_7', label: 'Service Provider', value: 'Service Provider' },
-      { id: 'bt_8', label: 'Manufacturer', value: 'Manufacturer' },
-      { id: 'bt_9', label: 'Franchise Owner', value: 'Franchise Owner' }
-    ];
-    return res.json(successResponse('Business types retrieved', types));
-  } catch (error) { next(error); }
-};
+    const types = await prisma.masterOption.findMany({
+      where: { type: 'business_type', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    });
 
-const SERVICES_TAXONOMY: Record<string, string[]> = {
-  "Technology": ["SaaS", "AI Tools", "Mobile App", "Web Platform", "Marketplace", "Cloud Software", "Cybersecurity", "Automation"],
-  "E-commerce": ["Fashion", "Grocery", "Electronics", "Home Products", "B2B Marketplace", "Hyperlocal Delivery"],
-  "Services": ["Home Services", "Professional Services", "Repair Services", "Beauty & Wellness", "Local Business Services"],
-  "Fintech": ["Payments", "Lending", "Investment", "Insurance", "Accounting", "Taxation"],
-  "Education": ["Online Learning", "Coaching", "Skill Training", "LMS Platform", "Career Guidance"],
-  "Healthcare": ["Doctor Booking", "Pharmacy", "Diagnostics", "Health Tracking", "Wellness"],
-  "Real Estate": ["Property Listing", "Rental Platform", "PG / Hostel", "Construction Services", "Interior Design"],
-  "Food & Beverage": ["Cloud Kitchen", "Restaurant Tech", "Food Delivery", "Packaged Food", "Catering"]
+    return res.json(successResponse('Business types retrieved', types || []));
+  } catch (error) { next(error); }
 };
 
 export const getServicesTaxonomy = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = String(req.query.category || req.query.primaryCategory || '').trim();
-    if (category && SERVICES_TAXONOMY[category]) {
-      return res.json(successResponse(`Sub-categories retrieved for ${category}`, SERVICES_TAXONOMY[category].map((sub, i) => ({ id: `sub_${i + 1}`, label: sub, value: sub }))));
+
+    if (category) {
+      const subCats = await prisma.masterOption.findMany({
+        where: { type: 'service_taxonomy', groupKey: category, status: 'active' },
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, label: true, value: true }
+      });
+
+      return res.json(successResponse(`Sub-categories retrieved for ${category}`, subCats || []));
     }
-    const categories = Object.keys(SERVICES_TAXONOMY).map((cat, i) => ({
-      id: `cat_${i + 1}`,
-      name: cat,
-      label: cat,
-      value: cat,
-      subCategories: SERVICES_TAXONOMY[cat]
+
+    const categories = await prisma.masterOption.findMany({
+      where: { type: 'service_taxonomy', groupKey: 'category', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true, metadata: true }
+    });
+
+    const shaped = (categories || []).map((cat: any) => ({
+      id: cat.id,
+      name: cat.value,
+      label: cat.label,
+      value: cat.value,
+      subCategories: (cat.metadata as any)?.subCategories || []
     }));
-    return res.json(successResponse('Services taxonomy retrieved', categories));
+
+    return res.json(successResponse('Services taxonomy retrieved', shaped));
   } catch (error) { next(error); }
 };
 
 export const getProjectCategories = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const category = String(req.query.category || '').trim();
-    if (category && SERVICES_TAXONOMY[category]) {
-      return res.json(successResponse(`Project subcategories retrieved for ${category}`, SERVICES_TAXONOMY[category].map((sub, i) => ({ id: `psub_${i + 1}`, label: sub, value: sub }))));
+
+    if (category) {
+      const subCats = await (prisma as any).masterOption?.findMany({
+        where: { type: 'service_taxonomy', groupKey: category, status: 'active' },
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, label: true, value: true }
+      }).catch(() => []);
+
+      return res.json(successResponse(`Project subcategories retrieved for ${category}`, subCats || []));
     }
-    const categories = Object.keys(SERVICES_TAXONOMY).map((cat, i) => ({
-      id: `pcat_${i + 1}`,
-      name: cat,
-      label: cat,
-      value: cat,
-      subCategories: SERVICES_TAXONOMY[cat]
+
+    const categories = await (prisma as any).masterOption?.findMany({
+      where: { type: 'service_taxonomy', groupKey: 'category', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true, metadata: true }
+    }).catch(() => []);
+
+    const shaped = (categories || []).map((cat: any) => ({
+      id: cat.id,
+      name: cat.value,
+      label: cat.label,
+      value: cat.value,
+      subCategories: (cat.metadata as any)?.subCategories || []
     }));
-    return res.json(successResponse('Project categories retrieved', categories));
+
+    return res.json(successResponse('Project categories retrieved', shaped));
   } catch (error) { next(error); }
 };
 
 export const getTeamSizes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const sizes = [
-      { id: 'team_1', label: '1 (Solo Founder)', value: 1 },
-      { id: 'team_2', label: '2-5 members', value: 5 },
-      { id: 'team_3', label: '6-10 members', value: 10 },
-      { id: 'team_4', label: '11-25 members', value: 25 },
-      { id: 'team_5', label: '25+ members', value: 50 }
-    ];
+    const sizes = await (prisma as any).masterOption?.findMany({
+      where: { type: 'team_size', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Team sizes retrieved', sizes || []));
+
     return res.json(successResponse('Team sizes retrieved', sizes));
   } catch (error) { next(error); }
 };

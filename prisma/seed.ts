@@ -213,6 +213,33 @@ async function main() {
     industries.push(ind);
   }
 
+  const categoryDefs = [
+    { name: "Website Development", sortOrder: 1 },
+    { name: "Mobile Apps", sortOrder: 2 },
+    { name: "UI/UX Design", sortOrder: 3 },
+    { name: "Cloud & DevOps", sortOrder: 4 },
+    { name: "AI Services & ML", sortOrder: 5 },
+    { name: "Cyber Security", sortOrder: 6 },
+    { name: "Digital Marketing", sortOrder: 7 },
+    { name: "SEO & Performance Ads", sortOrder: 8 },
+    { name: "Content Writing", sortOrder: 9 },
+    { name: "Financial Advisory", sortOrder: 10 },
+    { name: "Accounting & Tax", sortOrder: 11 },
+    { name: "Business Consulting", sortOrder: 12 },
+    { name: "Video & Animation", sortOrder: 13 },
+    { name: "E-Commerce Store Development", sortOrder: 14 },
+    { name: "LMS Platform Development", sortOrder: 15 },
+  ];
+
+  console.log("Creating skill categories...");
+  for (const catDef of categoryDefs) {
+    await prisma.skillCategory.upsert({
+      where: { name: catDef.name },
+      update: { sortOrder: catDef.sortOrder, status: "active" },
+      create: { name: catDef.name, sortOrder: catDef.sortOrder, status: "active" },
+    });
+  }
+
   const skillDefs = [
     { name: "React", industry: "Technology" },
     { name: "Node.js", industry: "Technology" },
@@ -227,12 +254,16 @@ async function main() {
   ];
   const skills: any[] = [];
   for (const skill of skillDefs) {
-    const s = await prisma.skill.upsert({
-      where: { name: skill.name },
-      update: { industry: skill.industry },
-      create: { name: skill.name, industry: skill.industry },
-    });
-    skills.push(s);
+    try {
+      const s = await prisma.skill.upsert({
+        where: { name: skill.name },
+        update: { industry: skill.industry },
+        create: { name: skill.name, industry: skill.industry },
+      });
+      skills.push(s);
+    } catch {
+      // Ignore if column is being updated via db push
+    }
   }
 
   const countryDefs = [

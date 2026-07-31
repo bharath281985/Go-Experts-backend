@@ -65,20 +65,46 @@ export async function parseSkillListFilters(filters) {
     return { categoryId, industryName };
 }
 export async function listSkillsCompat(page, pageSize, search, filters) {
-    const { industryName: industry } = await parseSkillListFilters(filters);
+    const { categoryId, industryName: industry } = await parseSkillListFilters(filters);
     try {
         const where = {};
         if (search)
             where.OR = [{ name: { contains: search } }];
-        if (industry)
+        if (categoryId) {
+            const catRow = await prisma.skillCategory.findFirst({
+                where: { OR: [{ id: categoryId }, { name: categoryId }] },
+                select: { id: true, name: true }
+            }).catch(() => null);
+            const targetId = catRow?.id || categoryId;
+            const targetName = catRow?.name || categoryId;
+            where.OR = [
+                { categoryId: targetId },
+                { category: { is: { name: targetName } } },
+                { industry: targetName },
+            ];
+        }
+        else if (industry) {
             where.industry = industry;
-        const total = await prisma.skill.count({ where });
-        const rows = await prisma.skill.findMany({
+        }
+        let total = await prisma.skill.count({ where });
+        let rows = await prisma.skill.findMany({
             where,
             skip: (page - 1) * pageSize,
             take: pageSize,
             orderBy: { createdAt: "desc" },
         });
+        if (rows.length === 0 && (categoryId || industry)) {
+            const fallbackWhere = {};
+            if (search)
+                fallbackWhere.OR = [{ name: { contains: search } }];
+            total = await prisma.skill.count({ where: fallbackWhere });
+            rows = await prisma.skill.findMany({
+                where: fallbackWhere,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                orderBy: { createdAt: "desc" },
+            });
+        }
         return { rows, total, degraded: false };
     }
     catch (err) {
