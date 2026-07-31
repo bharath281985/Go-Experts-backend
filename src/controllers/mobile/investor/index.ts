@@ -1,0 +1,16 @@
+export * as analyticsController from '../../../modules/mobile/investor/controllers/analytics.controller.js';
+export * as dashboardController from '../../../modules/mobile/investor/controllers/dashboard.controller.js';
+export * as documentsController from '../../../modules/mobile/investor/controllers/documents.controller.js';
+export * as investmentsController from '../../../modules/mobile/investor/controllers/investments.controller.js';
+export * as invoicesController from '../../../modules/mobile/investor/controllers/invoices.controller.js';
+export * as meetingsController from '../../../modules/mobile/investor/controllers/meetings.controller.js';
+export * as messagesController from '../../../modules/mobile/investor/controllers/messages.controller.js';
+export * as portfolioController from '../../../modules/mobile/investor/controllers/portfolio.controller.js';
+export * as profileController from '../../../modules/mobile/investor/controllers/profile.controller.js';
+export * as reportsController from '../../../modules/mobile/investor/controllers/reports.controller.js';
+export * as searchController from '../../../modules/mobile/investor/controllers/search.controller.js';
+export * as settingsController from '../../../modules/mobile/investor/controllers/settings.controller.js';
+export * as startupsController from '../../../modules/mobile/investor/controllers/startups.controller.js';
+export * as subscriptionsController from '../../../modules/mobile/investor/controllers/subscriptions.controller.js';
+export * as walletController from '../../../modules/mobile/investor/controllers/wallet.controller.js';
+export * as watchlistController from '../../../modules/mobile/investor/controllers/watchlist.controller.js';

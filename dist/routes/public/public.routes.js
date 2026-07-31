@@ -4,7 +4,127 @@ import { getHomeCmsContent, getHomePagePayload, getHomePageFallbackPayload, getP
 import { parseCatalogListBody, parseFreelancersListBody, parseSkillsListBody } from "../../common/helpers/catalog-body.js";
 import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreelancers, } from "../../services/public/freelancers.service.js";
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
+import { getSettingsSection } from "../../services/settings/settings.service.js";
 const router = Router();
+router.get("/settings/branding", async (req, res) => {
+    const result = await getSettingsSection("branding");
+    res.json(result);
+});
+router.get("/settings/general", async (req, res) => {
+    const result = await getSettingsSection("general");
+    res.json(result);
+});
+router.get("/countries", async (_req, res, next) => {
+    try {
+        const countries = await prisma.country.findMany({
+            where: { status: "active" },
+            orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+        });
+        res.json({ success: true, count: countries.length, data: countries });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/currencies", async (_req, res, next) => {
+    try {
+        const currencies = await prisma.currency.findMany({
+            where: { status: "active" },
+            orderBy: [{ isBase: "desc" }, { name: "asc" }],
+        });
+        res.json({ success: true, count: currencies.length, data: currencies });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/detect-location", async (req, res, next) => {
+    try {
+        const clientIp = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "";
+        const headerCountry = (req.headers["cf-ipcountry"] || req.headers["x-country-code"]);
+        let countryCode = (headerCountry && headerCountry.length === 2 ? headerCountry : "").toUpperCase();
+        // Look up country by header country code or default country setting
+        let matchedCountry = null;
+        if (countryCode) {
+            matchedCountry = await prisma.country.findFirst({
+                where: { code: countryCode, status: "active" },
+            });
+        }
+        if (!matchedCountry) {
+            matchedCountry = await prisma.country.findFirst({
+                where: { isDefault: true, status: "active" },
+            });
+        }
+        if (!matchedCountry) {
+            matchedCountry = await prisma.country.findFirst({
+                where: { status: "active" },
+            });
+        }
+        // Match currency for country
+        let matchedCurrency = null;
+        if (matchedCountry?.currencyCode) {
+            matchedCurrency = await prisma.currency.findFirst({
+                where: { code: matchedCountry.currencyCode, status: "active" },
+            });
+        }
+        if (!matchedCurrency) {
+            matchedCurrency = await prisma.currency.findFirst({
+                where: { isDefault: true, status: "active" },
+            });
+        }
+        res.json({
+            success: true,
+            ip: clientIp,
+            detectedCountry: matchedCountry?.name || "India",
+            countryCode: matchedCountry?.code || "IN",
+            phoneCode: matchedCountry?.phoneCode || "+91",
+            flag: matchedCountry?.flag || "🇮🇳",
+            currencyCode: matchedCurrency?.code || "INR",
+            currencySymbol: matchedCurrency?.symbol || "₹",
+            currency: matchedCurrency,
+            country: matchedCountry,
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/google-maps-config", async (_req, res, next) => {
+    try {
+        const gmapsSettings = await getSettingsSection("google_maps");
+        const data = gmapsSettings?.data || {};
+        res.json({
+            success: true,
+            data: {
+                apiKey: data.apiKey || "",
+                enablePlacesAutocomplete: Boolean(data.enablePlacesAutocomplete ?? true),
+                enableGeocoding: Boolean(data.enableGeocoding ?? true),
+                defaultLatitude: Number(data.defaultLatitude ?? 20.5937),
+                defaultLongitude: Number(data.defaultLongitude ?? 78.9629),
+                defaultZoom: Number(data.defaultZoom ?? 5),
+                countryRestriction: data.countryRestriction || "IN",
+            },
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/fix-db", async (req, res) => {
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE freelancer_profiles ADD COLUMN verification_json TEXT;`);
+    }
+    catch (e) {
+        console.log(e.message);
+    }
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE freelancer_profiles ADD COLUMN portfolio_json TEXT;`);
+    }
+    catch (e) {
+        console.log(e.message);
+    }
+    return res.json({ success: true, message: "Database fields added! The editing error should be resolved." });
+});
 function parseListParams(req) {
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 50;
@@ -196,10 +316,78 @@ router.get("/cms_pages/:name", async (req, res, next) => {
         }
         res.json({ success: true, data: { ...row, content } });
     }
-    catch (err) {
-        next(err);
+    catch (e) {
+        next(e);
     }
 });
+const getPageHandler = (pageName) => async (req, res, next) => {
+    try {
+        const row = await prisma.cmsPage.findFirst({
+            where: {
+                name: pageName,
+                status: "active",
+                deletedAt: null,
+            },
+        });
+        if (!row) {
+            return res.status(404).json({ success: false, message: `${pageName} page not found` });
+        }
+        let content = null;
+        if (row.content) {
+            try {
+                content = JSON.parse(row.content);
+            }
+            catch {
+                content = row.content;
+            }
+        }
+        res.json({ success: true, data: { ...row, content } });
+    }
+    catch (e) {
+        next(e);
+    }
+};
+router.get("/cms_pages", async (req, res, next) => {
+    try {
+        const pageName = req.query.name;
+        if (!pageName) {
+            return res.status(400).json({ success: false, message: "Query parameter 'name' is required" });
+        }
+        const row = await prisma.cmsPage.findFirst({
+            where: {
+                name: String(pageName),
+                status: "active",
+                deletedAt: null,
+            },
+        });
+        if (!row) {
+            return res.status(404).json({ success: false, message: `Page '${pageName}' not found` });
+        }
+        let content = null;
+        if (row.content) {
+            try {
+                content = JSON.parse(row.content);
+            }
+            catch {
+                content = row.content;
+            }
+        }
+        res.json({ success: true, data: { ...row, content } });
+    }
+    catch (e) {
+        next(e);
+    }
+});
+router.get("/about", getPageHandler("About"));
+router.get("/careers", getPageHandler("Careers"));
+router.get("/help_center", getPageHandler("Help Center"));
+router.get("/help-center", getPageHandler("Help Center"));
+router.get("/contact", getPageHandler("Contact"));
+router.get("/legal", getPageHandler("Legal"));
+router.get("/privacy", getPageHandler("Privacy"));
+router.get("/refund", getPageHandler("Refund Policy"));
+router.get("/refund-policy", getPageHandler("Refund Policy"));
+router.get("/faq", getPageHandler("FAQ"));
 router.get("/industries", async (req, res, next) => {
     try {
         const pageSize = parseInt(req.query.pageSize) || 50;

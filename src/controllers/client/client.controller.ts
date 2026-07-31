@@ -115,11 +115,14 @@ export const getClientDashboard = async (req: AuthenticatedRequest, res: Respons
         profile: {
           id: user.id,
           name: user.fullName,
+          fullName: user.fullName,
           firstName: (user.fullName || "there").split(" ")[0],
           email: user.email,
           company: user.clientProfile?.company || null,
+          companyName: user.clientProfile?.company || user.fullName,
           industry: user.clientProfile?.industry || null,
           avatar: user.avatarUrl || null,
+          avatarUrl: user.avatarUrl || null,
         },
         kpis: [
           { key: "projects", label: "Total Projects", value: String(projectsTotal) },
@@ -129,6 +132,18 @@ export const getClientDashboard = async (req: AuthenticatedRequest, res: Respons
           { key: "spend", label: "Total Spend", value: money(totalSpend) },
           { key: "balance", label: "Wallet Balance", value: money(wallet.balance, wallet.currency) },
         ],
+        monthlyHiring: [],
+        revenueExpense: [],
+        pipeline: [],
+        todayMeetings: [],
+        todayTasks: [],
+        pendingApprovals: [],
+        pendingPayments: [],
+        latestApplications: [],
+        latestMessages: [],
+        latestNotifications: [],
+        latestReviews: [],
+        aiSuggestions: [],
         recentProjects,
         recentContracts: contracts.map((c) => ({
           id: c.id,
@@ -140,7 +155,8 @@ export const getClientDashboard = async (req: AuthenticatedRequest, res: Respons
         })),
         recentInvoices: invoices,
         wallet,
-        counts: { notifications: unreadNotifications, projects: projectsTotal },
+        counts: { notifications: unreadNotifications, projects: projectsTotal, contracts: contracts.length, applications: 0 },
+        meta: { walletBalance: wallet.balance },
       },
     });
   } catch (err) {
@@ -867,9 +883,17 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
 export const listClientNotifications = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = requireUser(req, res);
-    if (!userId) return;
     const data = await listUserNotifications(userId, "client", req.query as Record<string, unknown>);
-    res.json({ success: true, data });
+    res.json({
+      success: true,
+      data: data.items,
+      items: data.items,
+      filters: data.filters,
+      unreadCount: data.unreadCount,
+      total: data.total,
+      page: data.page,
+      pageSize: data.pageSize,
+    });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -1106,7 +1130,7 @@ export const addClientTeamMember = async (req: AuthenticatedRequest, res: Respon
         await NotificationService.enqueue({
           type: "team",
           title: `Invitation to join ${clientName}'s Team on Go Experts`,
-          message: `Hi ${member.name},\n\nYou have been invited by ${clientName} to join their team as a ${member.role} in the ${member.dept} department.\n\nClick here to accept the invitation and join: http://localhost:5175/business/team-access\n\nBest regards,\nGo Experts Team`,
+          message: `Hi ${member.name},\n\nYou have been invited by ${clientName} to join their team as a ${member.role} in the ${member.dept} department.\n\nClick here to accept the invitation and join: ${process.env.CLIENT_URL || "https://goexperts.in"}/business/team-access\n\nBest regards,\nGo Experts Team`,
           channel: "email",
           metadata: { toEmail: member.email }
         });

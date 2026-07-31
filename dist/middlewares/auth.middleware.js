@@ -13,7 +13,7 @@ export const authMiddleware = async (req, res, next) => {
             const user = await prisma.user.findFirst({
                 where: { id: decoded.id, deletedAt: null },
             });
-            if (!user || String(user.status).toLowerCase() !== "active") {
+            if (!user || !["active", "pending", "inactive"].includes(String(user.status).toLowerCase())) {
                 return res.status(403).json({ success: false, message: "User suspended or deactivated" });
             }
             req.user = {
@@ -41,7 +41,7 @@ export const authMiddleware = async (req, res, next) => {
         const user = await prisma.user.findFirst({
             where: { id: decoded.id, deletedAt: null },
         });
-        if (user && String(user.status).toLowerCase() === "active") {
+        if (user && ["active", "pending", "inactive"].includes(String(user.status).toLowerCase())) {
             req.user = {
                 id: user.id,
                 email: user.email,

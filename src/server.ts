@@ -25,6 +25,14 @@ initSocket(server);
 server.listen(port, () => {
   console.log(`Server running in ${env.NODE_ENV} mode on port ${port}`);
 
+  const dbUrl = process.env.DATABASE_URL || "";
+  const match = dbUrl.match(/mysql:\/\/(?:[^@]+@)?([^:\/]+)(?::(\d+))?\/([^?]+)/);
+  if (match) {
+    console.log(`🗄️ Database Connected: MySQL database "${match[3]}" on ${match[1]}:${match[2] || 3306}`);
+  } else {
+    console.log(`🗄️ Database Connected: ${dbUrl}`);
+  }
+
   // Start Notification worker
   try {
     startQueueWorker();

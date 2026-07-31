@@ -80,7 +80,9 @@ export async function getUserWalletPayload(userId) {
     return {
         id: wallet.id,
         balance: Number(wallet.balance),
+        available: Number(wallet.balance),
         currency: wallet.currency,
+        totalEarnings: totalCredits,
         totalCredits,
         totalDebits,
         transactions: transactions.map(mapWalletTx),
@@ -109,6 +111,22 @@ export async function creditWalletForSelf(userId, amount, type, description) {
                 balanceAfter: updated.balance,
             },
         });
+        try {
+            await tx.notification.create({
+                data: {
+                    userId,
+                    type: "wallet",
+                    title: "Wallet Credited",
+                    message: `Your wallet has been credited with ₹${amt.toLocaleString()} by Super Admin.`,
+                    channel: "in_app",
+                    priority: "high",
+                    status: "unread",
+                },
+            });
+        }
+        catch {
+            // ignore notification error
+        }
         return { wallet: updated, transaction };
     });
 }
@@ -135,6 +153,20 @@ export async function debitWalletForSelf(userId, amount, type, description) {
                 balanceAfter: updated.balance,
             },
         });
+        try {
+            await tx.notification.create({
+                data: {
+                    userId,
+                    type: "wallet",
+                    title: "Wallet Debited / Withdrawal Requested",
+                    message: `Your wallet transaction of ₹${amt.toLocaleString()} has been processed.`,
+                    channel: "in_app",
+                    priority: "high",
+                    status: "unread",
+                },
+            });
+        }
+        catch { }
         return { wallet: updated, transaction };
     });
 }
@@ -218,7 +250,7 @@ export async function listUserNotifications(userId, role, query) {
             .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
             .map(([key, count]) => ({ key: `type:${key}`, label: titleCaseType(key), count })),
     ];
-    return { items, filters, filter, unreadCount, importantCount, total, page, pageSize };
+    return { data: items, items, filters, filter, unreadCount, importantCount, total, page, pageSize };
 }
 export async function markNotificationRead(userId, role, id) {
     const existing = await prisma.notification.findFirst({
@@ -306,7 +338,50 @@ export async function createMeetingForUser(user, body, selfSide) {
         data.founder = user.fullName;
         data.investor = counterpart;
     }
-    return prisma.meeting.create({ data });
+    const meeting = await prisma.meeting.create({ data });
+    if (body.email || counterpart !== "TBD") {
+        try {
+            let recipient = null;
+            if (body.email) {
+                recipient = await prisma.user.findFirst({ where: { email: body.email } });
+            }
+            else {
+                recipient = await prisma.user.findFirst({ where: { fullName: counterpart, deletedAt: null } });
+            }
+            const { NotificationService } = await import("../../modules/notifications/notification.service.js");
+            if (recipient) {
+                // 1) Send in-app notification
+                await NotificationService.enqueue({
+                    userId: recipient.id,
+                    role: recipient.role,
+                    type: "meeting",
+                    title: `New Meeting Scheduled`,
+                    message: `A meeting "${body.title || 'Meeting'}" has been scheduled with ${user.fullName} on ${date} at ${time}.`,
+                    channel: "in_app",
+                    metadata: { meetingId: meeting.id }
+                });
+                // 2) Send chat message to counterpart
+                await createMessageForUser({ id: user.id, fullName: user.fullName, email: user.email, role: user.role || "client" }, {
+                    title: `Meeting Scheduled: ${body.title || 'Discussion'}`,
+                    content: `Hi ${recipient.fullName}, I have scheduled a meeting: "${body.title || 'Discussion'}" on ${date} at ${time} (${body.mode || 'Online'}).`,
+                    recipientId: recipient.id
+                });
+            }
+            // 3) Send email to the entered mail ID
+            await NotificationService.enqueue({
+                userId: recipient?.id || undefined,
+                type: "meeting",
+                title: `Meeting Scheduled: ${body.title || 'Discussion'}`,
+                message: `Hi,\n\nA meeting has been scheduled with ${user.fullName} on ${date} at ${time}.\n\nMode: ${body.mode || 'Online'}\n\nBest regards,\nGo Experts Team`,
+                channel: "email",
+                metadata: { toEmail: body.email }
+            });
+        }
+        catch (notifErr) {
+            console.error("Failed to trigger meeting notification and message actions:", notifErr);
+        }
+    }
+    return meeting;
 }
 // ==========================================
 // SETTINGS (JSON blobs scoped per user)
@@ -328,11 +403,21 @@ export async function getJsonSetting(userId, key, fallback) {
 }
 export async function setJsonSetting(userId, key, value, category = "portal") {
     const k = settingKey(userId, key);
-    await prisma.setting.upsert({
-        where: { key: k },
-        update: { value: JSON.stringify(value), category },
-        create: { key: k, value: JSON.stringify(value), category },
-    });
+    try {
+        let finalValue = value;
+        if (Array.isArray(value) && value.length > 50) {
+            finalValue = value.slice(-50);
+        }
+        const strVal = JSON.stringify(finalValue);
+        await prisma.setting.upsert({
+            where: { key: k },
+            update: { value: strVal, category },
+            create: { key: k, value: strVal, category },
+        });
+    }
+    catch (err) {
+        console.error(`[SETTING ERROR] Failed to save key ${k}:`, err);
+    }
     return value;
 }
 // ==========================================
@@ -341,21 +426,77 @@ export async function setJsonSetting(userId, key, value, category = "portal") {
 const CONVERSATIONS_SETTING_KEY = "conversations";
 export async function listConversationsForUser(user) {
     const storedIds = await getJsonSetting(user.id, CONVERSATIONS_SETTING_KEY, []);
+    // 1. Check ALL notifications for user for conversationId in metadata
+    try {
+        const notifs = await prisma.notification.findMany({
+            where: { userId: user.id },
+            select: { metadata: true, message: true, title: true },
+        });
+        for (const n of notifs) {
+            if (n.metadata) {
+                let metaObj = n.metadata;
+                if (typeof metaObj === "string") {
+                    try {
+                        metaObj = JSON.parse(metaObj);
+                    }
+                    catch { }
+                }
+                if (metaObj && typeof metaObj === "object") {
+                    const cid = metaObj.conversationId || metaObj.convId;
+                    if (cid && typeof cid === "string" && !storedIds.includes(cid)) {
+                        storedIds.push(cid);
+                    }
+                }
+            }
+        }
+    }
+    catch { }
+    // 2. Check my sent/received messages
+    const myMessages = await prisma.message.findMany({
+        where: { from: user.id },
+        select: { conversationId: true },
+        distinct: ["conversationId"],
+    }).catch(() => []);
+    for (const m of myMessages) {
+        if (m.conversationId && !storedIds.includes(m.conversationId)) {
+            storedIds.push(m.conversationId);
+        }
+    }
     const needles = userNeedles(user);
     const or = needles.map((n) => ({ name: { contains: n } }));
-    if (storedIds.length)
+    const orMsg = needles.map((n) => ({ msg: { contains: n } }));
+    if (storedIds.length) {
         or.push({ id: { in: storedIds } });
-    if (!or.length)
-        return [];
+    }
+    // Fallback: If no stored IDs, fetch all active conversations
     const rows = await prisma.conversation.findMany({
-        where: { deletedAt: null, OR: or },
+        where: {
+            deletedAt: null,
+            OR: or.length ? [...or, ...orMsg] : undefined,
+        },
         orderBy: { updatedAt: "desc" },
+        take: 50,
     });
-    return rows;
+    // Deduplicate conversations per person so each contact appears once in sidebar
+    const uniqueMap = new Map();
+    for (const r of rows) {
+        let nameKey = String(r.name || "").trim().toLowerCase();
+        const match = `${r.name} ${r.msg}`.match(/(?:with|between|for|to|from)\s+([A-Za-z0-9\s]+?)(?:\s+&|\s+on|\s+at|\.|\(|$)/i);
+        if (match && match[1] && match[1].trim().length > 2) {
+            nameKey = match[1].trim().toLowerCase();
+        }
+        if (!uniqueMap.has(nameKey)) {
+            uniqueMap.set(nameKey, r);
+        }
+    }
+    return Array.from(uniqueMap.values());
 }
 async function userOwnsConversation(user, conversationId) {
     const storedIds = await getJsonSetting(user.id, CONVERSATIONS_SETTING_KEY, []);
     if (storedIds.includes(conversationId))
+        return true;
+    const msg = await prisma.message.findFirst({ where: { conversationId } }).catch(() => null);
+    if (msg)
         return true;
     const needles = userNeedles(user);
     if (!needles.length)
@@ -369,9 +510,26 @@ export async function listMessagesForConversation(user, conversationId) {
     const owns = await userOwnsConversation(user, conversationId);
     if (!owns)
         throw new HttpError("Conversation not found", 404);
-    return prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: "asc" } });
+    const rows = await prisma.message.findMany({ where: { conversationId }, orderBy: { createdAt: "asc" } });
+    return rows.map(r => ({ ...r, from: r.from === user.id ? "me" : "them" }));
 }
-export async function createMessageForUser(user, { conversationId, content, title }) {
+export async function createMessageForUser(user, { conversationId, content, title, recipientId }) {
+    const fullUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+            subscriptions: {
+                where: { status: "active" },
+                select: { plan: { select: { name: true } } },
+                take: 1,
+            },
+            registrationData: true,
+        },
+    });
+    const activePlanName = fullUser?.subscriptions?.[0]?.plan?.name || fullUser?.registrationData?.subscriptionPlan || "90-Day Free Trial";
+    const isPaid = activePlanName && activePlanName !== "90-Day Free Trial" && !activePlanName.toLowerCase().includes("free");
+    if (!isPaid) {
+        throw new HttpError("Chat messaging is restricted to Premium Subscription members. Please upgrade your plan to start chatting.", 403);
+    }
     const text = String(content || "").trim();
     if (!text)
         throw new HttpError("Message content is required");
@@ -380,23 +538,137 @@ export async function createMessageForUser(user, { conversationId, content, titl
         const owns = await userOwnsConversation(user, convId);
         if (!owns)
             throw new HttpError("Conversation not found", 404);
+        try {
+            const settings = await prisma.setting.findMany({
+                where: {
+                    key: { startsWith: "portal:" },
+                    value: { contains: convId }
+                }
+            });
+            const userIds = settings
+                .map(s => {
+                const parts = s.key.split(":");
+                return parts[1];
+            })
+                .filter(id => id && id !== user.id);
+            for (const targetId of userIds) {
+                const dbUser = await prisma.user.findUnique({ where: { id: targetId } });
+                if (dbUser) {
+                    const { NotificationService } = await import("../../modules/notifications/notification.service.js");
+                    await NotificationService.enqueue({
+                        userId: targetId,
+                        role: dbUser.role,
+                        type: "message",
+                        title: `New Message from ${user.fullName}`,
+                        message: text.length > 80 ? `${text.slice(0, 80)}...` : text,
+                        channel: "in_app",
+                        metadata: { conversationId: convId }
+                    });
+                }
+            }
+        }
+        catch (notifErr) {
+            console.error("Failed to trigger message notification for existing conversation:", notifErr);
+        }
     }
     else {
-        const conv = await prisma.conversation.create({
-            data: {
-                name: title ? String(title) : `${user.fullName} (${user.email})`,
-                role: user.role,
-                msg: text,
-                time: "now",
-                status: "active",
-            },
-        });
-        convId = conv.id;
+        let convName = title ? String(title) : `${user.fullName} (${user.email})`;
+        let realRecipientId = recipientId;
+        let dbUser = null;
+        if (recipientId) {
+            dbUser = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { id: recipientId },
+                        { email: recipientId },
+                        { fullName: recipientId },
+                        { referralCode: recipientId }
+                    ]
+                }
+            });
+            if (dbUser) {
+                realRecipientId = dbUser.id;
+                convName = title
+                    ? `${title} - ${user.fullName} & ${dbUser.fullName}`
+                    : `Project Invitation between ${user.fullName} & ${dbUser.fullName}`;
+            }
+        }
+        // Reuse existing conversation thread if one already exists between sender and recipient
+        if (!convId && dbUser) {
+            const userConvs = await getJsonSetting(user.id, CONVERSATIONS_SETTING_KEY, []);
+            const recipientConvs = await getJsonSetting(dbUser.id, CONVERSATIONS_SETTING_KEY, []);
+            const commonIds = userConvs.filter((id) => recipientConvs.includes(id));
+            let existingConv = null;
+            if (commonIds.length) {
+                existingConv = await prisma.conversation.findFirst({
+                    where: { id: { in: commonIds }, deletedAt: null },
+                    orderBy: { updatedAt: "desc" },
+                });
+            }
+            if (!existingConv && user.fullName && dbUser.fullName) {
+                existingConv = await prisma.conversation.findFirst({
+                    where: {
+                        deletedAt: null,
+                        AND: [
+                            { OR: [{ name: { contains: user.fullName } }, { msg: { contains: user.fullName } }] },
+                            { OR: [{ name: { contains: dbUser.fullName } }, { msg: { contains: dbUser.fullName } }] }
+                        ]
+                    },
+                    orderBy: { updatedAt: "desc" }
+                });
+            }
+            if (existingConv) {
+                convId = existingConv.id;
+            }
+        }
+        if (!convId) {
+            const conv = await prisma.conversation.create({
+                data: {
+                    name: convName,
+                    role: user.role,
+                    msg: text,
+                    time: "now",
+                    status: "active",
+                },
+            });
+            convId = conv.id;
+        }
         const storedIds = await getJsonSetting(user.id, CONVERSATIONS_SETTING_KEY, []);
-        await setJsonSetting(user.id, CONVERSATIONS_SETTING_KEY, [...storedIds, convId]);
+        if (!storedIds.includes(convId)) {
+            await setJsonSetting(user.id, CONVERSATIONS_SETTING_KEY, [...storedIds, convId]);
+        }
+        if (recipientId) {
+            if (dbUser) {
+                const recipientIds = await getJsonSetting(realRecipientId, CONVERSATIONS_SETTING_KEY, []);
+                if (!recipientIds.includes(convId)) {
+                    await setJsonSetting(realRecipientId, CONVERSATIONS_SETTING_KEY, [...recipientIds, convId]);
+                }
+                try {
+                    const { NotificationService } = await import("../../modules/notifications/notification.service.js");
+                    await NotificationService.enqueue({
+                        userId: realRecipientId,
+                        role: dbUser.role,
+                        type: "message",
+                        title: `New Message from ${user.fullName}`,
+                        message: text.length > 80 ? `${text.slice(0, 80)}...` : text,
+                        channel: "in_app",
+                        metadata: { conversationId: convId }
+                    });
+                }
+                catch (notifErr) {
+                    console.error("Failed to trigger message notification:", notifErr);
+                }
+            }
+            else {
+                const recipientIds = await getJsonSetting(recipientId, CONVERSATIONS_SETTING_KEY, []);
+                if (!recipientIds.includes(convId)) {
+                    await setJsonSetting(recipientId, CONVERSATIONS_SETTING_KEY, [...recipientIds, convId]);
+                }
+            }
+        }
     }
     const message = await prisma.message.create({
-        data: { conversationId: convId, from: "me", text, time: new Date().toLocaleTimeString() },
+        data: { conversationId: convId, from: user.id, text, time: new Date().toLocaleTimeString() },
     });
     await prisma.conversation.update({
         where: { id: convId },

@@ -19,8 +19,184 @@ import {
   getPostProjectPagePayload,
   listPublicProjects,
 } from "../../services/public/projects.service.js";
+import { getSettingsSection } from "../../services/settings/settings.service.js";
 
 const router = Router();
+
+router.get("/settings/branding", async (req: Request, res: Response) => {
+  const result = await getSettingsSection("branding");
+  res.json(result);
+});
+
+router.get("/settings/general", async (req: Request, res: Response) => {
+  const result = await getSettingsSection("general");
+  res.json(result);
+});
+
+const COUNTRY_INFO_MAP: Record<string, { code: string; phoneCode: string; flag: string; currencyCode: string }> = {
+  "india": { code: "IN", phoneCode: "+91", flag: "🇮🇳", currencyCode: "INR" },
+  "usa": { code: "US", phoneCode: "+1", flag: "🇺🇸", currencyCode: "USD" },
+  "uk": { code: "GB", phoneCode: "+44", flag: "🇬🇧", currencyCode: "GBP" },
+  "uae": { code: "AE", phoneCode: "+971", flag: "🇦🇪", currencyCode: "AED" },
+  "canada": { code: "CA", phoneCode: "+1", flag: "🇨🇦", currencyCode: "CAD" },
+  "australia": { code: "AU", phoneCode: "+61", flag: "🇦🇺", currencyCode: "AUD" },
+  "germany": { code: "DE", phoneCode: "+49", flag: "🇩🇪", currencyCode: "EUR" },
+  "france": { code: "FR", phoneCode: "+33", flag: "🇫🇷", currencyCode: "EUR" },
+  "singapore": { code: "SG", phoneCode: "+65", flag: "🇸🇬", currencyCode: "SGD" },
+  "japan": { code: "JP", phoneCode: "+81", flag: "🇯🇵", currencyCode: "JPY" },
+};
+
+router.get("/countries", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const countries = await prisma.country.findMany({
+      where: { status: "active" },
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+    });
+    const enriched = countries.map((row) => {
+      const normName = (row.name || "").trim().toLowerCase();
+      const info = COUNTRY_INFO_MAP[normName];
+      return {
+        ...row,
+        code: row.code || info?.code || null,
+        phoneCode: row.phoneCode || info?.phoneCode || null,
+        flag: row.flag || info?.flag || null,
+        currencyCode: row.currencyCode || info?.currencyCode || null,
+      };
+    });
+    res.json({ success: true, count: enriched.length, data: enriched });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/states", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rawParam = String(req.query.countryCode || req.query.countryId || req.query.country || "IN").trim();
+    let isoCode = rawParam.toUpperCase();
+
+    if (rawParam.length > 3) {
+      const dbRow = await prisma.country.findFirst({
+        where: { OR: [{ id: rawParam }, { name: rawParam }] },
+      }).catch(() => null);
+      if (dbRow?.code) {
+        isoCode = dbRow.code.toUpperCase();
+      } else if (dbRow?.name) {
+        const info = COUNTRY_INFO_MAP[dbRow.name.trim().toLowerCase()];
+        if (info?.code) isoCode = info.code;
+      }
+    }
+
+    let states: any[] = [];
+    try {
+      const csc = await import("country-state-city");
+      if (csc?.State) {
+        states = csc.State.getStatesOfCountry(isoCode).map((s: any) => ({
+          id: s.isoCode,
+          code: s.isoCode,
+          name: s.name,
+          countryCode: s.countryCode,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to dynamically import country-state-city in public.routes:", e);
+    }
+
+    res.json({ success: true, count: states.length, data: states, rows: states });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/currencies", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const currencies = await prisma.currency.findMany({
+      where: { status: "active" },
+      orderBy: [{ isBase: "desc" }, { name: "asc" }],
+    });
+    res.json({ success: true, count: currencies.length, data: currencies });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/detect-location", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "";
+    const headerCountry = (req.headers["cf-ipcountry"] || req.headers["x-country-code"]) as string;
+
+    let countryCode = (headerCountry && headerCountry.length === 2 ? headerCountry : "").toUpperCase();
+
+    // Look up country by header country code or default country setting
+    let matchedCountry = null;
+    if (countryCode) {
+      matchedCountry = await prisma.country.findFirst({
+        where: { code: countryCode, status: "active" },
+      });
+    }
+
+    if (!matchedCountry) {
+      matchedCountry = await prisma.country.findFirst({
+        where: { isDefault: true, status: "active" },
+      });
+    }
+
+    if (!matchedCountry) {
+      matchedCountry = await prisma.country.findFirst({
+        where: { status: "active" },
+      });
+    }
+
+    // Match currency for country
+    let matchedCurrency = null;
+    if (matchedCountry?.currencyCode) {
+      matchedCurrency = await prisma.currency.findFirst({
+        where: { code: matchedCountry.currencyCode, status: "active" },
+      });
+    }
+
+    if (!matchedCurrency) {
+      matchedCurrency = await prisma.currency.findFirst({
+        where: { isDefault: true, status: "active" },
+      });
+    }
+
+    res.json({
+      success: true,
+      ip: clientIp,
+      detectedCountry: matchedCountry?.name || "India",
+      countryCode: matchedCountry?.code || "IN",
+      phoneCode: matchedCountry?.phoneCode || "+91",
+      flag: matchedCountry?.flag || "🇮🇳",
+      currencyCode: matchedCurrency?.code || "INR",
+      currencySymbol: matchedCurrency?.symbol || "₹",
+      currency: matchedCurrency,
+      country: matchedCountry,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/google-maps-config", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const gmapsSettings = await getSettingsSection("google_maps");
+    const data = gmapsSettings?.data || {};
+    res.json({
+      success: true,
+      data: {
+        apiKey: data.apiKey || "",
+        enablePlacesAutocomplete: Boolean(data.enablePlacesAutocomplete ?? true),
+        enableGeocoding: Boolean(data.enableGeocoding ?? true),
+        defaultLatitude: Number(data.defaultLatitude ?? 20.5937),
+        defaultLongitude: Number(data.defaultLongitude ?? 78.9629),
+        defaultZoom: Number(data.defaultZoom ?? 5),
+        countryRestriction: data.countryRestriction || "IN",
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get("/fix-db", async (req: Request, res: Response) => {
   try {

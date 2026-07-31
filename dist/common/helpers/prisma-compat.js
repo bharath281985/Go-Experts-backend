@@ -4,6 +4,8 @@ export function isMissingColumnError(err, column) {
     const message = err instanceof Error ? err.message : String(err);
     const missingColumn = /Unknown column/i.test(message) ||
         /column .* does not exist/i.test(message) ||
+        /Database is missing field/i.test(message) ||
+        /missing field/i.test(message) ||
         err?.code === "P2022";
     if (!missingColumn)
         return false;
@@ -17,7 +19,9 @@ export function isSchemaDriftError(err) {
     const code = err?.code;
     return (isMissingColumnError(err) ||
         code === "P2021" ||
+        code === "P2022" ||
         /does not exist in the current database/i.test(message) ||
+        /Database is missing field/i.test(message) ||
         /Unknown table/i.test(message) ||
         /Table [`'"].*[`'"] doesn't exist/i.test(message));
 }

@@ -26,6 +26,7 @@ import {
   listFounderMilestones,
   addFounderMilestone,
   updateFounderMilestone,
+  deleteFounderMilestone,
   listFounderMeetings,
   createFounderMeeting,
   listFounderMessages,
@@ -84,6 +85,7 @@ router.post("/documents", addFounderDocument as any);
 router.get("/milestones", listFounderMilestones as any);
 router.post("/milestones", addFounderMilestone as any);
 router.patch("/milestones/:id", updateFounderMilestone as any);
+router.delete("/milestones/:id", deleteFounderMilestone as any);
 
 router.get("/meetings", listFounderMeetings as any);
 router.post("/meetings", createFounderMeeting as any);

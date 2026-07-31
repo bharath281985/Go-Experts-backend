@@ -1,5 +1,5 @@
 import { prisma } from "../../config/database.js";
-import { HttpError, getUserWalletPayload, creditWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
+import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
 async function loadClientUser(userId) {
     const user = await prisma.user.findFirst({
         where: { id: userId, deletedAt: null },
@@ -74,11 +74,14 @@ export const getClientDashboard = async (req, res, next) => {
                 profile: {
                     id: user.id,
                     name: user.fullName,
+                    fullName: user.fullName,
                     firstName: (user.fullName || "there").split(" ")[0],
                     email: user.email,
                     company: user.clientProfile?.company || null,
+                    companyName: user.clientProfile?.company || user.fullName,
                     industry: user.clientProfile?.industry || null,
                     avatar: user.avatarUrl || null,
+                    avatarUrl: user.avatarUrl || null,
                 },
                 kpis: [
                     { key: "projects", label: "Total Projects", value: String(projectsTotal) },
@@ -88,6 +91,18 @@ export const getClientDashboard = async (req, res, next) => {
                     { key: "spend", label: "Total Spend", value: money(totalSpend) },
                     { key: "balance", label: "Wallet Balance", value: money(wallet.balance, wallet.currency) },
                 ],
+                monthlyHiring: [],
+                revenueExpense: [],
+                pipeline: [],
+                todayMeetings: [],
+                todayTasks: [],
+                pendingApprovals: [],
+                pendingPayments: [],
+                latestApplications: [],
+                latestMessages: [],
+                latestNotifications: [],
+                latestReviews: [],
+                aiSuggestions: [],
                 recentProjects,
                 recentContracts: contracts.map((c) => ({
                     id: c.id,
@@ -99,7 +114,8 @@ export const getClientDashboard = async (req, res, next) => {
                 })),
                 recentInvoices: invoices,
                 wallet,
-                counts: { notifications: unreadNotifications, projects: projectsTotal },
+                counts: { notifications: unreadNotifications, projects: projectsTotal, contracts: contracts.length, applications: 0 },
+                meta: { walletBalance: wallet.balance },
             },
         });
     }
@@ -214,6 +230,43 @@ export const listClientProjects = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+export const getClientPipeline = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const user = await loadClientUser(userId);
+        if (!user)
+            return res.status(404).json({ success: false, message: "User not found" });
+        const where = clientProjectWhere(user, user.clientProfile);
+        const projects = await prisma.project.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+        });
+        const grouped = [
+            { stage: "Scoping", count: 0, value: 0, projects: [] },
+            { stage: "Review", count: 0, value: 0, projects: [] },
+            { stage: "In Progress", count: 0, value: 0, projects: [] },
+            { stage: "Completed", count: 0, value: 0, projects: [] },
+        ];
+        for (const p of projects) {
+            let stageIndex = 0; // Scoping
+            if (p.status === "review" || p.status === "Published")
+                stageIndex = 1;
+            if (p.status === "in_progress" || p.status === "In Progress")
+                stageIndex = 2;
+            if (p.status === "completed" || p.status === "Completed")
+                stageIndex = 3;
+            grouped[stageIndex].projects.push(p);
+            grouped[stageIndex].count++;
+            grouped[stageIndex].value += p.budget || 0;
+        }
+        res.json({ success: true, pipeline: grouped });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
 export const createClientProject = async (req, res, next) => {
     try {
         const userId = requireUser(req, res);
@@ -223,15 +276,10 @@ export const createClientProject = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const body = req.body || {};
-        const title = String(body.title || "").trim();
-        const budget = Number(body.budget);
-        const category = String(body.category || "").trim();
-        const technology = String(body.technology || "").trim();
-        if (!title || !Number.isFinite(budget) || !category || !technology) {
-            return res
-                .status(400)
-                .json({ success: false, message: "title, budget, category and technology are required" });
-        }
+        const title = String(body.title || "").trim() || "Untitled Project";
+        const budget = Number.isFinite(Number(body.budget)) ? Number(body.budget) : 0;
+        const category = String(body.category || "").trim() || "Engineering";
+        const technology = String(body.technology || "").trim() || "Various";
         const project = await prisma.project.create({
             data: {
                 title,
@@ -357,7 +405,26 @@ async function updateProposalStatusForClient(userId, proposalId, status) {
     const project = await findOwnedProject(userId, proposal.projectId);
     if (!project)
         throw new HttpError("Proposal not found", 404);
-    return prisma.proposal.update({ where: { id: proposalId }, data: { status } });
+    const updatedProposal = await prisma.proposal.update({ where: { id: proposalId }, data: { status } });
+    // If proposal is accepted, automatically create a draft/active contract
+    if (status === "accepted") {
+        const existingContract = await prisma.contract.findFirst({
+            where: { proposalId: proposal.id }
+        });
+        if (!existingContract) {
+            await prisma.contract.create({
+                data: {
+                    contractNumber: `CTR-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                    projectId: proposal.projectId,
+                    clientId: userId,
+                    freelancerId: proposal.freelancerId,
+                    proposalId: proposal.id,
+                    status: "pending_acceptance",
+                }
+            });
+        }
+    }
+    return updatedProposal;
 }
 export const acceptProposal = async (req, res, next) => {
     try {
@@ -434,6 +501,37 @@ export const listClientTasks = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+export const addClientTask = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const user = await loadClientUser(userId);
+        if (!user)
+            return res.status(404).json({ success: false, message: "User not found" });
+        const body = req.body || {};
+        const title = String(body.title || "").trim();
+        if (!title)
+            return res.status(400).json({ success: false, message: "title is required" });
+        const projectId = String(body.projectId || "").trim();
+        if (!projectId)
+            return res.status(400).json({ success: false, message: "projectId is required" });
+        const task = await prisma.task.create({
+            data: {
+                title,
+                projectId,
+                priority: body.priority || "Medium",
+                status: body.status || "Todo",
+                assignedTo: body.assignee || null,
+                dueDate: body.dueDate || null,
+            },
+        });
+        res.status(201).json({ success: true, message: "Task added", data: task });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
 // ==========================================
 // MEETINGS
 // ==========================================
@@ -446,7 +544,53 @@ export const listClientMeetings = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const rows = await listMeetingsForUser(user, [user.clientProfile?.company]);
-        res.json({ success: true, rows, total: rows.length });
+        // Fetch freelancer contacts for the client
+        const { getJsonSetting } = await import("../../common/helpers/portal-shared.js");
+        const contracts = await prisma.contract.findMany({
+            where: { clientId: userId, deletedAt: null },
+            select: {
+                freelancer: {
+                    select: { id: true, fullName: true, email: true }
+                }
+            }
+        });
+        const storedIds = await getJsonSetting(userId, "conversations", []);
+        const needles = [user.fullName, user.email].map((v) => String(v || "").trim()).filter(Boolean);
+        const or = needles.map((n) => ({ name: { contains: n } }));
+        if (storedIds.length)
+            or.push({ id: { in: storedIds } });
+        const conversations = or.length ? await prisma.conversation.findMany({
+            where: { deletedAt: null, OR: or },
+            select: { name: true }
+        }) : [];
+        const contactsMap = new Map();
+        contracts.forEach(c => {
+            if (c.freelancer) {
+                contactsMap.set(c.freelancer.fullName, c.freelancer.email);
+            }
+        });
+        for (const conv of conversations) {
+            const emailMatch = conv.name.match(/\(([^)]+)\)/);
+            if (emailMatch?.[1]) {
+                const namePart = conv.name.split("(")[0].trim();
+                contactsMap.set(namePart, emailMatch[1]);
+            }
+            else {
+                if (!conv.name.includes("Support") && !conv.name.includes("Deal")) {
+                    const nameMatch = conv.name.match(/Invitation for\s+(.+)$/i) || [null, conv.name];
+                    const potentialName = (nameMatch[1] || conv.name).trim();
+                    const matchedUser = await prisma.user.findFirst({
+                        where: { fullName: potentialName, role: "freelancer" },
+                        select: { fullName: true, email: true }
+                    });
+                    if (matchedUser) {
+                        contactsMap.set(matchedUser.fullName, matchedUser.email);
+                    }
+                }
+            }
+        }
+        const persons = Array.from(contactsMap.entries()).map(([name, email]) => ({ name, email }));
+        res.json({ success: true, rows, total: rows.length, persons });
     }
     catch (err) {
         handleError(err, res, next);
@@ -504,7 +648,7 @@ export const createClientMessage = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const body = req.body || {};
-        const result = await createMessageForUser({ id: user.id, fullName: user.fullName, email: user.email, role: user.role }, { conversationId: body.conversationId, content: body.content, title: body.title });
+        const result = await createMessageForUser({ id: user.id, fullName: user.fullName, email: user.email, role: user.role }, { conversationId: body.conversationId, content: body.content, title: body.title, recipientId: body.recipientId });
         res.status(201).json({ success: true, message: "Message sent", data: result });
     }
     catch (err) {
@@ -534,6 +678,23 @@ export const fundClientWallet = async (req, res, next) => {
         const body = req.body || {};
         const result = await creditWalletForSelf(userId, Number(body.amount), "promotional", body.description || "Wallet top-up");
         res.status(201).json({ success: true, message: "Wallet funded", data: result });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const withdrawClientWallet = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const body = req.body || {};
+        const amount = Number(body.amount);
+        if (!amount || amount < 1000) {
+            return res.status(400).json({ success: false, message: "Minimum withdrawal amount is ₹1,000" });
+        }
+        const result = await debitWalletForSelf(userId, amount, "debit", body.description || "Wallet withdrawal");
+        res.status(201).json({ success: true, message: "Withdrawal successful", data: result });
     }
     catch (err) {
         handleError(err, res, next);
@@ -661,10 +822,17 @@ export const getClientAnalytics = async (req, res, next) => {
 export const listClientNotifications = async (req, res, next) => {
     try {
         const userId = requireUser(req, res);
-        if (!userId)
-            return;
         const data = await listUserNotifications(userId, "client", req.query);
-        res.json({ success: true, data });
+        res.json({
+            success: true,
+            data: data.items,
+            items: data.items,
+            filters: data.filters,
+            unreadCount: data.unreadCount,
+            total: data.total,
+            page: data.page,
+            pageSize: data.pageSize,
+        });
     }
     catch (err) {
         handleError(err, res, next);
@@ -802,6 +970,23 @@ export const addClientDocument = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+export const deleteClientDocument = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        if (!id)
+            return res.status(400).json({ success: false, message: "id is required" });
+        const rows = await getJsonSetting(userId, "documents", []);
+        const nextRows = rows.filter((r) => r.id !== id);
+        await setJsonSetting(userId, "documents", nextRows);
+        res.json({ success: true, message: "Document removed", rows: nextRows });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
 export const listClientTeam = async (req, res, next) => {
     try {
         const userId = requireUser(req, res);
@@ -809,6 +994,38 @@ export const listClientTeam = async (req, res, next) => {
             return;
         const rows = await getJsonSetting(userId, "team", []);
         res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const listClientInvitations = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        // 1. Get manual team invites
+        const manualInvites = await getJsonSetting(userId, "team", []);
+        // 2. Get project invites from Conversations
+        const user = await loadClientUser(userId);
+        let projectInvites = [];
+        if (user) {
+            const conversations = await listConversationsForUser({ id: user.id, fullName: user.fullName, email: user.email, role: user.role });
+            const inviteConvs = conversations.filter(c => c.name && c.name.startsWith("Project Invitation"));
+            projectInvites = inviteConvs.map(c => ({
+                id: c.id,
+                name: c.name.replace("Project Invitation for ", "").replace("Project Invitation", "").trim() || "Freelancer",
+                email: "",
+                role: "Freelancer",
+                department: "Project Invite",
+                status: c.status === "active" ? "Pending" : c.status,
+                createdAt: c.createdAt.toISOString()
+            }));
+        }
+        const combined = [...projectInvites, ...manualInvites];
+        // Sort by descending date
+        combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        res.json({ success: true, rows: combined, total: combined.length });
     }
     catch (err) {
         handleError(err, res, next);
@@ -829,11 +1046,59 @@ export const addClientTeamMember = async (req, res, next) => {
             name,
             email: body.email || "",
             role: body.role || "Member",
+            dept: body.dept || "Engineering",
+            status: "Invited",
             createdAt: new Date().toISOString(),
         };
-        const next = [member, ...rows];
-        await setJsonSetting(userId, "team", next);
-        res.status(201).json({ success: true, message: "Team member added", data: member, rows: next });
+        const nextRows = [member, ...rows];
+        await setJsonSetting(userId, "team", nextRows);
+        // Get current client user details
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const clientName = user?.fullName || "A client";
+        // Trigger Notifications
+        try {
+            const { NotificationService } = await import("../../modules/notifications/notification.service.js");
+            // 1) Notify the inviting client (in-app)
+            await NotificationService.enqueue({
+                userId: userId,
+                role: "client",
+                type: "team",
+                title: "Team Invitation Sent",
+                message: `Invitation email sent to ${member.email} for the role of ${member.role} (${member.dept}).`,
+                channel: "in_app"
+            });
+            // 2) Send invite email to the new member
+            if (member.email) {
+                await NotificationService.enqueue({
+                    type: "team",
+                    title: `Invitation to join ${clientName}'s Team on Go Experts`,
+                    message: `Hi ${member.name},\n\nYou have been invited by ${clientName} to join their team as a ${member.role} in the ${member.dept} department.\n\nClick here to accept the invitation and join: ${process.env.CLIENT_URL || "https://goexperts.in"}/business/team-access\n\nBest regards,\nGo Experts Team`,
+                    channel: "email",
+                    metadata: { toEmail: member.email }
+                });
+            }
+        }
+        catch (notifErr) {
+            console.error("Failed to enqueue team invitation notifications:", notifErr);
+        }
+        res.status(201).json({ success: true, message: "Team member added", data: member, rows: nextRows });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const deleteClientTeamMember = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        if (!id)
+            return res.status(400).json({ success: false, message: "id is required" });
+        const rows = await getJsonSetting(userId, "team", []);
+        const nextRows = rows.filter((r) => r.id !== id);
+        await setJsonSetting(userId, "team", nextRows);
+        res.json({ success: true, message: "Team member removed", rows: nextRows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -931,6 +1196,62 @@ export const getClientReports = async (req, res, next) => {
                 generatedAt: new Date().toISOString(),
             },
         });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const listClientApiKeys = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const rows = await getJsonSetting(userId, "apiKeys", []);
+        res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const generateClientApiKey = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const body = req.body || {};
+        const name = String(body.name || "Default Key").trim();
+        const env = String(body.env || "Production").trim();
+        const rows = await getJsonSetting(userId, "apiKeys", []);
+        const newKey = {
+            id: `AK-${Date.now().toString(36).toUpperCase()}`,
+            name,
+            env,
+            key: `ge_${env === "Production" ? "live" : "test"}_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}`,
+            status: "Verified",
+            created: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            last: "Never used",
+            scopes: body.scopes || "All access",
+        };
+        const next = [newKey, ...rows];
+        await setJsonSetting(userId, "apiKeys", next);
+        res.status(201).json({ success: true, message: "API key generated", data: newKey, rows: next });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const revokeClientApiKey = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        if (!id)
+            return res.status(400).json({ success: false, message: "id is required" });
+        const rows = await getJsonSetting(userId, "apiKeys", []);
+        const nextRows = rows.filter((r) => r.id !== id);
+        await setJsonSetting(userId, "apiKeys", nextRows);
+        res.json({ success: true, message: "API key revoked", rows: nextRows });
     }
     catch (err) {
         handleError(err, res, next);

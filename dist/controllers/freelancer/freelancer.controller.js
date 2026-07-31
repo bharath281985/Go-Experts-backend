@@ -226,6 +226,19 @@ function isDueToday(dueDate) {
     const today = new Date().toISOString().slice(0, 10);
     return iso === today;
 }
+const safeFreelancerProfileSelect = {
+    select: {
+        id: true,
+        userId: true,
+        industry: true,
+        skills: true,
+        hourlyRate: true,
+        rating: true,
+        experience: true,
+        createdAt: true,
+        updatedAt: true,
+    },
+};
 export const getFreelancerDashboard = async (req, res, next) => {
     try {
         if (!req.user?.id) {
@@ -235,7 +248,7 @@ export const getFreelancerDashboard = async (req, res, next) => {
         const user = await prisma.user.findFirst({
             where: { id: userId, deletedAt: null },
             include: {
-                freelancerProfile: true,
+                freelancerProfile: safeFreelancerProfileSelect,
                 wallet: true,
             },
         });
@@ -414,6 +427,50 @@ export const getFreelancerDashboard = async (req, res, next) => {
                 value: Math.max(8, Math.round(100 / arr.length) - i),
             }))
             : [];
+        // Collect all client IDs/names that look like UUIDs
+        const clientIds = new Set();
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const addIfUuid = (val) => {
+            if (typeof val === 'string' && uuidRegex.test(val)) {
+                clientIds.add(val);
+            }
+        };
+        allProposals.forEach(p => {
+            if (p.project?.client)
+                addIfUuid(p.project.client);
+        });
+        recentProposals.forEach(p => {
+            if (p.project?.client)
+                addIfUuid(p.project.client);
+        });
+        openProjectRows.forEach(p => {
+            if (p.client)
+                addIfUuid(p.client);
+        });
+        recentContracts.forEach(c => {
+            if (c.project?.client)
+                addIfUuid(c.project.client);
+        });
+        const clientMap = new Map();
+        if (clientIds.size > 0) {
+            const users = await prisma.user.findMany({
+                where: { id: { in: Array.from(clientIds) } },
+                select: { id: true, fullName: true },
+            });
+            users.forEach(u => {
+                if (u.fullName) {
+                    clientMap.set(u.id, u.fullName);
+                }
+            });
+        }
+        const resolveClientName = (clientVal) => {
+            if (!clientVal)
+                return "Client";
+            if (clientMap.has(clientVal)) {
+                return clientMap.get(clientVal) || "Client";
+            }
+            return clientVal;
+        };
         const recentProjects = recentContracts.map((c) => {
             const project = c.project;
             const progress = String(c.status).toLowerCase() === "completed"
@@ -424,7 +481,7 @@ export const getFreelancerDashboard = async (req, res, next) => {
             return {
                 id: c.contractNumber || c.id.slice(0, 8).toUpperCase(),
                 title: project?.title || "Untitled project",
-                client: c.client?.fullName || project?.client || "Client",
+                client: c.client?.fullName || resolveClientName(project?.client),
                 budget: money(Number(project?.budget ?? 0), currency),
                 status: statusLabel(project?.status || c.status),
                 due: project?.timeline || "—",
@@ -594,7 +651,7 @@ export const getFreelancerDashboard = async (req, res, next) => {
                 openProjects: openProjectRows.map((p) => ({
                     id: p.id,
                     title: p.title,
-                    client: p.client,
+                    client: resolveClientName(p.client),
                     budget: money(Number(p.budget || 0), currency),
                     budgetRaw: Number(p.budget || 0),
                     category: p.category,
@@ -607,7 +664,7 @@ export const getFreelancerDashboard = async (req, res, next) => {
                     id: p.id,
                     ref: `PRO-${p.id.slice(0, 4).toUpperCase()}`,
                     project: p.project?.title || "Project",
-                    client: p.project?.client || "Client",
+                    client: resolveClientName(p.project?.client),
                     sent: relativeTime(p.createdAt),
                     bid: money(Number(p.bidAmount ?? 0), currency),
                     bidRaw: Number(p.bidAmount ?? 0),
@@ -669,7 +726,7 @@ export const getFreelancerProfile = async (req, res, next) => {
         }
         const user = await prisma.user.findFirst({
             where: { id: req.user.id, deletedAt: null },
-            include: { freelancerProfile: true },
+            include: { freelancerProfile: safeFreelancerProfileSelect },
         });
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
@@ -724,7 +781,7 @@ export const updateFreelancerProfile = async (req, res, next) => {
         const userId = req.user.id;
         const existing = await prisma.user.findFirst({
             where: { id: userId, deletedAt: null },
-            include: { freelancerProfile: true },
+            include: { freelancerProfile: safeFreelancerProfileSelect },
         });
         if (!existing) {
             return res.status(404).json({ success: false, message: "User not found" });
@@ -876,16 +933,15 @@ export const listFreelancerNotifications = async (req, res, next) => {
         ];
         res.json({
             success: true,
-            data: {
-                items,
-                filters,
-                filter,
-                unreadCount,
-                importantCount,
-                total,
-                page,
-                pageSize,
-            },
+            data: items,
+            items,
+            filters,
+            filter,
+            unreadCount,
+            importantCount,
+            total,
+            page,
+            pageSize,
         });
     }
     catch (err) {
@@ -1010,7 +1066,7 @@ export const getFreelancerVerification = async (req, res, next) => {
         }
         const user = await prisma.user.findFirst({
             where: { id: req.user.id, deletedAt: null },
-            include: { freelancerProfile: true },
+            include: { freelancerProfile: safeFreelancerProfileSelect },
         });
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
@@ -1059,7 +1115,7 @@ export const updateFreelancerVerification = async (req, res, next) => {
         }
         const user = await prisma.user.findFirst({
             where: { id: userId, deletedAt: null },
-            include: { freelancerProfile: true },
+            include: { freelancerProfile: safeFreelancerProfileSelect },
         });
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });

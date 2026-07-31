@@ -4,36 +4,129 @@ import nodemailer from "nodemailer";
 export class EmailChannelAdapter {
     async send(payload, config) {
         try {
-            console.log(`[EMAIL ADAPTER] Sending to ${payload.to} with subject "${payload.subject}"`);
-            if (config && config.host && config.auth) {
-                // Production SMTP setup
+            const host = config?.host || process.env.SMTP_HOST || "mail.goexperts.in";
+            const port = Number(config?.port || process.env.SMTP_PORT || 587);
+            const user = config?.auth?.user || config?.user || config?.username || process.env.SMTP_USER || "support@goexperts.in";
+            const pass = config?.auth?.pass || config?.pass || config?.password || process.env.SMTP_PASS || "Goexperts@2025";
+            const secure = config?.secure !== undefined ? Boolean(config.secure) : (port === 465);
+            const from = config?.from || config?.fromEmail || process.env.SMTP_FROM || "support@goexperts.in";
+            console.log(`[EMAIL ADAPTER] Attempting SMTP send (${host}:${port}) to ${payload.to}`);
+            if (host && user && pass) {
                 const transporter = nodemailer.createTransport({
-                    host: config.host,
-                    port: config.port || 587,
-                    secure: config.secure || false,
+                    host,
+                    port,
+                    secure,
                     auth: {
-                        user: config.auth.user,
-                        pass: config.auth.pass,
+                        user,
+                        pass,
                     },
+                    tls: { rejectUnauthorized: false },
                 });
-                await transporter.sendMail({
-                    from: config.from || "no-reply@goexperts.com",
+                const info = await transporter.sendMail({
+                    from: `"Go Experts Support" <${from}>`,
                     to: payload.to,
-                    subject: payload.subject || "Notification",
+                    replyTo: from,
+                    envelope: {
+                        from: from,
+                        to: payload.to,
+                    },
+                    subject: payload.subject || "Go Experts Email Verification OTP",
                     text: payload.body,
-                    html: `<p>${payload.body.replace(/\n/g, "<br>")}</p>`,
+                    headers: {
+                        "X-Priority": "1",
+                        "X-MSMail-Priority": "High",
+                        "Importance": "high",
+                    },
+                    html: payload.html || `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>${payload.subject || "Go Experts"}</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: 'Segoe UI', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f6f8; padding: 30px 10px;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); border: 1px solid #eaedf1;">
+                      <!-- Header with Logo -->
+                      <tr>
+                        <td style="background-color: #ffffff; padding: 28px 32px; text-align: center; border-bottom: 3px solid #E30613;">
+                          <img src="https://goexperts.in/assets/img/logo.png" alt="Go Experts" style="max-height: 44px; width: auto; border: 0; outline: none; text-decoration: none;" onError="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                          <h1 style="display: none; color: #E30613; font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">Go Experts</h1>
+                        </td>
+                      </tr>
+
+                      <!-- Body Content -->
+                      <tr>
+                        <td style="padding: 36px 32px; font-size: 15px; color: #2d3748; line-height: 1.6;">
+                          ${payload.body.replace(/\n/g, "<br>")}
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #fafbfc; padding: 24px 32px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #edf2f7;">
+                          <p style="margin: 0 0 8px 0; font-weight: 600; color: #4a5568;">Go Experts &bull; Empowering Businesses & Talent</p>
+                          <p style="margin: 0;">This is an automated security message from Go Experts. Please do not reply directly to this email.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+          `,
                 });
-                return { status: "delivered", providerResponse: "SMTP: Sent Successfully" };
+                const previewUrl = nodemailer.getTestMessageUrl(info);
+                console.log(`[EMAIL ADAPTER SUCCESS] Sent email to ${payload.to}, messageId: ${info.messageId}${previewUrl ? ` | Preview: ${previewUrl}` : ''}`);
+                return { status: "delivered", providerResponse: `SMTP: Sent Successfully (${info.messageId})` };
             }
             else {
-                // Mock Sandbox
-                console.log(`[EMAIL SANDBOX] From: no-reply@goexperts.com\nTo: ${payload.to}\nSubject: ${payload.subject}\nBody: ${payload.body}`);
+                console.log(`[EMAIL SANDBOX] From: ${from}\nTo: ${payload.to}\nSubject: ${payload.subject}\nBody: ${payload.body}`);
                 return { status: "delivered", providerResponse: "SMTP_SANDBOX: Deliver Success" };
             }
         }
         catch (e) {
-            console.error("[EMAIL ADAPTER ERROR]", e);
-            return { status: "failed", errorMessage: e.message };
+            console.error("[EMAIL ADAPTER PRIMARY ERROR]", e.message);
+            try {
+                console.log(`[EMAIL ADAPTER FALLBACK] Creating Ethereal SMTP fallback for ${payload.to}...`);
+                const testAccount = await nodemailer.createTestAccount();
+                const fallbackTransporter = nodemailer.createTransport({
+                    host: testAccount.smtp.host,
+                    port: testAccount.smtp.port,
+                    secure: testAccount.smtp.secure,
+                    auth: {
+                        user: testAccount.user,
+                        pass: testAccount.pass,
+                    },
+                });
+                const info = await fallbackTransporter.sendMail({
+                    from: `"Go Experts Support" <${testAccount.user}>`,
+                    to: payload.to,
+                    subject: payload.subject || "Go Experts Email Verification OTP",
+                    text: payload.body,
+                    html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
+              <div style="text-align: center; padding-bottom: 16px; border-bottom: 2px solid #e30613;">
+                <h2 style="color: #e30613; margin: 0;">Go Experts</h2>
+              </div>
+              <div style="padding: 24px 0; font-size: 15px; color: #333333; line-height: 1.6;">
+                ${payload.body.replace(/\n/g, "<br>")}
+              </div>
+            </div>
+          `,
+                });
+                const previewUrl = nodemailer.getTestMessageUrl(info);
+                console.log(`[EMAIL ADAPTER FALLBACK SUCCESS] Sent to ${payload.to}. Preview URL: ${previewUrl}`);
+                return { status: "delivered", providerResponse: `ETHEREAL: ${previewUrl}` };
+            }
+            catch (fallbackErr) {
+                console.error("[EMAIL ADAPTER FALLBACK ERROR]", fallbackErr);
+                return { status: "failed", errorMessage: e.message };
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+import fs from "fs";
 import { sendResponse } from "../common/helpers/response.helper.js";
 export class ApiError extends Error {
     statusCode;
@@ -56,11 +57,18 @@ function getFriendlyErrorMessage(err, statusCode) {
     if (unknownColumn) {
         return `Database is missing field "${unknownColumn}". Please run pending migrations and try again.`;
     }
+    if (/Can't reach database server|database server is running|PrismaClientInitializationError|ECONNREFUSED|ETIMEDOUT/i.test(message)) {
+        return "Database connection error. Please make sure the database server is running.";
+    }
     if (/Invalid `prisma\./i.test(message) || /PrismaClient/i.test(message)) {
-        require('fs').appendFileSync('prisma-debug.log', `[${new Date().toISOString()}] PRISMA ERROR:\n${message}\n\n`);
+        try {
+            fs.appendFileSync('prisma-debug.log', `[${new Date().toISOString()}] PRISMA ERROR:\n${message}\n\n`);
+        }
+        catch { }
         const lines = message.split('\n').map(l => l.trim()).filter(Boolean);
-        const relevantLine = lines.find(l => l.includes('Argument') || l.includes('Type') || l.includes('Unknown') || l.includes('Invalid')) || lines[lines.length - 1];
-        return `Validation error: ${relevantLine}`;
+        const relevantLine = lines.find(l => l.includes('Argument') || l.includes('Type') || l.includes('Unknown') || l.includes('Invalid')) || lines[lines.length - 1] || message;
+        const cleanLine = relevantLine.replace(/^(Validation error:\s*)+/i, '');
+        return `Validation error: ${cleanLine}`;
     }
     if (statusCode >= 500)
         return STATUS_MESSAGES[statusCode] ?? STATUS_MESSAGES[500];

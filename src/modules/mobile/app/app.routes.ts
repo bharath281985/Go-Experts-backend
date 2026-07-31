@@ -1,0 +1,23 @@
+import { Router } from 'express';
+import {
+  getAppConfig,
+  getFeatureFlags,
+  getVersion,
+  getMaintenance
+} from '../system/controllers/config.controller.js';
+
+import { saveToken, deleteToken } from '../app-config/app-config.controller.js';
+import { authenticateOptional } from '../../../middlewares/auth.js';
+
+const router = Router();
+
+router.get('/config', getAppConfig);
+router.get('/feature-flags', getFeatureFlags);
+router.get('/version', getVersion);
+router.get('/maintenance', getMaintenance);
+
+router.post('/device-token', authenticateOptional, saveToken);
+router.put('/device-token', authenticateOptional, saveToken);
+router.delete('/device-token', deleteToken);
+
+export default router;

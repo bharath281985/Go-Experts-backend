@@ -189,6 +189,18 @@ async function main() {
     },
   });
 
+  const customHashedPw = await bcrypt.hash("Admin@12345", 12);
+  await prisma.adminUser.upsert({
+    where: { email: "admin@goexperts.in" },
+    update: {},
+    create: {
+      email: "admin@goexperts.in",
+      password: customHashedPw,
+      fullName: "Main Admin",
+      roleId: superRole.id,
+    },
+  });
+
   // ─────────────────────────────────────────
   // 2. MASTER DATA
   // ─────────────────────────────────────────
@@ -223,11 +235,53 @@ async function main() {
     skills.push(s);
   }
 
-  const countryNames = ["India", "USA", "UK", "Canada", "Australia", "Germany", "UAE", "Singapore", "France", "Japan"];
+  const countryDefs = [
+    { name: "India", code: "IN", phoneCode: "+91", currencyCode: "INR", currencySymbol: "₹", flag: "🇮🇳", region: "Asia", isDefault: true, allowRegistration: true, taxRate: 18.0 },
+    { name: "United States", code: "US", phoneCode: "+1", currencyCode: "USD", currencySymbol: "$", flag: "🇺🇸", region: "North America", isDefault: false, allowRegistration: true, taxRate: 10.0 },
+    { name: "United Kingdom", code: "GB", phoneCode: "+44", currencyCode: "GBP", currencySymbol: "£", flag: "🇬🇧", region: "Europe", isDefault: false, allowRegistration: true, taxRate: 20.0 },
+    { name: "United Arab Emirates", code: "AE", phoneCode: "+971", currencyCode: "AED", currencySymbol: "AED", flag: "🇦🇪", region: "Middle East", isDefault: false, allowRegistration: true, taxRate: 5.0 },
+    { name: "Canada", code: "CA", phoneCode: "+1", currencyCode: "CAD", currencySymbol: "CA$", flag: "🇨🇦", region: "North America", isDefault: false, allowRegistration: true, taxRate: 13.0 },
+    { name: "Australia", code: "AU", phoneCode: "+61", currencyCode: "AUD", currencySymbol: "A$", flag: "🇦🇺", region: "Oceania", isDefault: false, allowRegistration: true, taxRate: 10.0 },
+    { name: "Germany", code: "DE", phoneCode: "+49", currencyCode: "EUR", currencySymbol: "€", flag: "🇩🇪", region: "Europe", isDefault: false, allowRegistration: true, taxRate: 19.0 },
+    { name: "Singapore", code: "SG", phoneCode: "+65", currencyCode: "SGD", currencySymbol: "S$", flag: "🇸🇬", region: "Asia", isDefault: false, allowRegistration: true, taxRate: 8.0 },
+    { name: "Saudi Arabia", code: "SA", phoneCode: "+966", currencyCode: "SAR", currencySymbol: "SR", flag: "🇸🇦", region: "Middle East", isDefault: false, allowRegistration: true, taxRate: 15.0 },
+    { name: "France", code: "FR", phoneCode: "+33", currencyCode: "EUR", currencySymbol: "€", flag: "🇫🇷", region: "Europe", isDefault: false, allowRegistration: true, taxRate: 20.0 },
+    { name: "Japan", code: "JP", phoneCode: "+81", currencyCode: "JPY", currencySymbol: "¥", flag: "🇯🇵", region: "Asia", isDefault: false, allowRegistration: true, taxRate: 10.0 },
+    { name: "Brazil", code: "BR", phoneCode: "+55", currencyCode: "BRL", currencySymbol: "R$", flag: "🇧🇷", region: "South America", isDefault: false, allowRegistration: true, taxRate: 17.0 },
+  ];
+
   const countries: any[] = [];
-  for (const name of countryNames) {
-  const c = await prisma.country.upsert({ where: { name }, update: {}, create: { name } });
+  for (const cDef of countryDefs) {
+    const c = await prisma.country.upsert({
+      where: { name: cDef.name },
+      update: { ...cDef },
+      create: { ...cDef },
+    });
     countries.push(c);
+  }
+  const countryNames = countryDefs.map(c => c.name);
+
+  const currencyDefs = [
+    { name: "Indian Rupee", code: "INR", symbol: "₹", exchangeRate: 1.0, isBase: true, isDefault: true, decimalPlaces: 2 },
+    { name: "US Dollar", code: "USD", symbol: "$", exchangeRate: 0.012, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "Euro", code: "EUR", symbol: "€", exchangeRate: 0.011, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "British Pound", code: "GBP", symbol: "£", exchangeRate: 0.0094, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "UAE Dirham", code: "AED", symbol: "AED", exchangeRate: 0.044, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "Canadian Dollar", code: "CAD", symbol: "CA$", exchangeRate: 0.016, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "Australian Dollar", code: "AUD", symbol: "A$", exchangeRate: 0.018, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "Singapore Dollar", code: "SGD", symbol: "S$", exchangeRate: 0.016, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "Saudi Riyal", code: "SAR", symbol: "SR", exchangeRate: 0.045, isBase: false, isDefault: false, decimalPlaces: 2 },
+    { name: "Japanese Yen", code: "JPY", symbol: "¥", exchangeRate: 1.85, isBase: false, isDefault: false, decimalPlaces: 0 },
+  ];
+
+  const currencies: any[] = [];
+  for (const currDef of currencyDefs) {
+    const curr = await prisma.currency.upsert({
+      where: { code: currDef.code },
+      update: { ...currDef },
+      create: { ...currDef },
+    });
+    currencies.push(curr);
   }
 
   // ─────────────────────────────────────────

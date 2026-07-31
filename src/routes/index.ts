@@ -40,10 +40,21 @@ import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 
+import mobileRoutes from "../modules/mobile/index.js";
+
 const router = Router();
 
-// 1. Auth routes (Unprotected)
+// 1. Auth & Payment routes (Public/Unprotected - mounted on all version prefixes)
 router.use("/auth", authRoutes);
+router.use("/v1/auth", authRoutes);
+router.use("/v1/mobile/auth", authRoutes);
+router.use("/mobile/auth", authRoutes);
+router.use("/payments", paymentsRoutes);
+
+// Mobile API Routes (/api/v1/mobile/..., /api/mobile/..., and fallback)
+router.use("/v1/mobile", mobileRoutes);
+router.use("/mobile", mobileRoutes);
+router.use("/", mobileRoutes);
 
 // Portal (role-scoped)
 router.use("/freelancer", freelancerRoutes);
@@ -260,18 +271,84 @@ const clientInclude = {
 
 const investorInclude = {
   investorProfile: true,
+  wallet: {
+    include: {
+      transactions: {
+        orderBy: { createdAt: "desc" as const },
+        take: 10,
+      },
+    },
+  },
 };
 
 const founderInclude = {
   founderProfile: true,
+  wallet: {
+    include: {
+      transactions: {
+        orderBy: { createdAt: "desc" as const },
+        take: 10,
+      },
+    },
+  },
 };
 
 function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(row: T): T {
   if (!row || typeof row !== "object") return row;
   const { password, ...rest } = row as Record<string, any>;
+
+  const freelancerProfile = rest.freelancerProfile ?? {};
+  const clientProfile = rest.clientProfile ?? {};
+  const investorProfile = rest.investorProfile ?? {};
+  const founderProfile = rest.founderProfile ?? {};
+  const wallet = rest.wallet ?? {};
+
+  const industry = freelancerProfile.industry
+    || clientProfile.industry
+    || founderProfile.industry
+    || (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",")[0] : null)
+    || rest.industry
+    || "Technology";
+
+  const projectsPosted = freelancerProfile.projectsPosted
+    ?? clientProfile.projectsPosted
+    ?? (Array.isArray(rest.freelancerContracts) ? rest.freelancerContracts.length : undefined)
+    ?? (Array.isArray(rest.clientContracts) ? rest.clientContracts.length : undefined)
+    ?? rest.projects_posted
+    ?? rest.projectsPosted
+    ?? 0;
+
+  const totalSpend = freelancerProfile.totalSpend
+    ?? clientProfile.totalSpend
+    ?? founderProfile.raised
+    ?? rest.total_spend
+    ?? rest.totalSpend
+    ?? rest.raised
+    ?? 0;
+
+  const ticketMin = investorProfile.ticketMin ?? rest.ticket_min ?? rest.ticketMin ?? 25000;
+  const ticketMax = investorProfile.ticketMax ?? rest.ticket_max ?? rest.ticketMax ?? 250000;
+  const deals = investorProfile.deals ?? rest.deals ?? 0;
+  const raised = founderProfile.raised ?? rest.raised ?? 0;
+  const stage = founderProfile.stage ?? rest.stage ?? null;
+
   return {
     ...rest,
     hasPassword: Boolean(password && String(password).length > 0),
+    industry,
+    projects_posted: projectsPosted,
+    projectsPosted,
+    total_spend: totalSpend,
+    totalSpend,
+    ticket_min: ticketMin,
+    ticketMin,
+    ticket_max: ticketMax,
+    ticketMax,
+    deals,
+    raised,
+    stage,
+    wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
+    wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
   } as unknown as T;
 }
 

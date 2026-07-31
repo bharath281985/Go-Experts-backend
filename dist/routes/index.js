@@ -1,6 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcrypt";
 import { prisma } from "../config/database.js";
+import { creditWalletForSelf } from "../common/helpers/portal-shared.js";
 import authRoutes from "./auth/auth.routes.js";
 import dashboardRoutes from "./dashboard/dashboard.routes.js";
 import notificationRoutes, { queueRouter, logsRouter } from "./notifications/notification.routes.js";
@@ -31,9 +32,18 @@ import investorRoutes from "./investor/investor.routes.js";
 import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
+import mobileRoutes from "../modules/mobile/index.js";
 const router = Router();
-// 1. Auth routes (Unprotected)
+// 1. Auth & Payment routes (Public/Unprotected - mounted on all version prefixes)
 router.use("/auth", authRoutes);
+router.use("/v1/auth", authRoutes);
+router.use("/v1/mobile/auth", authRoutes);
+router.use("/mobile/auth", authRoutes);
+router.use("/payments", paymentsRoutes);
+// Mobile API Routes (/api/v1/mobile/..., /api/mobile/..., and fallback)
+router.use("/v1/mobile", mobileRoutes);
+router.use("/mobile", mobileRoutes);
+router.use("/", mobileRoutes);
 // Portal (role-scoped)
 router.use("/freelancer", freelancerRoutes);
 router.use("/client", clientRoutes);
@@ -238,17 +248,77 @@ const clientInclude = {
 };
 const investorInclude = {
     investorProfile: true,
+    wallet: {
+        include: {
+            transactions: {
+                orderBy: { createdAt: "desc" },
+                take: 10,
+            },
+        },
+    },
 };
 const founderInclude = {
     founderProfile: true,
+    wallet: {
+        include: {
+            transactions: {
+                orderBy: { createdAt: "desc" },
+                take: 10,
+            },
+        },
+    },
 };
 function sanitizeUserRecord(row) {
     if (!row || typeof row !== "object")
         return row;
     const { password, ...rest } = row;
+    const freelancerProfile = rest.freelancerProfile ?? {};
+    const clientProfile = rest.clientProfile ?? {};
+    const investorProfile = rest.investorProfile ?? {};
+    const founderProfile = rest.founderProfile ?? {};
+    const wallet = rest.wallet ?? {};
+    const industry = freelancerProfile.industry
+        || clientProfile.industry
+        || founderProfile.industry
+        || (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",")[0] : null)
+        || rest.industry
+        || "Technology";
+    const projectsPosted = freelancerProfile.projectsPosted
+        ?? clientProfile.projectsPosted
+        ?? (Array.isArray(rest.freelancerContracts) ? rest.freelancerContracts.length : undefined)
+        ?? (Array.isArray(rest.clientContracts) ? rest.clientContracts.length : undefined)
+        ?? rest.projects_posted
+        ?? rest.projectsPosted
+        ?? 0;
+    const totalSpend = freelancerProfile.totalSpend
+        ?? clientProfile.totalSpend
+        ?? founderProfile.raised
+        ?? rest.total_spend
+        ?? rest.totalSpend
+        ?? rest.raised
+        ?? 0;
+    const ticketMin = investorProfile.ticketMin ?? rest.ticket_min ?? rest.ticketMin ?? 25000;
+    const ticketMax = investorProfile.ticketMax ?? rest.ticket_max ?? rest.ticketMax ?? 250000;
+    const deals = investorProfile.deals ?? rest.deals ?? 0;
+    const raised = founderProfile.raised ?? rest.raised ?? 0;
+    const stage = founderProfile.stage ?? rest.stage ?? null;
     return {
         ...rest,
         hasPassword: Boolean(password && String(password).length > 0),
+        industry,
+        projects_posted: projectsPosted,
+        projectsPosted,
+        total_spend: totalSpend,
+        totalSpend,
+        ticket_min: ticketMin,
+        ticketMin,
+        ticket_max: ticketMax,
+        ticketMax,
+        deals,
+        raised,
+        stage,
+        wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
+        wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
     };
 }
 function sanitizeUserRows(rows) {
@@ -568,7 +638,7 @@ adminFreelancersRouter.get("/", async (req, res, next) => {
                 filters = {};
             }
         }
-        const where = { ...filters, role: "freelancer", deletedAt: null };
+        const where = { ...filters, role: { in: ["freelancer", "Freelancer"] }, deletedAt: null };
         if (search) {
             where.OR = ["fullName", "email", "country", "city", "bio"].map((col) => ({
                 [col]: { contains: search },
@@ -707,6 +777,10 @@ adminFreelancersRouter.put("/:id", async (req, res, next) => {
         if (Object.keys(profileData).length > 0) {
             await upsertFreelancerProfileCompat(req.params.id, profileData);
         }
+        const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+        if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+            await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+        }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },
             include: freelancerInclude,
@@ -749,7 +823,7 @@ adminClientsRouter.get("/", async (req, res, next) => {
                 filters = {};
             }
         }
-        const where = { ...filters, role: "client", deletedAt: null };
+        const where = { ...filters, role: { in: ["client", "Client", "Client / Business", "client_business", "business"] }, deletedAt: null };
         if (search) {
             where.OR = [
                 ...["fullName", "email", "country", "city", "bio"].map((col) => ({
@@ -767,7 +841,28 @@ adminClientsRouter.get("/", async (req, res, next) => {
             take: pageSize,
             orderBy: { [orderBy]: ascending ? "asc" : "desc" },
         });
-        res.json({ success: true, rows: sanitizeUserRows(rows), total });
+        const docSettings = await prisma.setting.findMany({
+            where: {
+                key: {
+                    in: rows.map((r) => `portal:${r.id}:documents`),
+                },
+            },
+        });
+        const docMap = new Map(docSettings.map((s) => {
+            const parts = s.key.split(":");
+            const userId = parts[1];
+            try {
+                return [userId, JSON.parse(s.value) || []];
+            }
+            catch {
+                return [userId, []];
+            }
+        }));
+        const sanitizedRows = sanitizeUserRows(rows).map((r) => ({
+            ...r,
+            documents: docMap.get(r.id) || [],
+        }));
+        res.json({ success: true, rows: sanitizedRows, total });
     }
     catch (err) {
         next(err);
@@ -776,12 +871,22 @@ adminClientsRouter.get("/", async (req, res, next) => {
 adminClientsRouter.get("/:id", async (req, res, next) => {
     try {
         const row = await prisma.user.findFirst({
-            where: { id: req.params.id, role: "client", deletedAt: null },
+            where: { id: req.params.id, role: { in: ["client", "Client", "Client / Business", "client_business", "business"] }, deletedAt: null },
             include: clientInclude,
         });
         if (!row)
             return res.status(404).json({ success: false, message: "Client not found" });
-        res.json({ success: true, data: sanitizeUserRecord(row) });
+        const docSetting = await prisma.setting.findUnique({
+            where: { key: `portal:${row.id}:documents` },
+        });
+        let documents = [];
+        if (docSetting) {
+            try {
+                documents = JSON.parse(docSetting.value) || [];
+            }
+            catch { }
+        }
+        res.json({ success: true, data: { ...sanitizeUserRecord(row), documents } });
     }
     catch (err) {
         next(err);
@@ -858,6 +963,10 @@ adminClientsRouter.put("/:id", async (req, res, next) => {
                 },
             });
         }
+        const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+        if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+            await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+        }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },
             include: clientInclude,
@@ -900,7 +1009,7 @@ adminInvestorsRouter.get("/", async (req, res, next) => {
                 filters = {};
             }
         }
-        const where = { ...filters, role: "investor", deletedAt: null };
+        const where = { ...filters, role: { in: ["investor", "Investor"] }, deletedAt: null };
         if (search) {
             where.OR = [
                 ...["fullName", "email", "country", "city", "bio"].map((col) => ({
@@ -927,7 +1036,7 @@ adminInvestorsRouter.get("/", async (req, res, next) => {
 adminInvestorsRouter.get("/:id", async (req, res, next) => {
     try {
         const row = await prisma.user.findFirst({
-            where: { id: req.params.id, role: "investor", deletedAt: null },
+            where: { id: req.params.id, role: { in: ["investor", "Investor"] }, deletedAt: null },
             include: investorInclude,
         });
         if (!row)
@@ -1009,6 +1118,10 @@ adminInvestorsRouter.put("/:id", async (req, res, next) => {
                 },
             });
         }
+        const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+        if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+            await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+        }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },
             include: investorInclude,
@@ -1051,7 +1164,7 @@ adminFoundersRouter.get("/", async (req, res, next) => {
                 filters = {};
             }
         }
-        const where = { ...filters, role: "founder", deletedAt: null };
+        const where = { ...filters, role: { in: ["founder", "Founder", "Startup Founder", "startup founder"] }, deletedAt: null };
         if (search) {
             where.OR = [
                 ...["fullName", "email", "country", "city", "bio"].map((col) => ({
@@ -1079,7 +1192,7 @@ adminFoundersRouter.get("/", async (req, res, next) => {
 adminFoundersRouter.get("/:id", async (req, res, next) => {
     try {
         const row = await prisma.user.findFirst({
-            where: { id: req.params.id, role: "founder", deletedAt: null },
+            where: { id: req.params.id, role: { in: ["founder", "Founder", "Startup Founder", "startup founder"] }, deletedAt: null },
             include: founderInclude,
         });
         if (!row)
@@ -1160,6 +1273,10 @@ adminFoundersRouter.put("/:id", async (req, res, next) => {
                     ...profileData,
                 },
             });
+        }
+        const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
+        if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
+            await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
         }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },

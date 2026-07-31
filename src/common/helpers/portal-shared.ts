@@ -287,7 +287,7 @@ export async function listUserNotifications(
       .map(([key, count]) => ({ key: `type:${key}`, label: titleCaseType(key), count })),
   ];
 
-  return { items, filters, filter, unreadCount, importantCount, total, page, pageSize };
+  return { data: items, items, filters, filter, unreadCount, importantCount, total, page, pageSize };
 }
 
 export async function markNotificationRead(userId: string, role: string, id: string) {
@@ -577,6 +577,27 @@ export async function createMessageForUser(
   user: PortalUser,
   { conversationId, content, title, recipientId }: { conversationId?: string; content: string; title?: string; recipientId?: string },
 ) {
+  const fullUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      subscriptions: {
+        where: { status: "active" },
+        select: { plan: { select: { name: true } } },
+        take: 1,
+      },
+      registrationData: true,
+    },
+  });
+
+  const activePlanName = fullUser?.subscriptions?.[0]?.plan?.name || (fullUser?.registrationData as any)?.subscriptionPlan || "90-Day Free Trial";
+  const isPaid = activePlanName && activePlanName !== "90-Day Free Trial" && !activePlanName.toLowerCase().includes("free");
+  if (!isPaid) {
+    throw new HttpError(
+      "Chat messaging is restricted to Premium Subscription members. Please upgrade your plan to start chatting.",
+      403
+    );
+  }
+
   const text = String(content || "").trim();
   if (!text) throw new HttpError("Message content is required");
 
@@ -691,9 +712,9 @@ export async function createMessageForUser(
     
     if (recipientId) {
       if (dbUser) {
-        const recipientIds = await getJsonSetting<string[]>(realRecipientId, CONVERSATIONS_SETTING_KEY, []);
+        const recipientIds = await getJsonSetting<string[]>(realRecipientId!, CONVERSATIONS_SETTING_KEY, []);
         if (!recipientIds.includes(convId)) {
-          await setJsonSetting(realRecipientId, CONVERSATIONS_SETTING_KEY, [...recipientIds, convId]);
+          await setJsonSetting(realRecipientId!, CONVERSATIONS_SETTING_KEY, [...recipientIds, convId]);
         }
         try {
           const { NotificationService } = await import("../../modules/notifications/notification.service.js");

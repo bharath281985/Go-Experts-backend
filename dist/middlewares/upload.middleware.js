@@ -4,15 +4,18 @@ import { UPLOADS_DIR, ensureUploadsDir } from "../config/uploads.js";
 ensureUploadsDir();
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
+        ensureUploadsDir();
         cb(null, UPLOADS_DIR);
     },
     filename: (_req, file, cb) => {
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+        const ext = path.extname(file.originalname).toLowerCase();
+        const safeName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
+        cb(null, `${safeName}-${uniqueSuffix}${ext}`);
     },
 });
 const ALLOWED_EXT = new Set([
-    ".jpeg", ".jpg", ".png", ".gif", ".webp",
+    ".jpeg", ".jpg", ".png", ".gif", ".webp", ".svg", ".ico", ".avif",
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
     ".zip", ".mp4", ".mov", ".avi",
 ]);
@@ -26,6 +29,6 @@ export const upload = multer({
         if (ALLOWED_EXT.has(ext)) {
             return cb(null, true);
         }
-        cb(new Error("File type not supported."));
+        cb(new Error(`File type '${ext}' not supported.`));
     },
 });

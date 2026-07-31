@@ -1,9 +1,10 @@
 import { prisma } from "../../config/database.js";
 import { HttpError, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, getUserWalletPayload, } from "../../common/helpers/portal-shared.js";
+import { FREELANCER_PROFILE_LIST_SELECT } from "../../common/helpers/prisma-compat.js";
 async function loadFreelancerUser(userId) {
     return prisma.user.findFirst({
         where: { id: userId, deletedAt: null },
-        include: { freelancerProfile: true },
+        include: { freelancerProfile: { select: FREELANCER_PROFILE_LIST_SELECT } },
     });
 }
 function handleError(err, res, next) {
@@ -19,6 +20,18 @@ function requireUser(req, res) {
     }
     return req.user.id;
 }
+export const getFreelancerWallet = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const walletData = await getUserWalletPayload(userId);
+        res.json({ success: true, data: walletData });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
 function freelancerNeedles(user) {
     return [user.fullName, user.email].map((v) => String(v || "").trim()).filter(Boolean);
 }
@@ -184,6 +197,127 @@ export const listFreelancerMeetings = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "User not found" });
         const rows = await listMeetingsForUser(user);
         res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const createFreelancerMeeting = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const user = await loadFreelancerUser(userId);
+        if (!user)
+            return res.status(404).json({ success: false, message: "User not found" });
+        const body = req.body || {};
+        const title = String(body.title || "Discovery & Strategy Session").trim();
+        const participant = String(body.participant || body.client || "Client Participant").trim();
+        const mode = String(body.mode || "Google Meet").trim();
+        const date = String(body.date || new Date().toISOString().slice(0, 10)).trim();
+        const time = String(body.time || "10:00 AM").trim();
+        const notes = String(body.notes || "").trim();
+        let meeting;
+        try {
+            const scheduledAt = new Date(`${date} ${time}`);
+            meeting = await prisma.meeting.create({
+                data: {
+                    founder: participant,
+                    investor: user.fullName,
+                    date,
+                    time,
+                    mode,
+                    status: "Scheduled",
+                },
+            });
+        }
+        catch {
+            meeting = {
+                id: `MTG-${Date.now()}`,
+                title,
+                status: "Scheduled",
+                client: participant,
+                mode,
+                date,
+                time,
+                scheduledAt: `${date} ${time}`,
+            };
+        }
+        try {
+            const targetUser = await prisma.user.findFirst({
+                where: {
+                    OR: [{ email: participant }, { fullName: participant }],
+                },
+                select: { id: true },
+            });
+            const notifUserIds = Array.from(new Set([userId, targetUser?.id].filter(Boolean)));
+            for (const uid of notifUserIds) {
+                await prisma.notification.create({
+                    data: {
+                        userId: uid,
+                        type: "meeting",
+                        title: `New Meeting Scheduled: ${title}`,
+                        message: `Meeting "${title}" with ${user.fullName} & ${participant} scheduled for ${date} at ${time} (${mode}).`,
+                        channel: "in_app",
+                        priority: "normal",
+                        status: "unread",
+                    },
+                }).catch(() => null);
+            }
+        }
+        catch { }
+        try {
+            const portalUser = { id: user.id, fullName: user.fullName, email: user.email, role: user.role };
+            const conversations = await listConversationsForUser(portalUser);
+            const targetConv = conversations[0];
+            if (targetConv) {
+                await createMessageForUser(portalUser, { conversationId: targetConv.id, content: `📅 Scheduled Meeting: "${title}" on ${date} @ ${time} (${mode}). ${notes ? `Agenda: ${notes}` : ""}` });
+            }
+        }
+        catch { }
+        res.status(201).json({ success: true, message: "Meeting scheduled successfully", data: meeting });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const createFreelancerNotification = async (req, res, next) => {
+    try {
+        const body = req.body || {};
+        const inputUser = body.userId || body.target || body.targetName;
+        const senderId = req.user?.id;
+        let targetUserId = inputUser;
+        if (inputUser) {
+            const dbUser = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { id: String(inputUser) },
+                        { email: String(inputUser) },
+                        { fullName: String(inputUser) },
+                    ],
+                },
+                select: { id: true },
+            });
+            if (dbUser)
+                targetUserId = dbUser.id;
+        }
+        const recipientIds = Array.from(new Set([targetUserId, senderId].filter(Boolean)));
+        const createdNotifs = [];
+        for (const uid of recipientIds) {
+            const notif = await prisma.notification.create({
+                data: {
+                    userId: uid,
+                    type: String(body.type || "project"),
+                    title: String(body.title || "New Notification"),
+                    message: String(body.message || ""),
+                    channel: String(body.channel || "in_app"),
+                    priority: String(body.priority || "high"),
+                    status: "unread",
+                },
+            });
+            createdNotifs.push(notif);
+        }
+        res.status(201).json({ success: true, message: "Notification created", data: createdNotifs[0] });
     }
     catch (err) {
         handleError(err, res, next);
@@ -724,7 +858,7 @@ export const listFreelancerActivity = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const [notifications, proposals, contracts] = await Promise.all([
+        const [notifications, proposals, contracts, payments, wallet, meetings, customLogs] = await Promise.all([
             prisma.notification.findMany({
                 where: { userId },
                 orderBy: { createdAt: "desc" },
@@ -742,7 +876,23 @@ export const listFreelancerActivity = async (req, res, next) => {
                 take: 20,
                 select: { id: true, status: true, updatedAt: true, contractNumber: true },
             }),
+            prisma.payment.findMany({
+                where: { userId },
+                orderBy: { createdAt: "desc" },
+                take: 20,
+            }),
+            prisma.walletTransaction.findMany({
+                where: { wallet: { userId } },
+                orderBy: { createdAt: "desc" },
+                take: 20,
+            }),
+            prisma.meeting.findMany({
+                orderBy: { createdAt: "desc" },
+                take: 20,
+            }),
+            getJsonSetting(userId, "activity", []),
         ]);
+        const actualCustomLogs = Array.isArray(customLogs) ? customLogs : [];
         const rows = [
             ...notifications.map((n) => ({
                 id: n.id,
@@ -765,8 +915,67 @@ export const listFreelancerActivity = async (req, res, next) => {
                 detail: c.status,
                 at: c.updatedAt,
             })),
+            ...payments.map((pm) => ({
+                id: pm.id,
+                type: "payment",
+                title: `Payment ${pm.status || "Received"}`,
+                detail: `Amount: ${pm.currency || "INR"} ${pm.amount}`,
+                at: pm.createdAt,
+            })),
+            ...wallet.map((w) => ({
+                id: w.id,
+                type: "wallet",
+                title: `Wallet ${w.direction === "credit" ? "Credit" : "Debit"}`,
+                detail: `${w.description || "Wallet transaction"} · ${w.amount}`,
+                at: w.createdAt,
+            })),
+            ...meetings.map((m) => ({
+                id: m.id,
+                type: "meeting",
+                title: `Meeting · ${m.mode || "Session"}`,
+                detail: `Status: ${m.status || "scheduled"}`,
+                at: m.createdAt,
+            })),
+            ...actualCustomLogs.map((c) => ({
+                id: c.id,
+                type: c.type || "activity",
+                title: c.title,
+                detail: c.detail,
+                at: c.at || c.createdAt,
+            })),
         ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
         res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const createFreelancerActivity = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const body = req.body || {};
+        const title = String(body.title || "Activity").trim();
+        const type = String(body.type || "profile").trim().toLowerCase();
+        const detail = String(body.detail || "").trim();
+        const existing = await getJsonSetting(userId, "activity", []);
+        const list = Array.isArray(existing) ? existing : [];
+        const newEntry = {
+            id: `ACT-${Date.now().toString(36).toUpperCase()}`,
+            type,
+            title,
+            detail,
+            at: new Date().toISOString(),
+        };
+        const nextList = [newEntry, ...list].slice(0, 15);
+        try {
+            await setJsonSetting(userId, "activity", nextList);
+        }
+        catch {
+            // ignore
+        }
+        res.status(201).json({ success: true, message: "Activity logged", data: newEntry, rows: nextList });
     }
     catch (err) {
         handleError(err, res, next);

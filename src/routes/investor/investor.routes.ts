@@ -32,6 +32,7 @@ import {
   purchaseInvestorSubscription,
   getInvestorSettings,
   updateInvestorSettings,
+  listAllFounders,
 } from "../../controllers/investor/investor.controller.js";
 
 const router = Router();
@@ -81,6 +82,8 @@ router.post("/subscription/purchase", purchaseInvestorSubscription as any);
 
 router.get("/settings", getInvestorSettings as any);
 router.patch("/settings", updateInvestorSettings as any);
+
+router.get("/all-founders", listAllFounders as any);
 
 router.post("/media/upload", upload.single("file"), uploadFile as any);
 

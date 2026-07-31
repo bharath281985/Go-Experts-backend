@@ -1,0 +1,48 @@
+import { Router } from 'express';
+import authRoutes from './auth/auth.routes.js';
+import publicRoutes from './public/public.routes.js';
+import appConfigRoutes from './app-config/app-config.routes.js';
+import systemRoutes from './system/system.routes.js';
+import clientRoutes from './client/client.routes.js';
+import freelancerRoutes from './freelancer/freelancer.routes.js';
+import investorRoutes from './investor/investor.routes.js';
+import founderRoutes from './founder/founder.routes.js';
+import notificationsRoutes from './notifications/notifications.routes.js';
+import messagesRoutes from './messages/messages.routes.js';
+import subscriptionsRoutes from './subscriptions/subscriptions.routes.js';
+import walletRoutes from './wallet/wallet.routes.js';
+import invoicesRoutes from './invoices/invoices.routes.js';
+import supportRoutes from './support/support.routes.js';
+import filesRoutes from './files/files.routes.js';
+import paymentsRoutes from './payments/payments.routes.js';
+import searchRoutes from './search/search.routes.js';
+import discoveryRoutes from './discovery/discovery.routes.js';
+import favoritesRoutes from './favorites/favorites.routes.js';
+import chatRoutes from './chat/chat.routes.js';
+import appRoutes from './app/app.routes.js';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/public', publicRoutes);
+router.use('/app-config', appConfigRoutes);
+router.use('/app', appRoutes);
+router.use('/system', systemRoutes);
+router.use('/client', clientRoutes);
+router.use('/freelancer', freelancerRoutes);
+router.use('/investor', investorRoutes);
+router.use('/founder', founderRoutes);
+router.use('/notifications', notificationsRoutes);
+router.use('/messages', messagesRoutes);
+router.use('/subscriptions', subscriptionsRoutes);
+router.use('/wallet', walletRoutes);
+router.use('/invoices', invoicesRoutes);
+router.use('/support', supportRoutes);
+router.use('/files', filesRoutes);
+router.use('/payments', paymentsRoutes);
+router.use('/search', searchRoutes);
+router.use('/discovery', discoveryRoutes);
+router.use('/favorites', favoritesRoutes);
+router.use('/chat', chatRoutes);
+
+export default router;

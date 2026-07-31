@@ -12,7 +12,13 @@ const app = express();
 ensureUploadsDir();
 
 // ==========================================
-// Security
+// 1. CORS Middleware (Must be FIRST to handle preflights)
+// ==========================================
+
+app.use(corsConfig);
+
+// ==========================================
+// 2. Security (Helmet)
 // ==========================================
 
 app.use(
@@ -20,8 +26,6 @@ app.use(
     crossOriginResourcePolicy: false,
   })
 );
-
-app.use(corsConfig);
 
 // ==========================================
 // Rate Limiter
@@ -116,6 +120,19 @@ app.get("/api/health", (req, res) => {
   res.json({
     success: true,
     status: "Healthy",
+    timestamp: new Date(),
+  });
+});
+
+app.get(["/api/v1/mobile/health", "/api/v1/mobile/welcome"], (req, res) => {
+  res.json({
+    success: true,
+    message: "Server is running normally",
+    data: {
+      service: "GoExperts Mobile API",
+      basePath: "/api/v1/mobile",
+      sampleRoute: "/api/v1/mobile/welcome",
+    },
     timestamp: new Date(),
   });
 });

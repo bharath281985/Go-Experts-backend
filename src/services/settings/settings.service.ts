@@ -53,6 +53,64 @@ export async function saveSettingsSection<T extends SettingsSection>(
   return { section, data };
 }
 
+export async function renderEmailTemplate(
+  templateId: string,
+  variables: Record<string, string>,
+  fallback: { subject: string; html: string }
+) {
+  try {
+    const section = await getSettingsSection("email_templates");
+    const templates: any[] = Array.isArray(section?.data) ? section.data : [];
+
+    const found = templates.find(
+      (t) =>
+        t.id === templateId ||
+        (t.id && String(t.id).toLowerCase() === templateId.toLowerCase())
+    );
+
+    let rawSubject = found?.subject || fallback.subject;
+    let rawHtml = found?.html || found?.body || fallback.html;
+
+    // Safety fallback if database template is corrupted or wrong template matched
+    if (
+      templateId === "tpl_verification_link" &&
+      (!rawHtml.includes("verification_link") && !rawHtml.includes("otp_code"))
+    ) {
+      rawSubject = fallback.subject;
+      rawHtml = fallback.html;
+    }
+
+    const allVars: Record<string, string> = {
+      app_name: "Go Experts",
+      company_name: "Go Experts Inc.",
+      app_url: process.env.CLIENT_URL || process.env.FRONTEND_URL || "https://goexperts.in",
+      ...variables,
+    };
+
+    let subject = rawSubject;
+    let html = rawHtml;
+
+    for (const [k, v] of Object.entries(allVars)) {
+      const regBraces = new RegExp(`\\{\\{${k}\\}\\}`, "gi");
+      const regSingle = new RegExp(`\\{${k}\\}`, "gi");
+      subject = subject.replace(regBraces, v).replace(regSingle, v);
+      html = html.replace(regBraces, v).replace(regSingle, v);
+    }
+
+    return { subject, html };
+  } catch {
+    let subject = fallback.subject;
+    let html = fallback.html;
+    for (const [k, v] of Object.entries(variables)) {
+      const regBraces = new RegExp(`\\{\\{${k}\\}\\}`, "gi");
+      const regSingle = new RegExp(`\\{${k}\\}`, "gi");
+      subject = subject.replace(regBraces, v).replace(regSingle, v);
+      html = html.replace(regBraces, v).replace(regSingle, v);
+    }
+    return { subject, html };
+  }
+}
+
 export async function getTeamRoles() {
   try {
     const roles = await prisma.role.findMany({

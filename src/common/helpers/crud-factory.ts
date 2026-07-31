@@ -124,10 +124,35 @@ export function createCrudRouter(
     }
   });
 
+function sanitizeModelData(modelName: string, data: any) {
+  if (!data || typeof data !== "object") return {};
+
+  const dmmfModels = (prisma as any)._dmmf?.modelMap || (prisma as any)._runtimeDataModel?.models || {};
+  const modelFields: any[] = dmmfModels[modelName]?.fields || [];
+
+  const { id, createdAt, updatedAt, ...cleanData } = data;
+
+  if (modelFields.length > 0) {
+    const validFieldNames = new Set(modelFields.map((f: any) => f.name));
+    const sanitized: any = {};
+    for (const key of Object.keys(cleanData)) {
+      if (validFieldNames.has(key)) {
+        sanitized[key] = cleanData[key];
+      }
+    }
+    return sanitized;
+  }
+
+  // Fallback: strip known UI properties that are not schema columns
+  const { code, verification, category, user, plan, invoice, relatedUser, relatedPlan, ...fallbackData } = cleanData;
+  return fallbackData;
+}
+
   // 5. CREATE
   router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const row = await db.create({ data: req.body });
+      const sanitized = sanitizeModelData(String(modelName), req.body);
+      const row = await db.create({ data: sanitized });
       res.status(201).json({ success: true, data: row });
     } catch (err) {
       next(err);
@@ -137,9 +162,10 @@ export function createCrudRouter(
   // 6. UPDATE
   router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
+      const sanitized = sanitizeModelData(String(modelName), req.body);
       const row = await db.update({
         where: { id: req.params.id },
-        data: req.body,
+        data: sanitized,
       });
       res.json({ success: true, data: row });
     } catch (err) {

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
-import { createBackupSettings, deleteBackupSettings, getApiKeysSettings, getAuditTrailsSettings, getBackupsSettings, getBrandingSettings, getEmailSettings, getEnvironmentSettings, getGeneralSettings, getPaymentsSettings, getRolesSettings, getSecuritySettings, getSmsSettings, getSystemLogsSettings, getWhatsappSettings, saveBrandingSettings, saveEmailSettings, saveEnvironmentSettings, saveGeneralSettings, savePaymentsSettings, saveSecuritySettings, saveSmsSettings, saveWhatsappSettings, testIntegrationConnection, } from "../../controllers/settings/settings.controller.js";
+import { createBackupSettings, deleteBackupSettings, getApiKeysSettings, saveApiKeysSettings, getAppsSettings, saveAppsSettings, getAuditTrailsSettings, getBackupsSettings, getBrandingSettings, getCountrySettings, getCurrencySettings, getEmailSettings, getEnvironmentSettings, getGeneralSettings, getGoogleMapsSettings, getPaymentsSettings, getRolesSettings, getSecuritySettings, getSmsSettings, getSystemLogsSettings, getWhatsappSettings, saveBrandingSettings, saveCountrySettings, saveCurrencySettings, saveEmailSettings, saveEnvironmentSettings, saveGeneralSettings, saveGoogleMapsSettings, savePaymentsSettings, saveSecuritySettings, saveSmsSettings, saveWhatsappSettings, sendTestEmailHandler, testIntegrationConnection, getEmailTemplates, saveEmailTemplate, deleteEmailTemplate, } from "../../controllers/settings/settings.controller.js";
 const router = Router();
 router.use(authMiddleware);
 // General Workspace
@@ -9,10 +9,23 @@ router.put("/general", saveGeneralSettings);
 // Branding
 router.get("/branding", getBrandingSettings);
 router.put("/branding", saveBrandingSettings);
-// Email SMTP
+// Country Settings
+router.get("/country", getCountrySettings);
+router.put("/country", saveCountrySettings);
+// Currency Settings
+router.get("/currency", getCurrencySettings);
+router.put("/currency", saveCurrencySettings);
+// Google Maps Settings
+router.get("/google-maps", getGoogleMapsSettings);
+router.put("/google-maps", saveGoogleMapsSettings);
+// Email SMTP Settings & Templates
 router.get("/email", getEmailSettings);
 router.put("/email", saveEmailSettings);
-router.post("/email/test", testIntegrationConnection);
+router.post("/email/test", sendTestEmailHandler);
+router.get("/email/templates", getEmailTemplates);
+router.post("/email/templates", saveEmailTemplate);
+router.put("/email/templates", saveEmailTemplate);
+router.delete("/email/templates/:id", deleteEmailTemplate);
 // SMS Gateway
 router.get("/sms", getSmsSettings);
 router.put("/sms", saveSmsSettings);
@@ -32,6 +45,10 @@ router.put("/security", saveSecuritySettings);
 router.get("/roles", getRolesSettings);
 // API Keys
 router.get("/api-keys", getApiKeysSettings);
+router.put("/api-keys", saveApiKeysSettings);
+// Connected Apps
+router.get("/apps", getAppsSettings);
+router.put("/apps", saveAppsSettings);
 // Environment Config
 router.get("/environment", getEnvironmentSettings);
 router.put("/environment", saveEnvironmentSettings);

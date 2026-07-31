@@ -325,6 +325,39 @@ export const createInvestorInvestment = async (req: AuthenticatedRequest, res: R
       },
     });
 
+    const founderName = String(body.founderName || "").trim();
+    if (founderName) {
+      try {
+        const founderUser = await prisma.user.findFirst({ where: { fullName: founderName, deletedAt: null } });
+        if (founderUser) {
+          const { NotificationService } = await import("../../modules/notifications/notification.service.js");
+          
+          // 1) Send in-app notification
+          await NotificationService.enqueue({
+            userId: founderUser.id,
+            role: founderUser.role,
+            type: "investment",
+            title: `New Investment Interest`,
+            message: `${user.fullName} has expressed interest in ${startup} (Offer: $${offer}, Equity: ${equity}%).`,
+            channel: "in_app",
+            metadata: { investmentId: investment.id }
+          });
+
+          // 2) Send chat message
+          await createMessageForUser(
+            { id: user.id, fullName: user.fullName, email: user.email, role: user.role || "investor" },
+            {
+              title: `Investment Interest: ${startup}`,
+              content: `Hi ${founderUser.fullName}, I have expressed interest in ${startup}. I'm open to discussing an offer of $${offer} for ${equity}% equity. Looking forward to connecting!`,
+              recipientId: founderUser.id
+            }
+          );
+        }
+      } catch (notifErr) {
+        console.error("Failed to trigger investment notification and message actions:", notifErr);
+      }
+    }
+
     res.status(201).json({ success: true, message: "Investment offer created", data: investment });
   } catch (err) {
     handleError(err, res, next);
@@ -540,7 +573,17 @@ export const listInvestorNotifications = async (req: AuthenticatedRequest, res: 
     const userId = requireUser(req, res);
     if (!userId) return;
     const data = await listUserNotifications(userId, "investor", req.query as Record<string, unknown>);
-    res.json({ success: true, data });
+    res.json({
+      success: true,
+      data: data.items,
+      items: data.items,
+      filters: data.filters,
+      unreadCount: data.unreadCount,
+      importantCount: data.importantCount,
+      total: data.total,
+      page: data.page,
+      pageSize: data.pageSize,
+    });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -671,3 +714,27 @@ export const updateInvestorSettings = async (req: AuthenticatedRequest, res: Res
     handleError(err, res, next);
   }
 };
+
+export const listAllFounders = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+
+    const users = await prisma.user.findMany({
+      where: { role: { in: ["founder", "Founder"] }, deletedAt: null },
+      include: { founderProfile: true },
+    });
+
+    const rows = users.map((u) => ({
+      name: u.fullName,
+      userId: u.id,
+      email: u.email,
+      firm: u.founderProfile?.startupName || null,
+    }));
+
+    res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+

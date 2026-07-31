@@ -10,12 +10,15 @@ import apiRoutes from "./routes/index.js";
 const app = express();
 ensureUploadsDir();
 // ==========================================
-// Security
+// 1. CORS Middleware (Must be FIRST to handle preflights)
+// ==========================================
+app.use(corsConfig);
+// ==========================================
+// 2. Security (Helmet)
 // ==========================================
 app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
-app.use(corsConfig);
 // ==========================================
 // Rate Limiter
 // ==========================================
@@ -46,6 +49,16 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // Static Uploads
 // ==========================================
 app.use("/uploads", express.static(UPLOADS_DIR));
+app.use("/uploads", (req, res) => {
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.status(200).send(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+      <rect width="100%" height="100%" fill="#e2e8f0"/>
+      <circle cx="50" cy="40" r="20" fill="#94a3b8"/>
+      <path d="M20,80 C20,60 80,60 80,80" fill="#94a3b8"/>
+    </svg>
+  `);
+});
 // ==========================================
 // Root Endpoint
 // ==========================================
@@ -84,6 +97,18 @@ app.get("/api/health", (req, res) => {
     res.json({
         success: true,
         status: "Healthy",
+        timestamp: new Date(),
+    });
+});
+app.get(["/api/v1/mobile/health", "/api/v1/mobile/welcome"], (req, res) => {
+    res.json({
+        success: true,
+        message: "Server is running normally",
+        data: {
+            service: "GoExperts Mobile API",
+            basePath: "/api/v1/mobile",
+            sampleRoute: "/api/v1/mobile/welcome",
+        },
         timestamp: new Date(),
     });
 });

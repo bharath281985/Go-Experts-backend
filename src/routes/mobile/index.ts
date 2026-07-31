@@ -1,0 +1,46 @@
+import { Router } from 'express';
+import authRoutes from './auth.routes.js';
+import publicRoutes from './public.routes.js';
+import appConfigRoutes from './app-config.routes.js';
+import systemRoutes from './system.routes.js';
+import clientRoutes from './client.routes.js';
+import freelancerRoutes from './freelancer.routes.js';
+import investorRoutes from './investor.routes.js';
+import founderRoutes from './founder.routes.js';
+import notificationsRoutes from './notifications.routes.js';
+import messagesRoutes from './messages.routes.js';
+import subscriptionsRoutes from './subscriptions.routes.js';
+import walletRoutes from './wallet.routes.js';
+import invoicesRoutes from './invoices.routes.js';
+import supportRoutes from './support.routes.js';
+import filesRoutes from './files.routes.js';
+import paymentsRoutes from './payments.routes.js';
+import searchRoutes from './search.routes.js';
+import discoveryRoutes from './discovery.routes.js';
+import favoritesRoutes from './favorites.routes.js';
+import chatRoutes from './chat.routes.js';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/public', publicRoutes);
+router.use('/app', appConfigRoutes);
+router.use('/system', systemRoutes);
+router.use('/client', clientRoutes);
+router.use('/freelancer', freelancerRoutes);
+router.use('/investor', investorRoutes);
+router.use('/founder', founderRoutes);
+router.use('/notifications', notificationsRoutes);
+router.use('/messages', messagesRoutes);
+router.use('/subscriptions', subscriptionsRoutes);
+router.use('/wallet', walletRoutes);
+router.use('/invoices', invoicesRoutes);
+router.use('/support', supportRoutes);
+router.use('/files', filesRoutes);
+router.use('/payments', paymentsRoutes);
+router.use('/search', searchRoutes);
+router.use('/discovery', discoveryRoutes);
+router.use('/favorites', favoritesRoutes);
+router.use('/chat', chatRoutes);
+
+export default router;

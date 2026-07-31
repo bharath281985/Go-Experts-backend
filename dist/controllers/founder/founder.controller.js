@@ -423,6 +423,28 @@ export const listFounderInvestors = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+export const listAllInvestors = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        // Fetch all users exactly as the Admin Panel does
+        const users = await prisma.user.findMany({
+            where: { role: { in: ["investor", "Investor"] }, deletedAt: null },
+            include: { investorProfile: true },
+        });
+        const rows = users.map((u) => ({
+            name: u.fullName,
+            userId: u.id,
+            email: u.email,
+            firm: u.investorProfile?.firm || null,
+        }));
+        res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
 // ==========================================
 // TEAM / DOCUMENTS / MILESTONES (settings-backed JSON)
 // ==========================================
@@ -463,6 +485,28 @@ export const addFounderTeamMember = async (req, res, next) => {
             create: { userId, teamSize: next.length + 1 },
         });
         res.status(201).json({ success: true, message: "Team member added", data: member, rows: next });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const deleteFounderTeamMember = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        if (!id)
+            return res.status(400).json({ success: false, message: "id is required" });
+        const rows = await getJsonSetting(userId, "team", []);
+        const nextRows = rows.filter((r) => r.id !== id);
+        await setJsonSetting(userId, "team", nextRows);
+        await prisma.founderProfile.upsert({
+            where: { userId },
+            update: { teamSize: nextRows.length + 1 },
+            create: { userId, teamSize: nextRows.length + 1 },
+        });
+        res.json({ success: true, message: "Team member removed", rows: nextRows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -555,6 +599,23 @@ export const updateFounderMilestone = async (req, res, next) => {
         rows[idx] = { ...rows[idx], ...body, id: rows[idx].id };
         await setJsonSetting(userId, "milestones", rows);
         res.json({ success: true, message: "Milestone updated", data: rows[idx], rows });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const deleteFounderMilestone = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const rows = await getJsonSetting(userId, "milestones", []);
+        const idx = rows.findIndex((m) => m.id === req.params.id);
+        if (idx < 0)
+            return res.status(404).json({ success: false, message: "Milestone not found" });
+        rows.splice(idx, 1);
+        await setJsonSetting(userId, "milestones", rows);
+        res.json({ success: true, message: "Milestone deleted", rows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -772,7 +833,17 @@ export const listFounderNotifications = async (req, res, next) => {
         if (!userId)
             return;
         const data = await listUserNotifications(userId, "founder", req.query);
-        res.json({ success: true, data });
+        res.json({
+            success: true,
+            data: data.items,
+            items: data.items,
+            filters: data.filters,
+            unreadCount: data.unreadCount,
+            importantCount: data.importantCount,
+            total: data.total,
+            page: data.page,
+            pageSize: data.pageSize,
+        });
     }
     catch (err) {
         handleError(err, res, next);

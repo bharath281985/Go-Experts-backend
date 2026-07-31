@@ -6,6 +6,8 @@ export function isMissingColumnError(err: unknown, column?: string) {
   const missingColumn =
     /Unknown column/i.test(message) ||
     /column .* does not exist/i.test(message) ||
+    /Database is missing field/i.test(message) ||
+    /missing field/i.test(message) ||
     (err as { code?: string })?.code === "P2022";
 
   if (!missingColumn) return false;
@@ -20,7 +22,9 @@ export function isSchemaDriftError(err: unknown) {
   return (
     isMissingColumnError(err) ||
     code === "P2021" ||
+    code === "P2022" ||
     /does not exist in the current database/i.test(message) ||
+    /Database is missing field/i.test(message) ||
     /Unknown table/i.test(message) ||
     /Table [`'"].*[`'"] doesn't exist/i.test(message)
   );
@@ -97,13 +101,25 @@ export async function listSkillsCompat(
     if (search) where.OR = [{ name: { contains: search } }];
     if (industry) where.industry = industry;
 
-    const total = await prisma.skill.count({ where });
-    const rows = await prisma.skill.findMany({
+    let total = await prisma.skill.count({ where });
+    let rows = await prisma.skill.findMany({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { createdAt: "desc" },
     });
+
+    if (rows.length === 0 && industry) {
+      const fallbackWhere: Prisma.SkillWhereInput = {};
+      if (search) fallbackWhere.OR = [{ name: { contains: search } }];
+      total = await prisma.skill.count({ where: fallbackWhere });
+      rows = await prisma.skill.findMany({
+        where: fallbackWhere,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     return { rows, total, degraded: false };
   } catch (err) {

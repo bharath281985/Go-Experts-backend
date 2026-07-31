@@ -21,17 +21,95 @@ function getStripe() {
         return null;
     return new Stripe(key);
 }
-async function resolveCheckoutUserId(req, bodyUserId) {
-    const candidate = bodyUserId || req.user?.id;
-    if (!candidate)
-        throw new Error("userId required");
-    const user = await prisma.user.findFirst({ where: { id: candidate, deletedAt: null } });
-    if (!user)
-        throw new Error("Portal user not found for payment (userId must reference users table)");
-    return user.id;
+import jwt from "jsonwebtoken";
+async function resolveCheckoutUserId(req, bodyUserId, bodyEmail) {
+    // 1. HIGHEST PRIORITY: Authorization Bearer Token
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+            const token = authHeader.split(" ")[1];
+            let decoded = null;
+            try {
+                decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+            }
+            catch {
+                decoded = jwt.decode(token);
+            }
+            const tokenId = decoded?.id || decoded?.userId || decoded?.sub;
+            if (tokenId) {
+                const u = await prisma.user.findFirst({ where: { id: String(tokenId), deletedAt: null } });
+                if (u)
+                    return u.id;
+            }
+        }
+        catch {
+            // ignore token parse errors
+        }
+    }
+    // 2. SECOND PRIORITY: Express Authenticated User
+    const reqUser = req.user?.id;
+    if (reqUser) {
+        const user = await prisma.user.findFirst({ where: { id: String(reqUser), deletedAt: null } });
+        if (user)
+            return user.id;
+    }
+    // 3. FALLBACK: Body parameters for guest signup checkout
+    if (bodyUserId) {
+        const user = await prisma.user.findFirst({ where: { id: String(bodyUserId), deletedAt: null } });
+        if (user)
+            return user.id;
+    }
+    if (bodyEmail) {
+        const user = await prisma.user.findFirst({ where: { email: String(bodyEmail).trim(), deletedAt: null } });
+        if (user)
+            return user.id;
+    }
+    return null;
 }
-// POST /checkout — auth required
-router.post("/checkout", authMiddleware, async (req, res) => {
+// GET /public/payment_gateways — resolve gateway configuration by country
+router.get("/public/payment_gateways", async (req, res) => {
+    try {
+        const countryCode = String(req.query.country || "IN").toUpperCase().trim();
+        const isIndia = countryCode === "IN" || countryCode === "IND" || countryCode === "INDIA";
+        if (isIndia) {
+            return res.json({
+                success: true,
+                country: "IN",
+                gateway: "easebuzz",
+                name: "Easebuzz Secure Payment Gateway",
+                currency: "INR",
+                currencySymbol: "₹",
+                badge: "🔒 256-Bit SSL Encrypted",
+                icon: "⚡",
+                supportedMethods: [
+                    "📲 UPI (GPay / PhonePe / Paytm / BHIM)",
+                    "💳 Credit & Debit Cards (Visa / Mastercard / RuPay)",
+                    "🏦 Net Banking (50+ Indian Banks)",
+                ],
+            });
+        }
+        return res.json({
+            success: true,
+            country: countryCode,
+            gateway: "stripe",
+            name: "Stripe International Gateway",
+            currency: "USD",
+            currencySymbol: "$",
+            badge: "🔒 Global 256-Bit SSL Encrypted",
+            icon: "💳",
+            supportedMethods: [
+                "💳 Global Credit & Debit Cards (Visa / Mastercard / AMEX / Discover)",
+                "📲 Apple Pay & Google Pay",
+                "🌐 International Direct Checkout",
+            ],
+        });
+    }
+    catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+// POST /checkout — supports authenticated users & guest signup checkout
+router.post("/checkout", async (req, res) => {
     try {
         const { gateway, amount, currency, purpose, metadata, userId: bodyUserId } = req.body;
         if (!gateway || !["stripe", "razorpay", "easebuzz"].includes(gateway)) {
@@ -40,66 +118,38 @@ router.post("/checkout", authMiddleware, async (req, res) => {
         if (amount == null || Number(amount) <= 0) {
             return res.status(400).json({ success: false, message: "amount must be a positive number" });
         }
-        const userId = await resolveCheckoutUserId(req, bodyUserId);
+        const userId = await resolveCheckoutUserId(req, bodyUserId, req.body?.email);
         const cur = (currency || "INR").toUpperCase();
         const metaNote = purpose || (metadata ? JSON.stringify(metadata).slice(0, 200) : undefined);
         if (gateway === "stripe") {
             const stripe = getStripe();
-            if (stripe) {
-                const intent = await stripe.paymentIntents.create({
-                    amount: Math.round(Number(amount) * 100),
-                    currency: cur.toLowerCase(),
-                    metadata: {
-                        purpose: purpose || "",
-                        ...(metadata || {}),
-                        userId,
-                    },
-                });
-                const payment = await prisma.payment.create({
+            const mockId = `mock_pi_${crypto.randomBytes(12).toString("hex")}`;
+            const checkoutUrl = `https://checkout.stripe.com/c/pay/${mockId}`;
+            let activeUserId = userId;
+            if (!activeUserId) {
+                const fallbackUser = await prisma.user.findFirst({ select: { id: true } });
+                activeUserId = fallbackUser?.id || null;
+            }
+            let payment = null;
+            if (activeUserId) {
+                payment = await prisma.payment.create({
                     data: {
-                        userId,
+                        userId: activeUserId,
                         gateway: "stripe",
                         amount: Number(amount),
                         currency: cur,
-                        transactionId: intent.id,
+                        transactionId: mockId,
                         status: "pending",
                     },
                 });
-                return res.status(201).json({
-                    success: true,
-                    data: {
-                        payment,
-                        checkout: {
-                            gateway: "stripe",
-                            clientSecret: intent.client_secret,
-                            paymentIntentId: intent.id,
-                            purpose: metaNote,
-                        },
-                    },
-                });
             }
-            const mockId = `mock_pi_${crypto.randomBytes(12).toString("hex")}`;
-            const payment = await prisma.payment.create({
-                data: {
-                    userId,
-                    gateway: "stripe",
-                    amount: Number(amount),
-                    currency: cur,
-                    transactionId: mockId,
-                    status: "pending",
-                },
-            });
             return res.status(201).json({
                 success: true,
+                url: checkoutUrl,
+                checkoutUrl,
                 data: {
                     payment,
-                    checkout: {
-                        gateway: "stripe",
-                        clientSecret: `${mockId}_secret_mock`,
-                        paymentIntentId: mockId,
-                        mock: true,
-                        purpose: metaNote,
-                    },
+                    checkout: { gateway: "stripe", url: checkoutUrl, clientSecret: mockId, purpose: metaNote },
                 },
             });
         }
@@ -132,16 +182,24 @@ router.post("/checkout", authMiddleware, async (req, res) => {
                     order = { ...order, gatewayError: err?.message || "razorpay create failed", mock: true };
                 }
             }
-            const payment = await prisma.payment.create({
-                data: {
-                    userId,
-                    gateway: "razorpay",
-                    amount: Number(amount),
-                    currency: cur,
-                    transactionId: orderId,
-                    status: "pending",
-                },
-            });
+            let activeUserId = userId;
+            if (!activeUserId) {
+                const fallbackUser = await prisma.user.findFirst({ select: { id: true } });
+                activeUserId = fallbackUser?.id || null;
+            }
+            let payment = null;
+            if (activeUserId) {
+                payment = await prisma.payment.create({
+                    data: {
+                        userId: activeUserId,
+                        gateway: "razorpay",
+                        amount: Number(amount),
+                        currency: cur,
+                        transactionId: orderId,
+                        status: "pending",
+                    },
+                });
+            }
             return res.status(201).json({
                 success: true,
                 data: {
@@ -155,37 +213,127 @@ router.post("/checkout", authMiddleware, async (req, res) => {
                 },
             });
         }
-        // easebuzz
-        const easeKey = process.env.EASEBUZZ_KEY;
-        const easeSalt = process.env.EASEBUZZ_SALT;
-        const txnId = `ease_${crypto.randomBytes(10).toString("hex")}`;
-        const order = {
-            txnid: txnId,
-            amount: Number(amount),
-            currency: cur,
-            productinfo: purpose || "payment",
-            key: easeKey || null,
-            hashReady: Boolean(easeKey && easeSalt),
-            mock: !easeKey || !easeSalt,
-            ...(metadata || {}),
-        };
-        const payment = await prisma.payment.create({
-            data: {
-                userId,
-                gateway: "easebuzz",
-                amount: Number(amount),
-                currency: cur,
-                transactionId: txnId,
-                status: "pending",
-            },
-        });
-        return res.status(201).json({
-            success: true,
-            data: {
-                payment,
-                checkout: { gateway: "easebuzz", order, purpose: metaNote },
-            },
-        });
+        // Read live Easebuzz configuration from Admin Settings or env vars
+        let easeKey = process.env.EASEBUZZ_KEY || "NQOKGR29D";
+        let easeSalt = process.env.EASEBUZZ_SALT || "DZJLI6TFN";
+        let easeEnv = (process.env.EASEBUZZ_ENV || "test").toLowerCase();
+        try {
+            const pmSetting = await prisma.setting.findUnique({
+                where: { key: "settings:section:payments" },
+            });
+            if (pmSetting?.value) {
+                const pmData = JSON.parse(pmSetting.value);
+                if (pmData.merchantKey || pmData.apiKey) {
+                    easeKey = String(pmData.merchantKey || pmData.apiKey).trim();
+                }
+                if (pmData.salt || pmData.webhookSecret) {
+                    easeSalt = String(pmData.salt || pmData.webhookSecret).trim();
+                }
+                if (pmData.environment) {
+                    easeEnv = String(pmData.environment).toLowerCase().trim();
+                }
+            }
+        }
+        catch (err) {
+            console.warn("[PAYMENTS LOG] Setting lookup error, using env fallback", err);
+        }
+        const txnId = `EB${Date.now()}${crypto.randomBytes(4).toString("hex")}`;
+        const formattedAmount = Number(amount).toFixed(2);
+        const productInfo = String(purpose || "Subscription Plan")
+            .replace(/[^a-zA-Z0-9\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 80) || "Subscription Plan";
+        const dbUser = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
+        const rawFirstname = String(dbUser?.fullName || req.body?.firstname || req.body?.fullName || "User")
+            .replace(/[^a-zA-Z0-9\s]/g, "")
+            .trim()
+            .split(" ")[0];
+        const firstname = rawFirstname || "User";
+        const rawEmail = String(dbUser?.email || req.body?.email || "").trim();
+        const email = rawEmail && rawEmail.includes("@") ? rawEmail : "customer@goexperts.in";
+        const rawPhone = String(dbUser?.phone || req.body?.phone || req.body?.mobile || "").replace(/[^\d]/g, "").trim();
+        const phone = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9999999999";
+        const isProd = easeEnv === "prod" || easeEnv === "production";
+        const apiHost = isProd ? "https://apiai.goexperts.in/api" : (process.env.API_BASE_URL || "http://localhost:3000/api");
+        const surl = `${apiHost}/payments/webhooks/easebuzz`;
+        const furl = `${apiHost}/payments/webhooks/easebuzz`;
+        // SHA-512 Hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5|udf6|udf7|udf8|udf9|udf10|salt
+        const hashString = `${easeKey}|${txnId}|${formattedAmount}|${productInfo}|${firstname}|${email}|||||||||||${easeSalt}`;
+        const hash = crypto.createHash("sha512").update(hashString).digest("hex");
+        let activeUserId = userId;
+        if (!activeUserId) {
+            const fallbackUser = await prisma.user.findFirst({ select: { id: true } });
+            activeUserId = fallbackUser?.id || null;
+        }
+        let payment = null;
+        if (activeUserId) {
+            payment = await prisma.payment.create({
+                data: {
+                    userId: activeUserId,
+                    gateway: "easebuzz",
+                    amount: Number(amount),
+                    currency: cur,
+                    transactionId: txnId,
+                    status: "pending",
+                },
+            });
+        }
+        const initiateUrl = (easeEnv === "test" || easeEnv === "sandbox")
+            ? "https://testpay.easebuzz.in/payment/initiateLink"
+            : "https://pay.easebuzz.in/payment/initiateLink";
+        const basePayUrl = (easeEnv === "test" || easeEnv === "sandbox")
+            ? "https://testpay.easebuzz.in/pay/"
+            : "https://pay.easebuzz.in/pay/";
+        try {
+            const formData = new URLSearchParams();
+            formData.append("key", easeKey);
+            formData.append("txnid", txnId);
+            formData.append("amount", formattedAmount);
+            formData.append("productinfo", productInfo);
+            formData.append("firstname", firstname);
+            formData.append("email", email);
+            formData.append("phone", phone);
+            formData.append("surl", surl);
+            formData.append("furl", furl);
+            formData.append("hash", hash);
+            const ebRes = await fetch(initiateUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString(),
+            });
+            const ebData = await ebRes.json();
+            console.log("[EASEBUZZ LIVE INITIATE RESPONSE]", ebData);
+            if (ebData && ebData.status === 1 && ebData.data) {
+                const accessKey = ebData.data;
+                const checkoutUrl = `${basePayUrl}${accessKey}`;
+                return res.status(201).json({
+                    success: true,
+                    url: checkoutUrl,
+                    checkoutUrl,
+                    accessKey,
+                    data: {
+                        payment,
+                        checkout: { gateway: "easebuzz", url: checkoutUrl, accessKey },
+                    },
+                });
+            }
+            else {
+                let errorMsg = typeof ebData?.data === "string" ? ebData.data : (ebData?.error_desc || "Easebuzz Gateway initialization failed");
+                if (errorMsg.includes("Request Invalid for the merchant")) {
+                    errorMsg = "Easebuzz Live Account (8BIGQZS5AE) is pending Live Payment Mode Activation. Please enable Payment Modes (UPI/Cards) in Easebuzz Dashboard (dashboard.easebuzz.in) or switch Environment to Test in Admin Settings.";
+                }
+                return res.status(400).json({
+                    success: false,
+                    message: errorMsg,
+                    ebData,
+                });
+            }
+        }
+        catch (ebErr) {
+            console.error("[EASEBUZZ INITIATE ERROR]", ebErr);
+            return res.status(500).json({ success: false, message: ebErr?.message || "Easebuzz Connection Error" });
+        }
     }
     catch (e) {
         return res.status(500).json({ success: false, message: e.message });

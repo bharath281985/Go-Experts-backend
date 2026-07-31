@@ -4,13 +4,11 @@ import { env } from "../config/env.js";
 import { prisma } from "../config/database.js";
 
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    type?: "admin" | "portal";
-  };
+  user?: any;
 }
+
+export type AuthRequest = AuthenticatedRequest;
+
 
 export const authMiddleware = async (
   req: AuthenticatedRequest,

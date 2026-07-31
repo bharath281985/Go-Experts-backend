@@ -243,11 +243,12 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
       const scheduledAt = new Date(`${date} ${time}`);
       meeting = await prisma.meeting.create({
         data: {
-          title,
           founder: participant,
           investor: user.fullName,
+          date,
+          time,
+          mode,
           status: "Scheduled",
-          scheduledAt: Number.isNaN(scheduledAt.getTime()) ? new Date() : scheduledAt,
         },
       });
     } catch {
@@ -295,8 +296,7 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
       if (targetConv) {
         await createMessageForUser(
           portalUser,
-          targetConv.id,
-          `📅 Scheduled Meeting: "${title}" on ${date} @ ${time} (${mode}). ${notes ? `Agenda: ${notes}` : ""}`
+          { conversationId: targetConv.id, content: `📅 Scheduled Meeting: "${title}" on ${date} @ ${time} (${mode}). ${notes ? `Agenda: ${notes}` : ""}` }
         );
       }
     } catch {}
@@ -963,7 +963,7 @@ export const listFreelancerActivity = async (req: AuthenticatedRequest, res: Res
       ...meetings.map((m) => ({
         id: m.id,
         type: "meeting",
-        title: `Meeting · ${m.title || "Session"}`,
+        title: `Meeting · ${m.mode || "Session"}`,
         detail: `Status: ${m.status || "scheduled"}`,
         at: m.createdAt,
       })),

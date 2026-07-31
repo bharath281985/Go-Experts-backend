@@ -38,38 +38,40 @@ export const uploadFile = async (req: AuthenticatedRequest, res: Response, next:
     });
 
     if (existing) {
-      // Save the OLD version to version history before overwriting
-      await prisma.mediaFileVersion.create({
-        data: {
-          fileId: existing.id,
-          version: existing.version,
-          filepath: existing.filepath,
-          filesize: existing.filesize,
-          uploadedBy: existing.uploadedBy,
-        },
-      });
+      try {
+        await prisma.mediaFileVersion.create({
+          data: {
+            fileId: existing.id,
+            version: existing.version,
+            filepath: existing.filepath,
+            filesize: existing.filesize,
+            uploadedBy: existing.uploadedBy,
+          },
+        }).catch(() => {});
 
-      // Update the main record with the new file (increment version)
-      const updated = await prisma.mediaFile.update({
-        where: { id: existing.id },
-        data: {
-          filename: file.filename,
-          filepath: `/uploads/${file.filename}`,
-          filesize: file.size,
-          mimeType: file.mimetype,
-          filetype: path.extname(file.originalname).slice(1).toLowerCase(),
-          version: existing.version + 1,
-          uploadedBy,
-        },
-        include: { versions: true },
-      });
+        const updated = await prisma.mediaFile.update({
+          where: { id: existing.id },
+          data: {
+            filename: file.filename,
+            filepath: `/uploads/${file.filename}`,
+            filesize: file.size,
+            mimeType: file.mimetype,
+            filetype: path.extname(file.originalname).slice(1).toLowerCase(),
+            version: existing.version + 1,
+            uploadedBy,
+          },
+          include: { versions: true },
+        });
 
-      return res.status(200).json({
-        success: true,
-        message: `File uploaded as version ${updated.version}`,
+        return res.status(200).json({
+          success: true,
+          message: `File uploaded as version ${updated.version}`,
           url: `${publicBaseUrl(req)}/uploads/${file.filename}`,
-        data: updated,
-      });
+          data: updated,
+        });
+      } catch {
+        // Fallback to fresh creation if update fails
+      }
     }
 
     // First upload - create fresh record

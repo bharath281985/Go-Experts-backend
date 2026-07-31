@@ -508,6 +508,48 @@ export const getFreelancerDashboard = async (
           }))
         : [];
 
+    // Collect all client IDs/names that look like UUIDs
+    const clientIds = new Set<string>();
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const addIfUuid = (val: any) => {
+      if (typeof val === 'string' && uuidRegex.test(val)) {
+        clientIds.add(val);
+      }
+    };
+    allProposals.forEach(p => {
+      if (p.project?.client) addIfUuid(p.project.client);
+    });
+    recentProposals.forEach(p => {
+      if (p.project?.client) addIfUuid(p.project.client);
+    });
+    openProjectRows.forEach(p => {
+      if (p.client) addIfUuid(p.client);
+    });
+    recentContracts.forEach(c => {
+      if (c.project?.client) addIfUuid(c.project.client);
+    });
+
+    const clientMap = new Map<string, string>();
+    if (clientIds.size > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: Array.from(clientIds) } },
+        select: { id: true, fullName: true },
+      });
+      users.forEach(u => {
+        if (u.fullName) {
+          clientMap.set(u.id, u.fullName);
+        }
+      });
+    }
+
+    const resolveClientName = (clientVal: string | null | undefined) => {
+      if (!clientVal) return "Client";
+      if (clientMap.has(clientVal)) {
+        return clientMap.get(clientVal) || "Client";
+      }
+      return clientVal;
+    };
+
     const recentProjects = recentContracts.map((c) => {
       const project = c.project;
       const progress =
@@ -519,7 +561,7 @@ export const getFreelancerDashboard = async (
       return {
         id: c.contractNumber || c.id.slice(0, 8).toUpperCase(),
         title: project?.title || "Untitled project",
-        client: c.client?.fullName || project?.client || "Client",
+        client: c.client?.fullName || resolveClientName(project?.client),
         budget: money(Number(project?.budget ?? 0), currency),
         status: statusLabel(project?.status || c.status),
         due: project?.timeline || "—",
@@ -695,7 +737,7 @@ export const getFreelancerDashboard = async (
         openProjects: openProjectRows.map((p) => ({
           id: p.id,
           title: p.title,
-          client: p.client,
+          client: resolveClientName(p.client),
           budget: money(Number(p.budget || 0), currency),
           budgetRaw: Number(p.budget || 0),
           category: p.category,
@@ -708,7 +750,7 @@ export const getFreelancerDashboard = async (
           id: p.id,
           ref: `PRO-${p.id.slice(0, 4).toUpperCase()}`,
           project: p.project?.title || "Project",
-          client: p.project?.client || "Client",
+          client: resolveClientName(p.project?.client),
           sent: relativeTime(p.createdAt),
           bid: money(Number(p.bidAmount ?? 0), currency),
           bidRaw: Number(p.bidAmount ?? 0),
@@ -1010,16 +1052,15 @@ export const listFreelancerNotifications = async (
 
     res.json({
       success: true,
-      data: {
-        items,
-        filters,
-        filter,
-        unreadCount,
-        importantCount,
-        total,
-        page,
-        pageSize,
-      },
+      data: items,
+      items,
+      filters,
+      filter,
+      unreadCount,
+      importantCount,
+      total,
+      page,
+      pageSize,
     });
   } catch (err) {
     next(err);

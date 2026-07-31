@@ -627,6 +627,22 @@ export const updateFounderMilestone = async (req: AuthenticatedRequest, res: Res
   }
 };
 
+export const deleteFounderMilestone = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const rows = await getJsonSetting(userId, "milestones", [] as any[]);
+    const idx = rows.findIndex((m: any) => m.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ success: false, message: "Milestone not found" });
+
+    rows.splice(idx, 1);
+    await setJsonSetting(userId, "milestones", rows);
+    res.json({ success: true, message: "Milestone deleted", rows });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
 // ==========================================
 // MEETINGS
 // ==========================================
@@ -840,7 +856,17 @@ export const listFounderNotifications = async (req: AuthenticatedRequest, res: R
     const userId = requireUser(req, res);
     if (!userId) return;
     const data = await listUserNotifications(userId, "founder", req.query as Record<string, unknown>);
-    res.json({ success: true, data });
+    res.json({
+      success: true,
+      data: data.items,
+      items: data.items,
+      filters: data.filters,
+      unreadCount: data.unreadCount,
+      importantCount: data.importantCount,
+      total: data.total,
+      page: data.page,
+      pageSize: data.pageSize,
+    });
   } catch (err) {
     handleError(err, res, next);
   }
