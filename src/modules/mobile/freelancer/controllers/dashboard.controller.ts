@@ -71,6 +71,19 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     let lifetimeEarnings = 0;
     const avgRating = reviews.length > 0 ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length : 5.0;
 
+    // Resolve topSkills UUIDs to names
+    let topSkills: string[] = [];
+    if (profile?.skills) {
+      const skillIds = profile.skills.split(',').map(s => s.trim()).filter(Boolean);
+      if (skillIds.length > 0) {
+        const skillsDb = await prisma.skill.findMany({
+          where: { id: { in: skillIds } },
+          select: { name: true }
+        });
+        topSkills = skillsDb.map(s => s.name);
+      }
+    }
+
     const data = {
       profileCompletion: profile ? 80 : 0,
       walletBalance: wallet?.balance || 0,
@@ -87,7 +100,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       lifetimeEarnings,
       averageRating: avgRating,
       reviewCount: reviews.length,
-      topSkills: profile?.skills ? profile.skills.split(',') : [],
+      topSkills,
       projectStatistics: { total: acceptedProjects + completedProjects, completed: completedProjects },
       charts: {
         earnings: [0, 0, 0, 0, 0, 0],
