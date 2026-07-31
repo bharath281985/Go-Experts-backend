@@ -680,21 +680,10 @@ router.post("/projects", async (req: Request, res: Response, next: NextFunction)
 
 router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    let plans: any[] = [];
-    try {
-      plans = await prisma.subscriptionPlan.findMany({
-        where: {
-          OR: [
-            { status: "active" },
-            { status: "ACTIVE" },
-   
-          ]
-        },
-        orderBy: { amount: "asc" },
-      });
-    } catch {
-      plans = await prisma.$queryRawUnsafe(`SELECT * FROM subscription_plans WHERE status IN ('active', 'ACTIVE', 'true', '1') ORDER BY amount ASC`);
-    }
+    const plans = await prisma.subscriptionPlan.findMany({
+      where: { status: "active" },
+      orderBy: { amount: "asc" },
+    });
     return res.json({ success: true, data: plans || [], rows: plans || [], total: plans?.length || 0 });
   } catch (err) {
     next(err);
