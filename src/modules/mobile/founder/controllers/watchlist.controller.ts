@@ -7,7 +7,6 @@ import { AuthRequest } from '../../../../middlewares/auth.js';
 type WatchlistEntry = {
   id: string;
   investorId: string;
-  startupId?: string;
   notes: string;
   priority: string;
   savedAt: string;
@@ -36,15 +35,59 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
   });
 };
 
+const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]> => {
+  return Promise.all(
+    items.map(async (item) => {
+      let investorDetails: any = null;
+      try {
+        investorDetails = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { id: item.investorId },
+              { investorProfile: { id: item.investorId } }
+            ]
+          },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatarUrl: true,
+            city: true,
+            country: true,
+            bio: true,
+            createdAt: true,
+            investorProfile: true,
+          },
+        });
+      } catch (e) {
+        console.error('Error populating watchlist investor', e);
+      }
+      return {
+        // Watchlist metadata
+        watchlistId: item.id,
+        id: item.id,
+        investorId: item.investorId,
+        notes: item.notes,
+        priority: item.priority,
+        savedAt: item.savedAt,
+        updatedAt: item.updatedAt,
+
+        // Flat details at root level
+        ...(investorDetails || {}),
+
+        // Nested details for extra safety
+        details: investorDetails || null,
+        investor: investorDetails || null,
+      };
+    })
+  );
+};
+
 export const getWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const items = await readList(req.user.id);
-    const mapped = items.map(item => ({
-      ...item,
-      startupId: item.startupId || item.investorId,
-      investorId: item.investorId || item.startupId,
-    }));
-    return res.json(successResponse('Watchlist retrieved', mapped, { total: mapped.length }));
+    const populated = await populateFounderWatchlist(items);
+    return res.json(successResponse('Watchlist retrieved', populated, { total: items.length }));
   } catch (error) {
     next(error);
   }
@@ -57,22 +100,16 @@ export const addToWatchlist = async (req: AuthRequest, res: Response, next: Next
     if (!investorId) return res.status(400).json(errorResponse('investorId or startupId is required', 'VALIDATION_ERROR'));
 
     const items = await readList(req.user.id);
-    const exists = items.find(i => i.investorId === investorId || i.startupId === investorId);
+    const exists = items.find(i => i.investorId === investorId);
     if (exists) return res.status(409).json(errorResponse('Investor already in watchlist', 'CONFLICT'));
 
     const now = new Date().toISOString();
-    const entry: WatchlistEntry = { 
-      id: randomUUID(), 
-      investorId, 
-      startupId: investorId, 
-      notes: notes || '', 
-      priority: priority || 'medium', 
-      savedAt: now, 
-      updatedAt: now 
-    };
+    const entry: WatchlistEntry = { id: randomUUID(), investorId, notes: notes || '', priority: priority || 'medium', savedAt: now, updatedAt: now };
     items.unshift(entry);
     await writeList(req.user.id, items);
-    return res.status(201).json(successResponse('Investor added to watchlist', entry));
+
+    const populatedList = await populateFounderWatchlist([entry]);
+    return res.status(201).json(successResponse('Investor added to watchlist', populatedList[0]));
   } catch (error) {
     next(error);
   }
