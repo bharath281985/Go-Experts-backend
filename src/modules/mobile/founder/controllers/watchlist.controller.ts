@@ -72,7 +72,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
       return {
         // Watchlist metadata
         watchlistId: item.id,
-        id: item.id,
+        id: investorDetails?.id || item.investorId,
         investorId: item.investorId,
         notes: item.notes,
         priority: item.priority,
@@ -81,10 +81,6 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
 
         // Flat details at root level
         ...(investorDetails || {}),
-
-        // Nested details for extra safety
-        details: investorDetails,
-        investor: investorDetails,
       };
     });
   } catch (e) {

@@ -117,7 +117,7 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
       return {
         // Watchlist metadata
         watchlistId: item.id,
-        id: item.id,
+        id: startupDetails?.id || item.startupId,
         startupId: item.startupId,
         notes: item.notes || '',
         priority: item.priority || 'medium',
@@ -126,10 +126,6 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
 
         // Flat details at root level
         ...(startupDetails || {}),
-
-        // Nested details for safety
-        details: startupDetails || null,
-        startup: startupDetails || null,
       };
     });
   } catch (e) {
