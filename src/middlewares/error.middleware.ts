@@ -71,7 +71,14 @@ function getFriendlyErrorMessage(err: Error | ApiError, statusCode: number) {
       fs.appendFileSync('prisma-debug.log', `[${new Date().toISOString()}] PRISMA ERROR:\n${message}\n\n`);
     } catch {}
     const lines = message.split('\n').map(l => l.trim()).filter(Boolean);
-    const relevantLine = lines.find(l => l.includes('Argument') || l.includes('Type') || l.includes('Unknown') || l.includes('Invalid')) || lines[lines.length - 1] || message;
+    
+    // Reverse the lines to find the actual error detail which is usually at the bottom, 
+    // avoiding the generic "Invalid `prisma.model.findFirst()` invocation" line.
+    const relevantLine = [...lines].reverse().find(l => 
+      (l.includes('Argument') || l.includes('Type') || l.includes('Unknown') || l.includes('Error converting field')) 
+      && !l.startsWith('Invalid `prisma.')
+    ) || lines[lines.length - 1] || message;
+    
     const cleanLine = relevantLine.replace(/^(Validation error:\s*)+/i, '');
     return `Validation error: ${cleanLine}`;
   }
