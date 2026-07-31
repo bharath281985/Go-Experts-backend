@@ -678,214 +678,119 @@ router.post("/projects", async (req: Request, res: Response, next: NextFunction)
   }
 });
 
-const DEFAULT_PUBLIC_PRICING_PLANS = [
-  {
-    id: "plan_free_trial",
-    name: "90-Day Free Trial",
-    role: "all",
-    amount: 0,
-    currency: "INR",
-    duration: "90_days",
-    features: "Full platform access to browse startup ideas, connect with founders, and evaluate pitch decks.",
-    limits: "Unlimited browsing & messaging",
-    popular: true,
-    recommended: true,
-    visibility: "public",
-    status: "active",
-    originalAmount: null,
-    savedBadge: "90 Days Free",
-  },
-  {
-    id: "plan_monthly_pro",
-    name: "Pro Monthly",
-    role: "all",
-    amount: 1,
-    currency: "INR",
-    duration: "monthly",
-    features: "Direct founder & investor access, pitch deck evaluations, priority support.",
-    limits: "Unlimited active projects",
-    popular: false,
-    recommended: false,
-    visibility: "public",
-    status: "active",
-    originalAmount: 2999,
-    savedBadge: "SAVE ₹1,000/MO",
-  },
-  {
-    id: "plan_annual_vip",
-    name: "VIP Annual Pass",
-    role: "all",
-    amount: 5999,
-    currency: "INR",
-    duration: "yearly",
-    features: "Full annual access, dedicated relationship manager, verified badge, priority deal flow.",
-    limits: "Unlimited access",
-    popular: false,
-    recommended: true,
-    visibility: "public",
-    status: "active",
-    originalAmount: 19988,
-    savedBadge: "SAVE 70%",
-  },
-];
-
-router.get("/pricing_plans", async (req: Request, res: Response) => {
+router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const plans = await prisma.subscriptionPlan.findMany().catch(() => []);
-    const validPlans = Array.isArray(plans) && plans.length > 0 ? plans : DEFAULT_PUBLIC_PRICING_PLANS;
-    return res.json({ success: true, data: validPlans, rows: validPlans, total: validPlans.length });
-  } catch {
-    return res.json({ success: true, data: DEFAULT_PUBLIC_PRICING_PLANS, rows: DEFAULT_PUBLIC_PRICING_PLANS, total: DEFAULT_PUBLIC_PRICING_PLANS.length });
+    const plans = await prisma.subscriptionPlan.findMany({
+      where: { status: "active" },
+      orderBy: { amount: "asc" },
+    });
+    return res.json({ success: true, data: plans || [], rows: plans || [], total: plans?.length || 0 });
+  } catch (err) {
+    next(err);
   }
 });
 
-async function fetchMasterOptions(type: string, defaultItems: string[] = []): Promise<Array<{ id: string; label: string; value: string }>> {
+async function fetchMasterOptions(type: string): Promise<Array<{ id: string; label: string; value: string }>> {
   try {
     const rows = await (prisma as any).masterOption.findMany({
       where: { type, status: "active" },
       orderBy: { sortOrder: "asc" },
       select: { id: true, label: true, value: true }
-    }).catch(async () => {
-      return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type = '${type}' AND status = 'active' ORDER BY sort_order ASC`).catch(() => [])) || [];
     });
-
-    if (Array.isArray(rows) && rows.length > 0) {
-      return rows;
-    }
+    return rows || [];
   } catch {
-    // ignore
+    const rawRows = await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type = '${type}' AND status = 'active' ORDER BY sort_order ASC`).catch(() => []);
+    return rawRows || [];
   }
-
-  return defaultItems.map((item, idx) => ({
-    id: `${type}_${idx + 1}`,
-    label: item,
-    value: item,
-  }));
 }
 
 router.get("/business-types", async (_req: Request, res: Response) => {
-  const types = await fetchMasterOptions("business_type", [
-    "Private Limited", "LLP", "Sole Proprietorship", "Partnership", "Public Limited", "One Person Company (OPC)"
-  ]);
+  const types = await fetchMasterOptions("business_type");
   return res.json({ success: true, data: types, rows: types });
 });
 
 router.get("/business_types", async (_req: Request, res: Response) => {
-  const types = await fetchMasterOptions("business_type", [
-    "Private Limited", "LLP", "Sole Proprietorship", "Partnership", "Public Limited", "One Person Company (OPC)"
-  ]);
+  const types = await fetchMasterOptions("business_type");
   return res.json({ success: true, data: types, rows: types });
 });
 
 router.get("/team-sizes", async (_req: Request, res: Response) => {
-  const sizes = await fetchMasterOptions("team_size", [
-    "1-10 employees", "11-50 employees", "51-200 employees", "201-500 employees", "500+ employees"
-  ]);
+  const sizes = await fetchMasterOptions("team_size");
   return res.json({ success: true, data: sizes, rows: sizes });
 });
 
 router.get("/team_sizes", async (_req: Request, res: Response) => {
-  const sizes = await fetchMasterOptions("team_size", [
-    "1-10 employees", "11-50 employees", "51-200 employees", "201-500 employees", "500+ employees"
-  ]);
+  const sizes = await fetchMasterOptions("team_size");
   return res.json({ success: true, data: sizes, rows: sizes });
 });
 
 router.get("/founder-types", async (_req: Request, res: Response) => {
-  const types = await fetchMasterOptions("founder_type", [
-    "Solo Founder", "Co-Founder", "Technical Founder", "Business/Commercial Founder", "Financial/Operations Founder"
-  ]);
+  const types = await fetchMasterOptions("founder_type");
   return res.json({ success: true, data: types, rows: types });
 });
 
 router.get("/founder_types", async (_req: Request, res: Response) => {
-  const types = await fetchMasterOptions("founder_type", [
-    "Solo Founder", "Co-Founder", "Technical Founder", "Business/Commercial Founder", "Financial/Operations Founder"
-  ]);
+  const types = await fetchMasterOptions("founder_type");
   return res.json({ success: true, data: types, rows: types });
 });
 
 router.get("/startup-stages", async (_req: Request, res: Response) => {
-  const stages = await fetchMasterOptions("startup_stage", [
-    "Idea", "MVP", "Early Traction", "Growth", "Series A", "Pre-IPO"
-  ]);
+  const stages = await fetchMasterOptions("startup_stage");
   return res.json({ success: true, data: stages, rows: stages });
 });
 
 router.get("/startup_stages", async (_req: Request, res: Response) => {
-  const stages = await fetchMasterOptions("startup_stage", [
-    "Idea", "MVP", "Early Traction", "Growth", "Series A", "Pre-IPO"
-  ]);
+  const stages = await fetchMasterOptions("startup_stage");
   return res.json({ success: true, data: stages, rows: stages });
 });
 
 router.get("/client-goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("client_goal", [
-    "Hire Freelancers", "Outsource Project", "Build MVP", "Scale Business"
-  ]);
+  const goals = await fetchMasterOptions("client_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
 router.get("/client_goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("client_goal", [
-    "Hire Freelancers", "Outsource Project", "Build MVP", "Scale Business"
-  ]);
+  const goals = await fetchMasterOptions("client_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
 router.get("/expansion-goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("expansion_goal", [
-    "Find Distributors", "Find Suppliers", "Find Business Partners", "Seek Investors"
-  ]);
+  const goals = await fetchMasterOptions("expansion_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
 router.get("/expansion_goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("expansion_goal", [
-    "Find Distributors", "Find Suppliers", "Find Business Partners", "Seek Investors"
-  ]);
+  const goals = await fetchMasterOptions("expansion_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
 router.get("/founder-goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("founder_goal", [
-    "Looking for Investor", "Looking for Co-Founder", "Looking for Mentor", "Looking for Developer", "Looking for Marketing Support"
-  ]);
+  const goals = await fetchMasterOptions("founder_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
 router.get("/founder_goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("founder_goal", [
-    "Looking for Investor", "Looking for Co-Founder", "Looking for Mentor", "Looking for Developer", "Looking for Marketing Support"
-  ]);
+  const goals = await fetchMasterOptions("founder_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
 router.get("/investment-modes", async (_req: Request, res: Response) => {
-  const modes = await fetchMasterOptions("investment_mode", [
-    "Equity", "Debt", "Convertible Note", "SAFE", "Partnership/JV", "Grants"
-  ]);
+  const modes = await fetchMasterOptions("investment_mode");
   return res.json({ success: true, data: modes, rows: modes });
 });
 
 router.get("/investment_modes", async (_req: Request, res: Response) => {
-  const modes = await fetchMasterOptions("investment_mode", [
-    "Equity", "Debt", "Convertible Note", "SAFE", "Partnership/JV", "Grants"
-  ]);
+  const modes = await fetchMasterOptions("investment_mode");
   return res.json({ success: true, data: modes, rows: modes });
 });
 
 router.get("/investor-goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("investor_goal", [
-    "Invest in Startups", "Discover Business Ideas", "Fund Existing Businesses", "Partner with Founders", "Mentor Startups"
-  ]);
+  const goals = await fetchMasterOptions("investor_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
 router.get("/investor_goals", async (_req: Request, res: Response) => {
-  const goals = await fetchMasterOptions("investor_goal", [
-    "Invest in Startups", "Discover Business Ideas", "Fund Existing Businesses", "Partner with Founders", "Mentor Startups"
-  ]);
+  const goals = await fetchMasterOptions("investor_goal");
   return res.json({ success: true, data: goals, rows: goals });
 });
 
