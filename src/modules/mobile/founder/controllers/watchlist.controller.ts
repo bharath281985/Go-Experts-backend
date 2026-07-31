@@ -69,6 +69,16 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
 
     return items.map(item => {
       const investorDetails = userMap.get(item.investorId) || null;
+      const investorProfile = investorDetails?.investorProfile ? {
+        ...investorDetails.investorProfile,
+        fullName: investorDetails.fullName,
+        email: investorDetails.email,
+        avatarUrl: investorDetails.avatarUrl,
+        city: investorDetails.city,
+        country: investorDetails.country,
+        bio: investorDetails.bio,
+      } : null;
+
       return {
         // Watchlist metadata
         watchlistId: item.id,
@@ -78,9 +88,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         priority: item.priority,
         savedAt: item.savedAt,
         updatedAt: item.updatedAt,
-
-        // Flat details at root level
-        ...(investorDetails || {}),
+        investorProfile,
       };
     });
   } catch (e) {
