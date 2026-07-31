@@ -333,10 +333,12 @@ export const getFounderTypes = async (req: Request, res: Response, next: NextFun
 
 export const getBusinessTypes = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const types = await prisma.masterOption.findMany({
+    const types = await (prisma as any).masterOption?.findMany({
       where: { type: 'business_type', status: 'active' },
       orderBy: { sortOrder: 'asc' },
       select: { id: true, label: true, value: true }
+    }).catch(async () => {
+      return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type = 'business_type' AND status = 'active' ORDER BY sort_order ASC`).catch(() => [])) || [];
     });
 
     return res.json(successResponse('Business types retrieved', types || []));
