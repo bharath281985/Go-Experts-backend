@@ -17,9 +17,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       closedInvestments,
       pendingInvestments,
       unreadNotifications,
-      upcomingMeetings,
-      recommendedStartups,
+      upcomingMeetingsCount,
+      ideas,
       completion,
+      rawUpcomingMeetings,
     ] = await Promise.all([
       prisma.investorProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -33,13 +34,127 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       prisma.investment.count({ where: { investor: userId, status: 'Pending' } }),
       prisma.notification.count({ where: { userId, readAt: null } }),
       prisma.meeting.count({ where: { investor: userId, status: 'Scheduled' } }),
-      prisma.user.findMany({
-        where: { role: 'founder', status: 'active' },
-        include: { founderProfile: true },
+      prisma.startupIdea.findMany({
+        where: { status: 'active', visibility: 'Public' },
         take: 5,
       }),
       resolveProfileCompletion(userId),
+      prisma.meeting.findMany({
+        where: { investor: userId, status: 'Scheduled' },
+        orderBy: [{ date: 'asc' }, { time: 'asc' }],
+        take: 5,
+      }),
     ]);
+
+    // Populate founder info for recommended startups
+    const founderIds = Array.from(new Set(ideas.map(idea => idea.founder).filter(Boolean))) as string[];
+    const founders = founderIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: founderIds }, role: 'founder' },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        avatarUrl: true,
+        city: true,
+        country: true,
+        bio: true,
+        createdAt: true,
+        founderProfile: {
+          select: {
+            id: true,
+            startupName: true,
+            industry: true,
+            stage: true,
+            raised: true,
+            teamSize: true,
+          },
+        },
+      },
+    }) : [];
+
+    const founderMap = new Map<string, any>();
+    founders.forEach(f => {
+      founderMap.set(f.id, {
+        id: f.id,
+        fullName: f.fullName,
+        email: f.email,
+        avatarUrl: f.avatarUrl,
+        city: f.city,
+        country: f.country,
+        bio: f.bio,
+        createdAt: f.createdAt,
+        profileId: f.founderProfile?.id ?? null,
+        startupName: f.founderProfile?.startupName ?? null,
+        industry: f.founderProfile?.industry ?? null,
+        stage: f.founderProfile?.stage ?? null,
+        raised: f.founderProfile?.raised ?? null,
+        teamSize: f.founderProfile?.teamSize ?? null,
+      });
+    });
+
+    const recommendedStartups = ideas.map(idea => {
+      const founderInfo = founderMap.get(idea.founder) || null;
+      return {
+        id: idea.id,
+        startup: idea.startup,
+        industry: idea.industry,
+        category: idea.category,
+        stage: idea.stage,
+        funding: idea.funding,
+        equity: idea.equity,
+        visibility: idea.visibility,
+        pitchDeck: idea.pitchDeck,
+        businessPlan: idea.businessPlan,
+        logo: idea.logo,
+        coverUrl: idea.coverUrl,
+        status: idea.status,
+        views: idea.views,
+        interestedInvestors: idea.interestedInvestors,
+        createdAt: idea.createdAt,
+        updatedAt: idea.updatedAt,
+        deletedAt: idea.deletedAt,
+        founderId: idea.founder,
+        founder: founderInfo,
+      };
+    });
+
+    // Populate founder details for meetings
+    const founderIdsForMeetings = rawUpcomingMeetings.map(m => m.founder);
+    const meetingFounders = founderIdsForMeetings.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: founderIdsForMeetings } },
+      include: { founderProfile: true }
+    }) : [];
+    const meetingFounderMap = new Map<string, any>();
+    meetingFounders.forEach(u => {
+      meetingFounderMap.set(u.id, {
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        avatarUrl: u.avatarUrl,
+        city: u.city,
+        country: u.country,
+        bio: u.bio,
+        founderProfile: u.founderProfile
+      });
+    });
+
+    const upcomingMeetingsList = rawUpcomingMeetings.map(m => ({
+      ...m,
+      founderDetails: meetingFounderMap.get(m.founder) || null
+    }));
+
+    // Recent notifications as activities
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+    const recentActivities = notifications.map(n => ({
+      id: n.id,
+      title: n.title,
+      content: n.message,
+      createdAt: n.createdAt,
+    }));
 
     const activeInvestmentsList = await prisma.investment.findMany({
       where: { investor: userId, status: 'Active' },
@@ -65,7 +180,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         pendingInvestments,
         unreadMessages: 0,
         unreadNotifications,
-        upcomingMeetings,
+        upcomingMeetings: upcomingMeetingsCount,
         watchlistCount: 0,
         recommendedStartups,
         trendingStartups: [],
@@ -77,8 +192,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           monthlyInvestments: [0, 0, 0, 0, 0, 0],
           roiTrend: [0, 0, 0, 0, 0, 0],
         },
-        recentActivities: [],
-        upcomingMeetingsList: [],
+        recentActivities,
+        upcomingMeetingsList,
       })
     );
   } catch (error) {

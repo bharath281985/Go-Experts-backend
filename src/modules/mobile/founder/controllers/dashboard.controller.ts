@@ -12,11 +12,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       subscription,
       wallet,
       pendingRequests,
-      activeInvestors,
+      activeInvestorsCount,
       unreadNotifications,
-      upcomingMeetings,
-      recommendedInvestors,
+      upcomingMeetingsCount,
+      rawRecommendedInvestors,
       completion,
+      rawUpcomingMeetings,
+      rawPendingInvestments,
     ] = await Promise.all([
       prisma.founderProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -34,7 +36,104 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         take: 5,
       }),
       resolveProfileCompletion(userId),
+      prisma.meeting.findMany({
+        where: { founder: userId, status: 'Scheduled' },
+        orderBy: [{ date: 'asc' }, { time: 'asc' }],
+        take: 5,
+      }),
+      prisma.investment.findMany({
+        where: { startup: userId, status: 'Pending' },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
     ]);
+
+    // Format recommendedInvestors with user fields nested inside investorProfile
+    const recommendedInvestors = rawRecommendedInvestors.map((u) => {
+      return {
+        id: u.id,
+        investorProfile: u.investorProfile ? {
+          id: u.investorProfile.id,
+          userId: u.investorProfile.userId,
+          fullName: u.fullName,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+          city: u.city,
+          country: u.country,
+          bio: u.bio,
+          firm: u.investorProfile.firm,
+          ticketMin: u.investorProfile.ticketMin,
+          ticketMax: u.investorProfile.ticketMax,
+          focusAreas: u.investorProfile.focusAreas,
+          deals: u.investorProfile.deals,
+          createdAt: u.investorProfile.createdAt,
+          updatedAt: u.investorProfile.updatedAt,
+        } : null,
+      };
+    });
+
+    // Populate investor details for upcoming meetings
+    const investorIdsForMeetings = rawUpcomingMeetings.map(m => m.investor);
+    const meetingInvestors = investorIdsForMeetings.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: investorIdsForMeetings } },
+      include: { investorProfile: true }
+    }) : [];
+    const investorMap = new Map<string, any>();
+    meetingInvestors.forEach(u => {
+      investorMap.set(u.id, {
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        avatarUrl: u.avatarUrl,
+        city: u.city,
+        country: u.country,
+        bio: u.bio,
+        investorProfile: u.investorProfile
+      });
+    });
+
+    const upcomingMeetingsList = rawUpcomingMeetings.map(m => ({
+      ...m,
+      investorDetails: investorMap.get(m.investor) || null
+    }));
+
+    // Populate investor details for pending requests
+    const investorIdsForInvestments = rawPendingInvestments.map(i => i.investor);
+    const investmentInvestors = investorIdsForInvestments.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: investorIdsForInvestments } },
+      include: { investorProfile: true }
+    }) : [];
+    const investmentInvestorMap = new Map<string, any>();
+    investmentInvestors.forEach(u => {
+      investmentInvestorMap.set(u.id, {
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        avatarUrl: u.avatarUrl,
+        city: u.city,
+        country: u.country,
+        bio: u.bio,
+        investorProfile: u.investorProfile
+      });
+    });
+
+    const pendingInvestorRequestsList = rawPendingInvestments.map(inv => ({
+      ...inv,
+      investorDetails: investmentInvestorMap.get(inv.investor) || null
+    }));
+
+    // Recent notifications as activities
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+    const recentActivities = notifications.map(n => ({
+      id: n.id,
+      title: n.title,
+      content: n.message,
+      createdAt: n.createdAt,
+    }));
 
     return res.json(
       successResponse('Founder dashboard retrieved', {
@@ -54,8 +153,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         fundingRaised: founderProfile?.raised || 0,
         fundingRemaining: 500000 - (founderProfile?.raised || 0),
         investorInterests: pendingRequests,
-        activeInvestors,
-        pendingMeetings: upcomingMeetings,
+        activeInvestors: activeInvestorsCount,
+        pendingMeetings: upcomingMeetingsCount,
         pitchDeckViews: 120,
         profileViews: 450,
         businessPlanCompletion: 100,
@@ -75,12 +174,12 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         },
         widgets: {
           recommendedInvestors,
-          upcomingMeetingsList: [],
-          recentActivities: [],
+          upcomingMeetingsList,
+          recentActivities,
           recentDocuments: [],
           aiSuggestions:
             'Optimize your pitch deck to focus more on your monetization strategy based on similar successful startups.',
-          pendingInvestorRequestsList: [],
+          pendingInvestorRequestsList,
         },
       })
     );

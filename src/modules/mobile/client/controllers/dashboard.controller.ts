@@ -19,6 +19,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       upcomingMeetings,
       totalSpendWallet,
       completion,
+      rawUpcomingMeetings,
     ] = await Promise.all([
       prisma.clientProfile.findUnique({ where: { userId } }),
       prisma.project.count({ where: { client: userId, status: 'in_progress' } }),
@@ -29,10 +30,52 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       }),
       prisma.contract.count({ where: { clientId: userId, status: 'active' } }),
       prisma.notification.count({ where: { userId, readAt: null } }),
-      prisma.meeting.count({ where: { founder: userId, status: 'Scheduled' } }),
+      prisma.meeting.count({
+        where: {
+          OR: [
+            { founder: userId },
+            { investor: userId }
+          ],
+          status: 'Scheduled'
+        }
+      }),
       prisma.wallet.findUnique({ where: { userId } }),
       resolveProfileCompletion(userId),
+      prisma.meeting.findMany({
+        where: {
+          OR: [
+            { founder: userId },
+            { investor: userId }
+          ],
+          status: 'Scheduled'
+        },
+        orderBy: [{ date: 'asc' }, { time: 'asc' }],
+        take: 5,
+      }),
     ]);
+
+    // Populate target details for upcoming meetings
+    const targetUserIds = rawUpcomingMeetings.map(m => m.founder === userId ? m.investor : m.founder);
+    const meetingTargets = targetUserIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: targetUserIds } }
+    }) : [];
+    const targetMap = new Map<string, any>();
+    meetingTargets.forEach(u => {
+      targetMap.set(u.id, {
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        avatarUrl: u.avatarUrl,
+        city: u.city,
+        country: u.country,
+        bio: u.bio
+      });
+    });
+
+    const upcomingMeetingsList = rawUpcomingMeetings.map(m => ({
+      ...m,
+      targetDetails: targetMap.get(m.founder === userId ? m.investor : m.founder) || null
+    }));
 
     return res.json(
       successResponse('Client dashboard retrieved', {
@@ -62,6 +105,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           proposalFunnel: { pending: pendingProposals, shortlisted: 0, accepted: 0 },
           categoryDistribution: [],
         },
+        upcomingMeetingsList,
       })
     );
   } catch (error) {
