@@ -679,14 +679,20 @@ router.post("/projects", async (req: Request, res: Response, next: NextFunction)
 });
 
 router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunction) => {
-  await listModel({
-    req,
-    res,
-    next,
-    modelName: "SubscriptionPlan",
-    searchColumns: ["name", "role"],
-    defaultWhere: { status: "active", visibility: "public" },
-  });
+  try {
+    const plans = await prisma.subscriptionPlan.findMany({
+      where: {
+        OR: [
+          { status: "active" },
+          { status: "ACTIVE" },
+        ]
+      },
+      orderBy: { amount: "asc" },
+    });
+    return res.json({ success: true, data: plans || [], rows: plans || [], total: plans?.length || 0 });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get("/business-types", async (req: Request, res: Response, next: NextFunction) => {
