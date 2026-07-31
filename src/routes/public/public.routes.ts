@@ -683,6 +683,22 @@ router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunct
     const plans = await prisma.subscriptionPlan.findMany({
       where: { status: "active" },
       orderBy: { amount: "asc" },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        amount: true,
+        currency: true,
+        duration: true,
+        features: true,
+        limits: true,
+        popular: true,
+        recommended: true,
+        visibility: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      }
     });
     return res.json({ success: true, data: plans || [], rows: plans || [], total: plans?.length || 0 });
   } catch (err) {
