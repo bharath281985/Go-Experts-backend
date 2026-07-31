@@ -7,6 +7,7 @@ import { AuthRequest } from '../../../../middlewares/auth.js';
 type WatchlistEntry = {
   id: string;
   investorId: string;
+  startupId?: string;
   notes: string;
   priority: string;
   savedAt: string;
@@ -38,7 +39,12 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
 export const getWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const items = await readList(req.user.id);
-    return res.json(successResponse('Watchlist retrieved', items, { total: items.length }));
+    const mapped = items.map(item => ({
+      ...item,
+      startupId: item.startupId || item.investorId,
+      investorId: item.investorId || item.startupId,
+    }));
+    return res.json(successResponse('Watchlist retrieved', mapped, { total: mapped.length }));
   } catch (error) {
     next(error);
   }
@@ -51,11 +57,19 @@ export const addToWatchlist = async (req: AuthRequest, res: Response, next: Next
     if (!investorId) return res.status(400).json(errorResponse('investorId or startupId is required', 'VALIDATION_ERROR'));
 
     const items = await readList(req.user.id);
-    const exists = items.find(i => i.investorId === investorId);
+    const exists = items.find(i => i.investorId === investorId || i.startupId === investorId);
     if (exists) return res.status(409).json(errorResponse('Investor already in watchlist', 'CONFLICT'));
 
     const now = new Date().toISOString();
-    const entry: WatchlistEntry = { id: randomUUID(), investorId, notes: notes || '', priority: priority || 'medium', savedAt: now, updatedAt: now };
+    const entry: WatchlistEntry = { 
+      id: randomUUID(), 
+      investorId, 
+      startupId: investorId, 
+      notes: notes || '', 
+      priority: priority || 'medium', 
+      savedAt: now, 
+      updatedAt: now 
+    };
     items.unshift(entry);
     await writeList(req.user.id, items);
     return res.status(201).json(successResponse('Investor added to watchlist', entry));
