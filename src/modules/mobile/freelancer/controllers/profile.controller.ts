@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { uploadedFileUrl } from '../../../../utils/uploaded-file.js';
 
 export const getProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -45,7 +46,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { bio, skills, skillIds, industry, experience, hourlyRate, fullName, phone, city, country, avatarUrl } = req.body;
+    const { bio, skills, skillIds, industry, experience, hourlyRate, fullName, phone, city, country, avatarUrl, avatar } = req.body;
     const rawSkillIds = skillIds ?? skills;
     const skillsValue = Array.isArray(rawSkillIds)
       ? rawSkillIds.join(',')
@@ -57,7 +58,13 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     if (phone != null) userUpdateData.phone = String(phone).trim() || null;
     if (city != null) userUpdateData.city = String(city).trim() || null;
     if (country != null) userUpdateData.country = String(country).trim() || null;
-    if (avatarUrl != null) userUpdateData.avatarUrl = String(avatarUrl).trim() || null;
+
+    if (req.file) {
+      userUpdateData.avatarUrl = uploadedFileUrl(req.file);
+    } else if (avatarUrl != null || avatar != null) {
+      const urlVal = avatarUrl || avatar;
+      userUpdateData.avatarUrl = String(urlVal).trim() || null;
+    }
 
     if (Object.keys(userUpdateData).length > 0) {
       await prisma.user.update({

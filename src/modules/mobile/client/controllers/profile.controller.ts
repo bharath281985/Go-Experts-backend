@@ -46,7 +46,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { company, industry, fullName, bio, phone, city, country, avatarUrl } = req.body;
+    const { company, industry, fullName, bio, phone, city, country, avatarUrl, avatar, logo } = req.body;
 
     const userUpdateData: Record<string, any> = {};
     if (fullName != null) userUpdateData.fullName = String(fullName).trim();
@@ -54,7 +54,13 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     if (phone != null) userUpdateData.phone = String(phone).trim() || null;
     if (city != null) userUpdateData.city = String(city).trim() || null;
     if (country != null) userUpdateData.country = String(country).trim() || null;
-    if (avatarUrl != null) userUpdateData.avatarUrl = String(avatarUrl).trim() || null;
+
+    if (req.file) {
+      userUpdateData.avatarUrl = uploadedFileUrl(req.file);
+    } else if (avatarUrl != null || avatar != null || logo != null) {
+      const urlVal = avatarUrl || avatar || logo;
+      userUpdateData.avatarUrl = String(urlVal).trim() || null;
+    }
 
     if (Object.keys(userUpdateData).length > 0) {
       await prisma.user.update({

@@ -54,9 +54,9 @@ router.use(authorizeRole('investor'));
 // ─── Dashboard ───
 router.get('/dashboard', getDashboard);
 
-// ─── Profile ───
 router.get('/profile', getProfile);
-router.put('/profile', updateProfile);
+router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
+router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.post('/profile/avatar', upload.single('file'), handleUploadError, uploadAvatar);
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCover);
 router.post('/profile/documents', upload.single('file'), handleUploadError, uploadDocuments);
