@@ -608,40 +608,114 @@ router.post("/projects", async (req, res, next) => {
     }
 });
 router.get("/pricing_plans", async (req, res, next) => {
-    await listModel({
-        req,
-        res,
-        next,
-        modelName: "SubscriptionPlan",
-        searchColumns: ["name", "role"],
-        defaultWhere: { status: "active", visibility: "public" },
-    });
-});
-router.get("/business-types", async (req, res, next) => {
     try {
-        const types = await prisma.masterOption.findMany({
-            where: { type: "business_type", status: "active" },
-            orderBy: { sortOrder: "asc" },
-            select: { id: true, label: true, value: true }
+        const plans = await prisma.subscriptionPlan.findMany({
+            where: { status: "active" },
+            orderBy: { amount: "asc" },
         });
-        return res.json({ success: true, data: types || [], rows: types || [] });
+        return res.json({ success: true, data: plans || [], rows: plans || [], total: plans?.length || 0 });
     }
     catch (err) {
         next(err);
     }
 });
-router.get("/business_types", async (req, res, next) => {
+function deduplicateMasterOptions(items) {
+    const seen = new Set();
+    const result = [];
+    for (const item of items) {
+        const norm = (item.value || item.label || "").trim().toLowerCase();
+        if (norm && !seen.has(norm)) {
+            seen.add(norm);
+            result.push(item);
+        }
+    }
+    return result;
+}
+async function fetchMasterOptions(type) {
     try {
-        const types = await prisma.masterOption.findMany({
-            where: { type: "business_type", status: "active" },
+        const rows = await prisma.masterOption.findMany({
+            where: { type, status: "active" },
             orderBy: { sortOrder: "asc" },
             select: { id: true, label: true, value: true }
         });
-        return res.json({ success: true, data: types || [], rows: types || [] });
+        return deduplicateMasterOptions(rows || []);
     }
-    catch (err) {
-        next(err);
+    catch {
+        const rawRows = await prisma.$queryRawUnsafe(`SELECT id, label, value FROM master_options WHERE type = '${type}' AND status = 'active' ORDER BY sort_order ASC`).catch(() => []);
+        return deduplicateMasterOptions(rawRows || []);
     }
+}
+router.get("/business-types", async (_req, res) => {
+    const types = await fetchMasterOptions("business_type");
+    return res.json({ success: true, data: types });
+});
+router.get("/business_types", async (_req, res) => {
+    const types = await fetchMasterOptions("business_type");
+    return res.json({ success: true, data: types });
+});
+router.get("/team-sizes", async (_req, res) => {
+    const sizes = await fetchMasterOptions("team_size");
+    return res.json({ success: true, data: sizes });
+});
+router.get("/team_sizes", async (_req, res) => {
+    const sizes = await fetchMasterOptions("team_size");
+    return res.json({ success: true, data: sizes });
+});
+router.get("/founder-types", async (_req, res) => {
+    const types = await fetchMasterOptions("founder_type");
+    return res.json({ success: true, data: types });
+});
+router.get("/founder_types", async (_req, res) => {
+    const types = await fetchMasterOptions("founder_type");
+    return res.json({ success: true, data: types });
+});
+router.get("/startup-stages", async (_req, res) => {
+    const stages = await fetchMasterOptions("startup_stage");
+    return res.json({ success: true, data: stages });
+});
+router.get("/startup_stages", async (_req, res) => {
+    const stages = await fetchMasterOptions("startup_stage");
+    return res.json({ success: true, data: stages });
+});
+router.get("/client-goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("client_goal");
+    return res.json({ success: true, data: goals });
+});
+router.get("/client_goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("client_goal");
+    return res.json({ success: true, data: goals });
+});
+router.get("/expansion-goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("expansion_goal");
+    return res.json({ success: true, data: goals });
+});
+router.get("/expansion_goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("expansion_goal");
+    return res.json({ success: true, data: goals, rows: goals });
+});
+router.get("/founder-goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("founder_goal");
+    return res.json({ success: true, data: goals, rows: goals });
+});
+router.get("/founder_goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("founder_goal");
+    return res.json({ success: true, data: goals, rows: goals });
+});
+router.get("/investment-modes", async (_req, res) => {
+    const modes = await fetchMasterOptions("investment_mode");
+    return res.json({ success: true, data: modes, rows: modes });
+});
+router.get("/investment_modes", async (_req, res) => {
+    const modes = await fetchMasterOptions("investment_mode");
+    return res.json({ success: true, data: modes, rows: modes });
+});
+router.get("/investor-goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("investor_goal");
+    return res.json({ success: true, data: goals, rows: goals });
+});
+router.get("/investor_goals", async (_req, res) => {
+    const goals = await fetchMasterOptions("investor_goal");
+    return res.json({ success: true, data: goals, rows: goals });
 });
 router.get("/startup_ideas", async (req, res, next) => {
     await listModel({

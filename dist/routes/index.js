@@ -37,8 +37,6 @@ const router = Router();
 // 1. Auth & Payment routes (Public/Unprotected - mounted on all version prefixes)
 router.use("/auth", authRoutes);
 router.use("/v1/auth", authRoutes);
-router.use("/v1/mobile/auth", authRoutes);
-router.use("/mobile/auth", authRoutes);
 router.use("/payments", paymentsRoutes);
 // Mobile API Routes (/api/v1/mobile/..., /api/mobile/..., and fallback)
 router.use("/v1/mobile", mobileRoutes);

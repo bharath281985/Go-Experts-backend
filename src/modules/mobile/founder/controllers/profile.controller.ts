@@ -29,12 +29,14 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       prisma.startupIdea.findMany({ where: { founder: req.user.id, deletedAt: null }, orderBy: { createdAt: 'desc' } }).catch(() => [])
     ]);
 
-    const rawStage = profile?.stage || firstIdea?.stage || reg.stage || 'Idea';
-    const rawFounderType = reg.founderType || reg.type || 'Co-Founder';
+    const stageVal = profile?.stage || firstIdea?.stage || reg.stage || reg.fundingStage || 'Idea';
+    const founderTypeVal = reg.founderType || reg.type || 'Co-Founder';
+    const raisedVal = profile?.raised || firstIdea?.funding || (reg.raised != null ? parseFloat(reg.raised) : (reg.funding != null ? parseFloat(reg.funding) : (reg.fundingRequired != null ? parseFloat(reg.fundingRequired) : 0)));
+    const equityVal = firstIdea?.equity || (reg.equity != null ? parseFloat(reg.equity) : (reg.equityOffered != null ? parseFloat(reg.equityOffered) : 0));
 
     const [resolvedStage, resolvedFounderType] = await Promise.all([
-      resolveMasterOptionsInput(rawStage, 'startup_stage'),
-      resolveMasterOptionsInput(rawFounderType, 'founder_type'),
+      resolveMasterOptionsInput(stageVal, 'startup_stage'),
+      resolveMasterOptionsInput(founderTypeVal, 'founder_type'),
     ]);
 
     const targetStartupIds = [
@@ -85,7 +87,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       investorProfile: investorMap[b.investor] || null
     }));
 
-    const startupName = profile?.startupName || firstIdea?.startup || reg.startupName || (user?.fullName ? `${user.fullName}'s Startup` : 'My Startup');
+    const startupName = profile?.startupName || firstIdea?.startup || reg.startupName || reg.startup || (user?.fullName ? `${user.fullName}'s Startup` : 'My Startup');
 
     const result = {
       id: profile?.id || firstIdea?.id || `fp_${req.user.id}`,
@@ -96,44 +98,66 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       phone: user?.phone || reg.phone || reg.mobile || "",
       mobile: user?.phone || reg.phone || reg.mobile || "",
       phoneNumber: user?.phone || reg.phone || reg.mobile || "",
-      phoneCode: reg.phoneCode || reg.countryCode || "+91",
+      phoneCode: reg.phoneCode || reg.phoneCountryCode || reg.countryCode || "+91",
       countryCode: reg.countryCode || "IN",
       city: user?.city || reg.city || "",
       state: reg.state || reg.stateCode || "",
       stateCode: reg.stateCode || reg.state || "",
       country: user?.country || reg.country || "",
-      bio: user?.bio || reg.bio || "",
+      bio: user?.bio || reg.bio || reg.pitch || "",
+      pitch: user?.bio || reg.pitch || reg.bio || "",
       founderTypeId: resolvedFounderType.ids[0] || null,
-      founderType: resolvedFounderType.labels[0] || rawFounderType,
+      founderType: resolvedFounderType.labels[0] || founderTypeVal,
+      skills: reg.skills || "",
+      experience: reg.experience || "",
+      education: reg.education || "",
       startupName,
       startup: startupName,
       title: firstIdea?.startup || startupName,
       industry: profile?.industry || firstIdea?.industry || reg.industry || 'Technology',
       category: firstIdea?.category || reg.category || 'General',
+      subCategory: reg.subCategory || "",
       stageId: resolvedStage.ids[0] || null,
-      stage: resolvedStage.labels[0] || rawStage,
-      teamSize: profile?.teamSize || reg.teamSize || 1,
-      raised: profile?.raised || firstIdea?.funding || reg.raised || 0,
-      funding: firstIdea?.funding || profile?.raised || reg.funding || 0,
-      equity: firstIdea?.equity || reg.equity || 0,
+      stage: resolvedStage.labels[0] || stageVal,
+      fundingStage: resolvedStage.labels[0] || stageVal,
+      teamSize: profile?.teamSize || (reg.teamSize ? parseInt(reg.teamSize) : 1),
+      raised: raisedVal,
+      funding: raisedVal,
+      fundingRequired: reg.fundingRequired || (raisedVal ? String(raisedVal) : "0"),
+      equity: equityVal,
+      equityOffered: reg.equityOffered || (equityVal ? String(equityVal) : "0"),
       visibility: firstIdea?.visibility || reg.visibility || 'Public',
-      pitchDeck: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
-      pitchDeckUrl: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeckUrl || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
-      businessPlan: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
-      businessPlanDoc: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanDoc || "https://apiai.goexperts.in/uploads/business_plan.pdf",
-      businessPlanUrl: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanUrl || "https://apiai.goexperts.in/uploads/business_plan.pdf",
+      shortPitch: reg.shortPitch || firstIdea?.startup || "",
+      description: reg.description || reg.pitch || user?.bio || "",
+      problemStatement: reg.problemStatement || "",
+      solution: reg.solution || "",
+      targetCustomers: reg.targetCustomers || "",
+      marketSize: reg.marketSize || "",
+      businessModel: reg.businessModel || "",
+      revenueModel: reg.revenueModel || "",
+      currentProgress: reg.currentProgress || "",
+      demoLink: reg.demoLink || "",
+      pitchDeck: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || reg.pitchDeckUrl || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
+      pitchDeckUrl: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeckUrl || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
+      businessPlan: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || reg.businessPlanUrl || "https://apiai.goexperts.in/uploads/business_plan.pdf",
+      businessPlanDoc: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanDoc || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
+      businessPlanUrl: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanUrl || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
       linkedin: reg.linkedin || reg.linkedinUrl || "",
       website: reg.website || reg.websiteUrl || "",
+      lookingFor: Array.isArray(reg.lookingFor) ? reg.lookingFor : (typeof reg.lookingFor === 'string' ? reg.lookingFor.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+      subscriptionPlan: reg.subscriptionPlan || "",
       panNumber: reg.panNumber || "",
       aadhaarNumber: reg.aadhaarNumber || "",
+      idDocument: reg.idDocument || reg.idDocumentUrl || "",
+      idDocumentUrl: reg.idDocumentUrl || reg.idDocument || "",
       documents: [
-        { id: "doc_bp", name: "Business Plan", url: firstIdea?.businessPlan || profile?.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
-        { id: "doc_pd", name: "Pitch Deck", url: firstIdea?.pitchDeck || profile?.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
+        { id: "doc_bp", name: "Business Plan", url: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
+        { id: "doc_pd", name: "Pitch Deck", url: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
       ],
-      logo: user?.avatarUrl || firstIdea?.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
-      avatarUrl: user?.avatarUrl || firstIdea?.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
-      avatar: user?.avatarUrl || firstIdea?.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
-      coverUrl: firstIdea?.coverUrl || "https://apiai.goexperts.in/uploads/default_cover.png",
+      logo: user?.avatarUrl || firstIdea?.logo || reg.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
+      avatarUrl: user?.avatarUrl || firstIdea?.logo || reg.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
+      avatar: user?.avatarUrl || firstIdea?.logo || reg.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
+      coverUrl: firstIdea?.coverUrl || reg.coverUrl || "https://apiai.goexperts.in/uploads/default_cover.png",
       createdAt: profile?.createdAt || firstIdea?.createdAt || new Date().toISOString(),
       updatedAt: profile?.updatedAt || firstIdea?.updatedAt || new Date().toISOString(),
       user: user || { id: req.user.id, fullName: 'Founder' },
@@ -190,24 +214,33 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const b = req.body || {};
     const {
       startupName, name, startup, title,
-      industry, category, stage, teamSize, raised, funding, equity, visibility,
-      pitchDeck, pitchDeckUrl, businessPlan, businessPlanDoc, businessPlanUrl,
+      industry, category, subCategory, stage, fundingStage, stageId, teamSize, raised, funding, fundingRequired, equity, equityOffered, visibility,
+      pitchDeck, pitchDeckUrl, businessPlan, businessPlanDoc, businessPlanUrl, demoLink,
       logo, avatarUrl, coverUrl,
-      fullName, bio, phone, phoneCode, phoneNumber, country, city, location
-    } = req.body;
+      fullName, bio, pitch, phone, phoneCode, phoneNumber, mobile, country, countryCode, state, stateCode, city, location,
+      founderType, founderTypeId, skills, experience, education, linkedin, linkedinUrl, website, websiteUrl,
+      shortPitch, description, problemStatement, solution, targetCustomers, marketSize, businessModel, revenueModel, currentProgress,
+      lookingFor, subscriptionPlan, panNumber, aadhaarNumber, idDocument, idDocumentUrl
+    } = b;
 
     const nameVal = startupName || name || startup || title;
-    const raisedVal = raised !== undefined ? parseFloat(raised) : (funding !== undefined ? parseFloat(funding) : undefined);
-    const teamSizeVal = teamSize !== undefined ? parseInt(teamSize) : undefined;
-    const equityVal = equity !== undefined ? parseFloat(equity) : undefined;
+    const stageVal = stage || fundingStage;
+    const raisedVal = raised !== undefined && raised !== null ? parseFloat(raised) : (funding !== undefined && funding !== null ? parseFloat(funding) : (fundingRequired !== undefined && fundingRequired !== null ? parseFloat(fundingRequired) : undefined));
+    const teamSizeVal = teamSize !== undefined && teamSize !== null ? parseInt(teamSize) : undefined;
+    const equityVal = equity !== undefined && equity !== null ? parseFloat(equity) : (equityOffered !== undefined && equityOffered !== null ? parseFloat(equityOffered) : undefined);
     const cityVal = city || location;
     const pitchDeckVal = pitchDeck || pitchDeckUrl;
     const businessPlanVal = businessPlan || businessPlanDoc || businessPlanUrl;
-    const logoVal = logo || avatarUrl;
+    let logoVal = logo || avatarUrl;
+    const bioVal = bio !== undefined ? bio : pitch;
+    const linkedinVal = linkedin || linkedinUrl;
+    const websiteVal = website || websiteUrl;
+    let idDocumentVal = idDocument || idDocumentUrl;
 
-    let fullPhone = phone;
+    let fullPhone = phone || mobile;
     if (!fullPhone && phoneNumber) {
       fullPhone = phoneCode ? `${phoneCode}${phoneNumber}` : phoneNumber;
     }
@@ -215,6 +248,13 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     let uploadedUrl: string | undefined;
     if (req.file) {
       uploadedUrl = uploadedFileUrl(req.file);
+      if (req.file.mimetype && req.file.mimetype.startsWith('image/')) {
+        logoVal = uploadedUrl;
+      } else {
+        if (!pitchDeckVal) {
+          b.pitchDeck = uploadedUrl;
+        }
+      }
     }
 
     await prisma.founderProfile.upsert({
@@ -222,7 +262,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       update: {
         startupName: nameVal || undefined,
         industry: industry || undefined,
-        stage: stage || undefined,
+        stage: stageVal || undefined,
         teamSize: teamSizeVal,
         raised: raisedVal
       },
@@ -230,7 +270,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
         userId: req.user.id,
         startupName: nameVal || 'My Startup',
         industry: industry || 'Technology',
-        stage: stage || 'Idea',
+        stage: stageVal || 'Idea',
         teamSize: teamSizeVal || 1,
         raised: raisedVal || 0
       }
@@ -239,50 +279,71 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     const existingUser = await prisma.user.findUnique({ where: { id: req.user.id } });
     const currentReg = parseRegData(existingUser?.registrationData);
 
-    const b = req.body || {};
     const updatedReg = {
       ...currentReg,
-      fullName: fullName || currentReg.fullName,
-      phone: fullPhone || currentReg.phone,
-      mobile: fullPhone || currentReg.mobile,
-      phoneNumber: phoneNumber || currentReg.phoneNumber,
-      phoneCode: phoneCode || currentReg.phoneCode,
-      countryCode: country || currentReg.countryCode,
-      bio: bio !== undefined ? bio : currentReg.bio,
-      city: cityVal || currentReg.city,
-      state: b.state || b.stateCode || currentReg.state,
-      stateCode: b.stateCode || b.state || currentReg.stateCode,
-      country: country || currentReg.country,
-      founderType: b.founderType || b.type || currentReg.founderType,
-      startupName: nameVal || currentReg.startupName,
-      industry: industry || currentReg.industry,
-      category: category || currentReg.category,
-      stage: stage || currentReg.stage,
-      teamSize: teamSizeVal || currentReg.teamSize,
-      raised: raisedVal || currentReg.raised,
-      funding: raisedVal || currentReg.funding,
-      equity: equityVal || currentReg.equity,
-      visibility: visibility || currentReg.visibility,
-      pitchDeck: pitchDeckVal || currentReg.pitchDeck,
-      pitchDeckUrl: pitchDeckVal || currentReg.pitchDeckUrl,
-      businessPlan: businessPlanVal || currentReg.businessPlan,
-      businessPlanUrl: businessPlanVal || currentReg.businessPlanUrl,
-      linkedin: b.linkedin || b.linkedinUrl || currentReg.linkedin,
-      website: b.website || b.websiteUrl || currentReg.website,
-      panNumber: b.panNumber || currentReg.panNumber,
-      aadhaarNumber: b.aadhaarNumber || currentReg.aadhaarNumber,
+      fullName: fullName !== undefined ? fullName : currentReg.fullName,
+      phone: fullPhone !== undefined ? fullPhone : currentReg.phone,
+      mobile: mobile !== undefined ? mobile : (fullPhone !== undefined ? fullPhone : currentReg.mobile),
+      phoneNumber: phoneNumber !== undefined ? phoneNumber : currentReg.phoneNumber,
+      phoneCode: phoneCode !== undefined ? phoneCode : currentReg.phoneCode,
+      countryCode: countryCode !== undefined ? countryCode : currentReg.countryCode,
+      bio: bioVal !== undefined ? bioVal : currentReg.bio,
+      pitch: pitch !== undefined ? pitch : (bioVal !== undefined ? bioVal : currentReg.pitch),
+      city: cityVal !== undefined ? cityVal : currentReg.city,
+      state: state !== undefined ? state : (stateCode !== undefined ? stateCode : currentReg.state),
+      stateCode: stateCode !== undefined ? stateCode : (state !== undefined ? state : currentReg.stateCode),
+      country: country !== undefined ? country : currentReg.country,
+      founderType: founderType !== undefined ? founderType : currentReg.founderType,
+      founderTypeId: founderTypeId !== undefined ? founderTypeId : currentReg.founderTypeId,
+      skills: skills !== undefined ? skills : currentReg.skills,
+      experience: experience !== undefined ? experience : currentReg.experience,
+      education: education !== undefined ? education : currentReg.education,
+      linkedin: linkedinVal !== undefined ? linkedinVal : currentReg.linkedin,
+      website: websiteVal !== undefined ? websiteVal : currentReg.website,
+      teamSize: teamSizeVal !== undefined ? teamSizeVal : currentReg.teamSize,
+      startupName: nameVal !== undefined ? nameVal : currentReg.startupName,
+      industry: industry !== undefined ? industry : currentReg.industry,
+      category: category !== undefined ? category : currentReg.category,
+      subCategory: subCategory !== undefined ? subCategory : currentReg.subCategory,
+      stage: stageVal !== undefined ? stageVal : currentReg.stage,
+      fundingStage: stageVal !== undefined ? stageVal : currentReg.fundingStage,
+      raised: raisedVal !== undefined ? raisedVal : currentReg.raised,
+      funding: raisedVal !== undefined ? raisedVal : currentReg.funding,
+      fundingRequired: fundingRequired !== undefined ? fundingRequired : currentReg.fundingRequired,
+      equity: equityVal !== undefined ? equityVal : currentReg.equity,
+      equityOffered: equityOffered !== undefined ? equityOffered : currentReg.equityOffered,
+      visibility: visibility !== undefined ? visibility : currentReg.visibility,
+      shortPitch: shortPitch !== undefined ? shortPitch : currentReg.shortPitch,
+      description: description !== undefined ? description : currentReg.description,
+      problemStatement: problemStatement !== undefined ? problemStatement : currentReg.problemStatement,
+      solution: solution !== undefined ? solution : currentReg.solution,
+      targetCustomers: targetCustomers !== undefined ? targetCustomers : currentReg.targetCustomers,
+      marketSize: marketSize !== undefined ? marketSize : currentReg.marketSize,
+      businessModel: businessModel !== undefined ? businessModel : currentReg.businessModel,
+      revenueModel: revenueModel !== undefined ? revenueModel : currentReg.revenueModel,
+      currentProgress: currentProgress !== undefined ? currentProgress : currentReg.currentProgress,
+      demoLink: demoLink !== undefined ? demoLink : currentReg.demoLink,
+      pitchDeck: pitchDeckVal !== undefined ? pitchDeckVal : currentReg.pitchDeck,
+      pitchDeckUrl: pitchDeckVal !== undefined ? pitchDeckVal : currentReg.pitchDeckUrl,
+      businessPlan: businessPlanVal !== undefined ? businessPlanVal : currentReg.businessPlan,
+      businessPlanUrl: businessPlanVal !== undefined ? businessPlanVal : currentReg.businessPlanUrl,
+      lookingFor: lookingFor !== undefined ? lookingFor : currentReg.lookingFor,
+      subscriptionPlan: subscriptionPlan !== undefined ? subscriptionPlan : currentReg.subscriptionPlan,
+      panNumber: panNumber !== undefined ? panNumber : currentReg.panNumber,
+      aadhaarNumber: aadhaarNumber !== undefined ? aadhaarNumber : currentReg.aadhaarNumber,
+      idDocument: idDocumentVal !== undefined ? idDocumentVal : currentReg.idDocument,
+      idDocumentUrl: idDocumentVal !== undefined ? idDocumentVal : currentReg.idDocumentUrl,
     };
 
     const userDataToUpdate: any = {
       registrationData: updatedReg
     };
     if (fullName) userDataToUpdate.fullName = fullName;
-    if (bio !== undefined) userDataToUpdate.bio = bio;
+    if (bioVal !== undefined) userDataToUpdate.bio = bioVal;
     if (fullPhone) userDataToUpdate.phone = fullPhone;
     if (country) userDataToUpdate.country = country;
     if (cityVal) userDataToUpdate.city = cityVal;
     if (logoVal) userDataToUpdate.avatarUrl = logoVal;
-    if (uploadedUrl && req.file?.mimetype.startsWith('image/')) userDataToUpdate.avatarUrl = uploadedUrl;
 
     if (Object.keys(userDataToUpdate).length > 0) {
       await prisma.user.update({
@@ -300,7 +361,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     if (nameVal) ideaDataToUpdate.startup = nameVal;
     if (industry) ideaDataToUpdate.industry = industry;
     if (category) ideaDataToUpdate.category = category;
-    if (stage) ideaDataToUpdate.stage = stage;
+    if (stageVal) ideaDataToUpdate.stage = stageVal;
     if (raisedVal !== undefined) ideaDataToUpdate.funding = raisedVal;
     if (equityVal !== undefined) ideaDataToUpdate.equity = equityVal;
     if (visibility) ideaDataToUpdate.visibility = visibility;
@@ -325,7 +386,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
           startup: nameVal || 'My Startup',
           industry: industry || 'Technology',
           category: category || 'General',
-          stage: stage || 'Idea',
+          stage: stageVal || 'Idea',
           funding: raisedVal || 0,
           equity: equityVal || 0,
           visibility: visibility || 'Public',
