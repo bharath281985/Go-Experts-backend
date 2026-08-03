@@ -64,15 +64,15 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       status: user.status,
       verified: Boolean(user.isVerified || user.verified),
       role: user.role,
-      user: {
-        email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        bio: user.bio,
-        phone: user.phone,
-        country: user.country,
-        city: user.city,
-      }
+      // user: {
+      //   email: user.email,
+      //   fullName: user.fullName,
+      //   avatarUrl: user.avatarUrl,
+      //   bio: user.bio,
+      //   phone: user.phone,
+      //   country: user.country,
+      //   city: user.city,
+      // }
     };
 
     return res.json(successResponse('Profile retrieved', profileData));
