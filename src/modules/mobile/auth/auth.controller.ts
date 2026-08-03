@@ -127,9 +127,15 @@ const buildAuthPayload = async (user: AuthUser) => {
     resolveUserSubscriptionGate(user.id),
   ]);
 
+  const hasActiveSubscription = subscriptionGate.status === 'active';
+
   return {
     accessToken,
     refreshToken,
+    token: accessToken,
+    subscriptionPlan: hasActiveSubscription,
+    hasSubscription: hasActiveSubscription,
+    isSubscribed: hasActiveSubscription,
     user: {
       id: user.id,
       email: user.email,
@@ -140,9 +146,12 @@ const buildAuthPayload = async (user: AuthUser) => {
       isVerified: user.isVerified,
       profileCompletion: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
+      subscriptionPlan: hasActiveSubscription,
+      hasSubscription: hasActiveSubscription,
+      isSubscribed: hasActiveSubscription,
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
-      subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
+      subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
       redirectTo: getRedirectTo(user.role),
     },
   };

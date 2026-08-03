@@ -44,6 +44,8 @@ const issueAuthResponse = async (
     resolveUserSubscriptionGate(user.id),
   ]);
 
+  const hasActiveSubscription = subscriptionGate.status === 'active';
+
   const userData = {
     id: user.id,
     email: user.email,
@@ -54,13 +56,24 @@ const issueAuthResponse = async (
     isVerified: user.isVerified,
     profileCompletion: completion.profileCompletion,
     isProfileComplete: completion.isProfileComplete,
+    subscriptionPlan: hasActiveSubscription,
+    hasSubscription: hasActiveSubscription,
+    isSubscribed: hasActiveSubscription,
     subscriptionStatus: subscriptionGate.status,
     subscriptionPlanId: subscriptionGate.planId,
-    subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
+    subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
     redirectTo: getRedirectTo(user.role),
   };
 
-  return { accessToken, refreshToken, user: userData };
+  return {
+    accessToken,
+    refreshToken,
+    token: accessToken,
+    subscriptionPlan: hasActiveSubscription,
+    hasSubscription: hasActiveSubscription,
+    isSubscribed: hasActiveSubscription,
+    user: userData,
+  };
 };
 
 const ensureRoleProfile = async (userId: string, role: string) => {
