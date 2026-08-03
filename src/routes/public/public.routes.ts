@@ -690,6 +690,19 @@ router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunct
   }
 });
 
+function deduplicateMasterOptions(items: Array<{ id: string; label: string; value: string }>) {
+  const seen = new Set<string>();
+  const result: Array<{ id: string; label: string; value: string }> = [];
+  for (const item of items) {
+    const norm = (item.value || item.label || "").trim().toLowerCase();
+    if (norm && !seen.has(norm)) {
+      seen.add(norm);
+      result.push(item);
+    }
+  }
+  return result;
+}
+
 async function fetchMasterOptions(type: string): Promise<Array<{ id: string; label: string; value: string }>> {
   try {
     const rows = await (prisma as any).masterOption.findMany({
@@ -697,10 +710,10 @@ async function fetchMasterOptions(type: string): Promise<Array<{ id: string; lab
       orderBy: { sortOrder: "asc" },
       select: { id: true, label: true, value: true }
     });
-    return rows || [];
+    return deduplicateMasterOptions(rows || []);
   } catch {
     const rawRows = await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type = '${type}' AND status = 'active' ORDER BY sort_order ASC`).catch(() => []);
-    return rawRows || [];
+    return deduplicateMasterOptions(rawRows || []);
   }
 }
 
@@ -792,48 +805,6 @@ router.get("/investor-goals", async (_req: Request, res: Response) => {
 router.get("/investor_goals", async (_req: Request, res: Response) => {
   const goals = await fetchMasterOptions("investor_goal");
   return res.json({ success: true, data: goals, rows: goals });
-});
-
-router.get("/client_goals", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const goals = await prisma.masterOption.findMany({
-      where: { type: "client_goal", status: "active" },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, label: true, value: true }
-    });
-
-    return res.json({ success: true, data: goals || [], rows: goals || [] });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/expansion-goals", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const goals = await prisma.masterOption.findMany({
-      where: { type: "expansion_goal", status: "active" },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, label: true, value: true }
-    });
-
-    return res.json({ success: true, data: goals || [], rows: goals || [] });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/expansion_goals", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const goals = await prisma.masterOption.findMany({
-      where: { type: "expansion_goal", status: "active" },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, label: true, value: true }
-    });
-
-    return res.json({ success: true, data: goals || [], rows: goals || [] });
-  } catch (err) {
-    next(err);
-  }
 });
 
 router.get("/startup_ideas", async (req: Request, res: Response, next: NextFunction) => {

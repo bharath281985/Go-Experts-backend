@@ -283,6 +283,19 @@ export const getStartupStages = async (req: Request, res: Response, next: NextFu
   } catch (error) { next(error); }
 };
 
+function deduplicateMasterOptions(items: Array<any>): Array<any> {
+  const seen = new Set<string>();
+  const result: Array<any> = [];
+  for (const item of items) {
+    const norm = String(item.value || item.label || item.name || "").trim().toLowerCase();
+    if (norm && !seen.has(norm)) {
+      seen.add(norm);
+      result.push(item);
+    }
+  }
+  return result;
+}
+
 export const getCompanySizes = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sizes = await (prisma as any).masterOption?.findMany({
@@ -291,7 +304,7 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Company sizes retrieved', sizes || []));
+    return res.json(successResponse('Company sizes retrieved', deduplicateMasterOptions(sizes || [])));
   } catch (error) { next(error); }
 };
 
@@ -303,7 +316,7 @@ export const getTicketSizes = async (req: Request, res: Response, next: NextFunc
       select: { id: true, label: true, value: true, min: true, max: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Ticket sizes retrieved', dbTickets || []));
+    return res.json(successResponse('Ticket sizes retrieved', deduplicateMasterOptions(dbTickets || [])));
   } catch (error) { next(error); }
 };
 
@@ -315,7 +328,7 @@ export const getInvestorTypes = async (req: Request, res: Response, next: NextFu
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Investor types retrieved', types || []));
+    return res.json(successResponse('Investor types retrieved', deduplicateMasterOptions(types || [])));
   } catch (error) { next(error); }
 };
 
@@ -327,7 +340,7 @@ export const getFounderTypes = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Founder types retrieved', types || []));
+    return res.json(successResponse('Founder types retrieved', deduplicateMasterOptions(types || [])));
   } catch (error) { next(error); }
 };
 
@@ -341,7 +354,7 @@ export const getBusinessTypes = async (req: Request, res: Response, next: NextFu
       return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type = 'business_type' AND status = 'active' ORDER BY sort_order ASC`).catch(() => [])) || [];
     });
 
-    return res.json(successResponse('Business types retrieved', types || []));
+    return res.json(successResponse('Business types retrieved', deduplicateMasterOptions(types || [])));
   } catch (error) { next(error); }
 };
 
