@@ -113,16 +113,16 @@ export const updateProfile = async (req, res, next) => {
         const cleanedAvatarUrl = updatedUser?.avatarUrl ? updatedUser.avatarUrl.replace(/^https?:\/\/[^\/]+/i, '') : null;
         return res.json(successResponse('Profile updated', {
             ...profile,
-            user: {
-                email: updatedUser?.email,
-                fullName: updatedUser?.fullName,
-                avatarUrl: cleanedAvatarUrl,
-                phone: updatedUser?.phone,
-                country: updatedUser?.country,
-                city: updatedUser?.city,
-                phoneCode: resPhoneCode,
-                phoneNumber: resPhoneNumber
-            }
+            // user: {
+            //     email: updatedUser?.email,
+            //     fullName: updatedUser?.fullName,
+            //     avatarUrl: cleanedAvatarUrl,
+            //     phone: updatedUser?.phone,
+            //     country: updatedUser?.country,
+            //     city: updatedUser?.city,
+            //     phoneCode: resPhoneCode,
+            //     phoneNumber: resPhoneNumber
+            // }
         }));
     }
     catch (error) {
