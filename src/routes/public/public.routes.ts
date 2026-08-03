@@ -719,57 +719,57 @@ async function fetchMasterOptions(type: string): Promise<Array<{ id: string; lab
 
 router.get("/business-types", async (_req: Request, res: Response) => {
   const types = await fetchMasterOptions("business_type");
-  return res.json({ success: true, data: types, rows: types });
+  return res.json({ success: true, data: types});
 });
 
 router.get("/business_types", async (_req: Request, res: Response) => {
   const types = await fetchMasterOptions("business_type");
-  return res.json({ success: true, data: types, rows: types });
+  return res.json({ success: true, data: types});
 });
 
 router.get("/team-sizes", async (_req: Request, res: Response) => {
   const sizes = await fetchMasterOptions("team_size");
-  return res.json({ success: true, data: sizes, rows: sizes });
+  return res.json({ success: true, data: sizes});
 });
 
 router.get("/team_sizes", async (_req: Request, res: Response) => {
   const sizes = await fetchMasterOptions("team_size");
-  return res.json({ success: true, data: sizes, rows: sizes });
+  return res.json({ success: true, data: sizes });
 });
 
 router.get("/founder-types", async (_req: Request, res: Response) => {
   const types = await fetchMasterOptions("founder_type");
-  return res.json({ success: true, data: types, rows: types });
+  return res.json({ success: true, data: types });
 });
 
 router.get("/founder_types", async (_req: Request, res: Response) => {
   const types = await fetchMasterOptions("founder_type");
-  return res.json({ success: true, data: types, rows: types });
+  return res.json({ success: true, data: types });
 });
 
 router.get("/startup-stages", async (_req: Request, res: Response) => {
   const stages = await fetchMasterOptions("startup_stage");
-  return res.json({ success: true, data: stages, rows: stages });
+  return res.json({ success: true, data: stages });
 });
 
 router.get("/startup_stages", async (_req: Request, res: Response) => {
   const stages = await fetchMasterOptions("startup_stage");
-  return res.json({ success: true, data: stages, rows: stages });
+  return res.json({ success: true, data: stages });
 });
 
 router.get("/client-goals", async (_req: Request, res: Response) => {
   const goals = await fetchMasterOptions("client_goal");
-  return res.json({ success: true, data: goals, rows: goals });
+  return res.json({ success: true, data: goals });
 });
 
 router.get("/client_goals", async (_req: Request, res: Response) => {
   const goals = await fetchMasterOptions("client_goal");
-  return res.json({ success: true, data: goals, rows: goals });
+  return res.json({ success: true, data: goals });
 });
 
 router.get("/expansion-goals", async (_req: Request, res: Response) => {
   const goals = await fetchMasterOptions("expansion_goal");
-  return res.json({ success: true, data: goals, rows: goals });
+  return res.json({ success: true, data: goals });
 });
 
 router.get("/expansion_goals", async (_req: Request, res: Response) => {
