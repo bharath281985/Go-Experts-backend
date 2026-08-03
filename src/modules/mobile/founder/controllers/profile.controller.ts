@@ -106,6 +106,48 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
   } catch (error) { next(error); }
 };
 
+export const getStartup = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, fullName: true, email: true, avatarUrl: true }
+    });
+
+    const [profile, idea] = await Promise.all([
+      prisma.founderProfile.findUnique({ where: { userId: req.user.id } }).catch(() => null),
+      prisma.startupIdea.findFirst({
+        where: {
+          OR: [
+            { founder: req.user.id },
+            { founder: user?.fullName || '__none__' }
+          ],
+          deletedAt: null
+        },
+        orderBy: { createdAt: 'desc' }
+      }).catch(() => null)
+    ]);
+
+    let startup = idea;
+    if (!startup) {
+      startup = await prisma.startupIdea.create({
+        data: {
+          founder: req.user.id,
+          startup: profile?.startupName || (user?.fullName ? `${user.fullName}'s Startup` : 'My Startup'),
+          industry: profile?.industry || 'Technology',
+          category: 'General',
+          stage: profile?.stage || 'Idea',
+          funding: profile?.raised || 0,
+          equity: 0,
+          visibility: 'Public',
+          status: 'active'
+        }
+      }).catch(() => null);
+    }
+
+    return res.json(successResponse('Startup details retrieved', startup));
+  } catch (error) { next(error); }
+};
+
 export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const {

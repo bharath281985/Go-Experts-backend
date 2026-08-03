@@ -4,7 +4,7 @@ import { authenticate, authorizeRole } from '../../../middlewares/auth.js';
 
 // Controllers
 import { getDashboard } from './controllers/dashboard.controller.js';
-import { getProfile, updateProfile, uploadLogo, uploadCover, getProfileCompletion } from './controllers/profile.controller.js';
+import { getProfile, getStartup, updateProfile, uploadLogo, uploadCover, getProfileCompletion } from './controllers/profile.controller.js';
 import { getFunding, createFundingRound, updateFundingRound, getFundingHistory, updateFundingStatus } from './controllers/funding.controller.js';
 import { listInvestorRequests, getInvestorRequest, acceptRequest, rejectRequest, scheduleRequestMeeting, messageInvestor } from './controllers/investor-requests.controller.js';
 import { listInvestors, getInvestor, getRecommendedInvestors, getInterestedInvestors, getActiveInvestors } from './controllers/investors.controller.js';
@@ -45,7 +45,7 @@ router.delete('/ideas/:id', deleteIdea);
 router.get('/profile', getProfile);
 router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
-router.get('/startup', getProfile);
+router.get('/startup', getStartup);
 router.post('/startup', upload.single('file'), handleUploadError, updateProfile);
 router.put('/startup', upload.single('file'), handleUploadError, updateProfile);
 router.post('/startup/logo', upload.single('file'), handleUploadError, uploadLogo);
