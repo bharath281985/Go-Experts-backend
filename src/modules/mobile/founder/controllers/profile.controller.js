@@ -352,7 +352,7 @@ export const updateProfile = async (req, res, next) => {
                 }
             }).catch(() => null);
         }
-        return getProfile(req, res, next);
+        return res.json(successResponse('Profile updated successfully'));
     }
     catch (error) {
         next(error);

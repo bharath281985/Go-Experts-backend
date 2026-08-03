@@ -693,15 +693,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
 
     const completion = await resolveProfileCompletion(req.user.id);
 
-    return res.json(
-      successResponse('Profile updated successfully', {
-        user: {
-          ...updatedUser,
-          profileCompletion: completion.profileCompletion,
-          isProfileComplete: completion.isProfileComplete,
-        },
-      })
-    );
+    return res.json(successResponse('Profile updated successfully'));
   } catch (error) { next(error); }
 };
 

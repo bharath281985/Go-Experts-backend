@@ -397,7 +397,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       }).catch(() => null);
     }
 
-    return getProfile(req, res, next);
+    return res.json(successResponse('Profile updated successfully'));
   } catch (error) { next(error); }
 };
 

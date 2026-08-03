@@ -74,10 +74,7 @@ export const updateProfile = async (req, res, next) => {
             updatedUser.phoneCode = split.phoneCode;
             updatedUser.phoneNumber = split.phoneNumber;
         }
-        return res.json(successResponse('Profile updated', {
-            ...profile,
-            user: updatedUser
-        }));
+        return res.json(successResponse('Profile updated successfully'));
     }
     catch (error) {
         next(error);
