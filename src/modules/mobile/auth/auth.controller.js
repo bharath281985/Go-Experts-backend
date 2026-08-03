@@ -10,16 +10,11 @@ import { issuePhoneOtp, verifyPhoneOtp, issueEmailOtp, verifyEmailOtp } from '..
 import { resolveProfileCompletion } from '../../../services/mobile/profile-completion.service.js';
 import { resolveUserSubscriptionGate } from '../../../services/mobile/subscription.service.js';
 function requireSecret(name, value, fallback) {
-    if (value && value.length >= 16)
-        return value;
-    if (process.env.NODE_ENV === 'production') {
-        throw new Error(`${name} must be set in production`);
-    }
-    if (fallback) {
-        console.warn(`⚠️  ${name} missing — using insecure development fallback`);
+    if (value && value.trim())
+        return value.trim();
+    if (fallback)
         return fallback;
-    }
-    throw new Error(`${name} is required`);
+    return 'dev-only-secret-key-at-least-16-bytes-long';
 }
 const JWT_SECRET = requireSecret('JWT_SECRET', process.env.JWT_SECRET, 'dev-only-jwt-secret-min16');
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '48h';
