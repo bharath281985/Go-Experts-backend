@@ -240,18 +240,60 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       .create({ data: { email, ipAddress, userAgent, success: true } })
       .catch(() => {});
 
+    let completion = { profileCompletion: 100, isProfileComplete: true };
+    let subscriptionGate: any = { status: 'none', planId: null, planName: null };
+    try {
+      const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+      const { resolveUserSubscriptionGate } = await import("../../services/mobile/subscription.service.js");
+      const [c, s] = await Promise.all([
+        resolveProfileCompletion(user.id).catch(() => completion),
+        resolveUserSubscriptionGate(user.id).catch(() => subscriptionGate),
+      ]);
+      completion = c;
+      subscriptionGate = s;
+    } catch {
+      // fallback
+    }
+
+    const hasActiveSubscription = subscriptionGate.status === 'active';
+
+    const userPayload = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+      status: user.status,
+      isVerified: Boolean(user.isVerified || user.verified),
+      profileCompletion: completion.profileCompletion,
+      isProfileComplete: completion.isProfileComplete,
+      subscriptionPlan: hasActiveSubscription,
+      hasSubscription: hasActiveSubscription,
+      isSubscribed: hasActiveSubscription,
+      subscriptionStatus: subscriptionGate.status,
+      subscriptionPlanId: subscriptionGate.planId,
+      subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+    };
+
     return res.json({
       success: true,
+      message: "Login successful",
+      token: accessToken,
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
-        status: user.status,
-      },
+      subscriptionPlan: hasActiveSubscription,
+      hasSubscription: hasActiveSubscription,
+      isSubscribed: hasActiveSubscription,
+      user: userPayload,
+      data: {
+        token: accessToken,
+        accessToken,
+        refreshToken,
+        subscriptionPlan: hasActiveSubscription,
+        hasSubscription: hasActiveSubscription,
+        isSubscribed: hasActiveSubscription,
+        user: userPayload,
+      }
     });
   } catch (err) {
     next(err);
