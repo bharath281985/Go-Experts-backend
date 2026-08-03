@@ -4,12 +4,23 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
 
+function parseRegData(regData: any): Record<string, any> {
+  if (!regData) return {};
+  if (typeof regData === 'string') {
+    try { return JSON.parse(regData); } catch { return {}; }
+  }
+  if (typeof regData === 'object') return regData;
+  return {};
+}
+
 export const getProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true, country: true, city: true, role: true }
+      select: { id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true, country: true, city: true, role: true, registrationData: true }
     });
+
+    const reg = parseRegData(user?.registrationData);
 
     const [profile, firstIdea, allIdeas] = await Promise.all([
       prisma.founderProfile.findUnique({ where: { userId: req.user.id } }).catch(() => null),
@@ -65,34 +76,52 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       investorProfile: investorMap[b.investor] || null
     }));
 
-    const startupName = profile?.startupName || firstIdea?.startup || (user?.fullName ? `${user.fullName}'s Startup` : 'My Startup');
+    const startupName = profile?.startupName || firstIdea?.startup || reg.startupName || (user?.fullName ? `${user.fullName}'s Startup` : 'My Startup');
 
     const result = {
       id: profile?.id || firstIdea?.id || `fp_${req.user.id}`,
       userId: req.user.id,
+      fullName: user?.fullName || reg.fullName || "",
+      name: user?.fullName || reg.fullName || startupName,
+      email: user?.email || reg.email || "",
+      phone: user?.phone || reg.phone || reg.mobile || "",
+      mobile: user?.phone || reg.phone || reg.mobile || "",
+      phoneNumber: user?.phone || reg.phone || reg.mobile || "",
+      phoneCode: reg.phoneCode || reg.countryCode || "+91",
+      countryCode: reg.countryCode || "IN",
+      city: user?.city || reg.city || "",
+      state: reg.state || reg.stateCode || "",
+      stateCode: reg.stateCode || reg.state || "",
+      country: user?.country || reg.country || "",
+      bio: user?.bio || reg.bio || "",
+      founderType: reg.founderType || reg.type || "Co-Founder",
       startupName,
-      name: startupName,
       startup: startupName,
       title: firstIdea?.startup || startupName,
-      industry: profile?.industry || firstIdea?.industry || 'Technology',
-      category: firstIdea?.category || 'General',
-      stage: profile?.stage || firstIdea?.stage || 'Idea',
-      teamSize: profile?.teamSize || 1,
-      raised: profile?.raised || firstIdea?.funding || 0,
-      funding: firstIdea?.funding || profile?.raised || 0,
-      equity: firstIdea?.equity || 0,
-      visibility: firstIdea?.visibility || 'Public',
-      pitchDeck: firstIdea?.pitchDeck || profile?.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
-      pitchDeckUrl: firstIdea?.pitchDeck || profile?.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
-      businessPlan: firstIdea?.businessPlan || profile?.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
-      businessPlanDoc: firstIdea?.businessPlan || profile?.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
-      businessPlanUrl: firstIdea?.businessPlan || profile?.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
+      industry: profile?.industry || firstIdea?.industry || reg.industry || 'Technology',
+      category: firstIdea?.category || reg.category || 'General',
+      stage: profile?.stage || firstIdea?.stage || reg.stage || 'Idea',
+      teamSize: profile?.teamSize || reg.teamSize || 1,
+      raised: profile?.raised || firstIdea?.funding || reg.raised || 0,
+      funding: firstIdea?.funding || profile?.raised || reg.funding || 0,
+      equity: firstIdea?.equity || reg.equity || 0,
+      visibility: firstIdea?.visibility || reg.visibility || 'Public',
+      pitchDeck: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
+      pitchDeckUrl: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeckUrl || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
+      businessPlan: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
+      businessPlanDoc: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanDoc || "https://apiai.goexperts.in/uploads/business_plan.pdf",
+      businessPlanUrl: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanUrl || "https://apiai.goexperts.in/uploads/business_plan.pdf",
+      linkedin: reg.linkedin || reg.linkedinUrl || "",
+      website: reg.website || reg.websiteUrl || "",
+      panNumber: reg.panNumber || "",
+      aadhaarNumber: reg.aadhaarNumber || "",
       documents: [
         { id: "doc_bp", name: "Business Plan", url: firstIdea?.businessPlan || profile?.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
         { id: "doc_pd", name: "Pitch Deck", url: firstIdea?.pitchDeck || profile?.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
       ],
       logo: user?.avatarUrl || firstIdea?.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
       avatarUrl: user?.avatarUrl || firstIdea?.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
+      avatar: user?.avatarUrl || firstIdea?.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
       coverUrl: firstIdea?.coverUrl || "https://apiai.goexperts.in/uploads/default_cover.png",
       createdAt: profile?.createdAt || firstIdea?.createdAt || new Date().toISOString(),
       updatedAt: profile?.updatedAt || firstIdea?.updatedAt || new Date().toISOString(),
@@ -196,7 +225,46 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       }
     }).catch(() => null);
 
-    const userDataToUpdate: any = {};
+    const existingUser = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const currentReg = parseRegData(existingUser?.registrationData);
+
+    const b = req.body || {};
+    const updatedReg = {
+      ...currentReg,
+      fullName: fullName || currentReg.fullName,
+      phone: fullPhone || currentReg.phone,
+      mobile: fullPhone || currentReg.mobile,
+      phoneNumber: phoneNumber || currentReg.phoneNumber,
+      phoneCode: phoneCode || currentReg.phoneCode,
+      countryCode: country || currentReg.countryCode,
+      bio: bio !== undefined ? bio : currentReg.bio,
+      city: cityVal || currentReg.city,
+      state: b.state || b.stateCode || currentReg.state,
+      stateCode: b.stateCode || b.state || currentReg.stateCode,
+      country: country || currentReg.country,
+      founderType: b.founderType || b.type || currentReg.founderType,
+      startupName: nameVal || currentReg.startupName,
+      industry: industry || currentReg.industry,
+      category: category || currentReg.category,
+      stage: stage || currentReg.stage,
+      teamSize: teamSizeVal || currentReg.teamSize,
+      raised: raisedVal || currentReg.raised,
+      funding: raisedVal || currentReg.funding,
+      equity: equityVal || currentReg.equity,
+      visibility: visibility || currentReg.visibility,
+      pitchDeck: pitchDeckVal || currentReg.pitchDeck,
+      pitchDeckUrl: pitchDeckVal || currentReg.pitchDeckUrl,
+      businessPlan: businessPlanVal || currentReg.businessPlan,
+      businessPlanUrl: businessPlanVal || currentReg.businessPlanUrl,
+      linkedin: b.linkedin || b.linkedinUrl || currentReg.linkedin,
+      website: b.website || b.websiteUrl || currentReg.website,
+      panNumber: b.panNumber || currentReg.panNumber,
+      aadhaarNumber: b.aadhaarNumber || currentReg.aadhaarNumber,
+    };
+
+    const userDataToUpdate: any = {
+      registrationData: updatedReg
+    };
     if (fullName) userDataToUpdate.fullName = fullName;
     if (bio !== undefined) userDataToUpdate.bio = bio;
     if (fullPhone) userDataToUpdate.phone = fullPhone;
