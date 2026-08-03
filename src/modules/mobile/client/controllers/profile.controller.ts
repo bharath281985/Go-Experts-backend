@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
+import { resolveMasterOptionsInput } from '../../../../utils/array-option-resolver.js';
 
 function parseRegData(regData: any): Record<string, any> {
   if (!regData) return {};
@@ -22,6 +23,8 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
     if (!user) return res.status(404).json(errorResponse('User not found', 'NOT_FOUND'));
 
     const reg = parseRegData(user.registrationData);
+    const rawGoals = reg.clientGoals || reg.goals || reg.goalIds;
+    const resolvedGoals = await resolveMasterOptionsInput(rawGoals, 'client_goal');
 
     const profileData = {
       id: user.id,
@@ -47,8 +50,9 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       industry: user.clientProfile?.industry || reg.industry || "",
       companySize: reg.companySize || reg.teamSize || "11-50",
       teamSize: reg.teamSize || reg.companySize || 10,
-      clientGoals: Array.isArray(reg.clientGoals) ? reg.clientGoals : Array.isArray(reg.goals) ? reg.goals : [],
-      goals: Array.isArray(reg.goals) ? reg.goals : Array.isArray(reg.clientGoals) ? reg.clientGoals : [],
+      goalIds: resolvedGoals.ids,
+      clientGoals: resolvedGoals.labels,
+      goals: resolvedGoals.labels,
       linkedin: reg.linkedin || reg.linkedinUrl || "",
       website: reg.website || reg.websiteUrl || "",
       panNumber: reg.panNumber || "",
@@ -58,14 +62,6 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       status: user.status,
       verified: Boolean(user.isVerified || user.verified),
       role: user.role,
-      // user: {
-      //   email: user.email,
-      //   fullName: user.fullName,
-      //   avatarUrl: user.avatarUrl,
-      //   phone: user.phone,
-      //   country: user.country,
-      //   city: user.city,
-      // },
     };
 
     return res.json(successResponse('Profile retrieved', profileData));
@@ -90,6 +86,9 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     const avatarVal = b.avatarUrl || b.avatar || b.logo;
     const companyVal = b.company || b.companyName;
     const industryVal = b.industry;
+
+    const rawGoals = b.goalIds ?? b.clientGoals ?? b.goals;
+    const resolvedGoals = await resolveMasterOptionsInput(rawGoals, 'client_goal');
 
     const userUpdateData: Record<string, any> = {};
     if (fullNameVal != null) userUpdateData.fullName = String(fullNameVal).trim();
@@ -122,8 +121,9 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       industry: industryVal != null ? String(industryVal) : currentReg.industry,
       companySize: b.companySize || b.teamSize || currentReg.companySize,
       teamSize: b.teamSize || b.companySize || currentReg.teamSize,
-      clientGoals: Array.isArray(b.clientGoals) ? b.clientGoals : Array.isArray(b.goals) ? b.goals : currentReg.clientGoals,
-      goals: Array.isArray(b.goals) ? b.goals : Array.isArray(b.clientGoals) ? b.clientGoals : currentReg.goals,
+      goalIds: resolvedGoals.ids.length > 0 ? resolvedGoals.ids : currentReg.goalIds,
+      clientGoals: resolvedGoals.labels.length > 0 ? resolvedGoals.labels : currentReg.clientGoals,
+      goals: resolvedGoals.labels.length > 0 ? resolvedGoals.labels : currentReg.goals,
       linkedin: b.linkedin || b.linkedinUrl || currentReg.linkedin,
       website: b.website || b.websiteUrl || currentReg.website,
       panNumber: b.panNumber || currentReg.panNumber,

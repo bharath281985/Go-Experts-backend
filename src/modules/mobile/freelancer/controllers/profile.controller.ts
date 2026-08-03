@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { uploadedFileUrl } from '../../../../utils/uploaded-file.js';
+import { resolveSkillsInput } from '../../../../utils/array-option-resolver.js';
 
 function parseRegData(regData: any): Record<string, any> {
   if (!regData) return {};
@@ -22,6 +23,8 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
     if (!user) return res.status(404).json(errorResponse('User not found', 'NOT_FOUND'));
 
     const reg = parseRegData(user.registrationData);
+    const rawSkillsInput = user.freelancerProfile?.skills || reg.skills || reg.skillIds;
+    const resolvedSkills = await resolveSkillsInput(rawSkillsInput);
 
     const profileData = {
       id: user.id,
@@ -45,8 +48,10 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       stateCode: reg.stateCode || reg.state || "",
       country: user.country || reg.country || "",
       industry: user.freelancerProfile?.industry || reg.industry || "",
-      skills: user.freelancerProfile?.skills || (Array.isArray(reg.skills) ? reg.skills.join(",") : reg.skills) || "",
-      skillIds: user.freelancerProfile?.skills ? user.freelancerProfile.skills.split(",").map(s => s.trim()) : (Array.isArray(reg.skills) ? reg.skills : []),
+      skills: resolvedSkills.skills,
+      skillsArray: resolvedSkills.skillsArray,
+      skillIds: resolvedSkills.skillIds,
+      skillsList: resolvedSkills.skillsList,
       hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
       experience: user.freelancerProfile?.experience || reg.experience || "",
       languages: Array.isArray(reg.languages) ? reg.languages : [],
@@ -63,15 +68,6 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       status: user.status,
       verified: Boolean(user.isVerified || user.verified),
       role: user.role,
-      // user: {
-      //   email: user.email,
-      //   fullName: user.fullName,
-      //   avatarUrl: user.avatarUrl,
-      //   bio: user.bio,
-      //   phone: user.phone,
-      //   country: user.country,
-      //   city: user.city,
-      // }
     };
 
     return res.json(successResponse('Profile retrieved', profileData));
@@ -94,10 +90,9 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     const avatarVal = b.avatarUrl || b.avatar;
     const industryVal = b.industry;
 
-    const rawSkillIds = b.skillIds ?? b.skills;
-    const skillsValue = Array.isArray(rawSkillIds)
-      ? rawSkillIds.join(',')
-      : (rawSkillIds != null ? String(rawSkillIds) : undefined);
+    const rawSkillInput = b.skillIds ?? b.skills;
+    const resolvedSkills = await resolveSkillsInput(rawSkillInput);
+    const skillsValue = resolvedSkills.skillIds.length > 0 ? resolvedSkills.skillIds.join(',') : (resolvedSkills.skills || undefined);
 
     const userUpdateData: Record<string, any> = {};
     if (fullNameVal != null) userUpdateData.fullName = String(fullNameVal).trim();
@@ -129,7 +124,9 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       stateCode: b.stateCode || b.state || currentReg.stateCode,
       country: countryVal != null ? String(countryVal) : currentReg.country,
       industry: industryVal != null ? String(industryVal) : currentReg.industry,
-      skills: skillsValue || currentReg.skills,
+      skills: resolvedSkills.skills,
+      skillIds: resolvedSkills.skillIds,
+      skillsList: resolvedSkills.skillsList,
       hourlyRate: b.hourlyRate != null && b.hourlyRate !== "" ? parseFloat(b.hourlyRate) : currentReg.hourlyRate,
       experience: b.experience || currentReg.experience,
       languages: Array.isArray(b.languages) ? b.languages : currentReg.languages,

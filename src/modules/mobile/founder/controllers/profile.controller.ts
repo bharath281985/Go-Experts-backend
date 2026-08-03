@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
+import { resolveMasterOptionsInput } from '../../../../utils/array-option-resolver.js';
 
 function parseRegData(regData: any): Record<string, any> {
   if (!regData) return {};
@@ -26,6 +27,14 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       prisma.founderProfile.findUnique({ where: { userId: req.user.id } }).catch(() => null),
       prisma.startupIdea.findFirst({ where: { founder: req.user.id, deletedAt: null }, orderBy: { createdAt: 'desc' } }).catch(() => null),
       prisma.startupIdea.findMany({ where: { founder: req.user.id, deletedAt: null }, orderBy: { createdAt: 'desc' } }).catch(() => [])
+    ]);
+
+    const rawStage = profile?.stage || firstIdea?.stage || reg.stage || 'Idea';
+    const rawFounderType = reg.founderType || reg.type || 'Co-Founder';
+
+    const [resolvedStage, resolvedFounderType] = await Promise.all([
+      resolveMasterOptionsInput(rawStage, 'startup_stage'),
+      resolveMasterOptionsInput(rawFounderType, 'founder_type'),
     ]);
 
     const targetStartupIds = [
@@ -94,13 +103,15 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       stateCode: reg.stateCode || reg.state || "",
       country: user?.country || reg.country || "",
       bio: user?.bio || reg.bio || "",
-      founderType: reg.founderType || reg.type || "Co-Founder",
+      founderTypeId: resolvedFounderType.ids[0] || null,
+      founderType: resolvedFounderType.labels[0] || rawFounderType,
       startupName,
       startup: startupName,
       title: firstIdea?.startup || startupName,
       industry: profile?.industry || firstIdea?.industry || reg.industry || 'Technology',
       category: firstIdea?.category || reg.category || 'General',
-      stage: profile?.stage || firstIdea?.stage || reg.stage || 'Idea',
+      stageId: resolvedStage.ids[0] || null,
+      stage: resolvedStage.labels[0] || rawStage,
       teamSize: profile?.teamSize || reg.teamSize || 1,
       raised: profile?.raised || firstIdea?.funding || reg.raised || 0,
       funding: firstIdea?.funding || profile?.raised || reg.funding || 0,

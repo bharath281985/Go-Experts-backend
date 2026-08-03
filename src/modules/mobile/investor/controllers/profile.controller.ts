@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
+import { resolveMasterOptionsInput } from '../../../../utils/array-option-resolver.js';
 
 function parseRegData(regData: any): Record<string, any> {
   if (!regData) return {};
@@ -22,6 +23,18 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
     if (!user) return res.status(404).json(errorResponse('User not found', 'NOT_FOUND'));
 
     const reg = parseRegData(user.registrationData);
+
+    const rawCats = user.investorProfile?.focusAreas || reg.categories || reg.categoryIds || reg.focusAreas;
+    const rawStages = reg.stages || reg.stageIds;
+    const rawModes = reg.investmentModes || reg.modes || reg.modeIds;
+    const rawGoals = reg.investorGoals || reg.goals || reg.goalIds;
+
+    const [resolvedCats, resolvedStages, resolvedModes, resolvedGoals] = await Promise.all([
+      resolveMasterOptionsInput(rawCats),
+      resolveMasterOptionsInput(rawStages, 'startup_stage'),
+      resolveMasterOptionsInput(rawModes, 'investment_mode'),
+      resolveMasterOptionsInput(rawGoals, 'investor_goal'),
+    ]);
 
     const profileData = {
       id: user.id,
@@ -47,14 +60,18 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       investorType: reg.investorType || reg.type || "Angel Investor",
       ticketMin: user.investorProfile?.ticketMin ?? reg.ticketMin ?? null,
       ticketMax: user.investorProfile?.ticketMax ?? reg.ticketMax ?? null,
-      focusAreas: user.investorProfile?.focusAreas || (Array.isArray(reg.categories) ? reg.categories.join(", ") : reg.focusAreas) || "",
-      categories: Array.isArray(reg.categories) ? reg.categories : (user.investorProfile?.focusAreas ? user.investorProfile.focusAreas.split(",").map(s => s.trim()) : []),
-      industries: Array.isArray(reg.industries) ? reg.industries : (user.investorProfile?.focusAreas ? user.investorProfile.focusAreas.split(",").map(s => s.trim()) : []),
-      stages: Array.isArray(reg.stages) ? reg.stages : [],
-      modes: Array.isArray(reg.modes) ? reg.modes : Array.isArray(reg.investmentModes) ? reg.investmentModes : [],
-      investmentModes: Array.isArray(reg.investmentModes) ? reg.investmentModes : Array.isArray(reg.modes) ? reg.modes : [],
-      goals: Array.isArray(reg.goals) ? reg.goals : Array.isArray(reg.investorGoals) ? reg.investorGoals : [],
-      investorGoals: Array.isArray(reg.investorGoals) ? reg.investorGoals : Array.isArray(reg.goals) ? reg.goals : [],
+      focusAreas: resolvedCats.joinedStr || user.investorProfile?.focusAreas || "",
+      categoryIds: resolvedCats.ids,
+      categories: resolvedCats.labels,
+      industries: resolvedCats.labels,
+      stageIds: resolvedStages.ids,
+      stages: resolvedStages.labels,
+      modeIds: resolvedModes.ids,
+      modes: resolvedModes.labels,
+      investmentModes: resolvedModes.labels,
+      goalIds: resolvedGoals.ids,
+      goals: resolvedGoals.labels,
+      investorGoals: resolvedGoals.labels,
       linkedin: reg.linkedin || reg.linkedinUrl || "",
       website: reg.website || reg.websiteUrl || "",
       panNumber: reg.panNumber || reg.panGst || "",
@@ -64,15 +81,6 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       status: user.status,
       verified: Boolean(user.isVerified || user.verified),
       role: user.role,
-      // user: {
-      //   email: user.email,
-      //   fullName: user.fullName,
-      //   avatarUrl: user.avatarUrl,
-      //   bio: user.bio,
-      //   phone: user.phone,
-      //   country: user.country,
-      //   city: user.city,
-      // }
     };
 
     return res.json(successResponse('Profile retrieved', profileData));
@@ -96,7 +104,18 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     const firmVal = b.firm || b.firmName;
     const ticketMinVal = b.ticketMin ?? b.minTicket;
     const ticketMaxVal = b.ticketMax ?? b.maxTicket;
-    const focusAreasVal = b.focusAreas || (Array.isArray(b.categories) ? b.categories.join(", ") : b.categories) || (Array.isArray(b.industries) ? b.industries.join(", ") : b.industries);
+
+    const rawCats = b.categoryIds ?? b.categories ?? b.focusAreas ?? b.industries;
+    const rawStages = b.stageIds ?? b.stages;
+    const rawModes = b.modeIds ?? b.investmentModes ?? b.modes;
+    const rawGoals = b.goalIds ?? b.investorGoals ?? b.goals;
+
+    const [resolvedCats, resolvedStages, resolvedModes, resolvedGoals] = await Promise.all([
+      resolveMasterOptionsInput(rawCats),
+      resolveMasterOptionsInput(rawStages, 'startup_stage'),
+      resolveMasterOptionsInput(rawModes, 'investment_mode'),
+      resolveMasterOptionsInput(rawGoals, 'investor_goal'),
+    ]);
 
     const userUpdateData: Record<string, any> = {};
     if (fullNameVal != null) userUpdateData.fullName = String(fullNameVal).trim();
@@ -130,14 +149,17 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       investorType: b.investorType || b.type || currentReg.investorType,
       ticketMin: ticketMinVal != null && ticketMinVal !== "" ? parseFloat(ticketMinVal) : currentReg.ticketMin,
       ticketMax: ticketMaxVal != null && ticketMaxVal !== "" ? parseFloat(ticketMaxVal) : currentReg.ticketMax,
-      focusAreas: focusAreasVal || currentReg.focusAreas,
-      categories: Array.isArray(b.categories) ? b.categories : currentReg.categories,
-      industries: Array.isArray(b.industries) ? b.industries : currentReg.industries,
-      stages: Array.isArray(b.stages) ? b.stages : currentReg.stages,
-      modes: Array.isArray(b.modes) ? b.modes : Array.isArray(b.investmentModes) ? b.investmentModes : currentReg.modes,
-      investmentModes: Array.isArray(b.investmentModes) ? b.investmentModes : Array.isArray(b.modes) ? b.modes : currentReg.investmentModes,
-      goals: Array.isArray(b.goals) ? b.goals : Array.isArray(b.investorGoals) ? b.investorGoals : currentReg.goals,
-      investorGoals: Array.isArray(b.investorGoals) ? b.investorGoals : Array.isArray(b.goals) ? b.goals : currentReg.investorGoals,
+      focusAreas: resolvedCats.joinedStr || currentReg.focusAreas,
+      categoryIds: resolvedCats.ids.length > 0 ? resolvedCats.ids : currentReg.categoryIds,
+      categories: resolvedCats.labels.length > 0 ? resolvedCats.labels : currentReg.categories,
+      stageIds: resolvedStages.ids.length > 0 ? resolvedStages.ids : currentReg.stageIds,
+      stages: resolvedStages.labels.length > 0 ? resolvedStages.labels : currentReg.stages,
+      modeIds: resolvedModes.ids.length > 0 ? resolvedModes.ids : currentReg.modeIds,
+      modes: resolvedModes.labels.length > 0 ? resolvedModes.labels : currentReg.modes,
+      investmentModes: resolvedModes.labels.length > 0 ? resolvedModes.labels : currentReg.investmentModes,
+      goalIds: resolvedGoals.ids.length > 0 ? resolvedGoals.ids : currentReg.goalIds,
+      goals: resolvedGoals.labels.length > 0 ? resolvedGoals.labels : currentReg.goals,
+      investorGoals: resolvedGoals.labels.length > 0 ? resolvedGoals.labels : currentReg.investorGoals,
       linkedin: b.linkedin || b.linkedinUrl || currentReg.linkedin,
       website: b.website || b.websiteUrl || currentReg.website,
       panNumber: b.panNumber || b.panGst || currentReg.panNumber,
@@ -155,7 +177,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
 
     const parsedMin = ticketMinVal != null && ticketMinVal !== "" ? parseFloat(ticketMinVal) : undefined;
     const parsedMax = ticketMaxVal != null && ticketMaxVal !== "" ? parseFloat(ticketMaxVal) : undefined;
-    const focusStr = focusAreasVal != null ? (Array.isArray(focusAreasVal) ? focusAreasVal.join(", ") : String(focusAreasVal)) : undefined;
+    const focusStr = resolvedCats.joinedStr || undefined;
 
     await prisma.investorProfile.upsert({
       where: { userId: req.user.id },
