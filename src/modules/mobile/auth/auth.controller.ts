@@ -224,10 +224,11 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const nameVal = b.fullName || b.name || "User";
     const phoneVal = b.phone || b.mobile || b.phoneNumber;
     const phoneCodeVal = b.phoneCode || b.countryCode;
-    const bioVal = b.bio || b.thesis || b.overview || null;
+    const bioVal = b.bio || (typeof b.startup === 'object' && b.startup?.longDescription) || b.businessDescription || b.thesis || b.overview || null;
     const cityVal = b.city || null;
-    const countryVal = b.country || null;
+    const countryVal = b.country || b.countryId || null;
     const avatarUrlVal = b.avatarUrl || b.avatar || b.logo || null;
+    const isEmailVerified = Boolean(b.verification?.emailVerified ?? b.isVerified ?? b.emailVerified);
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
@@ -252,6 +253,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           country: countryVal ? String(countryVal).trim() : null,
           bio: bioVal ? String(bioVal).trim() : null,
           avatarUrl: avatarUrlVal ? String(avatarUrlVal).trim() : null,
+          isVerified: isEmailVerified,
           registrationData: b,
           status: 'active',
         },
@@ -260,8 +262,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
       // Populate initial role profile fields if provided during signup
       if (targetRole === 'investor') {
-        const firmVal = b.firm || b.firmName || null;
-        const ticketMinVal = b.ticketMin ?? b.minTicket;
+        const firmVal = b.companyFundName || b.firm || b.firmName || null;
+        const ticketMinVal = b.minTicket ?? b.ticketMin;
         const ticketMaxVal = b.ticketMax ?? b.maxTicket;
         const focusAreasVal = b.focusAreas || (Array.isArray(b.categories) ? b.categories.join(', ') : b.categories) || null;
         await tx.investorProfile.upsert({
@@ -281,11 +283,17 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           }
         });
       } else if (targetRole === 'founder') {
-        const startupNameVal = b.startupName || b.startup || b.title || (nameVal ? `${nameVal}'s Startup` : 'My Startup');
-        const industryVal = b.industry || 'Technology';
-        const stageVal = b.stage || 'Idea';
-        const teamSizeVal = b.teamSize ? parseInt(b.teamSize) : 1;
-        const raisedVal = b.raised != null ? parseFloat(b.raised) : (b.funding != null ? parseFloat(b.funding) : 0);
+        const startupObj = typeof b.startup === 'object' ? b.startup : {};
+        const startupNameVal = startupObj.name || b.startupName || b.startup || b.title || (nameVal ? `${nameVal}'s Startup` : 'My Startup');
+        const industryVal = b.industryId || b.industry || b.taxonomy?.primaryCategoryId || 'Technology';
+        const stageVal = startupObj.stageId || b.stage || b.fundingStage || 'Idea';
+        const teamSizeRaw = b.teamSizeId || b.teamSize;
+        const teamSizeVal = teamSizeRaw ? (parseInt(String(teamSizeRaw).replace(/[^\d]/g, '')) || 1) : 1;
+        const fundingReqRaw = startupObj.fundingRequired || b.fundingRequired || b.raised || b.funding;
+        const raisedVal = fundingReqRaw != null ? (parseFloat(String(fundingReqRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+        const equityOfferedRaw = startupObj.equityOffered || b.equityOffered || b.equity;
+        const equityVal = equityOfferedRaw != null ? (parseFloat(String(equityOfferedRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+        const pitchDeckVal = startupObj.pitchDeck || b.pitchDeck || b.pitchDeckUrl || null;
 
         await tx.founderProfile.upsert({
           where: { userId: created.id },
@@ -311,20 +319,20 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             founder: created.id,
             startup: String(startupNameVal).trim(),
             industry: String(industryVal).trim(),
-            category: b.category ? String(b.category) : 'General',
+            category: b.profileCategoryId || b.categoryId || b.taxonomy?.primaryCategoryId || 'General',
             stage: String(stageVal).trim(),
             funding: raisedVal,
-            equity: b.equity ? parseFloat(b.equity) : 0,
+            equity: equityVal,
             visibility: b.visibility || 'Public',
-            pitchDeck: b.pitchDeck || b.pitchDeckUrl || null,
+            pitchDeck: pitchDeckVal,
             businessPlan: b.businessPlan || b.businessPlanUrl || null,
             logo: avatarUrlVal || null,
             status: 'active'
           }
         }).catch(() => null);
       } else if (targetRole === 'client') {
-        const companyVal = b.company || b.companyName || null;
-        const industryVal = b.industry || null;
+        const companyVal = b.businessName || b.company || b.companyName || null;
+        const industryVal = b.industryId || b.industry || null;
         await tx.clientProfile.upsert({
           where: { userId: created.id },
           update: {
@@ -337,11 +345,30 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             industry: industryVal ? String(industryVal).trim() : null,
           }
         });
+
+        if (b.project && typeof b.project === 'object' && b.project.title) {
+          const proj = b.project;
+          const skillsVal = Array.isArray(proj.skills) ? proj.skills.join(', ') : (proj.skills ? String(proj.skills) : 'General');
+          await tx.project.create({
+            data: {
+              title: String(proj.title).trim(),
+              client: created.id,
+              budget: proj.budget != null ? parseFloat(proj.budget) : 0,
+              category: proj.categoryId || b.categoryId || 'General',
+              technology: skillsVal,
+              timeline: proj.timeline || null,
+              description: proj.description || null,
+              workMode: proj.remoteType || 'Remote',
+              status: 'open',
+            }
+          }).catch(() => null);
+        }
       } else if (targetRole === 'freelancer') {
         const rawSkills = b.skillIds ?? b.skills;
         const skillsVal = Array.isArray(rawSkills) ? rawSkills.join(',') : (rawSkills ? String(rawSkills) : null);
-        const industryVal = b.industry || null;
-        const experienceVal = b.experience ? String(b.experience) : null;
+        const industryVal = b.industryId || b.industry || null;
+        const expRaw = b.experienceYears ?? b.experience;
+        const experienceVal = expRaw != null ? String(expRaw) : null;
         const hourlyRateVal = b.hourlyRate != null && b.hourlyRate !== '' ? parseFloat(b.hourlyRate) : null;
 
         await tx.freelancerProfile.upsert({
@@ -360,6 +387,51 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             hourlyRate: hourlyRateVal,
           }
         });
+      }
+
+      if (b.subscription && typeof b.subscription === 'object' && (b.subscription.planId || b.subscription.isFreePlan !== undefined)) {
+        const sub = b.subscription;
+        const planId = String(sub.planId || (sub.isFreePlan ? 'Free_Trial' : 'Pro_Plan'));
+        
+        await tx.subscriptionPlan.upsert({
+          where: { id: planId },
+          update: {
+            amount: sub.amount != null ? parseFloat(sub.amount) : 0,
+            status: 'active',
+          },
+          create: {
+            id: planId,
+            name: `${targetRole.charAt(0).toUpperCase() + targetRole.slice(1)} Plan`,
+            role: targetRole,
+            amount: sub.amount != null ? parseFloat(sub.amount) : 0,
+            currency: 'INR',
+            duration: sub.isFreePlan ? '90_days' : 'yearly',
+            status: 'active',
+          }
+        }).catch(() => null);
+
+        await tx.subscription.create({
+          data: {
+            userId: created.id,
+            planId,
+            startDate: new Date(),
+            endDate: new Date(Date.now() + (sub.isFreePlan ? 90 * 86400000 : 365 * 86400000)),
+            status: 'active',
+          }
+        }).catch(() => null);
+
+        if (sub.amount && parseFloat(sub.amount) > 0) {
+          await tx.payment.create({
+            data: {
+              userId: created.id,
+              gateway: sub.paymentType || 'Easebuzz',
+              amount: parseFloat(sub.amount),
+              currency: 'INR',
+              transactionId: sub.transactionId || null,
+              status: sub.paymentStatus === 'paid' ? 'success' : 'pending',
+            }
+          }).catch(() => null);
+        }
       }
 
       return created;

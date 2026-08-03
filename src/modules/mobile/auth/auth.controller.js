@@ -151,28 +151,220 @@ export const login = async (req, res, next) => {
 };
 export const register = async (req, res, next) => {
     try {
-        const { email, password, fullName, role, phone, countryCode, fcmToken, platform, deviceId, deviceName } = req.body;
+        const b = req.body || {};
+        const { email, password, role, fcmToken, platform, deviceId, deviceName } = b;
+        const nameVal = b.fullName || b.name || "User";
+        const phoneVal = b.phone || b.mobile || b.phoneNumber;
+        const phoneCodeVal = b.phoneCode || b.countryCode;
+        const bioVal = b.bio || (typeof b.startup === 'object' && b.startup?.longDescription) || b.businessDescription || b.thesis || b.overview || null;
+        const cityVal = b.city || null;
+        const countryVal = b.country || b.countryId || null;
+        const avatarUrlVal = b.avatarUrl || b.avatar || b.logo || null;
+        const isEmailVerified = Boolean(b.verification?.emailVerified ?? b.isVerified ?? b.emailVerified);
+
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             return res.status(409).json(errorResponse('Email is already registered. Please login.', 'EMAIL_ALREADY_EXISTS'));
         }
-        const hashedPassword = await bcrypt.hash(password, 12);
+        const hashedPassword = await bcrypt.hash(password || 'password123', 12);
+        const targetRole = role || 'client';
+
         const user = await prisma.$transaction(async (tx) => {
             const created = await tx.user.create({
                 data: {
                     email,
                     password: hashedPassword,
-                    fullName,
-                    role,
-                    phone: buildPhoneNumber(phone, countryCode),
+                    fullName: String(nameVal).trim(),
+                    role: targetRole,
+                    phone: buildPhoneNumber(phoneVal, phoneCodeVal),
+                    city: cityVal ? String(cityVal).trim() : null,
+                    country: countryVal ? String(countryVal).trim() : null,
+                    bio: bioVal ? String(bioVal).trim() : null,
+                    avatarUrl: avatarUrlVal ? String(avatarUrlVal).trim() : null,
+                    isVerified: isEmailVerified,
+                    registrationData: b,
                     status: 'active',
                 },
             });
-            await bootstrapNewUser(created.id, role, tx);
+            await bootstrapNewUser(created.id, targetRole, tx);
+
+            if (targetRole === 'investor') {
+                const firmVal = b.companyFundName || b.firm || b.firmName || null;
+                const ticketMinVal = b.minTicket ?? b.ticketMin;
+                const ticketMaxVal = b.ticketMax ?? b.maxTicket;
+                const focusAreasVal = b.focusAreas || (Array.isArray(b.categories) ? b.categories.join(', ') : b.categories) || null;
+                await tx.investorProfile.upsert({
+                    where: { userId: created.id },
+                    update: {
+                        firm: firmVal ? String(firmVal).trim() : undefined,
+                        ticketMin: ticketMinVal != null && ticketMinVal !== '' ? parseFloat(ticketMinVal) : undefined,
+                        ticketMax: ticketMaxVal != null && ticketMaxVal !== '' ? parseFloat(ticketMaxVal) : undefined,
+                        focusAreas: focusAreasVal ? String(focusAreasVal) : undefined,
+                    },
+                    create: {
+                        userId: created.id,
+                        firm: firmVal ? String(firmVal).trim() : null,
+                        ticketMin: ticketMinVal != null && ticketMinVal !== '' ? parseFloat(ticketMinVal) : null,
+                        ticketMax: ticketMaxVal != null && ticketMaxVal !== '' ? parseFloat(ticketMaxVal) : null,
+                        focusAreas: focusAreasVal ? String(focusAreasVal) : null,
+                    }
+                });
+            } else if (targetRole === 'founder') {
+                const startupObj = typeof b.startup === 'object' ? b.startup : {};
+                const startupNameVal = startupObj.name || b.startupName || b.startup || b.title || (nameVal ? `${nameVal}'s Startup` : 'My Startup');
+                const industryVal = b.industryId || b.industry || b.taxonomy?.primaryCategoryId || 'Technology';
+                const stageVal = startupObj.stageId || b.stage || b.fundingStage || 'Idea';
+                const teamSizeRaw = b.teamSizeId || b.teamSize;
+                const teamSizeVal = teamSizeRaw ? (parseInt(String(teamSizeRaw).replace(/[^\d]/g, '')) || 1) : 1;
+                const fundingReqRaw = startupObj.fundingRequired || b.fundingRequired || b.raised || b.funding;
+                const raisedVal = fundingReqRaw != null ? (parseFloat(String(fundingReqRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+                const equityOfferedRaw = startupObj.equityOffered || b.equityOffered || b.equity;
+                const equityVal = equityOfferedRaw != null ? (parseFloat(String(equityOfferedRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+                const pitchDeckVal = startupObj.pitchDeck || b.pitchDeck || b.pitchDeckUrl || null;
+
+                await tx.founderProfile.upsert({
+                    where: { userId: created.id },
+                    update: {
+                        startupName: String(startupNameVal).trim(),
+                        industry: String(industryVal).trim(),
+                        stage: String(stageVal).trim(),
+                        teamSize: teamSizeVal,
+                        raised: raisedVal,
+                    },
+                    create: {
+                        userId: created.id,
+                        startupName: String(startupNameVal).trim(),
+                        industry: String(industryVal).trim(),
+                        stage: String(stageVal).trim(),
+                        teamSize: teamSizeVal,
+                        raised: raisedVal,
+                    }
+                });
+
+                await tx.startupIdea.create({
+                    data: {
+                        founder: created.id,
+                        startup: String(startupNameVal).trim(),
+                        industry: String(industryVal).trim(),
+                        category: b.profileCategoryId || b.categoryId || b.taxonomy?.primaryCategoryId || 'General',
+                        stage: String(stageVal).trim(),
+                        funding: raisedVal,
+                        equity: equityVal,
+                        visibility: b.visibility || 'Public',
+                        pitchDeck: pitchDeckVal,
+                        businessPlan: b.businessPlan || b.businessPlanUrl || null,
+                        logo: avatarUrlVal || null,
+                        status: 'active'
+                    }
+                }).catch(() => null);
+            } else if (targetRole === 'client') {
+                const companyVal = b.businessName || b.company || b.companyName || null;
+                const industryVal = b.industryId || b.industry || null;
+                await tx.clientProfile.upsert({
+                    where: { userId: created.id },
+                    update: {
+                        company: companyVal ? String(companyVal).trim() : undefined,
+                        industry: industryVal ? String(industryVal).trim() : undefined,
+                    },
+                    create: {
+                        userId: created.id,
+                        company: companyVal ? String(companyVal).trim() : null,
+                        industry: industryVal ? String(industryVal).trim() : null,
+                    }
+                });
+
+                if (b.project && typeof b.project === 'object' && b.project.title) {
+                    const proj = b.project;
+                    const skillsVal = Array.isArray(proj.skills) ? proj.skills.join(', ') : (proj.skills ? String(proj.skills) : 'General');
+                    await tx.project.create({
+                        data: {
+                            title: String(proj.title).trim(),
+                            client: created.id,
+                            budget: proj.budget != null ? parseFloat(proj.budget) : 0,
+                            category: proj.categoryId || b.categoryId || 'General',
+                            technology: skillsVal,
+                            timeline: proj.timeline || null,
+                            description: proj.description || null,
+                            workMode: proj.remoteType || 'Remote',
+                            status: 'open',
+                        }
+                    }).catch(() => null);
+                }
+            } else if (targetRole === 'freelancer') {
+                const rawSkills = b.skillIds ?? b.skills;
+                const skillsVal = Array.isArray(rawSkills) ? rawSkills.join(',') : (rawSkills ? String(rawSkills) : null);
+                const industryVal = b.industryId || b.industry || null;
+                const expRaw = b.experienceYears ?? b.experience;
+                const experienceVal = expRaw != null ? String(expRaw) : null;
+                const hourlyRateVal = b.hourlyRate != null && b.hourlyRate !== '' ? parseFloat(b.hourlyRate) : null;
+
+                await tx.freelancerProfile.upsert({
+                    where: { userId: created.id },
+                    update: {
+                        skills: skillsVal || undefined,
+                        industry: industryVal ? String(industryVal).trim() : undefined,
+                        experience: experienceVal || undefined,
+                        hourlyRate: hourlyRateVal != null ? hourlyRateVal : undefined,
+                    },
+                    create: {
+                        userId: created.id,
+                        skills: skillsVal || '',
+                        industry: industryVal ? String(industryVal).trim() : null,
+                        experience: experienceVal,
+                        hourlyRate: hourlyRateVal,
+                    }
+                });
+            }
+
+            if (b.subscription && typeof b.subscription === 'object' && (b.subscription.planId || b.subscription.isFreePlan !== undefined)) {
+                const sub = b.subscription;
+                const planId = String(sub.planId || (sub.isFreePlan ? 'Free_Trial' : 'Pro_Plan'));
+                
+                await tx.subscriptionPlan.upsert({
+                    where: { id: planId },
+                    update: {
+                        amount: sub.amount != null ? parseFloat(sub.amount) : 0,
+                        status: 'active',
+                    },
+                    create: {
+                        id: planId,
+                        name: `${targetRole.charAt(0).toUpperCase() + targetRole.slice(1)} Plan`,
+                        role: targetRole,
+                        amount: sub.amount != null ? parseFloat(sub.amount) : 0,
+                        currency: 'INR',
+                        duration: sub.isFreePlan ? '90_days' : 'yearly',
+                        status: 'active',
+                    }
+                }).catch(() => null);
+
+                await tx.subscription.create({
+                    data: {
+                        userId: created.id,
+                        planId,
+                        startDate: new Date(),
+                        endDate: new Date(Date.now() + (sub.isFreePlan ? 90 * 86400000 : 365 * 86400000)),
+                        status: 'active',
+                    }
+                }).catch(() => null);
+
+                if (sub.amount && parseFloat(sub.amount) > 0) {
+                    await tx.payment.create({
+                        data: {
+                            userId: created.id,
+                            gateway: sub.paymentType || 'Easebuzz',
+                            amount: parseFloat(sub.amount),
+                            currency: 'INR',
+                            transactionId: sub.transactionId || null,
+                            status: sub.paymentStatus === 'paid' ? 'success' : 'pending',
+                        }
+                    }).catch(() => null);
+                }
+            }
+
             return created;
         });
         const payload = await issueAuthResponse(user, { fcmToken, platform, deviceId, deviceName });
-        void sendWelcomeEmail(email, fullName);
+        void sendWelcomeEmail(email, nameVal);
         await AuditEngine.track(user.id, 'register', 'user', user.id, null, null, req);
         return res.status(201).json(successResponse('Registration successful', payload));
     }
