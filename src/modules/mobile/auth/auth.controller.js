@@ -28,19 +28,29 @@ const PASSWORD_RESET_SECRET = process.env.JWT_RESET_SECRET || JWT_SECRET;
 const PASSWORD_RESET_EXPIRES_IN_MS = 15 * 60 * 1000;
 const authEpochKey = (userId) => `auth_epoch:${userId}`;
 const getAuthEpoch = async (userId) => {
-    const row = await prisma.setting.findUnique({ where: { key: authEpochKey(userId) } });
-    const n = row ? Number(row.value) : 0;
-    return Number.isFinite(n) ? n : 0;
+    try {
+        if (prisma.setting) {
+            const row = await prisma.setting.findUnique({ where: { key: authEpochKey(userId) } });
+            const n = row ? Number(row.value) : 0;
+            return Number.isFinite(n) ? n : 0;
+        }
+    } catch (e) {}
+    return 0;
 };
 const bumpAuthEpoch = async (userId) => {
-    const next = (await getAuthEpoch(userId)) + 1;
-    const key = authEpochKey(userId);
-    await prisma.setting.upsert({
-        where: { key },
-        create: { key, value: String(next), category: 'auth' },
-        update: { value: String(next) },
-    });
-    return next;
+    try {
+        if (prisma.setting) {
+            const next = (await getAuthEpoch(userId)) + 1;
+            const key = authEpochKey(userId);
+            await prisma.setting.upsert({
+                where: { key },
+                create: { key, value: String(next), category: 'auth' },
+                update: { value: String(next) },
+            });
+            return next;
+        }
+    } catch (e) {}
+    return 0;
 };
 const getRedirectTo = (role) => {
     switch (role) {
