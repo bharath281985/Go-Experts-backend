@@ -124,13 +124,17 @@ const issueAuthResponse = async (user, device) => {
 };
 export const login = async (req, res, next) => {
     try {
-        const { email, password, deviceId, deviceName, platform, fcmToken } = req.body;
-        const user = await prisma.user.findUnique({ where: { email } });
+        const { email, password, deviceId, deviceName, platform, fcmToken } = req.body || {};
+        if (!email || typeof email !== 'string' || !email.trim()) {
+            return res.status(400).json(errorResponse('Email is required', 'VALIDATION_ERROR'));
+        }
+        const cleanEmail = email.trim().toLowerCase();
+        const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
         if (!user || !user.password) {
             await safeTrackLoginAttempt(email, false, req, 'USER_NOT_FOUND');
             return res.status(404).json(errorResponse('User is not registered with us', 'USER_NOT_FOUND'));
         }
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(password || '', user.password);
         if (!isMatch) {
             await safeTrackLoginAttempt(email, false, req, 'INVALID_CREDENTIALS');
             await AuditEngine.track(user.id, 'failed_login', 'user', user.id, null, null, req);
@@ -153,6 +157,10 @@ export const register = async (req, res, next) => {
     try {
         const b = req.body || {};
         const { email, password, role, fcmToken, platform, deviceId, deviceName } = b;
+        if (!email || typeof email !== 'string' || !email.trim()) {
+            return res.status(400).json(errorResponse('Email is required', 'VALIDATION_ERROR'));
+        }
+        const cleanEmail = email.trim().toLowerCase();
         const nameVal = b.fullName || b.name || "User";
         const phoneVal = b.phone || b.mobile || b.phoneNumber;
         const phoneCodeVal = b.phoneCode || b.countryCode;
@@ -162,7 +170,7 @@ export const register = async (req, res, next) => {
         const avatarUrlVal = b.avatarUrl || b.avatar || b.logo || null;
         const isEmailVerified = Boolean(b.verification?.emailVerified ?? b.isVerified ?? b.emailVerified);
 
-        const existingUser = await prisma.user.findUnique({ where: { email } });
+        const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
         if (existingUser) {
             return res.status(409).json(errorResponse('Email is already registered. Please login.', 'EMAIL_ALREADY_EXISTS'));
         }
@@ -172,7 +180,7 @@ export const register = async (req, res, next) => {
         const user = await prisma.$transaction(async (tx) => {
             const created = await tx.user.create({
                 data: {
-                    email,
+                    email: cleanEmail,
                     password: hashedPassword,
                     fullName: String(nameVal).trim(),
                     role: targetRole,

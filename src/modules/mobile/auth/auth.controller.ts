@@ -181,9 +181,15 @@ const issueAuthResponse = async (
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password, deviceId, deviceName, platform, fcmToken } = req.body;
+    const { email, password, deviceId, deviceName, platform, fcmToken } = req.body || {};
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json(
+        errorResponse('Email is required', 'VALIDATION_ERROR')
+      );
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
 
     if (!user || !user.password) {
       await safeTrackLoginAttempt(email, false, req, 'USER_NOT_FOUND');
@@ -192,7 +198,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       );
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password || '', user.password);
     if (!isMatch) {
       await safeTrackLoginAttempt(email, false, req, 'INVALID_CREDENTIALS');
       await AuditEngine.track(user.id, 'failed_login', 'user', user.id, null, null, req);
@@ -221,6 +227,14 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
   try {
     const b = req.body || {};
     const { email, password, role, fcmToken, platform, deviceId, deviceName } = b;
+
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json(
+        errorResponse('Email is required', 'VALIDATION_ERROR')
+      );
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
     const nameVal = b.fullName || b.name || "User";
     const phoneVal = b.phone || b.mobile || b.phoneNumber;
     const phoneCodeVal = b.phoneCode || b.countryCode;
@@ -230,7 +244,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const avatarUrlVal = b.avatarUrl || b.avatar || b.logo || null;
     const isEmailVerified = Boolean(b.verification?.emailVerified ?? b.isVerified ?? b.emailVerified);
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
 
     if (existingUser) {
       return res.status(409).json(
@@ -244,7 +258,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
-          email,
+          email: cleanEmail,
           password: hashedPassword,
           fullName: String(nameVal).trim(),
           role: targetRole,
@@ -555,8 +569,12 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
 export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.json(successResponse('If the email is registered, a password reset link has been sent.'));
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (!user || !user.password) {
       return res.json(successResponse('If the email is registered, a password reset link has been sent.'));
     }

@@ -61,12 +61,16 @@ const ensureRoleProfile = async (userId, role) => {
     }
 };
 const findOrCreateSocialUser = async (email, fullName, role, avatarUrl) => {
-    let user = await prisma.user.findUnique({ where: { email } });
+    const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+    if (!cleanEmail) {
+        throw new Error('Valid email is required for social authentication');
+    }
+    let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (!user) {
         user = await prisma.$transaction(async (tx) => {
             const created = await tx.user.create({
                 data: {
-                    email,
+                    email: cleanEmail,
                     fullName,
                     role,
                     status: 'active',
