@@ -35,6 +35,7 @@ router.get('/dashboard', getDashboard);
 // ─── Profile ───
 router.get('/profile', getProfile);
 router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
+router.patch('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.post('/profile/logo', upload.single('file'), handleUploadError, uploadLogo);
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCover);

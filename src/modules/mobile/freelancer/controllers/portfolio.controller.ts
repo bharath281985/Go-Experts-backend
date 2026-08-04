@@ -4,14 +4,36 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 
+type SkillEntry = { skillId: string; skillName: string };
+
 type PortfolioItem = {
   id: string;
   title: string;
-  description: string;
-  projectUrl?: string | null;
-  technologies: string[];
-  role?: string;
+  industry?: string;
+  industryId?: string | null;
   category?: string;
+  categoryId?: string | null;
+  skills: SkillEntry[];
+  technologies: string[];
+  status?: string;
+  client?: string;
+  duration?: string;
+  teamSize?: string;
+  teamSizeId?: string | null;
+  role?: string;
+  githubUrl?: string | null;
+  liveUrl?: string | null;
+  projectUrl?: string | null;
+  overview?: string;
+  description?: string;
+  coverMedia?: string | null;
+  coverUrl?: string | null;
+  videoDemo?: string | null;
+  videoUrl?: string | null;
+  pdfCaseStudy?: string | null;
+  caseStudyUrl?: string | null;
+  extraScreenshot?: string | null;
+  screenshotUrl?: string | null;
   completionDate?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -31,7 +53,64 @@ const parseItems = (raw?: string | null): PortfolioItem[] => {
 
 const readItems = async (userId: string): Promise<PortfolioItem[]> => {
   const row = await prisma.setting.findUnique({ where: { key: portfolioKey(userId) } });
-  return parseItems(row?.value);
+  const items = parseItems(row?.value);
+  if (items.length > 0) return Promise.all(items.map((item) => normalizeItem(item, item)));
+
+  // Fallback: Check if portfolio was uploaded during sign-up in registrationData
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { freelancerProfile: true }
+    });
+    if (!user) return [];
+
+    let regData: any = {};
+    if (user.registrationData) {
+      regData = typeof user.registrationData === 'string' ? JSON.parse(user.registrationData) : user.registrationData;
+    }
+
+    const signupItems: PortfolioItem[] = [];
+    const now = new Date().toISOString();
+
+    if (Array.isArray(regData.portfolioItems) && regData.portfolioItems.length > 0) {
+      for (const item of regData.portfolioItems) {
+        if (typeof item === 'object' && item) {
+          signupItems.push(await normalizeItem(item));
+        }
+      }
+    }
+
+    const portfolioUrl = regData.portfolioUrl || regData.portfolio || regData.socialLinks?.portfolio || null;
+    if (portfolioUrl && signupItems.length === 0) {
+      signupItems.push({
+        id: randomUUID(),
+        title: regData.title || regData.professionalTitle || 'Sign-up Portfolio Project',
+        description: regData.overview || regData.bio || user.bio || 'Project portfolio uploaded during sign-up.',
+        projectUrl: String(portfolioUrl),
+        skills: Array.isArray(regData.skills) ? regData.skills : (typeof regData.skills === 'string' ? regData.skills.split(',').map((s: string) => s.trim()) : []),
+        technologies: Array.isArray(regData.skills) ? regData.skills : (typeof regData.skills === 'string' ? regData.skills.split(',').map((s: string) => s.trim()) : []),
+        role: regData.title || 'Freelancer Developer',
+        category: 'Full-Stack Development',
+        completionDate: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    if (signupItems.length > 0) {
+      const key = portfolioKey(userId);
+      await prisma.setting.upsert({
+        where: { key },
+        update: { value: JSON.stringify(signupItems), category: 'freelancer_portfolio' },
+        create: { key, value: JSON.stringify(signupItems), category: 'freelancer_portfolio' },
+      }).catch(() => null);
+      return signupItems;
+    }
+  } catch {
+    // Return empty on error
+  }
+
+  return [];
 };
 
 const writeItems = async (userId: string, items: PortfolioItem[]) => {
@@ -45,30 +124,119 @@ const writeItems = async (userId: string, items: PortfolioItem[]) => {
       category: 'freelancer_portfolio',
     },
   });
+
+  // Sync back top projectUrl to registrationData for full compatibility
+  try {
+    const topUrl = items[0]?.projectUrl || items[0]?.liveUrl;
+    if (topUrl) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user?.registrationData) {
+        let reg = typeof user.registrationData === 'string' ? JSON.parse(user.registrationData) : user.registrationData;
+        reg.portfolioUrl = topUrl;
+        reg.portfolioItems = items;
+        await prisma.user.update({
+          where: { id: userId },
+          data: { registrationData: reg }
+        }).catch(() => null);
+      }
+    }
+  } catch {}
 };
 
-const normalizeItem = (body: Record<string, unknown>, existing?: PortfolioItem): PortfolioItem => {
+const normalizeItem = async (body: Record<string, unknown>, existing?: PortfolioItem): Promise<PortfolioItem> => {
   const now = new Date().toISOString();
-  const technologies = Array.isArray(body.technologies)
-    ? body.technologies.map((t) => String(t).trim()).filter(Boolean)
-    : String(body.technologies || '')
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean);
+
+  // Parse skills: accept [{skillId, skillName}], ["string"], or comma-separated string
+  const rawSkills = body.skills || body.technologies || existing?.skills || existing?.technologies;
+  let skillNames: string[] = [];
+  let inputSkillMap: Record<string, string> = {}; // name -> provided skillId
+
+  if (Array.isArray(rawSkills)) {
+    for (const item of rawSkills) {
+      if (typeof item === 'object' && item !== null && (item as any).skillName) {
+        const name = String((item as any).skillName).trim();
+        const id = (item as any).skillId ? String((item as any).skillId).trim() : '';
+        if (name) {
+          skillNames.push(name);
+          if (id) inputSkillMap[name.toLowerCase()] = id;
+        }
+      } else {
+        const name = String(item).trim();
+        if (name) skillNames.push(name);
+      }
+    }
+  } else if (typeof rawSkills === 'string' && rawSkills.trim()) {
+    skillNames = rawSkills.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }
+
+  // Look up real UUIDs from DB Skill table
+  let dbSkillMap: Record<string, string> = {};
+  if (skillNames.length > 0) {
+    try {
+      const dbSkills = await prisma.skill.findMany({
+        where: { name: { in: skillNames } },
+        select: { id: true, name: true },
+      });
+      for (const s of dbSkills) {
+        dbSkillMap[s.name.toLowerCase()] = s.id;
+      }
+    } catch {}
+  }
+
+  const skills: SkillEntry[] = skillNames.map((name) => {
+    const key = name.toLowerCase();
+    const skillId = inputSkillMap[key] || dbSkillMap[key] || randomUUID();
+    return { skillId, skillName: name };
+  });
+
+  const technologies = skills.map((s) => s.skillName);
+
+  const liveUrl = String(body.liveUrl || body.projectUrl || existing?.liveUrl || existing?.projectUrl || '').trim() || null;
+  const githubUrl = String(body.githubUrl || existing?.githubUrl || '').trim() || null;
+  const overview = String(body.overview || body.description || existing?.overview || existing?.description || '').trim();
+  const cover = String(body.coverMedia || body.coverUrl || existing?.coverMedia || existing?.coverUrl || '').trim() || null;
+  const video = String(body.videoDemo || body.videoUrl || existing?.videoDemo || existing?.videoUrl || '').trim() || null;
+  const pdf = String(body.pdfCaseStudy || body.caseStudyUrl || existing?.pdfCaseStudy || existing?.caseStudyUrl || '').trim() || null;
+  const screenshot = String(body.extraScreenshot || body.screenshotUrl || existing?.extraScreenshot || existing?.screenshotUrl || '').trim() || null;
+
+  const categoryName = String(body.category || existing?.category || 'Full-Stack Development').trim();
+  const categoryId = String(body.categoryId || body.category_id || existing?.categoryId || (categoryName ? categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')).trim() || null;
+
+  const industryName = String(body.industry || existing?.industry || 'Technology').trim();
+  const industryId = String(body.industryId || body.industry_id || existing?.industryId || (industryName ? industryName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')).trim() || null;
+
+  const teamSizeVal = String(body.teamSize || existing?.teamSize || '1-5').trim();
+  const teamSizeId = String(body.teamSizeId || body.team_size_id || existing?.teamSizeId || (teamSizeVal ? 'ts_' + teamSizeVal.toLowerCase().replace(/[^a-z0-9]+/g, '_') : '')).trim() || null;
 
   return {
     id: existing?.id ?? randomUUID(),
-    title: String(body.title || existing?.title || '').trim() || 'Untitled',
-    description: String(body.description || existing?.description || '').trim(),
-    projectUrl: body.projectUrl != null
-      ? String(body.projectUrl).trim() || null
-      : existing?.projectUrl ?? null,
+    title: String(body.title || existing?.title || '').trim() || 'Untitled Project',
+    industry: industryName,
+    industryId,
+    category: categoryName,
+    categoryId,
+    skills,
     technologies,
-    role: String(body.role || existing?.role || '').trim(),
-    category: String(body.category || existing?.category || 'portfolio').trim() || 'portfolio',
-    completionDate: body.completionDate != null
-      ? String(body.completionDate)
-      : existing?.completionDate ?? null,
+    status: String(body.status || existing?.status || 'Published').trim(),
+    client: String(body.client || existing?.client || '').trim(),
+    duration: String(body.duration || existing?.duration || '').trim(),
+    teamSize: teamSizeVal,
+    teamSizeId,
+    role: String(body.role || body.yourRole || existing?.role || '').trim(),
+    githubUrl,
+    liveUrl,
+    projectUrl: liveUrl,
+    overview,
+    description: overview,
+    coverMedia: cover,
+    coverUrl: cover,
+    videoDemo: video,
+    videoUrl: video,
+    pdfCaseStudy: pdf,
+    caseStudyUrl: pdf,
+    extraScreenshot: screenshot,
+    screenshotUrl: screenshot,
+    completionDate: body.completionDate != null ? String(body.completionDate) : existing?.completionDate ?? null,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -131,7 +299,7 @@ export const createPortfolioItem = async (req: AuthRequest, res: Response, next:
     }
 
     const items = await readItems(req.user.id);
-    const item = normalizeItem(req.body || {});
+    const item = await normalizeItem(req.body || {});
     items.unshift(item);
     await writeItems(req.user.id, items);
     return res.status(201).json(successResponse('Portfolio item created', item));
@@ -148,7 +316,7 @@ export const updatePortfolioItem = async (req: AuthRequest, res: Response, next:
       return res.status(404).json(errorResponse('Portfolio item not found', 'NOT_FOUND'));
     }
 
-    const updated = normalizeItem(req.body || {}, items[index]);
+    const updated = await normalizeItem(req.body || {}, items[index]);
     items[index] = updated;
     await writeItems(req.user.id, items);
     return res.json(successResponse('Portfolio item updated', updated));

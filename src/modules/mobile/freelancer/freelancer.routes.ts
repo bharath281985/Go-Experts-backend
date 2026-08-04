@@ -48,6 +48,7 @@ router.get('/dashboard', getDashboard);
 // ─── Profile ───
 router.get('/profile', getProfile);
 router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
+router.patch('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.post('/profile/avatar', upload.single('file'), handleUploadError, uploadAvatar);
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCoverImage);
