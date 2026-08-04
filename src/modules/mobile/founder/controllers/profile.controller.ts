@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
 import { resolveMasterOptionsInput } from '../../../../utils/array-option-resolver.js';
+import { getJsonSetting } from '../../../../common/helpers/portal-shared.js';
 
 function parseRegData(regData: any): Record<string, any> {
   if (!regData) return {};
@@ -93,41 +94,26 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       id: profile?.id || firstIdea?.id || `fp_${req.user.id}`,
       userId: req.user.id,
       fullName: user?.fullName || reg.fullName || "",
-      name: user?.fullName || reg.fullName || startupName,
       email: user?.email || reg.email || "",
       phone: user?.phone || reg.phone || reg.mobile || "",
-      mobile: user?.phone || reg.phone || reg.mobile || "",
-      phoneNumber: user?.phone || reg.phone || reg.mobile || "",
-      phoneCode: reg.phoneCode || reg.phoneCountryCode || reg.countryCode || "+91",
       countryCode: reg.countryCode || "IN",
       city: user?.city || reg.city || "",
       state: reg.state || reg.stateCode || "",
-      stateCode: reg.stateCode || reg.state || "",
       country: user?.country || reg.country || "",
       bio: user?.bio || reg.bio || reg.pitch || "",
-      pitch: user?.bio || reg.pitch || reg.bio || "",
-      founderTypeId: resolvedFounderType.ids[0] || null,
       founderType: resolvedFounderType.labels[0] || founderTypeVal,
       skills: reg.skills || "",
       experience: reg.experience || "",
       education: reg.education || "",
       startupName,
-      startup: startupName,
-      title: firstIdea?.startup || startupName,
       industry: profile?.industry || firstIdea?.industry || reg.industry || 'Technology',
       category: firstIdea?.category || reg.category || 'General',
       subCategory: reg.subCategory || "",
-      stageId: resolvedStage.ids[0] || null,
       stage: resolvedStage.labels[0] || stageVal,
-      fundingStage: resolvedStage.labels[0] || stageVal,
       teamSize: profile?.teamSize || (reg.teamSize ? parseInt(reg.teamSize) : 1),
       raised: raisedVal,
-      funding: raisedVal,
-      fundingRequired: reg.fundingRequired || (raisedVal ? String(raisedVal) : "0"),
       equity: equityVal,
-      equityOffered: reg.equityOffered || (equityVal ? String(equityVal) : "0"),
       visibility: firstIdea?.visibility || reg.visibility || 'Public',
-      shortPitch: reg.shortPitch || firstIdea?.startup || "",
       description: reg.description || reg.pitch || user?.bio || "",
       problemStatement: reg.problemStatement || "",
       solution: reg.solution || "",
@@ -138,10 +124,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       currentProgress: reg.currentProgress || "",
       demoLink: reg.demoLink || "",
       pitchDeck: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || reg.pitchDeckUrl || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
-      pitchDeckUrl: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeckUrl || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
       businessPlan: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || reg.businessPlanUrl || "https://apiai.goexperts.in/uploads/business_plan.pdf",
-      businessPlanDoc: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanDoc || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
-      businessPlanUrl: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlanUrl || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf",
       linkedin: reg.linkedin || reg.linkedinUrl || "",
       website: reg.website || reg.websiteUrl || "",
       lookingFor: Array.isArray(reg.lookingFor) ? reg.lookingFor : (typeof reg.lookingFor === 'string' ? reg.lookingFor.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
@@ -149,21 +132,15 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       panNumber: reg.panNumber || "",
       aadhaarNumber: reg.aadhaarNumber || "",
       idDocument: reg.idDocument || reg.idDocumentUrl || "",
-      idDocumentUrl: reg.idDocumentUrl || reg.idDocument || "",
       documents: [
         { id: "doc_bp", name: "Business Plan", url: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
         { id: "doc_pd", name: "Pitch Deck", url: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
       ],
       logo: user?.avatarUrl || firstIdea?.logo || reg.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
-      avatarUrl: user?.avatarUrl || firstIdea?.logo || reg.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
-      avatar: user?.avatarUrl || firstIdea?.logo || reg.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
       coverUrl: firstIdea?.coverUrl || reg.coverUrl || "https://apiai.goexperts.in/uploads/default_cover.png",
       createdAt: profile?.createdAt || firstIdea?.createdAt || new Date().toISOString(),
       updatedAt: profile?.updatedAt || firstIdea?.updatedAt || new Date().toISOString(),
-      user: user || { id: req.user.id, fullName: 'Founder' },
-      bids: formattedBids,
-      interestedInvestors: formattedBids.length,
-      interestedInvestorsList: formattedBids
+      user: user || { id: req.user.id, fullName: 'Founder' }
     };
 
     return res.json(successResponse('Profile retrieved', result));
@@ -174,7 +151,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, fullName: true, email: true, avatarUrl: true }
+      select: { id: true, fullName: true, email: true, avatarUrl: true, bio: true, phone: true, country: true, city: true, role: true, registrationData: true }
     });
 
     const [profile, idea] = await Promise.all([
@@ -208,7 +185,55 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       }).catch(() => null);
     }
 
-    return res.json(successResponse('Startup details retrieved', startup));
+    let rawBids: any[] = [];
+    if (startup) {
+      try {
+        rawBids = await prisma.investment.findMany({
+          where: { startup: startup.id, deletedAt: null },
+          orderBy: { createdAt: 'desc' }
+        });
+      } catch {
+        rawBids = [];
+      }
+    }
+
+    const startupDetails = await getJsonSetting(req.user.id, "startup-details", {});
+    const founderDetails = await getJsonSetting(req.user.id, "founder-profile-details", {});
+    
+    const reg = {
+      ...parseRegData(user?.registrationData),
+      ...startupDetails,
+      ...founderDetails
+    };
+
+    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`;
+    const userObj = {
+      id: user?.id,
+      email: user?.email,
+      fullName: user?.fullName,
+      avatarUrl: user?.avatarUrl || dicebearUrl,
+      logo: user?.avatarUrl || dicebearUrl,
+      bio: user?.bio || reg.bio || reg.pitch || "",
+      phone: user?.phone || reg.phone || reg.mobile || "",
+      country: user?.country || reg.country || "",
+      city: user?.city || reg.city || "",
+      role: user?.role,
+      registrationData: reg
+    };
+
+    const documents = [
+      { id: "doc_bp", name: "Business Plan", url: startup?.businessPlan || profile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
+      { id: "doc_pd", name: "Pitch Deck", url: startup?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
+    ];
+
+    const result = {
+      ...startup,
+      documents,
+      user: userObj,
+      bids: rawBids
+    };
+
+    return res.json(successResponse('Startup details retrieved', result));
   } catch (error) { next(error); }
 };
 

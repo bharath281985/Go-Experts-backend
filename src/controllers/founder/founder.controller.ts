@@ -132,6 +132,8 @@ export const getFounderProfile = async (req: AuthenticatedRequest, res: Response
     const user = await loadFounderUser(userId);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
+    const details = await getJsonSetting(userId, "founder-profile-details", {});
+
     res.json({
       success: true,
       data: {
@@ -151,6 +153,7 @@ export const getFounderProfile = async (req: AuthenticatedRequest, res: Response
         status: user.status,
         verified: Boolean(user.isVerified || user.verified),
         role: user.role,
+        ...details,
       },
     });
   } catch (err) {
@@ -198,6 +201,15 @@ export const updateFounderProfile = async (req: AuthenticatedRequest, res: Respo
       },
     });
 
+    const extraFields = ["website", "linkedin", "location", "education", "experience"];
+    const details: any = await getJsonSetting(userId, "founder-profile-details", {});
+    for (const key of extraFields) {
+      if (body[key] !== undefined) {
+        details[key] = body[key];
+      }
+    }
+    await setJsonSetting(userId, "founder-profile-details", details);
+
     return getFounderProfile(req, res, next);
   } catch (err) {
     handleError(err, res, next);
@@ -216,7 +228,8 @@ export const getFounderStartup = async (req: AuthenticatedRequest, res: Response
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     const startup = await findOrCreateStartup(user);
-    res.json({ success: true, data: startup });
+    const details = await getJsonSetting(userId, "startup-details", {});
+    res.json({ success: true, data: { ...startup, ...details } });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -232,12 +245,15 @@ export const updateFounderStartup = async (req: AuthenticatedRequest, res: Respo
     const startup = await findOrCreateStartup(user);
     const body = req.body || {};
     const data: any = {};
+    
     if (body.startup != null) data.startup = String(body.startup).trim();
     if (body.industry != null) data.industry = String(body.industry).trim();
     if (body.category != null) data.category = String(body.category).trim();
     if (body.stage != null) data.stage = String(body.stage).trim();
-    if (body.funding != null && body.funding !== "") data.funding = Number(body.funding);
-    if (body.equity != null && body.equity !== "") data.equity = Number(body.equity);
+    if (body.amountRaising != null && body.amountRaising !== "") data.funding = Number(body.amountRaising);
+    else if (body.funding != null && body.funding !== "") data.funding = Number(body.funding);
+    if (body.equityOffered != null && body.equityOffered !== "") data.equity = Number(body.equityOffered);
+    else if (body.equity != null && body.equity !== "") data.equity = Number(body.equity);
     if (body.visibility != null) data.visibility = String(body.visibility).trim();
     if (body.status != null) data.status = String(body.status).trim();
 
@@ -251,7 +267,24 @@ export const updateFounderStartup = async (req: AuthenticatedRequest, res: Respo
       });
     }
 
-    res.json({ success: true, message: "Startup updated", data: updated });
+    // Save extra fields to JSON setting
+    const extraFields = [
+      "legalName", "foundedYear", "country", "website", "linkedin",
+      "oneLinePitch", "problem", "solution", "businessModel", 
+      "revenueModel", "targetMarket", "competitiveAdvantage", 
+      "technologyStack", "amountRaising", "equityOffered", 
+      "valuation", "runway", "burnRate"
+    ];
+    
+    const details: any = await getJsonSetting(userId, "startup-details", {});
+    for (const key of extraFields) {
+      if (body[key] !== undefined) {
+        details[key] = body[key];
+      }
+    }
+    await setJsonSetting(userId, "startup-details", details);
+
+    res.json({ success: true, message: "Startup updated", data: { ...updated, ...details } });
   } catch (err) {
     handleError(err, res, next);
   }

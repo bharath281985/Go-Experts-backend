@@ -67,6 +67,7 @@ function getFriendlyErrorMessage(err: Error | ApiError, statusCode: number) {
   }
 
   if (/Invalid `prisma\./i.test(message) || /PrismaClient/i.test(message)) {
+    
     try {
       fs.appendFileSync('prisma-debug.log', `[${new Date().toISOString()}] PRISMA ERROR:\n${message}\n\n`);
     } catch {}
