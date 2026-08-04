@@ -6,6 +6,21 @@ import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uplo
 import { resolveMasterOptionsInput } from '../../../../utils/array-option-resolver.js';
 import { getJsonSetting } from '../../../../common/helpers/portal-shared.js';
 
+async function resolveId(val: any, model: string) {
+  if (!val) return "";
+  try {
+    const delegate = (prisma as any)[model];
+    if (delegate) {
+      const found = await delegate.findFirst({
+        where: { OR: [{ id: val }, { name: val }] },
+        select: { id: true }
+      });
+      return found?.id || val;
+    }
+  } catch { }
+  return val;
+}
+
 function parseRegData(regData: any): Record<string, any> {
   if (!regData) return {};
   if (typeof regData === 'string') {
@@ -35,9 +50,10 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
     const raisedVal = profile?.raised || firstIdea?.funding || (reg.raised != null ? parseFloat(reg.raised) : (reg.funding != null ? parseFloat(reg.funding) : (reg.fundingRequired != null ? parseFloat(reg.fundingRequired) : 0)));
     const equityVal = firstIdea?.equity || (reg.equity != null ? parseFloat(reg.equity) : (reg.equityOffered != null ? parseFloat(reg.equityOffered) : 0));
 
-    const [resolvedStage, resolvedFounderType] = await Promise.all([
+    const [resolvedStage, resolvedFounderType, resolvedCategory] = await Promise.all([
       resolveMasterOptionsInput(stageVal, 'startup_stage'),
       resolveMasterOptionsInput(founderTypeVal, 'founder_type'),
+      resolveMasterOptionsInput(firstIdea?.category || reg.category || 'General', 'project_category'),
     ]);
 
     const targetStartupIds = [
@@ -90,6 +106,10 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
 
     const startupName = profile?.startupName || firstIdea?.startup || reg.startupName || reg.startup || (user?.fullName ? `${user.fullName}'s Startup` : 'My Startup');
 
+    const countryId = await resolveId(user?.country || reg.country || "", "Country");
+    const industryId = await resolveId(profile?.industry || firstIdea?.industry || reg.industry || 'Technology', "Industry");
+    const categoryId = resolvedCategory.ids[0] || firstIdea?.category || reg.category || 'General';
+
     const result = {
       id: profile?.id || firstIdea?.id || `fp_${req.user.id}`,
       userId: req.user.id,
@@ -99,17 +119,17 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       countryCode: reg.countryCode || "IN",
       city: user?.city || reg.city || "",
       state: reg.state || reg.stateCode || "",
-      country: user?.country || reg.country || "",
+      countryId: countryId,
       bio: user?.bio || reg.bio || reg.pitch || "",
-      founderType: resolvedFounderType.labels[0] || founderTypeVal,
+      founderTypeId: resolvedFounderType.ids[0] || founderTypeVal,
       skills: reg.skills || "",
       experience: reg.experience || "",
       education: reg.education || "",
       startupName,
-      industry: profile?.industry || firstIdea?.industry || reg.industry || 'Technology',
-      category: firstIdea?.category || reg.category || 'General',
+      industryId: industryId,
+      categoryId: categoryId,
       subCategory: reg.subCategory || "",
-      stage: resolvedStage.labels[0] || stageVal,
+      stageId: resolvedStage.ids[0] || stageVal,
       teamSize: profile?.teamSize || (reg.teamSize ? parseInt(reg.teamSize) : 1),
       raised: raisedVal,
       equity: equityVal,
@@ -207,6 +227,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
     };
 
     const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`;
+    const countryId = await resolveId(user?.country || reg.country || "", "Country");
     const userObj = {
       id: user?.id,
       email: user?.email,
@@ -215,7 +236,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       logo: user?.avatarUrl || dicebearUrl,
       bio: user?.bio || reg.bio || reg.pitch || "",
       phone: user?.phone || reg.phone || reg.mobile || "",
-      country: user?.country || reg.country || "",
+      countryId: countryId,
       city: user?.city || reg.city || "",
       role: user?.role,
       registrationData: reg
@@ -226,12 +247,24 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       { id: "doc_pd", name: "Pitch Deck", url: startup?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
     ];
 
-    const result = {
+    const [resolvedStartupStage, resolvedStartupCat] = await Promise.all([
+      resolveMasterOptionsInput(startup?.stage, 'startup_stage'),
+      resolveMasterOptionsInput(startup?.category, 'project_category'),
+    ]);
+
+    const result: any = {
       ...startup,
+      industryId: await resolveId(startup?.industry, "Industry"),
+      categoryId: resolvedStartupCat.ids[0] || startup?.category,
+      stageId: resolvedStartupStage.ids[0] || startup?.stage,
       documents,
       user: userObj,
       bids: rawBids
     };
+    
+    delete result.industry;
+    delete result.category;
+    delete result.stage;
 
     return res.json(successResponse('Startup details retrieved', result));
   } catch (error) { next(error); }

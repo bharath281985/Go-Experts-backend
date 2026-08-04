@@ -8,9 +8,24 @@ import { sendWelcomeEmail, sendPasswordResetEmail, sendVerificationEmail } from 
 import { saveDeviceToken, removeDeviceToken } from '../../../services/mobile/push.service.js';
 import { AuditEngine } from '../../../services/mobile/audit.engine.js';
 import { bootstrapNewUser } from '../../../services/mobile/auth-bootstrap.service.js';
-import { issuePhoneOtp, verifyPhoneOtp } from '../../../services/mobile/otp.service.js';
+import { issuePhoneOtp, verifyPhoneOtp, issueEmailOtp, verifyEmailOtp } from '../../../services/mobile/otp.service.js';
 import { resolveProfileCompletion } from '../../../services/mobile/profile-completion.service.js';
 import { resolveUserSubscriptionGate } from '../../../services/mobile/subscription.service.js';
+import dns from 'dns';
+
+const dnsPromises = dns.promises;
+dns.setServers(['8.8.8.8', '8.8.4.4']); // Use Google DNS to prevent local resolve issues
+
+const validateEmailDomain = async (email: string): Promise<boolean> => {
+  try {
+    const domain = email.split('@')[1];
+    if (!domain) return false;
+    const addresses = await dnsPromises.resolveMx(domain);
+    return addresses && addresses.length > 0;
+  } catch (error) {
+    return false;
+  }
+};
 
 function requireSecret(name: string, value: string | undefined, fallback?: string): string {
   if (value && value.trim()) return value.trim();
@@ -801,15 +816,39 @@ export const deleteAccount = async (req: AuthRequest, res: Response, next: NextF
 
 export const sendOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { phone, countryCode } = req.body;
-    const { phoneNumber } = await issuePhoneOtp(phone, countryCode);
+    const { email, phone, countryCode } = req.body;
+    
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json(errorResponse('Invalid email address format', 'VALIDATION_ERROR'));
+      }
+      const isDomainValid = await validateEmailDomain(email);
+      if (!isDomainValid) {
+        return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
+      }
+      
+      const { code } = await issueEmailOtp(email);
+      await sendVerificationEmail(email, code);
+      return res.json(
+        successResponse('OTP sent successfully', {
+          email,
+          expiresInSeconds: 600,
+        })
+      );
+    }
 
-    return res.json(
-      successResponse('OTP sent successfully', {
-        phone: phoneNumber,
-        expiresInSeconds: 300,
-      })
-    );
+    if (phone && countryCode) {
+      const { phoneNumber } = await issuePhoneOtp(phone, countryCode);
+      return res.json(
+        successResponse('OTP sent successfully', {
+          phone: phoneNumber,
+          expiresInSeconds: 300,
+        })
+      );
+    }
+
+    return res.status(400).json(errorResponse('Either email or phone is required', 'VALIDATION_ERROR'));
   } catch (error) {
     next(error);
   }
@@ -817,15 +856,35 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
 
 export const resendOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { phone, countryCode } = req.body;
-    const { phoneNumber } = await issuePhoneOtp(phone, countryCode);
+    const { email, phone, countryCode } = req.body;
+    
+    if (email) {
+      const isDomainValid = await validateEmailDomain(email);
+      if (!isDomainValid) {
+        return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
+      }
 
-    return res.json(
-      successResponse('OTP resent successfully', {
-        phone: phoneNumber,
-        expiresInSeconds: 300,
-      })
-    );
+      const { code } = await issueEmailOtp(email);
+      await sendVerificationEmail(email, code);
+      return res.json(
+        successResponse('OTP resent successfully', {
+          email,
+          expiresInSeconds: 600,
+        })
+      );
+    }
+
+    if (phone && countryCode) {
+      const { phoneNumber } = await issuePhoneOtp(phone, countryCode);
+      return res.json(
+        successResponse('OTP resent successfully', {
+          phone: phoneNumber,
+          expiresInSeconds: 300,
+        })
+      );
+    }
+
+    return res.status(400).json(errorResponse('Either email or phone is required', 'VALIDATION_ERROR'));
   } catch (error) {
     next(error);
   }
@@ -858,3 +917,32 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
     next(error);
   }
 };
+
+export const checkEmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json(errorResponse('Email is required', 'VALIDATION_ERROR'));
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json(errorResponse('Invalid email address format', 'VALIDATION_ERROR'));
+    }
+
+    const isDomainValid = await validateEmailDomain(email);
+    if (!isDomainValid) {
+      return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: String(email).trim().toLowerCase() }
+    });
+
+    if (existingUser) {
+      return res.status(409).json(errorResponse('Email is already registered.', 'EMAIL_EXISTS'));
+    }
+    return res.json(successResponse('Email is available', { available: true }));
+  } catch (error) { next(error); }
+};
+

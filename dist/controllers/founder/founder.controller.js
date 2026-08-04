@@ -103,6 +103,7 @@ export const getFounderProfile = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
+        const details = await getJsonSetting(userId, "founder-profile-details", {});
         res.json({
             success: true,
             data: {
@@ -122,6 +123,7 @@ export const getFounderProfile = async (req, res, next) => {
                 status: user.status,
                 verified: Boolean(user.isVerified || user.verified),
                 role: user.role,
+                ...details,
             },
         });
     }
@@ -168,6 +170,14 @@ export const updateFounderProfile = async (req, res, next) => {
                 teamSize: body.teamSize != null && body.teamSize !== "" ? Number(body.teamSize) : 1,
             },
         });
+        const extraFields = ["website", "linkedin", "location", "education", "experience"];
+        const details = await getJsonSetting(userId, "founder-profile-details", {});
+        for (const key of extraFields) {
+            if (body[key] !== undefined) {
+                details[key] = body[key];
+            }
+        }
+        await setJsonSetting(userId, "founder-profile-details", details);
         return getFounderProfile(req, res, next);
     }
     catch (err) {
@@ -186,7 +196,8 @@ export const getFounderStartup = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const startup = await findOrCreateStartup(user);
-        res.json({ success: true, data: startup });
+        const details = await getJsonSetting(userId, "startup-details", {});
+        res.json({ success: true, data: { ...startup, ...details } });
     }
     catch (err) {
         handleError(err, res, next);
@@ -211,9 +222,13 @@ export const updateFounderStartup = async (req, res, next) => {
             data.category = String(body.category).trim();
         if (body.stage != null)
             data.stage = String(body.stage).trim();
-        if (body.funding != null && body.funding !== "")
+        if (body.amountRaising != null && body.amountRaising !== "")
+            data.funding = Number(body.amountRaising);
+        else if (body.funding != null && body.funding !== "")
             data.funding = Number(body.funding);
-        if (body.equity != null && body.equity !== "")
+        if (body.equityOffered != null && body.equityOffered !== "")
+            data.equity = Number(body.equityOffered);
+        else if (body.equity != null && body.equity !== "")
             data.equity = Number(body.equity);
         if (body.visibility != null)
             data.visibility = String(body.visibility).trim();
@@ -227,7 +242,22 @@ export const updateFounderStartup = async (req, res, next) => {
                 create: { userId, startupName: data.startup },
             });
         }
-        res.json({ success: true, message: "Startup updated", data: updated });
+        // Save extra fields to JSON setting
+        const extraFields = [
+            "legalName", "foundedYear", "country", "website", "linkedin",
+            "oneLinePitch", "problem", "solution", "businessModel",
+            "revenueModel", "targetMarket", "competitiveAdvantage",
+            "technologyStack", "amountRaising", "equityOffered",
+            "valuation", "runway", "burnRate"
+        ];
+        const details = await getJsonSetting(userId, "startup-details", {});
+        for (const key of extraFields) {
+            if (body[key] !== undefined) {
+                details[key] = body[key];
+            }
+        }
+        await setJsonSetting(userId, "startup-details", details);
+        res.json({ success: true, message: "Startup updated", data: { ...updated, ...details } });
     }
     catch (err) {
         handleError(err, res, next);

@@ -44,10 +44,12 @@ router.delete('/ideas/:id', deleteIdea);
 // Profile (mobile uses /profile; /startup kept for startup views)
 router.get('/profile', getProfile);
 router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
+router.patch('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
 router.get('/startup', getStartup);
 router.post('/startup', upload.single('file'), handleUploadError, updateProfile);
 router.put('/startup', upload.single('file'), handleUploadError, updateProfile);
+router.patch('/startup', upload.single('file'), handleUploadError, updateProfile);
 router.post('/startup/logo', upload.single('file'), handleUploadError, uploadLogo);
 router.post('/startup/cover', upload.single('file'), handleUploadError, uploadCover);
 router.get('/startup/completion', getProfileCompletion);

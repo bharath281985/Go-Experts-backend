@@ -3,7 +3,7 @@ import {
   login, register, getMe, logout, refresh,
   forgotPassword, resetPassword, changePassword,
   updateMe, updateAvatar, sendEmailVerification, verifyEmail, deleteAccount,
-  sendOtp, verifyOtp, resendOtp,
+  sendOtp, verifyOtp, resendOtp, checkEmail,
 } from './auth.controller.js';
 import { validate } from '../../../middleware/validate.js';
 import { authenticate } from '../../../middlewares/auth.js';
@@ -40,5 +40,6 @@ router.delete('/account', authenticate, deleteAccount);
 router.post('/send-otp', authLimiter, validate(sendOtpSchema), sendOtp);
 router.post('/verify-otp', authLimiter, validate(verifyOtpSchema), verifyOtp);
 router.post('/resend-otp', authLimiter, validate(sendOtpSchema), resendOtp);
+router.post('/check-email', authLimiter, checkEmail);
 
 export default router;
