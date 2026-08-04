@@ -200,7 +200,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
     const startupDetails = await getJsonSetting(req.user.id, "startup-details", {});
     const founderDetails = await getJsonSetting(req.user.id, "founder-profile-details", {});
     
-    const reg = {
+    const reg: any = {
       ...parseRegData(user?.registrationData),
       ...startupDetails,
       ...founderDetails
