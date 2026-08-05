@@ -518,7 +518,7 @@ export const getFreelancerEducation = async (req: AuthenticatedRequest, res: Res
       educationFile: r.fileUrl
     }));
 
-    res.json({ success: true, rows: mappedRows, total: mappedRows.length });
+    res.json({ success: true, data: mappedRows, total: mappedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -554,7 +554,7 @@ export const putFreelancerEducation = async (req: AuthenticatedRequest, res: Res
       orderBy: { createdAt: "asc" },
     });
 
-    res.json({ success: true, message: "Education updated", rows: newRows });
+    res.json({ success: true, message: "Education updated", data: newRows });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -656,7 +656,7 @@ export const getFreelancerCertificates = async (req: AuthenticatedRequest, res: 
       certificateFile: r.fileUrl
     }));
 
-    res.json({ success: true, rows: mappedRows, total: mappedRows.length });
+    res.json({ success: true, data: mappedRows, total: mappedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -697,7 +697,7 @@ export const putFreelancerCertificates = async (req: AuthenticatedRequest, res: 
       orderBy: { createdAt: "asc" },
     });
 
-    res.json({ success: true, message: "Certificates updated", rows: newRows });
+    res.json({ success: true, message: "Certificates updated", data: newRows });
   } catch (err) {
     handleError(err, res, next);
   }
