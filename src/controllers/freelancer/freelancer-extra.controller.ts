@@ -511,7 +511,14 @@ export const getFreelancerEducation = async (req: AuthenticatedRequest, res: Res
       where: { userId },
       orderBy: { createdAt: "asc" },
     });
-    res.json({ success: true, rows, total: rows.length });
+    
+    // Map the fields for the frontend and response
+    const mappedRows = rows.map((r) => ({
+      ...r,
+      educationFile: r.fileUrl
+    }));
+
+    res.json({ success: true, rows: mappedRows, total: mappedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -641,7 +648,15 @@ export const getFreelancerCertificates = async (req: AuthenticatedRequest, res: 
       where: { userId },
       orderBy: { createdAt: "asc" },
     });
-    res.json({ success: true, rows, total: rows.length });
+    
+    // Map the fields for the frontend and response
+    const mappedRows = rows.map((r) => ({
+      ...r,
+      certificateUrl: r.url,
+      certificateFile: r.fileUrl
+    }));
+
+    res.json({ success: true, rows: mappedRows, total: mappedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
