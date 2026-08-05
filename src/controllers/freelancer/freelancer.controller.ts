@@ -35,11 +35,16 @@ type PortfolioItem = {
   title: string;
   thumb: string;
   category: string;
+  categoryId?: string;
   tech: string;
+  skills?: any[];
   industry: string;
+  industryId?: string;
   client: string;
   duration: string;
   team: number;
+  teamSize?: string;
+  teamSizeId?: string;
   role: string;
   status: string;
   views: number;
@@ -50,7 +55,11 @@ type PortfolioItem = {
   githubUrl?: string;
   liveUrl?: string;
   pdfUrl?: string;
+  pdfCaseStudy?: string;
   videoUrl?: string;
+  videoDemo?: string;
+  coverMedia?: string;
+  extraScreenshot?: string;
   gallery?: string[];
 };
 
@@ -79,16 +88,27 @@ function normalizePortfolioItem(input: any, fallbackId?: string): PortfolioItem 
       ? input.gallery.split(",").map((s: string) => s.trim()).filter(Boolean)
       : [];
 
+  const skills = Array.isArray(input?.skills) ? input.skills : [];
+  let tech = String(input?.tech || "").trim();
+  if (!tech && skills.length > 0) {
+    tech = skills.map((s: any) => s.skillName || s.name || s).join(", ");
+  }
+
   return {
     id: String(input?.id || fallbackId || `PF-${Date.now().toString(36).toUpperCase()}`),
     title: String(input?.title || "").trim(),
-    thumb: String(input?.thumb || input?.imageUrl || "").trim(),
+    thumb: String(input?.thumb || input?.imageUrl || input?.coverMedia || "").trim(),
     category: String(input?.category || "").trim(),
-    tech: String(input?.tech || "").trim(),
+    categoryId: input?.categoryId ? String(input.categoryId) : undefined,
+    tech,
+    skills: skills.length > 0 ? skills : undefined,
     industry: String(input?.industry || "").trim(),
+    industryId: input?.industryId ? String(input.industryId) : undefined,
     client: String(input?.client || "").trim(),
     duration: String(input?.duration || "").trim(),
     team: Math.max(0, Number(input?.team) || 1),
+    teamSize: input?.teamSize ? String(input.teamSize) : undefined,
+    teamSizeId: input?.teamSizeId ? String(input.teamSizeId) : undefined,
     role: String(input?.role || "").trim(),
     status,
     views: Math.max(0, Number(input?.views) || 0),
@@ -98,8 +118,12 @@ function normalizePortfolioItem(input: any, fallbackId?: string): PortfolioItem 
     overview: input?.overview != null ? String(input.overview) : "",
     githubUrl: input?.githubUrl != null ? String(input.githubUrl) : "",
     liveUrl: input?.liveUrl != null ? String(input.liveUrl) : "",
-    pdfUrl: input?.pdfUrl != null ? String(input.pdfUrl) : "",
-    videoUrl: input?.videoUrl != null ? String(input.videoUrl) : "",
+    pdfUrl: input?.pdfUrl != null ? String(input.pdfUrl) : (input?.pdfCaseStudy ? String(input.pdfCaseStudy) : ""),
+    pdfCaseStudy: input?.pdfCaseStudy != null ? String(input.pdfCaseStudy) : undefined,
+    videoUrl: input?.videoUrl != null ? String(input.videoUrl) : (input?.videoDemo ? String(input.videoDemo) : ""),
+    videoDemo: input?.videoDemo != null ? String(input.videoDemo) : undefined,
+    coverMedia: input?.coverMedia != null ? String(input.coverMedia) : undefined,
+    extraScreenshot: input?.extraScreenshot != null ? String(input.extraScreenshot) : undefined,
     gallery,
   };
 }
@@ -127,17 +151,44 @@ function portfolioKpis(items: PortfolioItem[]) {
 
 async function loadPortfolioItems(userId: string): Promise<{ items: PortfolioItem[]; profileId: string | null }> {
   const profile = await prisma.freelancerProfile.findUnique({ where: { userId } });
+  const setting = await prisma.setting.findUnique({ where: { key: `freelancer_portfolio:${userId}` } });
+  
+  let items = parsePortfolioJson((profile as any)?.portfolioJson);
+  
+  if (items.length === 0 && setting?.value) {
+    items = parsePortfolioJson(setting.value);
+  }
+
+  if (items.length === 0) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    let regData: any = {};
+    if (user?.registrationData) {
+      regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : user.registrationData;
+    }
+    if (Array.isArray(regData.portfolioItems) && regData.portfolioItems.length > 0) {
+      items = parsePortfolioJson(JSON.stringify(regData.portfolioItems));
+    }
+  }
+
   return {
-    items: parsePortfolioJson((profile as any)?.portfolioJson),
+    items,
     profileId: profile?.id || null,
   };
 }
 
 async function savePortfolioItems(userId: string, items: PortfolioItem[]) {
+  const jsonStr = JSON.stringify(items);
   await prisma.freelancerProfile.upsert({
     where: { userId },
-    update: { portfolioJson: JSON.stringify(items) },
-    create: { userId, portfolioJson: JSON.stringify(items) },
+    update: { portfolioJson: jsonStr },
+    create: { userId, portfolioJson: jsonStr },
+  });
+
+  const key = `freelancer_portfolio:${userId}`;
+  await prisma.setting.upsert({
+    where: { key },
+    update: { value: jsonStr, category: "freelancer_portfolio" },
+    create: { key, value: jsonStr, category: "freelancer_portfolio" },
   });
 }
 
@@ -1341,6 +1392,37 @@ export const getFreelancerPortfolio = async (
           archived: items.filter((i) => i.status === "Archived").length,
         },
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getFreelancerPortfolioItem = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Portfolio item ID is required" });
+    }
+
+    const { items } = await loadPortfolioItems(req.user.id);
+    const item = items.find((p) => p.id === id);
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: "Portfolio item not found" });
+    }
+
+    res.json({
+      success: true,
+      data: item,
     });
   } catch (err) {
     next(err);

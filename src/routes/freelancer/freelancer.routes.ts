@@ -13,6 +13,7 @@ import {
   getFreelancerVerification,
   updateFreelancerVerification,
   getFreelancerPortfolio,
+  getFreelancerPortfolioItem,
   createFreelancerPortfolioItem,
   updateFreelancerPortfolioItem,
   deleteFreelancerPortfolioItem,
@@ -79,6 +80,7 @@ router.get("/verification", getFreelancerVerification as any);
 router.patch("/verification", updateFreelancerVerification as any);
 
 router.get("/portfolio", getFreelancerPortfolio as any);
+router.get("/portfolio/:id", getFreelancerPortfolioItem as any);
 router.post("/portfolio", createFreelancerPortfolioItem as any);
 router.patch("/portfolio/:id", updateFreelancerPortfolioItem as any);
 router.delete("/portfolio/:id", deleteFreelancerPortfolioItem as any);
