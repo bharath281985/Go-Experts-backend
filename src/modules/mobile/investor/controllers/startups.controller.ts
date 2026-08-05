@@ -16,39 +16,150 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
   await prisma.setting.upsert({ where: { key }, update: { value: JSON.stringify(items), category: 'investor_watchlist' }, create: { key, value: JSON.stringify(items), category: 'investor_watchlist' } });
 };
 
-// Helper: check if a string looks like a UUID
-const isUUID = (val: string | null | undefined): val is string => 
+// Helper: parse registration data
+function parseRegData(regData: any): Record<string, any> {
+  if (!regData) return {};
+  if (typeof regData === 'string') {
+    try { return JSON.parse(regData); } catch { return {}; }
+  }
+  if (typeof regData === 'object') return regData;
+  return {};
+}
+
+// Helper to check UUID
+const isUUID = (val: string | null | undefined): val is string =>
   !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
-// Batch resolve multiple industry values in one DB call
-const batchResolveIndustry = async (startups: any[]) => {
-  const uuidIds = [...new Set(
-    startups
-      .map(s => s.founderProfile?.industry)
-      .filter(isUUID)
-  )];
+// Helper to format the final JSON exactly as the founder side demands, minus the bids list
+const formatStartupResponse = (
+  idea: any,
+  user: any,
+  founderProfile: any,
+  savedIds: Set<string>,
+  investedIds: Set<string>,
+  industryMap: Map<string, string>,
+  optionMap: Map<string, string>,
+  isDetailed: boolean = false
+) => {
+  if (!idea) return null;
 
-  const industryMap: Record<string, string> = {};
-  if (uuidIds.length > 0) {
-    const industries = await prisma.industry.findMany({
-      where: { id: { in: uuidIds } },
-      select: { id: true, name: true }
-    });
-    industries.forEach(i => { industryMap[i.id] = i.name; });
+  let reg: any = {};
+  let userObj: any = null;
+
+  if (user) {
+    reg = parseRegData(user.registrationData);
+    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
+    // Minimal user fields for list view
+    userObj = {
+      id: user.id,
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl || dicebearUrl,
+      city: user.city || reg.city || "",
+      countryId: user.country || reg.country || "",
+      role: user.role,
+    };
+
+    // Append full fields only for detail view
+    if (isDetailed) {
+      userObj.email = user.email;
+      userObj.logo = user.avatarUrl || dicebearUrl;
+      userObj.bio = user.bio || reg.bio || reg.pitch || "";
+      userObj.phone = user.phone || reg.phone || reg.mobile || "";
+      userObj.registrationData = reg;
+    }
   }
 
-  return startups.map(s => {
-    const raw = s.founderProfile?.industry ?? null;
-    const resolvedIndustry = raw
-      ? (isUUID(raw) ? (industryMap[raw] ?? null) : raw)
-      : null;
-    return {
-      ...s,
-      founderProfile: s.founderProfile
-        ? { ...s.founderProfile, industry: resolvedIndustry }
-        : null,
-    };
-  });
+  const baseResult: any = {
+    id: idea.id,
+    startup: idea.startup,
+    funding: idea.funding,
+    equity: idea.equity,
+    visibility: idea.visibility,
+    status: idea.status,
+    logo: idea.logo,
+    coverUrl: idea.coverUrl,
+    views: idea.views,
+    interestedInvestors: idea.interestedInvestors,
+    createdAt: idea.createdAt,
+    updatedAt: idea.updatedAt,
+
+    industry: isUUID(idea.industry) ? industryMap.get(idea.industry) || idea.industry : idea.industry,
+    category: isUUID(idea.category) ? optionMap.get(idea.category) || idea.category : idea.category,
+    stage: isUUID(idea.stage) ? optionMap.get(idea.stage) || idea.stage : idea.stage,
+
+    teamSize: founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
+    description: reg.description || reg.pitch || userObj?.bio || "",
+
+    user: userObj,
+    isSaved: savedIds.has(idea.id) || (user && savedIds.has(user.id)),
+    hasInvested: investedIds.has(idea.id) || (user && investedIds.has(user.id))
+  };
+
+  // If not detailed, return the stripped down version
+  if (!isDetailed) {
+    return baseResult;
+  }
+
+  // Detailed fields
+  const documents = [
+    { id: "doc_bp", name: "Business Plan", url: idea.businessPlan || founderProfile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
+    { id: "doc_pd", name: "Pitch Deck", url: idea.pitchDeck || founderProfile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
+  ];
+
+  return {
+    ...baseResult,
+    pitchDeck: idea.pitchDeck,
+    businessPlan: idea.businessPlan,
+    documents,
+    problemStatement: reg.problemStatement || "",
+    solution: reg.solution || "",
+    targetCustomers: reg.targetCustomers || "",
+    marketSize: reg.marketSize || "",
+    businessModel: reg.businessModel || "",
+    revenueModel: reg.revenueModel || "",
+    currentProgress: reg.currentProgress || "",
+    demoLink: reg.demoLink || "",
+  };
+};
+
+// Helper to load related users AND resolve industry/stage names
+const loadRelatedDataForIdeas = async (ideas: any[]) => {
+  const founderIds = [...new Set(ideas.map(i => i.founder).filter(Boolean))];
+  let founders: any[] = [];
+  if (founderIds.length > 0) {
+    founders = await prisma.user.findMany({
+      where: { id: { in: founderIds } },
+      select: {
+        id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true,
+        country: true, city: true, role: true, registrationData: true,
+        founderProfile: true
+      }
+    });
+  }
+
+  const userMap = new Map();
+  const fpMap = new Map();
+  for (const f of founders) {
+    userMap.set(f.id, f);
+    if (f.founderProfile) fpMap.set(f.id, f.founderProfile);
+  }
+
+  const industryIds = [...new Set(ideas.map(i => i.industry).filter(isUUID))];
+  const industryMap = new Map();
+  if (industryIds.length > 0) {
+    const rows = await prisma.industry.findMany({ where: { id: { in: industryIds } }, select: { id: true, name: true } });
+    rows.forEach(r => industryMap.set(r.id, r.name));
+  }
+
+  const optionIds = [...new Set(ideas.flatMap(i => [i.category, i.stage]).filter(isUUID))];
+  const optionMap = new Map();
+  if (optionIds.length > 0) {
+    const rows = await (prisma as any).masterOption.findMany({ where: { id: { in: optionIds } }, select: { id: true, label: true } });
+    rows.forEach((r: any) => optionMap.set(r.id, r.label));
+  }
+
+  return { userMap, fpMap, industryMap, optionMap };
 };
 
 export const listStartups = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -60,36 +171,16 @@ export const listStartups = async (req: AuthRequest, res: Response, next: NextFu
     const industry = req.query.industry as string;
     const stage = req.query.stage as string;
 
-    const where: any = { role: 'founder', status: 'active', deletedAt: null };
-    if (q) where.fullName = { contains: q };
+    const where: any = { status: 'active', deletedAt: null };
+    if (q) where.startup = { contains: q };
+    if (industry) where.industry = industry;
+    if (stage) where.stage = stage;
 
-    // Fetch startups, investor watchlist, and active investments in parallel
-    const [startups, total, watchlist, investments] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          fullName: true,
-          avatarUrl: true,
-          city: true,
-          country: true,
-          bio: true,
-          createdAt: true,
-          founderProfile: {
-            select: {
-              id: true,
-              startupName: true,
-              industry: true,
-              stage: true,
-              raised: true,
-              teamSize: true,
-            }
-          }
-        },
-        skip, take: limit,
-        orderBy: { createdAt: 'desc' }
+    const [ideas, total, watchlist, investments] = await Promise.all([
+      prisma.startupIdea.findMany({
+        where, skip, take: limit, orderBy: { createdAt: 'desc' }
       }),
-      prisma.user.count({ where }),
+      prisma.startupIdea.count({ where }),
       readList(req.user.id),
       prisma.investment.findMany({
         where: { investor: req.user.id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } },
@@ -97,116 +188,53 @@ export const listStartups = async (req: AuthRequest, res: Response, next: NextFu
       })
     ]);
 
-    // Resolve industry UUIDs to names
-    const resolved = await batchResolveIndustry(startups);
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const savedIds = new Set<string>(watchlist.map(w => w.startupId));
+    const investedIds = new Set<string>(investments.map(i => i.startup));
 
-    // Build sets for O(1) lookups
-    const savedIds = new Set(watchlist.map(w => w.startupId));
-    const investedIds = new Set(investments.map(i => i.startup));
-
-    // Fetch all public startup ideas for founders on this page
-    const founderIds = startups.map(s => s.id);
-    let allIdeas: any[] = [];
-    try {
-      allIdeas = await prisma.startupIdea.findMany({
-        where: {
-          founder: { in: founderIds },
-          deletedAt: null,
-          visibility: 'Public',
-          status: 'active',
-        },
-        select: {
-          id: true,
-          startup: true,
-          founder: true,
-          industry: true,
-          category: true,
-          stage: true,
-          funding: true,
-          equity: true,
-          visibility: true,
-          status: true,
-          views: true,
-          interestedInvestors: true,
-          createdAt: true,
-          updatedAt: true,
-          deletedAt: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-    } catch {
-      allIdeas = [];
-    }
-
-    // Group ideas by founder id
-    const ideasByFounder: Record<string, any[]> = {};
-    for (const idea of allIdeas) {
-      if (!ideasByFounder[idea.founder]) ideasByFounder[idea.founder] = [];
-      ideasByFounder[idea.founder].push(idea);
-    }
-
-    // Apply optional filters
-    const filtered = industry || stage
-      ? resolved.filter(s => {
-          if (industry && s.founderProfile?.industry !== industry) return false;
-          if (stage && s.founderProfile?.stage !== stage) return false;
-          return true;
-        })
-      : resolved;
-
-    // Add isSaved, hasInvested and startupIdeas to each startup
-    const data = filtered.map(s => ({
-      ...s,
-      isSaved: savedIds.has(s.id) || savedIds.has(s.founderProfile?.id ?? ''),
-      hasInvested: investedIds.has(s.id) || investedIds.has(s.founderProfile?.id ?? ''),
-      startupIdeas: ideasByFounder[s.id] ?? [],
-    }));
+    const data = ideas.map(idea => {
+      // isDetailed = false by default
+      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap);
+    }).filter(Boolean);
 
     return res.json(successResponse('Startups retrieved', data, {
-      page, limit, total: filtered.length, totalPages: Math.ceil(filtered.length / limit)
+      page, limit, total, totalPages: Math.ceil(total / limit)
     }));
   } catch (error) { next(error); }
 };
 
 export const getStartupDetails = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const [startup, watchlist, investments] = await Promise.all([
-      prisma.user.findFirst({
-        where: { id: req.params.id, role: 'founder', status: 'active' },
-        select: {
-          id: true, fullName: true, avatarUrl: true, city: true, country: true,
-          bio: true, phone: true, createdAt: true,
-          founderProfile: true,
-          reviewsReceived: { take: 5 }
-        }
-      }),
+    // ID could be idea ID or founder ID
+    const [ideaFromIdeaId, ideaFromFounderId, watchlist, investments] = await Promise.all([
+      prisma.startupIdea.findUnique({ where: { id: req.params.id } }),
+      prisma.startupIdea.findFirst({ where: { founder: req.params.id, deletedAt: null }, orderBy: { createdAt: 'desc' } }),
       readList(req.user.id),
       prisma.investment.findMany({
         where: { investor: req.user.id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } },
         select: { startup: true }
       })
     ]);
-    if (!startup) return res.status(404).json(errorResponse('Startup not found', 'NOT_FOUND'));
-    const [resolved] = await batchResolveIndustry([startup]);
-    
-    const isSaved = watchlist.some(w => w.startupId === startup.id || w.startupId === startup.founderProfile?.id);
-    const hasInvested = investments.some(i => i.startup === startup.id || i.startup === startup.founderProfile?.id);
 
-    return res.json(successResponse('Startup details', { ...resolved, isSaved, hasInvested }));
+    const idea = ideaFromIdeaId || ideaFromFounderId;
+    if (!idea) return res.status(404).json(errorResponse('Startup not found', 'NOT_FOUND'));
+
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+    const savedIds = new Set<string>(watchlist.map(w => w.startupId));
+    const investedIds = new Set<string>(investments.map(i => i.startup));
+
+    // pass isDetailed = true
+    const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true);
+    return res.json(successResponse('Startup details', data));
   } catch (error) { next(error); }
 };
 
 export const getRecommendedStartups = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const [startups, watchlist, investments] = await Promise.all([
-      prisma.user.findMany({
-        where: { role: 'founder', status: 'active', deletedAt: null },
-        select: {
-          id: true, fullName: true, avatarUrl: true, city: true, country: true,
-          founderProfile: { select: { id: true, startupName: true, industry: true, stage: true, raised: true, teamSize: true } }
-        },
-        take: 10,
-        orderBy: { createdAt: 'desc' }
+    const [ideas, watchlist, investments] = await Promise.all([
+      prisma.startupIdea.findMany({
+        where: { status: 'active', deletedAt: null },
+        take: 10, orderBy: { createdAt: 'desc' }
       }),
       readList(req.user.id),
       prisma.investment.findMany({
@@ -214,30 +242,22 @@ export const getRecommendedStartups = async (req: AuthRequest, res: Response, ne
         select: { startup: true }
       })
     ]);
-    const resolved = await batchResolveIndustry(startups);
-    const savedIds = new Set(watchlist.map(w => w.startupId));
-    const investedIds = new Set(investments.map(i => i.startup));
 
-    const data = resolved.map(s => ({
-      ...s,
-      isSaved: savedIds.has(s.id) || savedIds.has(s.founderProfile?.id ?? ''),
-      hasInvested: investedIds.has(s.id) || investedIds.has(s.founderProfile?.id ?? ''),
-    }));
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const savedIds = new Set<string>(watchlist.map(w => w.startupId));
+    const investedIds = new Set<string>(investments.map(i => i.startup));
+
+    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap)).filter(Boolean);
     return res.json(successResponse('Recommended startups', data));
   } catch (error) { next(error); }
 };
 
 export const getTrendingStartups = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const [startups, watchlist, investments] = await Promise.all([
-      prisma.user.findMany({
-        where: { role: 'founder', status: 'active', deletedAt: null },
-        select: {
-          id: true, fullName: true, avatarUrl: true, city: true, country: true,
-          founderProfile: { select: { id: true, startupName: true, industry: true, stage: true, raised: true, teamSize: true } }
-        },
-        take: 10,
-        orderBy: { createdAt: 'desc' }
+    const [ideas, watchlist, investments] = await Promise.all([
+      prisma.startupIdea.findMany({
+        where: { status: 'active', deletedAt: null },
+        take: 10, orderBy: { views: 'desc' }
       }),
       readList(req.user.id),
       prisma.investment.findMany({
@@ -245,29 +265,22 @@ export const getTrendingStartups = async (req: AuthRequest, res: Response, next:
         select: { startup: true }
       })
     ]);
-    const resolved = await batchResolveIndustry(startups);
-    const savedIds = new Set(watchlist.map(w => w.startupId));
-    const investedIds = new Set(investments.map(i => i.startup));
 
-    const data = resolved.map(s => ({
-      ...s,
-      isSaved: savedIds.has(s.id) || savedIds.has(s.founderProfile?.id ?? ''),
-      hasInvested: investedIds.has(s.id) || investedIds.has(s.founderProfile?.id ?? ''),
-    }));
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const savedIds = new Set<string>(watchlist.map(w => w.startupId));
+    const investedIds = new Set<string>(investments.map(i => i.startup));
+
+    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap)).filter(Boolean);
     return res.json(successResponse('Trending startups', data));
   } catch (error) { next(error); }
 };
 
 export const getFeaturedStartups = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const [startups, watchlist, investments] = await Promise.all([
-      prisma.user.findMany({
-        where: { role: 'founder', status: 'active', deletedAt: null },
-        select: {
-          id: true, fullName: true, avatarUrl: true, city: true, country: true,
-          founderProfile: { select: { id: true, startupName: true, industry: true, stage: true, raised: true, teamSize: true } }
-        },
-        take: 5
+    const [ideas, watchlist, investments] = await Promise.all([
+      prisma.startupIdea.findMany({
+        where: { status: 'active', deletedAt: null },
+        take: 5, orderBy: { interestedInvestors: 'desc' }
       }),
       readList(req.user.id),
       prisma.investment.findMany({
@@ -275,15 +288,12 @@ export const getFeaturedStartups = async (req: AuthRequest, res: Response, next:
         select: { startup: true }
       })
     ]);
-    const resolved = await batchResolveIndustry(startups);
-    const savedIds = new Set(watchlist.map(w => w.startupId));
-    const investedIds = new Set(investments.map(i => i.startup));
 
-    const data = resolved.map(s => ({
-      ...s,
-      isSaved: savedIds.has(s.id) || savedIds.has(s.founderProfile?.id ?? ''),
-      hasInvested: investedIds.has(s.id) || investedIds.has(s.founderProfile?.id ?? ''),
-    }));
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const savedIds = new Set<string>(watchlist.map(w => w.startupId));
+    const investedIds = new Set<string>(investments.map(i => i.startup));
+
+    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap)).filter(Boolean);
     return res.json(successResponse('Featured startups', data));
   } catch (error) { next(error); }
 };

@@ -34,7 +34,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true, country: true, city: true, role: true, registrationData: true }
+      select: { id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true, country: true, city: true, role: true, isVerified: true, registrationData: true }
     });
 
     const reg = parseRegData(user?.registrationData);
@@ -116,6 +116,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       fullName: user?.fullName || reg.fullName || "",
       email: user?.email || reg.email || "",
       phone: user?.phone || reg.phone || reg.mobile || "",
+      isVerified: user?.isVerified || false,
       countryCode: reg.countryCode || "IN",
       city: user?.city || reg.city || "",
       state: reg.state || reg.stateCode || "",
@@ -125,26 +126,6 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       skills: reg.skills || "",
       experience: reg.experience || "",
       education: reg.education || "",
-      startupName,
-      industryId: industryId,
-      categoryId: categoryId,
-      subCategory: reg.subCategory || "",
-      stageId: resolvedStage.ids[0] || stageVal,
-      teamSize: profile?.teamSize || (reg.teamSize ? parseInt(reg.teamSize) : 1),
-      raised: raisedVal,
-      equity: equityVal,
-      visibility: firstIdea?.visibility || reg.visibility || 'Public',
-      description: reg.description || reg.pitch || user?.bio || "",
-      problemStatement: reg.problemStatement || "",
-      solution: reg.solution || "",
-      targetCustomers: reg.targetCustomers || "",
-      marketSize: reg.marketSize || "",
-      businessModel: reg.businessModel || "",
-      revenueModel: reg.revenueModel || "",
-      currentProgress: reg.currentProgress || "",
-      demoLink: reg.demoLink || "",
-      pitchDeck: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || reg.pitchDeckUrl || "https://apiai.goexperts.in/uploads/pitch_deck.pdf",
-      businessPlan: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || reg.businessPlanUrl || "https://apiai.goexperts.in/uploads/business_plan.pdf",
       linkedin: reg.linkedin || reg.linkedinUrl || "",
       website: reg.website || reg.websiteUrl || "",
       lookingFor: Array.isArray(reg.lookingFor) ? reg.lookingFor : (typeof reg.lookingFor === 'string' ? reg.lookingFor.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
@@ -152,15 +133,9 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       panNumber: reg.panNumber || "",
       aadhaarNumber: reg.aadhaarNumber || "",
       idDocument: reg.idDocument || reg.idDocumentUrl || "",
-      documents: [
-        { id: "doc_bp", name: "Business Plan", url: firstIdea?.businessPlan || profile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
-        { id: "doc_pd", name: "Pitch Deck", url: firstIdea?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
-      ],
-      logo: user?.avatarUrl || firstIdea?.logo || reg.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
-      coverUrl: firstIdea?.coverUrl || reg.coverUrl || "https://apiai.goexperts.in/uploads/default_cover.png",
+      avatarUrl: user?.avatarUrl || reg.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
       createdAt: profile?.createdAt || firstIdea?.createdAt || new Date().toISOString(),
-      updatedAt: profile?.updatedAt || firstIdea?.updatedAt || new Date().toISOString(),
-      user: user || { id: req.user.id, fullName: 'Founder' }
+      updatedAt: profile?.updatedAt || firstIdea?.updatedAt || new Date().toISOString()
     };
 
     return res.json(successResponse('Profile retrieved', result));
@@ -219,7 +194,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
 
     const startupDetails = await getJsonSetting(req.user.id, "startup-details", {});
     const founderDetails = await getJsonSetting(req.user.id, "founder-profile-details", {});
-    
+
     const reg: any = {
       ...parseRegData(user?.registrationData),
       ...startupDetails,
@@ -258,10 +233,20 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       categoryId: resolvedStartupCat.ids[0] || startup?.category,
       stageId: resolvedStartupStage.ids[0] || startup?.stage,
       documents,
+      teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
+      description: reg.description || reg.pitch || user?.bio || "",
+      problemStatement: reg.problemStatement || "",
+      solution: reg.solution || "",
+      targetCustomers: reg.targetCustomers || "",
+      marketSize: reg.marketSize || "",
+      businessModel: reg.businessModel || "",
+      revenueModel: reg.revenueModel || "",
+      currentProgress: reg.currentProgress || "",
+      demoLink: reg.demoLink || "",
       user: userObj,
       bids: rawBids
     };
-    
+
     delete result.industry;
     delete result.category;
     delete result.stage;
