@@ -18,6 +18,7 @@ import { getCurrentPlan, getAvailablePlans, upgradePlan, renewPlan, cancelPlan, 
 import { listDocuments, uploadDocument, deleteDocument, downloadDocument, previewDocument } from './controllers/documents.controller.js';
 import { upload, handleUploadError } from '../../../middleware/upload.js';
 import { getSettings, updateSettings } from './controllers/settings.controller.js';
+import { getAnalytics, getReports, getEarningsReport, getProjectsReport, getClientsReport, exportReport } from './controllers/analytics.controller.js';
 import { globalSearch, searchProjects as searchProjectsGlobal, searchClients, searchBySkill } from './controllers/search.controller.js';
 import {
   listPortfolio,
@@ -167,6 +168,14 @@ router.put('/notifications/preferences', updatePreferences);
 // ─── Settings ───
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
+
+// ─── Analytics ───
+router.get('/analytics', getAnalytics);
+router.get('/analytics/reports', getReports);
+router.get('/analytics/earnings', getEarningsReport);
+router.get('/analytics/projects', getProjectsReport);
+router.get('/analytics/clients', getClientsReport);
+router.post('/analytics/export', exportReport);
 
 // ─── Search ───
 router.get('/search', globalSearch);
