@@ -123,12 +123,14 @@ router.get("/education", getFreelancerEducation as any);
 router.put("/education", putFreelancerEducation as any);
 router.post("/education", postFreelancerEducation as any);
 router.put("/education/:id", putFreelancerEducationById as any);
+router.patch("/education/:id", putFreelancerEducationById as any);
 router.delete("/education/:id", deleteFreelancerEducation as any);
 
 router.get("/certificates", getFreelancerCertificates as any);
 router.put("/certificates", putFreelancerCertificates as any);
 router.post("/certificates", postFreelancerCertificates as any);
 router.put("/certificates/:id", putFreelancerCertificateById as any);
+router.patch("/certificates/:id", putFreelancerCertificateById as any);
 router.delete("/certificates/:id", deleteFreelancerCertificates as any);
 
 router.get("/skills", getFreelancerSkills as any);
