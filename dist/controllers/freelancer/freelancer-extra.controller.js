@@ -479,7 +479,10 @@ export const getFreelancerEducation = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const rows = await getJsonSetting(userId, "education", []);
+        const rows = await prisma.freelancerEducation.findMany({
+            where: { userId },
+            orderBy: { createdAt: "asc" },
+        });
         res.json({ success: true, rows, total: rows.length });
     }
     catch (err) {
@@ -494,8 +497,28 @@ export const putFreelancerEducation = async (req, res, next) => {
         const items = Array.isArray(req.body) ? req.body : req.body?.items;
         if (!Array.isArray(items))
             return res.status(400).json({ success: false, message: "items array is required" });
-        await setJsonSetting(userId, "education", items);
-        res.json({ success: true, message: "Education updated", rows: items });
+        await prisma.$transaction([
+            prisma.freelancerEducation.deleteMany({ where: { userId } }),
+            prisma.freelancerEducation.createMany({
+                data: items.map(item => ({
+                    userId,
+                    institution: String(item.institution || ""),
+                    qualification: String(item.qualification || ""),
+                    specialization: String(item.specialization || ""),
+                    year: String(item.year || ""),
+                    percentage: String(item.percentage || ""),
+                    cert: String(item.cert || ""),
+                    category: String(item.category || ""),
+                    fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                    fileType: item.fileType ? String(item.fileType) : null,
+                })),
+            }),
+        ]);
+        const newRows = await prisma.freelancerEducation.findMany({
+            where: { userId },
+            orderBy: { createdAt: "asc" },
+        });
+        res.json({ success: true, message: "Education updated", rows: newRows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -506,7 +529,10 @@ export const getFreelancerCertificates = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const rows = await getJsonSetting(userId, "certificates", []);
+        const rows = await prisma.freelancerCertificate.findMany({
+            where: { userId },
+            orderBy: { createdAt: "asc" },
+        });
         res.json({ success: true, rows, total: rows.length });
     }
     catch (err) {
@@ -521,8 +547,27 @@ export const putFreelancerCertificates = async (req, res, next) => {
         const items = Array.isArray(req.body) ? req.body : req.body?.items;
         if (!Array.isArray(items))
             return res.status(400).json({ success: false, message: "items array is required" });
-        await setJsonSetting(userId, "certificates", items);
-        res.json({ success: true, message: "Certificates updated", rows: items });
+        await prisma.$transaction([
+            prisma.freelancerCertificate.deleteMany({ where: { userId } }),
+            prisma.freelancerCertificate.createMany({
+                data: items.map(item => ({
+                    userId,
+                    name: String(item.name || ""),
+                    issuer: String(item.issuer || ""),
+                    number: String(item.number || ""),
+                    issued: String(item.issued || ""),
+                    url: item.url ? String(item.url) : null,
+                    verified: Boolean(item.verified),
+                    fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                    fileType: item.fileType ? String(item.fileType) : null,
+                })),
+            }),
+        ]);
+        const newRows = await prisma.freelancerCertificate.findMany({
+            where: { userId },
+            orderBy: { createdAt: "asc" },
+        });
+        res.json({ success: true, message: "Certificates updated", rows: newRows });
     }
     catch (err) {
         handleError(err, res, next);

@@ -141,8 +141,10 @@ model User {
   subscriptions           Subscription[]
   walletRewards           WalletReward[]
   wallet                  Wallet?
-  trialEndsAt    DateTime? @map("trial_ends_at")
-  registrationData Json?   @map("registration_data")
+  trialEndsAt             DateTime?               @map("trial_ends_at")
+  registrationData        Json?                   @map("registration_data")
+  freelancerEducations    FreelancerEducation[]
+  freelancerCertificates  FreelancerCertificate[]
 
   @@index([role])
   @@index([status])
@@ -1354,6 +1356,47 @@ model NotificationCampaign {
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   @@map("notification_campaigns")
+}
+
+model FreelancerEducation {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  institution    String
+  qualification  String
+  specialization String
+  year           String
+  percentage     String
+  cert           String
+  category       String
+  fileUrl        String?   @map("file_url")
+  fileType       String?   @map("file_type")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("freelancer_educations")
+}
+
+model FreelancerCertificate {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  name      String
+  issuer    String
+  number    String
+  issued    String
+  url       String?
+  verified  Boolean   @default(false)
+  fileUrl   String?   @map("file_url")
+  fileType  String?   @map("file_type")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("freelancer_certificates")
 }
 
 model Proposal {
