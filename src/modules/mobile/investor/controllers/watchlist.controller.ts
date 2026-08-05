@@ -30,6 +30,113 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
   });
 };
 
+// Helper: check UUID
+const isUUID = (val: string | null | undefined): val is string =>
+  !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+// Helper: parse registration data
+function parseRegData(regData: any): Record<string, any> {
+  if (!regData) return {};
+  if (typeof regData === 'string') {
+    try { return JSON.parse(regData); } catch { return {}; }
+  }
+  if (typeof regData === 'object') return regData;
+  return {};
+}
+
+const formatStartupResponse = (
+  idea: any,
+  user: any,
+  founderProfile: any,
+  industryMap: Map<string, string>,
+  optionMap: Map<string, string>
+) => {
+  if (!idea) return null;
+
+  let reg: any = {};
+  let userObj: any = null;
+
+  if (user) {
+    reg = parseRegData(user.registrationData);
+    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
+    userObj = {
+      id: user.id,
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl || dicebearUrl,
+      city: user.city || reg.city || "",
+      countryId: user.country || reg.country || "",
+      role: user.role,
+    };
+  }
+
+  const baseResult: any = {
+    id: idea.id,
+    startup: idea.startup,
+    funding: idea.funding,
+    equity: idea.equity,
+    visibility: idea.visibility,
+    status: idea.status,
+    logo: idea.logo,
+    coverUrl: idea.coverUrl,
+    views: idea.views,
+    interestedInvestors: idea.interestedInvestors,
+    createdAt: idea.createdAt,
+    updatedAt: idea.updatedAt,
+
+    industry: isUUID(idea.industry) ? industryMap.get(idea.industry) || idea.industry : idea.industry,
+    category: isUUID(idea.category) ? optionMap.get(idea.category) || idea.category : idea.category,
+    stage: isUUID(idea.stage) ? optionMap.get(idea.stage) || idea.stage : idea.stage,
+
+    teamSize: founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
+    description: reg.description || reg.pitch || userObj?.bio || "",
+
+    user: userObj,
+    isSaved: true,
+    hasInvested: false
+  };
+
+  return baseResult;
+};
+
+const loadRelatedDataForIdeas = async (ideas: any[]) => {
+  const founderIds = [...new Set(ideas.map(i => i.founder).filter(Boolean))];
+  let founders: any[] = [];
+  if (founderIds.length > 0) {
+    founders = await prisma.user.findMany({
+      where: { id: { in: founderIds } },
+      select: {
+        id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true,
+        country: true, city: true, role: true, registrationData: true,
+        founderProfile: true
+      }
+    });
+  }
+
+  const userMap = new Map();
+  const fpMap = new Map();
+  for (const f of founders) {
+    userMap.set(f.id, f);
+    if (f.founderProfile) fpMap.set(f.id, f.founderProfile);
+  }
+
+  const industryIds = [...new Set(ideas.map(i => i.industry).filter(isUUID))];
+  const industryMap = new Map();
+  if (industryIds.length > 0) {
+    const rows = await prisma.industry.findMany({ where: { id: { in: industryIds } }, select: { id: true, name: true } });
+    rows.forEach(r => industryMap.set(r.id, r.name));
+  }
+
+  const optionIds = [...new Set(ideas.flatMap(i => [i.category, i.stage]).filter(isUUID))];
+  const optionMap = new Map();
+  if (optionIds.length > 0) {
+    const rows = await (prisma as any).masterOption.findMany({ where: { id: { in: optionIds } }, select: { id: true, label: true } });
+    rows.forEach((r: any) => optionMap.set(r.id, r.label));
+  }
+
+  return { userMap, fpMap, industryMap, optionMap };
+};
+
 const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]> => {
   if (items.length === 0) return [];
   const startupIds = items.map(i => i.startupId);
@@ -38,78 +145,12 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
       where: { id: { in: startupIds } },
     });
 
-    const founderIds = Array.from(new Set(ideas.map(idea => idea.founder).filter(Boolean))) as string[];
-    const founders = founderIds.length > 0 ? await prisma.user.findMany({
-      where: { id: { in: founderIds }, role: 'founder' },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        avatarUrl: true,
-        city: true,
-        country: true,
-        bio: true,
-        createdAt: true,
-        founderProfile: {
-          select: {
-            id: true,
-            startupName: true,
-            industry: true,
-            stage: true,
-            raised: true,
-            teamSize: true,
-          },
-        },
-      },
-    }) : [];
-
-    const founderMap = new Map<string, any>();
-    founders.forEach(f => {
-      founderMap.set(f.id, {
-        id: f.id,
-        fullName: f.fullName,
-        email: f.email,
-        avatarUrl: f.avatarUrl,
-        city: f.city,
-        country: f.country,
-        bio: f.bio,
-        createdAt: f.createdAt,
-        profileId: f.founderProfile?.id ?? null,
-        startupName: f.founderProfile?.startupName ?? null,
-        industry: f.founderProfile?.industry ?? null,
-        stage: f.founderProfile?.stage ?? null,
-        raised: f.founderProfile?.raised ?? null,
-        teamSize: f.founderProfile?.teamSize ?? null,
-      });
-    });
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
 
     const ideaMap = new Map<string, any>();
     ideas.forEach(idea => {
-      const founderInfo = founderMap.get(idea.founder) || null;
-      ideaMap.set(idea.id, {
-        id: idea.id,
-        startup: idea.startup,
-        industry: idea.industry,
-        category: idea.category,
-        stage: idea.stage,
-        funding: idea.funding,
-        equity: idea.equity,
-        visibility: idea.visibility,
-        pitchDeck: idea.pitchDeck,
-        businessPlan: idea.businessPlan,
-        logo: idea.logo,
-        coverUrl: idea.coverUrl,
-        status: idea.status,
-        views: idea.views,
-        interestedInvestors: idea.interestedInvestors,
-        createdAt: idea.createdAt,
-        updatedAt: idea.updatedAt,
-        deletedAt: idea.deletedAt,
-        founderId: idea.founder,
-        isSaved: true,
-        hasInvested: false,
-        founder: founderInfo,
-      });
+      const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap);
+      ideaMap.set(idea.id, formatted);
     });
 
     return items.map(item => {
@@ -124,7 +165,7 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
         savedAt: item.savedAt,
         updatedAt: item.updatedAt,
 
-        // Flat details at root level
+        // Flat details at root level matching Startup APIs
         ...(startupDetails || {}),
       };
     });
