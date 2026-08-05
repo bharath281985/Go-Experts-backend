@@ -40,8 +40,14 @@ import {
   putFreelancerExperience,
   getFreelancerEducation,
   putFreelancerEducation,
+  postFreelancerEducation,
+  deleteFreelancerEducation,
+  putFreelancerEducationById,
   getFreelancerCertificates,
   putFreelancerCertificates,
+  postFreelancerCertificates,
+  deleteFreelancerCertificates,
+  putFreelancerCertificateById,
   getFreelancerSkills,
   putFreelancerSkills,
   listSavedProjects,
@@ -115,9 +121,15 @@ router.put("/experience", putFreelancerExperience as any);
 
 router.get("/education", getFreelancerEducation as any);
 router.put("/education", putFreelancerEducation as any);
+router.post("/education", postFreelancerEducation as any);
+router.put("/education/:id", putFreelancerEducationById as any);
+router.delete("/education/:id", deleteFreelancerEducation as any);
 
 router.get("/certificates", getFreelancerCertificates as any);
 router.put("/certificates", putFreelancerCertificates as any);
+router.post("/certificates", postFreelancerCertificates as any);
+router.put("/certificates/:id", putFreelancerCertificateById as any);
+router.delete("/certificates/:id", deleteFreelancerCertificates as any);
 
 router.get("/skills", getFreelancerSkills as any);
 router.put("/skills", putFreelancerSkills as any);

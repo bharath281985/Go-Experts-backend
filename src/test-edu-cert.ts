@@ -82,9 +82,77 @@ async function main() {
   });
   console.log("PUT /certificates =>", await putCertRes.text());
 
-  // Test GET Certificates
-  const getCertRes = await fetch(`${baseUrl}/certificates`, fetchOpts);
-  console.log("GET /certificates =>", await getCertRes.text());
+  // Test POST Education
+  const postEduRes = await fetch(`${baseUrl}/education`, {
+    ...fetchOpts,
+    method: "POST",
+    body: JSON.stringify({
+      institution: "Harvard University",
+      qualification: "Master's",
+      specialization: "Business",
+      year: "2024",
+      percentage: "95",
+      cert: "MBA",
+      category: "Degrees"
+    })
+  });
+  const postEduJson: any = await postEduRes.json();
+  console.log("POST /education =>", JSON.stringify(postEduJson));
+
+  if (postEduJson.data && postEduJson.data.id) {
+    // Test PUT Education by ID
+    const putEduIdRes = await fetch(`${baseUrl}/education/${postEduJson.data.id}`, {
+      ...fetchOpts,
+      method: "PUT",
+      body: JSON.stringify({
+        institution: "Harvard Updated"
+      })
+    });
+    console.log(`PUT /education/${postEduJson.data.id} =>`, await putEduIdRes.text());
+
+    // Test DELETE Education
+    const delEduRes = await fetch(`${baseUrl}/education/${postEduJson.data.id}`, {
+      ...fetchOpts,
+      method: "DELETE"
+    });
+    console.log("DELETE /education =>", await delEduRes.text());
+  }
+
+  // Test POST Certificates
+  const postCertRes = await fetch(`${baseUrl}/certificates`, {
+    ...fetchOpts,
+    method: "POST",
+    body: JSON.stringify({
+      name: "Google Cloud Professional",
+      issuer: "Google",
+      number: "GCP-001",
+      issued: "2024-06-01",
+      url: "https://cloud.google.com",
+      verified: false
+    })
+  });
+  const postCertJson: any = await postCertRes.json();
+  console.log("POST /certificates =>", JSON.stringify(postCertJson));
+
+  if (postCertJson.data && postCertJson.data.id) {
+    // Test PUT Certificates by ID
+    const putCertIdRes = await fetch(`${baseUrl}/certificates/${postCertJson.data.id}`, {
+      ...fetchOpts,
+      method: "PUT",
+      body: JSON.stringify({
+        verified: true,
+        issuer: "Google Updated"
+      })
+    });
+    console.log(`PUT /certificates/${postCertJson.data.id} =>`, await putCertIdRes.text());
+
+    // Test DELETE Certificates
+    const delCertRes = await fetch(`${baseUrl}/certificates/${postCertJson.data.id}`, {
+      ...fetchOpts,
+      method: "DELETE"
+    });
+    console.log("DELETE /certificates =>", await delCertRes.text());
+  }
 }
 
 main().finally(() => prisma.$disconnect());

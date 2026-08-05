@@ -524,6 +524,81 @@ export const putFreelancerEducation = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+export const postFreelancerEducation = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const item = req.body;
+        const created = await prisma.freelancerEducation.create({
+            data: {
+                userId,
+                institution: String(item.institution || ""),
+                qualification: String(item.qualification || ""),
+                specialization: String(item.specialization || ""),
+                year: String(item.year || ""),
+                percentage: String(item.percentage || ""),
+                cert: String(item.cert || ""),
+                category: String(item.category || ""),
+                fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                fileType: item.fileType ? String(item.fileType) : null,
+            }
+        });
+        res.status(201).json({ success: true, message: "Education created", data: created });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const deleteFreelancerEducation = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        await prisma.freelancerEducation.deleteMany({
+            where: { id, userId }
+        });
+        res.json({ success: true, message: "Education deleted" });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const putFreelancerEducationById = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        const item = req.body;
+        // Check if the record belongs to the user
+        const existing = await prisma.freelancerEducation.findFirst({
+            where: { id, userId }
+        });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: "Education not found" });
+        }
+        const updated = await prisma.freelancerEducation.update({
+            where: { id },
+            data: {
+                institution: item.institution !== undefined ? String(item.institution) : undefined,
+                qualification: item.qualification !== undefined ? String(item.qualification) : undefined,
+                specialization: item.specialization !== undefined ? String(item.specialization) : undefined,
+                year: item.year !== undefined ? String(item.year) : undefined,
+                percentage: item.percentage !== undefined ? String(item.percentage) : undefined,
+                cert: item.cert !== undefined ? String(item.cert) : undefined,
+                category: item.category !== undefined ? String(item.category) : undefined,
+                fileUrl: item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined,
+                fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
+            }
+        });
+        res.json({ success: true, message: "Education updated", data: updated });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
 export const getFreelancerCertificates = async (req, res, next) => {
     try {
         const userId = requireUser(req, res);
@@ -568,6 +643,79 @@ export const putFreelancerCertificates = async (req, res, next) => {
             orderBy: { createdAt: "asc" },
         });
         res.json({ success: true, message: "Certificates updated", rows: newRows });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const postFreelancerCertificates = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const item = req.body;
+        const created = await prisma.freelancerCertificate.create({
+            data: {
+                userId,
+                name: String(item.name || ""),
+                issuer: String(item.issuer || ""),
+                number: String(item.number || ""),
+                issued: String(item.issued || ""),
+                url: item.url ? String(item.url) : null,
+                verified: Boolean(item.verified),
+                fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                fileType: item.fileType ? String(item.fileType) : null,
+            }
+        });
+        res.status(201).json({ success: true, message: "Certificate created", data: created });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const deleteFreelancerCertificates = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        await prisma.freelancerCertificate.deleteMany({
+            where: { id, userId }
+        });
+        res.json({ success: true, message: "Certificate deleted" });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const putFreelancerCertificateById = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        const item = req.body;
+        // Check if the record belongs to the user
+        const existing = await prisma.freelancerCertificate.findFirst({
+            where: { id, userId }
+        });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: "Certificate not found" });
+        }
+        const updated = await prisma.freelancerCertificate.update({
+            where: { id },
+            data: {
+                name: item.name !== undefined ? String(item.name) : undefined,
+                issuer: item.issuer !== undefined ? String(item.issuer) : undefined,
+                number: item.number !== undefined ? String(item.number) : undefined,
+                issued: item.issued !== undefined ? String(item.issued) : undefined,
+                url: item.url !== undefined ? (item.url ? String(item.url) : null) : undefined,
+                verified: item.verified !== undefined ? Boolean(item.verified) : undefined,
+                fileUrl: item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined,
+                fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
+            }
+        });
+        res.json({ success: true, message: "Certificate updated", data: updated });
     }
     catch (err) {
         handleError(err, res, next);
