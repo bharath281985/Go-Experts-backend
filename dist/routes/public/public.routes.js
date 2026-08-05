@@ -452,9 +452,11 @@ router.get("/refund-policy", getPageHandler("Refund Policy"));
 router.get("/faq", getPageHandler("FAQ"));
 router.get("/industries", async (req, res, next) => {
     try {
-        const pageSize = parseInt(req.query.pageSize) || 50;
-        const { rows, total } = await getPublicCategories({ pageSize });
-        res.json({ success: true, rows, total });
+        const rows = await prisma.industry.findMany({
+            where: { status: "active" },
+            orderBy: { name: "asc" }
+        });
+        res.json({ success: true, rows, total: rows.length });
     }
     catch (err) {
         next(err);
