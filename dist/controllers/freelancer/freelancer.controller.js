@@ -55,16 +55,26 @@ function normalizePortfolioItem(input, fallbackId) {
         : typeof input?.gallery === "string" && input.gallery.trim()
             ? input.gallery.split(",").map((s) => s.trim()).filter(Boolean)
             : [];
+    const skills = Array.isArray(input?.skills) ? input.skills : [];
+    let tech = String(input?.tech || "").trim();
+    if (!tech && skills.length > 0) {
+        tech = skills.map((s) => s.skillName || s.name || s).join(", ");
+    }
     return {
         id: String(input?.id || fallbackId || `PF-${Date.now().toString(36).toUpperCase()}`),
         title: String(input?.title || "").trim(),
-        thumb: String(input?.thumb || input?.imageUrl || "").trim(),
+        thumb: String(input?.thumb || input?.imageUrl || input?.coverMedia || "").trim(),
         category: String(input?.category || "").trim(),
-        tech: String(input?.tech || "").trim(),
+        categoryId: input?.categoryId ? String(input.categoryId) : "",
+        tech,
+        skills: skills.length > 0 ? skills : [],
         industry: String(input?.industry || "").trim(),
+        industryId: input?.industryId ? String(input.industryId) : "",
         client: String(input?.client || "").trim(),
         duration: String(input?.duration || "").trim(),
         team: Math.max(0, Number(input?.team) || 1),
+        teamSize: input?.teamSize ? String(input.teamSize) : "",
+        teamSizeId: input?.teamSizeId ? String(input.teamSizeId) : "",
         role: String(input?.role || "").trim(),
         status,
         views: Math.max(0, Number(input?.views) || 0),
@@ -74,8 +84,12 @@ function normalizePortfolioItem(input, fallbackId) {
         overview: input?.overview != null ? String(input.overview) : "",
         githubUrl: input?.githubUrl != null ? String(input.githubUrl) : "",
         liveUrl: input?.liveUrl != null ? String(input.liveUrl) : "",
-        pdfUrl: input?.pdfUrl != null ? String(input.pdfUrl) : "",
-        videoUrl: input?.videoUrl != null ? String(input.videoUrl) : "",
+        pdfUrl: input?.pdfUrl != null ? String(input.pdfUrl) : (input?.pdfCaseStudy ? String(input.pdfCaseStudy) : ""),
+        pdfCaseStudy: input?.pdfCaseStudy != null ? String(input.pdfCaseStudy) : "",
+        videoUrl: input?.videoUrl != null ? String(input.videoUrl) : (input?.videoDemo ? String(input.videoDemo) : ""),
+        videoDemo: input?.videoDemo != null ? String(input.videoDemo) : "",
+        coverMedia: input?.coverMedia != null ? String(input.coverMedia) : "",
+        extraScreenshot: input?.extraScreenshot != null ? String(input.extraScreenshot) : "",
         gallery,
     };
 }
@@ -100,16 +114,38 @@ function portfolioKpis(items) {
 }
 async function loadPortfolioItems(userId) {
     const profile = await prisma.freelancerProfile.findUnique({ where: { userId } });
+    const setting = await prisma.setting.findUnique({ where: { key: `freelancer_portfolio:${userId}` } });
+    let items = parsePortfolioJson(profile?.portfolioJson);
+    if (items.length === 0 && setting?.value) {
+        items = parsePortfolioJson(setting.value);
+    }
+    if (items.length === 0) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        let regData = {};
+        if (user?.registrationData) {
+            regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : user.registrationData;
+        }
+        if (Array.isArray(regData.portfolioItems) && regData.portfolioItems.length > 0) {
+            items = parsePortfolioJson(JSON.stringify(regData.portfolioItems));
+        }
+    }
     return {
-        items: parsePortfolioJson(profile?.portfolioJson),
+        items,
         profileId: profile?.id || null,
     };
 }
 async function savePortfolioItems(userId, items) {
+    const jsonStr = JSON.stringify(items);
     await prisma.freelancerProfile.upsert({
         where: { userId },
-        update: { portfolioJson: JSON.stringify(items) },
-        create: { userId, portfolioJson: JSON.stringify(items) },
+        update: { portfolioJson: jsonStr },
+        create: { userId, portfolioJson: jsonStr },
+    });
+    const key = `freelancer_portfolio:${userId}`;
+    await prisma.setting.upsert({
+        where: { key },
+        update: { value: jsonStr, category: "freelancer_portfolio" },
+        create: { key, value: jsonStr, category: "freelancer_portfolio" },
     });
 }
 function profileCompletion(user, profile) {
@@ -1180,6 +1216,29 @@ export const getFreelancerPortfolio = async (req, res, next) => {
                     archived: items.filter((i) => i.status === "Archived").length,
                 },
             },
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const getFreelancerPortfolioItem = async (req, res, next) => {
+    try {
+        if (!req.user?.id) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ success: false, message: "Portfolio item ID is required" });
+        }
+        const { items } = await loadPortfolioItems(req.user.id);
+        const item = items.find((p) => p.id === id);
+        if (!item) {
+            return res.status(404).json({ success: false, message: "Portfolio item not found" });
+        }
+        res.json({
+            success: true,
+            data: item,
         });
     }
     catch (err) {

@@ -38,10 +38,9 @@ const router = Router();
 router.use("/auth", authRoutes);
 router.use("/v1/auth", authRoutes);
 router.use("/payments", paymentsRoutes);
-// Mobile API Routes (/api/v1/mobile/..., /api/mobile/..., and fallback)
+// Mobile API Routes (/api/v1/mobile/..., /api/mobile/...)
 router.use("/v1/mobile", mobileRoutes);
 router.use("/mobile", mobileRoutes);
-router.use("/", mobileRoutes);
 // Portal (role-scoped)
 router.use("/freelancer", freelancerRoutes);
 router.use("/client", clientRoutes);
