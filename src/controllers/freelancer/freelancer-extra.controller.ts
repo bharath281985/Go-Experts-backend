@@ -515,7 +515,8 @@ export const getFreelancerEducation = async (req: AuthenticatedRequest, res: Res
     // Map the fields for the frontend and response
     const mappedRows = rows.map((r) => ({
       ...r,
-      educationFile: r.fileUrl
+      educationFile: r.fileUrl,
+      document: r.fileUrl
     }));
 
     res.json({ success: true, data: mappedRows, total: mappedRows.length });
@@ -528,13 +529,19 @@ export const putFreelancerEducation = async (req: AuthenticatedRequest, res: Res
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
-    const items = Array.isArray(req.body) ? req.body : req.body?.items;
-    if (!Array.isArray(items)) return res.status(400).json({ success: false, message: "items array is required" });
+    let items = Array.isArray(req.body) ? req.body : (req.body?.items || null);
+    if (!items) {
+      if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+        items = [req.body];
+      } else {
+        return res.status(400).json({ success: false, message: "items array is required" });
+      }
+    }
     
     await prisma.$transaction([
       prisma.freelancerEducation.deleteMany({ where: { userId } }),
       prisma.freelancerEducation.createMany({
-        data: items.map(item => ({
+        data: items.map((item: any) => ({
           userId,
           institution: String(item.institution || ""),
           qualification: String(item.qualification || ""),
@@ -543,7 +550,7 @@ export const putFreelancerEducation = async (req: AuthenticatedRequest, res: Res
           percentage: String(item.percentage || ""),
           cert: String(item.cert || ""),
           category: String(item.category || ""),
-          fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+          fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
           fileType: item.fileType ? String(item.fileType) : null,
         })),
       }),
@@ -576,7 +583,7 @@ export const postFreelancerEducation = async (req: AuthenticatedRequest, res: Re
         percentage: String(item.percentage || ""),
         cert: String(item.cert || ""),
         category: String(item.category || ""),
-        fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+        fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
         fileType: item.fileType ? String(item.fileType) : null,
       }
     });
@@ -629,7 +636,7 @@ export const putFreelancerEducationById = async (req: AuthenticatedRequest, res:
         percentage: item.percentage !== undefined ? String(item.percentage) : undefined,
         cert: item.cert !== undefined ? String(item.cert) : undefined,
         category: item.category !== undefined ? String(item.category) : undefined,
-        fileUrl: item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined,
+        fileUrl: item.document !== undefined ? String(item.document) : (item.educationFile !== undefined ? String(item.educationFile) : (item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined)),
         fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
       }
     });
