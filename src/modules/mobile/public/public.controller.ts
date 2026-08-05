@@ -172,9 +172,11 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
       if (categoryId) {
         where.OR = [
           { categoryId },
-          { categoryId: null },
           { category: { is: { id: categoryId } } }
         ];
+        if (isTechnology) {
+          where.OR.push({ categoryId: null });
+        }
       }
 
       let [skills, total] = await Promise.all([
