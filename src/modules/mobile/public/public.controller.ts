@@ -624,26 +624,170 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
   } catch (error) { next(error); }
 };
 
+// Helper: check UUID
+const isUUID = (val: string | null | undefined): val is string =>
+  !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+// Helper: parse registration data
+function parseRegData(regData: any): Record<string, any> {
+  if (!regData) return {};
+  if (typeof regData === 'string') {
+    try { return JSON.parse(regData); } catch { return {}; }
+  }
+  if (typeof regData === 'object') return regData;
+  return {};
+}
+
+// FORMAT HELPER
+const formatStartupResponse = (
+  idea: any,
+  user: any,
+  founderProfile: any,
+  industryMap: Map<string, string>,
+  optionMap: Map<string, string>,
+  isDetailed: boolean = false
+) => {
+  if (!idea) return null;
+
+  let reg: any = {};
+  let userObj: any = null;
+
+  if (user) {
+    reg = parseRegData(user.registrationData);
+    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
+    // Minimal user fields for list view
+    userObj = {
+      id: user.id,
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl || dicebearUrl,
+      city: user.city || reg.city || "",
+      countryId: user.country || reg.country || "",
+      role: user.role,
+    };
+
+    // Append full fields only for detail view
+    if (isDetailed) {
+      userObj.email = user.email;
+      userObj.logo = user.avatarUrl || dicebearUrl;
+      userObj.bio = user.bio || reg.bio || reg.pitch || "";
+      userObj.phone = user.phone || reg.phone || reg.mobile || "";
+      userObj.registrationData = reg;
+    }
+  }
+
+  const baseResult: any = {
+    id: idea.id,
+    startup: idea.startup,
+    funding: idea.funding,
+    equity: idea.equity,
+    visibility: idea.visibility,
+    status: idea.status,
+    logo: idea.logo,
+    coverUrl: idea.coverUrl,
+    views: idea.views,
+    interestedInvestors: idea.interestedInvestors,
+    createdAt: idea.createdAt,
+    updatedAt: idea.updatedAt,
+
+    industry: isUUID(idea.industry) ? industryMap.get(idea.industry) || idea.industry : idea.industry,
+    category: isUUID(idea.category) ? optionMap.get(idea.category) || idea.category : idea.category,
+    stage: isUUID(idea.stage) ? optionMap.get(idea.stage) || idea.stage : idea.stage,
+
+    teamSize: founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
+    description: reg.description || reg.pitch || userObj?.bio || "",
+
+    user: userObj,
+    isSaved: false, // Public has no user attached
+    hasInvested: false
+  };
+
+  if (!isDetailed) {
+    return baseResult;
+  }
+
+  const documents = [
+    { id: "doc_bp", name: "Business Plan", url: idea.businessPlan || founderProfile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
+    { id: "doc_pd", name: "Pitch Deck", url: idea.pitchDeck || founderProfile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
+  ];
+
+  return {
+    ...baseResult,
+    pitchDeck: idea.pitchDeck,
+    businessPlan: idea.businessPlan,
+    documents,
+    problemStatement: reg.problemStatement || "",
+    solution: reg.solution || "",
+    targetCustomers: reg.targetCustomers || "",
+    marketSize: reg.marketSize || "",
+    businessModel: reg.businessModel || "",
+    revenueModel: reg.revenueModel || "",
+    currentProgress: reg.currentProgress || "",
+    demoLink: reg.demoLink || "",
+  };
+};
+
+const loadRelatedDataForIdeas = async (ideas: any[]) => {
+  const founderIds = [...new Set(ideas.map(i => i.founder).filter(Boolean))];
+  let founders: any[] = [];
+  if (founderIds.length > 0) {
+    founders = await prisma.user.findMany({
+      where: { id: { in: founderIds } },
+      select: {
+        id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true,
+        country: true, city: true, role: true, registrationData: true,
+        founderProfile: true
+      }
+    });
+  }
+
+  const userMap = new Map();
+  const fpMap = new Map();
+  for (const f of founders) {
+    userMap.set(f.id, f);
+    if (f.founderProfile) fpMap.set(f.id, f.founderProfile);
+  }
+
+  const industryIds = [...new Set(ideas.map(i => i.industry).filter(isUUID))];
+  const industryMap = new Map();
+  if (industryIds.length > 0) {
+    const rows = await prisma.industry.findMany({ where: { id: { in: industryIds } }, select: { id: true, name: true } });
+    rows.forEach(r => industryMap.set(r.id, r.name));
+  }
+
+  const optionIds = [...new Set(ideas.flatMap(i => [i.category, i.stage]).filter(isUUID))];
+  const optionMap = new Map();
+  if (optionIds.length > 0) {
+    const rows = await (prisma as any).masterOption.findMany({ where: { id: { in: optionIds } }, select: { id: true, label: true } });
+    rows.forEach((r: any) => optionMap.set(r.id, r.label));
+  }
+
+  return { userMap, fpMap, industryMap, optionMap };
+};
+
 export const getStartups = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
-    const [startups, total] = await Promise.all([
-      prisma.user.findMany({
-        where: { role: 'founder', status: 'active', deletedAt: null },
-        select: {
-          id: true, fullName: true, avatarUrl: true, city: true, isVerified: true,
-          founderProfile: { select: { startupName: true, industry: true, stage: true, raised: true } }
-        },
+    const [ideas, total] = await Promise.all([
+      prisma.startupIdea.findMany({
+        where: { status: 'active', deletedAt: null },
         orderBy: { createdAt: 'desc' },
         skip, take: limit
       }),
-      prisma.user.count({ where: { role: 'founder', status: 'active', deletedAt: null } })
+      prisma.startupIdea.count({ where: { status: 'active', deletedAt: null } })
     ]);
 
-    return res.json(successResponse('Startups retrieved', startups, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+
+    const data = ideas.map(idea => {
+      // isDetailed = false
+      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap);
+    }).filter(Boolean);
+
+    return res.json(successResponse('Startups retrieved', data, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
@@ -808,116 +952,25 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
     if (modelName === 'startup') {
       const id = req.params.id;
-      let user: any = null;
-      let idea: any = null;
-      let profile: any = null;
 
-      try {
-        user = await prisma.user.findFirst({
-          where: { OR: [{ id }, { founderProfile: { id } }], role: 'founder' },
-          include: { founderProfile: true }
-        });
-
-        if (user) {
-          profile = user.founderProfile;
-          idea = await prisma.startupIdea.findFirst({
-            where: { founder: user.id, deletedAt: null },
-            orderBy: { createdAt: 'desc' }
-          });
-        } else {
-          idea = await prisma.startupIdea.findFirst({
-            where: { id, deletedAt: null }
-          });
-          if (idea) {
-            user = await prisma.user.findUnique({
-              where: { id: idea.founder },
-              include: { founderProfile: true }
-            });
-            profile = user?.founderProfile;
-          }
-        }
-      } catch {
-        // Fallback
-      }
-
-      if (!user && !idea) {
-        user = await prisma.user.findFirst({
-          where: { role: 'founder', status: 'active', deletedAt: null },
-          include: { founderProfile: true }
+      // ID could be idea ID or founder ID
+      let idea = await prisma.startupIdea.findUnique({ where: { id } }).catch(() => null);
+      if (!idea) {
+        idea = await prisma.startupIdea.findFirst({
+          where: { founder: id, deletedAt: null },
+          orderBy: { createdAt: 'desc' }
         }).catch(() => null);
-        if (user) {
-          profile = user.founderProfile;
-          idea = await prisma.startupIdea.findFirst({
-            where: { founder: user.id, deletedAt: null },
-            orderBy: { createdAt: 'desc' }
-          }).catch(() => null);
-        }
       }
 
-      if (user || idea) {
-        const startupName = idea?.startup || profile?.startupName || (user?.fullName ? `${user.fullName}'s Startup` : 'Startup');
-        const logo = user?.avatarUrl || idea?.logo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`;
-        
-        let regData: any = {};
-        try {
-          if (user?.registrationData) {
-            regData = typeof user.registrationData === 'string' ? JSON.parse(user.registrationData) : user.registrationData;
-          }
-        } catch {}
-
-        const realId = user?.id || idea?.id || id;
-        const loc = [user?.city || regData.city, user?.country || regData.country].filter(Boolean).join(', ');
-
-        return res.json(successResponse('Details retrieved for startup', {
-          id: realId,
-          fullName: user?.fullName || regData.fullName || 'Founder',
-          email: user?.email || regData.email || '',
-          phone: user?.phone || regData.phone || '',
-          startupName,
-          logo,
-          coverUrl: idea?.coverUrl || regData.coverUrl || 'https://apiai.goexperts.in/uploads/default_cover.png',
-          industry: idea?.industry || profile?.industry || regData.industry || 'Technology',
-          category: idea?.category || profile?.category || regData.category || 'General',
-          stage: idea?.stage || profile?.stage || regData.stage || 'Seed',
-          teamSize: profile?.teamSize || regData.teamSize || 1,
-          raised: idea?.funding ?? profile?.raised ?? regData.raised ?? 0,
-          equity: idea?.equity ?? profile?.equity ?? regData.equity ?? 0,
-          valuation: regData.valuation ?? 0,
-          oneLinePitch: regData.oneLinePitch || regData.pitch || user?.bio || '',
-          problemStatement: regData.problemStatement || '',
-          solution: regData.solution || '',
-          businessModel: regData.businessModel || '',
-          revenueModel: regData.revenueModel || '',
-          targetCustomers: regData.targetCustomers || '',
-          technologyStack: regData.technologyStack || '',
-          website: regData.website || user?.website || '',
-          linkedin: regData.linkedin || user?.linkedin || '',
-          location: loc,
-          city: user?.city || regData.city || '',
-          country: user?.country || regData.country || '',
-          documents: [
-            { id: "doc_bp", name: "Business Plan", url: idea?.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
-            { id: "doc_pd", name: "Pitch Deck", url: idea?.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
-          ]
-        }));
+      if (!idea) {
+        // Ultimate fallback to return an empty 404 block for public requests instead of dummy data
+        return res.status(404).json({ success: false, message: 'Startup not found' });
       }
 
-      return res.json(successResponse('Details retrieved for startup', {
-        id,
-        fullName: 'Founder',
-        startupName: `Startup ${id}`,
-        logo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`,
-        industry: 'Technology',
-        category: 'SaaS Solutions',
-        stage: 'Seed',
-        teamSize: 5,
-        raised: 500000,
-        equity: 10,
-        oneLinePitch: 'Next-generation AI platform',
-        location: 'Mumbai, India',
-        city: 'Mumbai',
-        country: 'India'
-      }));
+      const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+
+      const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, true);
+      return res.json(successResponse('Details retrieved for startup', data));
     }
 
     return res.json(successResponse(`Details retrieved for ${modelName}`, { id: req.params.id }));
