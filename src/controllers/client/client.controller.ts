@@ -689,9 +689,8 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
     if (body.status != null) data.status = String(body.status).trim();
 
     const targetStatus = data.status || task.status;
-    if (body.progress != null && !isNaN(Number(body.progress))) {
-      const p = Number(body.progress);
-      data.progress = p > 0 ? p : getStatusDefaultProgress(targetStatus);
+    if (body.progress !== undefined && body.progress !== null && !isNaN(Number(body.progress))) {
+      data.progress = Number(body.progress);
     } else if (body.status != null) {
       data.progress = getStatusDefaultProgress(targetStatus);
     }
