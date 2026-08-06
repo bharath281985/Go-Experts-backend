@@ -68,7 +68,14 @@ export const auditMiddleware = (action: string, entity: string) => {
     res.on("finish", async () => {
       try {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          const actorId = req.user?.id || null;
+          let actorId = req.user?.id || null;
+          if (actorId) {
+            const adminExists = await prisma.adminUser.findUnique({ where: { id: actorId }, select: { id: true } }).catch(() => null);
+            if (!adminExists) {
+              const defaultAdmin = await prisma.adminUser.findFirst({ select: { id: true } }).catch(() => null);
+              actorId = defaultAdmin?.id || null;
+            }
+          }
           const ipAddress = (req.ip || req.socket?.remoteAddress || "").toString();
           const userAgent = req.headers["user-agent"] || "";
 

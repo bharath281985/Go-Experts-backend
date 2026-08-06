@@ -1,7 +1,7 @@
 import { prisma } from "../config/database.js";
 // Fields to never log (security)
 const SENSITIVE_FIELDS = ["password", "token", "refreshToken", "secret", "apiKey"];
-const AUDIT_VALUE_LIMIT = 180;
+const AUDIT_VALUE_LIMIT = 3000;
 function sanitize(obj) {
     if (!obj || typeof obj !== "object")
         return obj;
@@ -29,12 +29,11 @@ function toAuditValue(value) {
     const text = JSON.stringify(value);
     if (text.length <= AUDIT_VALUE_LIMIT)
         return text;
-    const payload = JSON.stringify({
+    return JSON.stringify({
         truncated: true,
         originalLength: text.length,
-        preview: text.slice(0, 80),
+        preview: text.slice(0, AUDIT_VALUE_LIMIT - 60),
     });
-    return payload.length > 191 ? payload.slice(0, 191) : payload;
 }
 /**
  * Audit Middleware Factory
@@ -62,7 +61,14 @@ export const auditMiddleware = (action, entity) => {
         res.on("finish", async () => {
             try {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
-                    const actorId = req.user?.id || null;
+                    let actorId = req.user?.id || null;
+                    if (actorId) {
+                        const adminExists = await prisma.adminUser.findUnique({ where: { id: actorId }, select: { id: true } }).catch(() => null);
+                        if (!adminExists) {
+                            const defaultAdmin = await prisma.adminUser.findFirst({ select: { id: true } }).catch(() => null);
+                            actorId = defaultAdmin?.id || null;
+                        }
+                    }
                     const ipAddress = (req.ip || req.socket?.remoteAddress || "").toString();
                     const userAgent = req.headers["user-agent"] || "";
                     // Build newValue from request body for mutations

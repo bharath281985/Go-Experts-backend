@@ -1,46 +1,67 @@
 import { prisma } from "../../config/database.js";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
-const AUDIT_VALUE_LIMIT = 180;
-function toAuditValue(value) {
-    if (value == null)
+function toAuditString(val, maxLen = 3000) {
+    if (val == null)
         return null;
-    const text = JSON.stringify(value);
-    if (text.length <= AUDIT_VALUE_LIMIT)
-        return text;
-    const payload = JSON.stringify({
-        truncated: true,
-        originalLength: text.length,
-        preview: text.slice(0, 80),
-    });
-    return payload.length > 191 ? payload.slice(0, 191) : payload;
+    try {
+        const text = typeof val === "string" ? val : JSON.stringify(val);
+        if (text.length <= maxLen)
+            return text;
+        return JSON.stringify({
+            truncated: true,
+            originalLength: text.length,
+            preview: text.slice(0, maxLen - 60),
+        });
+    }
+    catch {
+        return null;
+    }
 }
 // Helper for notifications & activity/audit logs
 async function logWorkflowAction(params) {
     const { userId, action, entity, entityId, description, oldValue, newValue } = params;
-    // 1. Create activity log
-    // Since activityLog maps to adminUserId, if userId is not an adminUserId, we find an admin or use system default
-    const defaultAdmin = await prisma.adminUser.findFirst();
-    const adminUserId = defaultAdmin?.id || userId;
-    await prisma.activityLog.create({
-        data: {
-            adminUserId,
-            action: `${action}_${entity}`,
-            description,
-        },
-    });
-    // 2. Create audit log
-    await prisma.auditLog.create({
-        data: {
-            actorId: adminUserId,
-            action,
-            entity,
-            entityId,
-            oldValue: toAuditValue(oldValue),
-            newValue: toAuditValue(newValue),
-            diff: oldValue && newValue ? toAuditValue({ from: oldValue, to: newValue }) : null,
-            ipAddress: "127.0.0.1",
-        },
-    });
+    let adminUserId = null;
+    if (userId && userId !== "system") {
+        const adminExists = await prisma.adminUser.findUnique({ where: { id: userId }, select: { id: true } }).catch(() => null);
+        if (adminExists)
+            adminUserId = adminExists.id;
+    }
+    if (!adminUserId) {
+        const defaultAdmin = await prisma.adminUser.findFirst({ select: { id: true } }).catch(() => null);
+        adminUserId = defaultAdmin?.id || null;
+    }
+    if (adminUserId) {
+        try {
+            await prisma.activityLog.create({
+                data: {
+                    adminUserId,
+                    action: `${action}_${entity}`,
+                    description,
+                },
+            });
+        }
+        catch (err) {
+            console.error("Non-fatal: ActivityLog creation failed:", err);
+        }
+    }
+    // 2. Create audit log safely
+    try {
+        await prisma.auditLog.create({
+            data: {
+                actorId: adminUserId || null,
+                action,
+                entity,
+                entityId,
+                oldValue: toAuditString(oldValue),
+                newValue: toAuditString(newValue),
+                diff: oldValue && newValue ? toAuditString({ from: oldValue, to: newValue }) : null,
+                ipAddress: "127.0.0.1",
+            },
+        });
+    }
+    catch (err) {
+        console.error("Non-fatal: AuditLog creation failed:", err);
+    }
     // 3. Queue notification asynchronously
     try {
         let templateCode;

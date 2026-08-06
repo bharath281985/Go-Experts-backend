@@ -19,7 +19,7 @@ export async function listPublicProjects(options) {
             options?.category;
         const where = {
             deletedAt: null,
-            status: { in: ["open", "approved", "published"] },
+            status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active"] },
         };
         if (categoryName)
             where.category = categoryName;
