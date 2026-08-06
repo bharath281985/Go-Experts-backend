@@ -93,7 +93,7 @@ export const getHomeData = async (req: Request, res: Response, next: NextFunctio
   try {
     const stats = {
       freelancers: await prisma.user.count({ where: { role: 'freelancer', status: 'active' } }),
-      projects: await prisma.project.count({ where: { status: 'open' } }),
+      projects: await prisma.project.count({ where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] } } }),
       startups: await prisma.founderProfile.count()
     };
     return res.json(successResponse('Home data retrieved', stats));

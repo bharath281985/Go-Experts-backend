@@ -7,7 +7,7 @@ export const globalSearch = async (req: AuthRequest, res: Response, next: NextFu
   try {
     const q = (req.query.q as string) || '';
     const [projects, clients] = await Promise.all([
-      prisma.project.findMany({ where: { status: 'open', title: { contains: q } }, take: 5 }),
+      prisma.project.findMany({ where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] }, title: { contains: q } }, take: 5 }),
       prisma.user.findMany({ where: { role: 'client', status: 'active', fullName: { contains: q } }, take: 5, select: { id: true, fullName: true, avatarUrl: true } })
     ]);
     return res.json(successResponse('Search results', { projects, clients }));
@@ -24,7 +24,7 @@ export const searchProjects = async (req: AuthRequest, res: Response, next: Next
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
-    const where: any = { status: 'open' };
+    const where: any = { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] } };
     if (q) where.title = { contains: q };
     if (category) where.category = category;
     if (minBudget !== undefined) where.budget = { gte: minBudget };

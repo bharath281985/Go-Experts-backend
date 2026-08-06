@@ -63,7 +63,7 @@ export const parseProjectListQuery = (req: Request, scope: ProjectListScope) => 
   const where: Prisma.ProjectWhereInput = { deletedAt: null };
 
   if (scope.kind === 'public' || scope.kind === 'freelancer_browse') {
-    where.status = 'open';
+    where.status = { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] };
   } else if (scope.kind === 'client') {
     where.client = scope.clientId;
     if (status) where.status = status;

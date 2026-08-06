@@ -24,7 +24,7 @@ export class RecommendationEngine {
 
     // Recommended Projects: match category/technology to freelancer skills
     const recommendedProjects = await prisma.project.findMany({
-      where: { status: 'open', deletedAt: null },
+      where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] }, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       take: limit
     });

@@ -28,12 +28,12 @@ export async function listPublicProjects(options?: {
 
     const where: {
       deletedAt: null;
-      status?: string;
+      status?: any;
       category?: string;
       OR?: Array<Record<string, unknown>>;
     } = {
       deletedAt: null,
-      status: "open",
+      status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active"] },
     };
 
     if (categoryName) where.category = categoryName;

@@ -483,7 +483,13 @@ export const getFreelancerEducation = async (req, res, next) => {
             where: { userId },
             orderBy: { createdAt: "asc" },
         });
-        res.json({ success: true, rows, total: rows.length });
+        // Map the fields for the frontend and response
+        const mappedRows = rows.map((r) => ({
+            ...r,
+            educationFile: r.fileUrl,
+            document: r.fileUrl
+        }));
+        res.json({ success: true, data: mappedRows, total: mappedRows.length });
     }
     catch (err) {
         handleError(err, res, next);
@@ -494,13 +500,19 @@ export const putFreelancerEducation = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const items = Array.isArray(req.body) ? req.body : req.body?.items;
-        if (!Array.isArray(items))
-            return res.status(400).json({ success: false, message: "items array is required" });
+        let items = Array.isArray(req.body) ? req.body : (req.body?.items || null);
+        if (!items) {
+            if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+                items = [req.body];
+            }
+            else {
+                return res.status(400).json({ success: false, message: "items array is required" });
+            }
+        }
         await prisma.$transaction([
             prisma.freelancerEducation.deleteMany({ where: { userId } }),
             prisma.freelancerEducation.createMany({
-                data: items.map(item => ({
+                data: items.map((item) => ({
                     userId,
                     institution: String(item.institution || ""),
                     qualification: String(item.qualification || ""),
@@ -509,7 +521,7 @@ export const putFreelancerEducation = async (req, res, next) => {
                     percentage: String(item.percentage || ""),
                     cert: String(item.cert || ""),
                     category: String(item.category || ""),
-                    fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                    fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
                     fileType: item.fileType ? String(item.fileType) : null,
                 })),
             }),
@@ -518,7 +530,7 @@ export const putFreelancerEducation = async (req, res, next) => {
             where: { userId },
             orderBy: { createdAt: "asc" },
         });
-        res.json({ success: true, message: "Education updated", rows: newRows });
+        res.json({ success: true, message: "Education updated", data: newRows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -540,7 +552,7 @@ export const postFreelancerEducation = async (req, res, next) => {
                 percentage: String(item.percentage || ""),
                 cert: String(item.cert || ""),
                 category: String(item.category || ""),
-                fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
                 fileType: item.fileType ? String(item.fileType) : null,
             }
         });
@@ -589,7 +601,7 @@ export const putFreelancerEducationById = async (req, res, next) => {
                 percentage: item.percentage !== undefined ? String(item.percentage) : undefined,
                 cert: item.cert !== undefined ? String(item.cert) : undefined,
                 category: item.category !== undefined ? String(item.category) : undefined,
-                fileUrl: item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined,
+                fileUrl: item.document !== undefined ? String(item.document) : (item.educationFile !== undefined ? String(item.educationFile) : (item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined)),
                 fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
             }
         });
@@ -608,7 +620,13 @@ export const getFreelancerCertificates = async (req, res, next) => {
             where: { userId },
             orderBy: { createdAt: "asc" },
         });
-        res.json({ success: true, rows, total: rows.length });
+        // Map the fields for the frontend and response
+        const mappedRows = rows.map((r) => ({
+            ...r,
+            certificateUrl: r.url,
+            certificateFile: r.fileUrl
+        }));
+        res.json({ success: true, data: mappedRows, total: mappedRows.length });
     }
     catch (err) {
         handleError(err, res, next);
@@ -619,21 +637,27 @@ export const putFreelancerCertificates = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const items = Array.isArray(req.body) ? req.body : req.body?.items;
-        if (!Array.isArray(items))
-            return res.status(400).json({ success: false, message: "items array is required" });
+        let items = Array.isArray(req.body) ? req.body : (req.body?.items || null);
+        if (!items) {
+            if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+                items = [req.body];
+            }
+            else {
+                return res.status(400).json({ success: false, message: "items array is required" });
+            }
+        }
         await prisma.$transaction([
             prisma.freelancerCertificate.deleteMany({ where: { userId } }),
             prisma.freelancerCertificate.createMany({
-                data: items.map(item => ({
+                data: items.map((item) => ({
                     userId,
                     name: String(item.name || ""),
                     issuer: String(item.issuer || ""),
                     number: String(item.number || ""),
                     issued: String(item.issued || ""),
-                    url: item.url ? String(item.url) : null,
+                    url: item.certificateUrl ? String(item.certificateUrl) : (item.url ? String(item.url) : null),
                     verified: Boolean(item.verified),
-                    fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                    fileUrl: item.certificateFile ? String(item.certificateFile) : (item.fileUrl ? String(item.fileUrl) : null),
                     fileType: item.fileType ? String(item.fileType) : null,
                 })),
             }),
@@ -642,7 +666,7 @@ export const putFreelancerCertificates = async (req, res, next) => {
             where: { userId },
             orderBy: { createdAt: "asc" },
         });
-        res.json({ success: true, message: "Certificates updated", rows: newRows });
+        res.json({ success: true, message: "Certificates updated", data: newRows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -661,9 +685,9 @@ export const postFreelancerCertificates = async (req, res, next) => {
                 issuer: String(item.issuer || ""),
                 number: String(item.number || ""),
                 issued: String(item.issued || ""),
-                url: item.url ? String(item.url) : null,
+                url: item.certificateUrl ? String(item.certificateUrl) : (item.url ? String(item.url) : null),
                 verified: Boolean(item.verified),
-                fileUrl: item.fileUrl ? String(item.fileUrl) : null,
+                fileUrl: item.certificateFile ? String(item.certificateFile) : (item.fileUrl ? String(item.fileUrl) : null),
                 fileType: item.fileType ? String(item.fileType) : null,
             }
         });
@@ -709,9 +733,9 @@ export const putFreelancerCertificateById = async (req, res, next) => {
                 issuer: item.issuer !== undefined ? String(item.issuer) : undefined,
                 number: item.number !== undefined ? String(item.number) : undefined,
                 issued: item.issued !== undefined ? String(item.issued) : undefined,
-                url: item.url !== undefined ? (item.url ? String(item.url) : null) : undefined,
+                url: item.certificateUrl !== undefined ? String(item.certificateUrl) : (item.url !== undefined ? (item.url ? String(item.url) : null) : undefined),
                 verified: item.verified !== undefined ? Boolean(item.verified) : undefined,
-                fileUrl: item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined,
+                fileUrl: item.certificateFile !== undefined ? String(item.certificateFile) : (item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined),
                 fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
             }
         });

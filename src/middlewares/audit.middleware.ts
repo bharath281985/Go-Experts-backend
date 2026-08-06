@@ -4,7 +4,7 @@ import { prisma } from "../config/database.js";
 
 // Fields to never log (security)
 const SENSITIVE_FIELDS = ["password", "token", "refreshToken", "secret", "apiKey"];
-const AUDIT_VALUE_LIMIT = 180;
+const AUDIT_VALUE_LIMIT = 3000;
 
 function sanitize(obj: any): any {
   if (!obj || typeof obj !== "object") return obj;

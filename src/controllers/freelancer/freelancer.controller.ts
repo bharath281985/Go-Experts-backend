@@ -399,7 +399,7 @@ export const getFreelancerDashboard = async (
         where: { revieweeId: userId },
         select: { rating: true },
       }),
-      prisma.project.count({ where: { status: "open", deletedAt: null } }),
+      prisma.project.count({ where: { status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active"] }, deletedAt: null } }),
       prisma.task.findMany({
         where: {
           deletedAt: null,
@@ -457,7 +457,7 @@ export const getFreelancerDashboard = async (
           })
         : Promise.resolve([]),
       prisma.project.findMany({
-        where: { status: "open", deletedAt: null },
+        where: { status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active"] }, deletedAt: null },
         orderBy: { createdAt: "desc" },
         take: 24,
       }),

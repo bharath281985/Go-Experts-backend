@@ -1066,9 +1066,9 @@ model AuditLog {
   action    String
   entity    String
   entityId  String?    @map("entity_id")
-  oldValue  String?    @map("old_value")
-  newValue  String?    @map("new_value")
-  diff      String?
+  oldValue  String?    @map("old_value") @db.Text
+  newValue  String?    @map("new_value") @db.Text
+  diff      String?    @db.Text
   ipAddress String?    @map("ip_address")
   userAgent String?    @map("user_agent") @db.Text
   createdAt DateTime   @default(now()) @map("created_at")

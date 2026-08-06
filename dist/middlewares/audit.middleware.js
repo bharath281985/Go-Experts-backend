@@ -29,11 +29,12 @@ function toAuditValue(value) {
     const text = JSON.stringify(value);
     if (text.length <= AUDIT_VALUE_LIMIT)
         return text;
-    return JSON.stringify({
+    const payload = JSON.stringify({
         truncated: true,
         originalLength: text.length,
-        preview: text.slice(0, AUDIT_VALUE_LIMIT - 60),
+        preview: text.slice(0, 80),
     });
+    return payload.length > 191 ? payload.slice(0, 191) : payload;
 }
 /**
  * Audit Middleware Factory

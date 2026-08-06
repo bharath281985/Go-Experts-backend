@@ -1,5 +1,19 @@
 import { prisma } from "../../config/database.js";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
+const AUDIT_VALUE_LIMIT = 180;
+function toAuditValue(value) {
+    if (value == null)
+        return null;
+    const text = JSON.stringify(value);
+    if (text.length <= AUDIT_VALUE_LIMIT)
+        return text;
+    const payload = JSON.stringify({
+        truncated: true,
+        originalLength: text.length,
+        preview: text.slice(0, 80),
+    });
+    return payload.length > 191 ? payload.slice(0, 191) : payload;
+}
 // Helper for notifications & activity/audit logs
 async function logWorkflowAction(params) {
     const { userId, action, entity, entityId, description, oldValue, newValue } = params;
@@ -21,9 +35,9 @@ async function logWorkflowAction(params) {
             action,
             entity,
             entityId,
-            oldValue: oldValue ? JSON.stringify(oldValue) : null,
-            newValue: newValue ? JSON.stringify(newValue) : null,
-            diff: oldValue && newValue ? JSON.stringify({ from: oldValue, to: newValue }) : null,
+            oldValue: toAuditValue(oldValue),
+            newValue: toAuditValue(newValue),
+            diff: oldValue && newValue ? toAuditValue({ from: oldValue, to: newValue }) : null,
             ipAddress: "127.0.0.1",
         },
     });
