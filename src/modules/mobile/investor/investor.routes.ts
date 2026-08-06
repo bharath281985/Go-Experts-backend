@@ -6,7 +6,7 @@ import { authenticate, authorizeRole, AuthRequest } from '../../../middlewares/a
 import { getDashboard } from './controllers/dashboard.controller.js';
 import { getProfile, updateProfile, uploadAvatar, uploadCover, uploadDocuments, getProfileCompletion } from './controllers/profile.controller.js';
 import { listStartups, getStartupDetails, getRecommendedStartups, getTrendingStartups, getFeaturedStartups, saveStartup, unsaveStartup } from './controllers/startups.controller.js';
-import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority } from './controllers/watchlist.controller.js';
+import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority, getFounderWatchlist, saveFounder, unsaveFounder } from './controllers/watchlist.controller.js';
 import { listInvestments, getInvestment, expressInterest, makeOffer, updateInvestmentStatus, cancelInvestment, getInvestmentHistory } from './controllers/investments.controller.js';
 import { getPortfolio, getPortfolioItem, getPortfolioPerformance, getPortfolioAllocation, getPortfolioROI } from './controllers/portfolio.controller.js';
 import { listMeetings, scheduleMeeting, getMeeting, rescheduleMeeting, cancelMeeting, addMeetingNotes } from './controllers/meetings.controller.js';
@@ -71,8 +71,11 @@ router.get('/startups/featured', getFeaturedStartups);
 router.get('/startups/:id', getStartupDetails);
 router.post('/startups/:id/save', saveStartup);
 router.delete('/startups/:id/save', unsaveStartup);
-router.post('/founders/:id/save', saveStartup);
-router.delete('/founders/:id/save', unsaveStartup);
+
+// ─── Founder Discovery & Watchlist ───
+router.get('/watchlist/founders', getFounderWatchlist);
+router.post('/founders/:id/save', saveFounder);
+router.delete('/founders/:id/save', unsaveFounder);
 
 // ─── Investments ───
 router.get('/investments', listInvestments);

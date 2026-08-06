@@ -318,25 +318,52 @@ export const getFeaturedStartups = async (req: AuthRequest, res: Response, next:
 
 export const saveStartup = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const startupId = req.params.id;
+    let startupId = req.params.id;
+
+    // Resolve if it's a founder ID instead of startup ID
+    let idea = await prisma.startupIdea.findUnique({ where: { id: startupId } }).catch(() => null);
+    if (!idea) {
+      idea = await prisma.startupIdea.findFirst({
+        where: { founder: startupId, deletedAt: null },
+        orderBy: { createdAt: 'desc' }
+      }).catch(() => null);
+    }
+    if (!idea) return res.status(404).json(errorResponse('Startup not found to save', 'NOT_FOUND'));
+    startupId = idea.id;
+
     const { notes, priority } = req.body || {};
     const items = await readList(req.user.id);
     const exists = items.find(i => i.startupId === startupId);
     if (exists) return res.status(409).json(errorResponse('Startup already saved to watchlist', 'CONFLICT'));
+
     const now = new Date().toISOString();
     const entry: WatchlistEntry = { id: randomUUID(), startupId, notes: notes || '', priority: priority || 'medium', savedAt: now, updatedAt: now };
+
     items.unshift(entry);
     await writeList(req.user.id, items);
+
     return res.status(201).json(successResponse('Startup saved to watchlist', entry));
   } catch (error) { next(error); }
 };
 
 export const unsaveStartup = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const startupId = req.params.id;
+    let startupId = req.params.id;
+
+    // Resolve if it's a founder ID
+    let idea = await prisma.startupIdea.findUnique({ where: { id: startupId } }).catch(() => null);
+    if (!idea) {
+      idea = await prisma.startupIdea.findFirst({
+        where: { founder: startupId, deletedAt: null },
+        orderBy: { createdAt: 'desc' }
+      }).catch(() => null);
+    }
+    if (idea) startupId = idea.id;
+
     const items = await readList(req.user.id);
     const filtered = items.filter(i => i.startupId !== startupId);
     if (filtered.length === items.length) return res.status(404).json(errorResponse('Startup not in watchlist', 'NOT_FOUND'));
+
     await writeList(req.user.id, filtered);
     return res.json(successResponse('Startup removed from watchlist'));
   } catch (error) { next(error); }

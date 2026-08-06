@@ -14,6 +14,7 @@ type WatchlistEntry = {
 };
 
 const watchlistKey = (userId: string) => `investor_watchlist:${userId}`;
+const founderWatchlistKey = (userId: string) => `investor_watchlist_founders:${userId}`;
 
 const readList = async (userId: string): Promise<WatchlistEntry[]> => {
   const row = await prisma.setting.findUnique({ where: { key: watchlistKey(userId) } });
@@ -27,6 +28,21 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
     where: { key },
     update: { value: JSON.stringify(items), category: 'investor_watchlist' },
     create: { key, value: JSON.stringify(items), category: 'investor_watchlist' },
+  });
+};
+
+const readFounderList = async (userId: string): Promise<WatchlistEntry[]> => {
+  const row = await prisma.setting.findUnique({ where: { key: founderWatchlistKey(userId) } });
+  if (!row?.value) return [];
+  try { const p = JSON.parse(row.value); return Array.isArray(p) ? p : []; } catch { return []; }
+};
+
+const writeFounderList = async (userId: string, items: WatchlistEntry[]) => {
+  const key = founderWatchlistKey(userId);
+  await prisma.setting.upsert({
+    where: { key },
+    update: { value: JSON.stringify(items), category: 'investor_watchlist_founders' },
+    create: { key, value: JSON.stringify(items), category: 'investor_watchlist_founders' },
   });
 };
 
@@ -267,5 +283,109 @@ export const updateWatchlistPriority = async (req: AuthRequest, res: Response, n
     items[idx] = { ...items[idx], priority, updatedAt: new Date().toISOString() };
     await writeList(req.user.id, items);
     return res.json(successResponse('Priority updated', items[idx]));
+  } catch (error) { next(error); }
+};
+
+const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]> => {
+  if (items.length === 0) return [];
+  const founderIds = items.map(i => i.startupId);
+  try {
+    const ideas = await prisma.startupIdea.findMany({
+      where: { founder: { in: founderIds }, deletedAt: null }
+    });
+
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+
+    return items.map(item => {
+      const founderId = item.startupId;
+      const user = userMap.get(founderId);
+      const profile = fpMap.get(founderId);
+      const idea = ideas.find(i => i.founder === founderId);
+
+      let result: any = {
+        watchlistId: item.id,
+        founderId: founderId,
+        id: founderId,
+        notes: item.notes || '',
+        priority: item.priority || 'medium',
+        savedAt: item.savedAt,
+        updatedAt: item.updatedAt
+      };
+
+      if (user) {
+        const reg = parseRegData(user.registrationData);
+        const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+        result.fullName = user.fullName || reg.fullName || "";
+        result.email = user.email || reg.email || "";
+        result.avatarUrl = user.avatarUrl || reg.avatarUrl || dicebearUrl;
+        result.bio = user.bio || reg.bio || reg.pitch || "";
+        result.phone = user.phone || reg.phone || reg.mobile || "";
+        result.city = user.city || reg.city || "";
+        result.countryId = user.country || reg.country || "";
+        result.role = user.role || 'founder';
+        result.isVerified = user.isVerified || false;
+        result.founderType = reg.founderType || "Founder";
+
+        if (idea) {
+          let startupDetails: any = formatStartupResponse(idea, user, profile, industryMap, optionMap);
+          if (startupDetails) delete startupDetails.user;
+          result.startup = startupDetails;
+        }
+      }
+
+      return result;
+    });
+  } catch (e) {
+    console.error('Error populating founder watchlist', e);
+    return items;
+  }
+};
+
+export const getFounderWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const items = await readFounderList(req.user.id);
+    const populated = await populateFounderWatchlist(items);
+
+    const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    const sorted = [...populated].sort((a, b) => {
+      const weightA = priorityWeight[String(a.priority).toLowerCase()] || 0;
+      const weightB = priorityWeight[String(b.priority).toLowerCase()] || 0;
+      if (weightA !== weightB) return weightB - weightA;
+      return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+    });
+
+    return res.json(successResponse('Founder Watchlist retrieved', sorted, { total: items.length }));
+  } catch (error) { next(error); }
+};
+
+export const saveFounder = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const founderId = req.params.id;
+    const { notes, priority } = req.body || {};
+    const items = await readFounderList(req.user.id);
+    const exists = items.find(i => i.startupId === founderId);
+    if (exists) return res.status(409).json(errorResponse('Founder already saved to watchlist', 'CONFLICT'));
+
+    // Validate founder exists
+    const user = await prisma.user.findFirst({ where: { id: founderId } }).catch(() => null);
+    if (!user) return res.status(404).json(errorResponse('Founder not found', 'NOT_FOUND'));
+
+    const now = new Date().toISOString();
+    const entry: WatchlistEntry = { id: randomUUID(), startupId: founderId, notes: notes || '', priority: priority || 'medium', savedAt: now, updatedAt: now };
+
+    items.unshift(entry);
+    await writeFounderList(req.user.id, items);
+    return res.status(201).json(successResponse('Founder saved to watchlist', entry));
+  } catch (error) { next(error); }
+};
+
+export const unsaveFounder = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const founderId = req.params.id;
+    const items = await readFounderList(req.user.id);
+    const filtered = items.filter(i => i.startupId !== founderId);
+    if (filtered.length === items.length) return res.status(404).json(errorResponse('Founder not in watchlist', 'NOT_FOUND'));
+    await writeFounderList(req.user.id, filtered);
+    return res.json(successResponse('Founder removed from watchlist'));
   } catch (error) { next(error); }
 };
