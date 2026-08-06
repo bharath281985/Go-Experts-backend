@@ -6,7 +6,7 @@ import { AuthRequest } from '../../../../middlewares/auth.js';
 
 type WatchlistEntry = { id: string; startupId: string; notes: string; priority: string; savedAt: string; updatedAt: string; };
 const watchlistKey = (userId: string) => `investor_watchlist:${userId}`;
-const readList = async (userId: string): Promise<WatchlistEntry[]> => {
+export const readList = async (userId: string): Promise<WatchlistEntry[]> => {
   const row = await prisma.setting.findUnique({ where: { key: watchlistKey(userId) } });
   if (!row?.value) return [];
   try { const p = JSON.parse(row.value); return Array.isArray(p) ? p : []; } catch { return []; }
@@ -31,7 +31,7 @@ const isUUID = (val: string | null | undefined): val is string =>
   !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
 // Helper to format the final JSON exactly as the founder side demands, minus the bids list
-const formatStartupResponse = (
+export const formatStartupResponse = (
   idea: any,
   user: any,
   founderProfile: any,
@@ -142,7 +142,7 @@ const formatStartupResponse = (
 
     user: userObj ? { ...userObj, isVerified: user?.isVerified || false } : null,
     isSaved: savedIds.has(idea.id) || (user && savedIds.has(user.id)),
-    hasInvested: investedIds.has(idea.id) || (user && investedIds.has(user.id)) || (idea.founder && investedIds.has(idea.founder))
+    hasInvested: investedIds.has(idea.id)
   };
 
   // If not detailed, return the stripped down version
@@ -173,7 +173,7 @@ const formatStartupResponse = (
 };
 
 // Helper to load related users AND resolve industry/stage names
-const loadRelatedDataForIdeas = async (ideas: any[]) => {
+export const loadRelatedDataForIdeas = async (ideas: any[]) => {
   const founderIds = [...new Set(ideas.map(i => i.founder).filter(Boolean))];
   let founders: any[] = [];
   if (founderIds.length > 0) {
