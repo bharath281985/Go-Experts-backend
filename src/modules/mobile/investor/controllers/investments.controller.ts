@@ -11,7 +11,11 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const skip = (page - 1) * limit;
     const status = req.query.status as string;
     const where: any = { investor: req.user.id };
-    if (status) where.status = status;
+    if (status) {
+      where.status = status;
+    } else {
+      where.status = { notIn: ['Cancelled', 'Closed'] };
+    }
 
     const [investments, total, watchlist] = await Promise.all([
       prisma.investment.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
@@ -69,17 +73,36 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
     const finalOffer = isNaN(parsedOffer) ? 0 : parsedOffer;
     const finalEquity = isNaN(parsedEquity) ? 0 : parsedEquity;
 
-    const investment = await prisma.investment.create({
-      data: {
-        investor: req.user.id,
-        startup: startupId,
-        offer: finalOffer,
-        equity: finalEquity,
-        meetingDate: meetingDate || null,
-        status: 'Pending',
-        docs: message || 'View folder' // Storing optional custom message if provided
-      }
+    const existing = await prisma.investment.findFirst({
+      where: { investor: req.user.id, startup: startupId }
     });
+
+    let investment;
+    if (existing) {
+      investment = await prisma.investment.update({
+        where: { id: existing.id },
+        data: {
+          offer: finalOffer,
+          equity: finalEquity,
+          meetingDate: meetingDate || null,
+          status: 'Pending',
+          docs: message || 'View folder'
+        }
+      });
+    } else {
+      investment = await prisma.investment.create({
+        data: {
+          investor: req.user.id,
+          startup: startupId,
+          offer: finalOffer,
+          equity: finalEquity,
+          meetingDate: meetingDate || null,
+          status: 'Pending',
+          docs: message || 'View folder'
+        }
+      });
+    }
+
     return res.status(201).json(successResponse('Interest expressed', investment));
   } catch (error) { next(error); }
 };
@@ -93,15 +116,32 @@ export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunct
     const finalOffer = isNaN(parsedOffer) ? 0 : parsedOffer;
     const finalEquity = isNaN(parsedEquity) ? 0 : parsedEquity;
 
-    const investment = await prisma.investment.create({
-      data: {
-        investor: req.user.id,
-        startup: startupId,
-        offer: finalOffer,
-        equity: finalEquity,
-        status: 'Offer'
-      }
+    const existing = await prisma.investment.findFirst({
+      where: { investor: req.user.id, startup: startupId }
     });
+
+    let investment;
+    if (existing) {
+      investment = await prisma.investment.update({
+        where: { id: existing.id },
+        data: {
+          offer: finalOffer,
+          equity: finalEquity,
+          status: 'Offer'
+        }
+      });
+    } else {
+      investment = await prisma.investment.create({
+        data: {
+          investor: req.user.id,
+          startup: startupId,
+          offer: finalOffer,
+          equity: finalEquity,
+          status: 'Offer'
+        }
+      });
+    }
+
     return res.status(201).json(successResponse('Offer made', investment));
   } catch (error) { next(error); }
 };
