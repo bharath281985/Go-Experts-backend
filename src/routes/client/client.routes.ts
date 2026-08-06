@@ -20,6 +20,8 @@ import {
   listClientContracts,
   listClientTasks,
   addClientTask,
+  updateClientTask,
+  deleteClientTask,
   listClientMeetings,
   createClientMeeting,
   listClientMessages,
@@ -81,6 +83,9 @@ router.post("/proposals/:id/interview", interviewProposal as any);
 router.get("/contracts", listClientContracts as any);
 router.get("/tasks", listClientTasks as any);
 router.post("/tasks", addClientTask as any);
+router.patch("/tasks/:id", updateClientTask as any);
+router.put("/tasks/:id", updateClientTask as any);
+router.delete("/tasks/:id", deleteClientTask as any);
 
 router.get("/meetings", listClientMeetings as any);
 router.post("/meetings", createClientMeeting as any);
