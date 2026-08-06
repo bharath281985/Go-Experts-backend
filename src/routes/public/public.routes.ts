@@ -440,18 +440,63 @@ router.get("/cms_pages/:name", async (req: Request, res: Response, next: NextFun
   }
 });
 
+const DEFAULT_PAGE_CONTENTS: Record<string, { category: string; content: string }> = {
+  "About": {
+    category: "Company",
+    content: "<h1>About Go Experts</h1><p>Go Experts is the premier platform connecting verified freelancers, clients, startups, and venture investors.</p>",
+  },
+  "Careers": {
+    category: "Company",
+    content: "<h1>Careers at Go Experts</h1><p>Join our fast-growing global team and build the future of AI-powered collaboration.</p>",
+  },
+  "Help Center": {
+    category: "Company",
+    content: "<h1>Help Center</h1><p>Find answers to common questions about accounts, projects, payments, and platforms.</p>",
+  },
+  "Contact": {
+    category: "Company",
+    content: "<h1>Contact Us</h1><p>Have questions? Reach out to our support team at support@goexperts.com or via live chat.</p>",
+  },
+  "Legal": {
+    category: "Legal",
+    content: "<h1>Terms of Service & Legal</h1><p>Please read our terms and conditions governing the use of Go Experts platform services.</p>",
+  },
+  "Privacy": {
+    category: "Legal",
+    content: "<h1>Privacy Policy</h1><p>Your privacy is important to us. Learn how we collect, protect, and use your personal information.</p>",
+  },
+  "Refund Policy": {
+    category: "Legal",
+    content: "<h1>Refund & Cancellation Policy</h1><p>Information regarding milestone refunds, dispute resolution, and payment guarantees.</p>",
+  },
+  "FAQ": {
+    category: "Legal",
+    content: "<h1>Frequently Asked Questions</h1><p>Get quick answers to the most common questions from clients, freelancers, and investors.</p>",
+  },
+};
+
 const getPageHandler = (pageName: string) => async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const row = await prisma.cmsPage.findFirst({
+    let row = await prisma.cmsPage.findFirst({
       where: {
-        name: pageName,
-        status: "active",
+        name: { equals: pageName },
         deletedAt: null,
       },
     });
 
     if (!row) {
-      return res.status(404).json({ success: false, message: `${pageName} page not found` });
+      const defaultConfig = DEFAULT_PAGE_CONTENTS[pageName] || {
+        category: "General",
+        content: `<h1>${pageName}</h1><p>Content for ${pageName} page.</p>`,
+      };
+      row = await prisma.cmsPage.create({
+        data: {
+          name: pageName,
+          category: defaultConfig.category,
+          content: defaultConfig.content,
+          status: "active",
+        },
+      });
     }
 
     let content = null;
