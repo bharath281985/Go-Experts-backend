@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import { readList, formatStartupResponse, loadRelatedDataForIdeas } from './startups.controller.js';
 import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
@@ -12,18 +13,49 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const where: any = { investor: req.user.id };
     if (status) where.status = status;
 
-    const [investments, total] = await Promise.all([
+    const [investments, total, watchlist] = await Promise.all([
       prisma.investment.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
-      prisma.investment.count({ where })
+      prisma.investment.count({ where }),
+      readList(req.user.id)
     ]);
-    return res.json(successResponse('Investments retrieved', investments, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+
+    const startupIds = [...new Set(investments.map(i => i.startup).filter(Boolean))];
+    let startups: any[] = [];
+    if (startupIds.length > 0) {
+      startups = await prisma.startupIdea.findMany({ where: { id: { in: startupIds } } });
+    }
+
+    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(startups);
+    const savedIds = new Set<string>(watchlist.map(w => w.startupId));
+    const investedIds = new Set<string>(startupIds);
+
+    const enriched = investments.map(inv => {
+      const idea = startups.find(s => s.id === inv.startup);
+      const details = idea ? formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false) : null;
+      return { ...inv, startupDetails: details };
+    });
+
+    return res.json(successResponse('Investments retrieved', enriched, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
 export const getInvestment = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const investment = await prisma.investment.findFirst({ where: { id: req.params.id, investor: req.user.id } });
-    return res.json(successResponse('Investment details', investment));
+    if (!investment) return res.status(404).json(successResponse('Investment not found', null));
+
+    const idea = await prisma.startupIdea.findUnique({ where: { id: investment.startup } }).catch(() => null);
+    let details = null;
+
+    if (idea) {
+      const watchlist = await readList(req.user.id);
+      const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+      const savedIds = new Set<string>(watchlist.map(w => w.startupId));
+      const investedIds = new Set<string>([idea.id]);
+      details = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true);
+    }
+
+    return res.json(successResponse('Investment details', { ...investment, startupDetails: details }));
   } catch (error) { next(error); }
 };
 
