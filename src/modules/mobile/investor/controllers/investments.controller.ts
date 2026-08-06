@@ -156,17 +156,14 @@ export const updateInvestmentStatus = async (req: AuthRequest, res: Response, ne
 
 export const cancelInvestment = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await prisma.investment.updateMany({
+    await prisma.investment.deleteMany({
       where: {
         OR: [{ id: req.params.id }, { startup: req.params.id }],
         investor: req.user.id,
-        // An investment can be created either as an expression of interest
-        // (Pending) or as a direct offer (Offer). Both are cancellable.
         status: { in: ['Pending', 'Offer'] }
-      },
-      data: { status: 'Cancelled' }
+      }
     });
-    return res.json(successResponse('Investment cancelled'));
+    return res.json(successResponse('Investment withdrawn and removed successfully'));
   } catch (error) { next(error); }
 };
 
