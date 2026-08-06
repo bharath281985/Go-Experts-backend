@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { 
-  getHomeData, getCategories, getSkills, getIndustries, 
-  getFreelancers, getClients, getInvestors, getStartups, 
-  getProjects, shareProject, getPricing, getBlogs, getFaqs, getTestimonials, 
+import {
+  getHomeData, getCategories, getSkills, getIndustries,
+  getFreelancers, getClients, getInvestors, getStartups,
+  getProjects, shareProject, getPricing, getBlogs, getFaqs, getTestimonials,
   submitContact, search, getById,
   getExperienceLevels, getStartupStages, getCompanySizes, getTicketSizes,
   getInvestorTypes, getFounderTypes, getTeamSizes, getCountries, getStates,
@@ -41,6 +41,7 @@ router.get('/investors', directoryCache, getInvestors);
 router.get('/investors/:id', directoryCache, getById('investor'));
 router.get('/startups', directoryCache, getStartups);
 router.get('/startups/:id', directoryCache, getById('startup'));
+router.get('/founders/:id', directoryCache, getById('founder'));
 router.get('/projects', directoryCache, getProjects);
 router.get('/projects/:id', directoryCache, getById('project'));
 router.post('/projects/:id/share', shareProject);

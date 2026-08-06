@@ -953,17 +953,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
     if (modelName === 'startup') {
       const id = req.params.id;
 
-      // ID could be idea ID or founder ID
-      let idea = await prisma.startupIdea.findUnique({ where: { id } }).catch(() => null);
-      if (!idea) {
-        idea = await prisma.startupIdea.findFirst({
-          where: { founder: id, deletedAt: null },
-          orderBy: { createdAt: 'desc' }
-        }).catch(() => null);
-      }
+      // Only search by Idea ID for startup detail view
+      const idea = await prisma.startupIdea.findUnique({ where: { id } }).catch(() => null);
 
-      if (!idea) {
-        // Ultimate fallback to return an empty 404 block for public requests instead of dummy data
+      if (!idea || idea.deletedAt) {
         return res.status(404).json({ success: false, message: 'Startup not found' });
       }
 
@@ -971,6 +964,64 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, true);
       return res.json(successResponse('Details retrieved for startup', data));
+    }
+
+    if (modelName === 'founder') {
+      const id = req.params.id;
+
+      const user = await prisma.user.findFirst({
+        where: { id }
+      }).catch(() => null);
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Founder profile not found' });
+      }
+
+      const reg = parseRegData(user.registrationData);
+      const profile = await prisma.founderProfile.findUnique({ where: { userId: id } }).catch(() => null);
+      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
+      const founderDetails = {
+        id: user.id,
+        fullName: user.fullName || reg.fullName || "",
+        email: user.email || reg.email || "",
+        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        bio: user.bio || reg.bio || reg.pitch || "",
+        phone: user.phone || reg.phone || reg.mobile || "",
+        city: user.city || reg.city || "",
+        countryId: user.country || reg.country || "",
+        role: user.role || 'founder',
+        isVerified: user.isVerified || false,
+        skills: reg.skills || "",
+        experience: reg.experience || "",
+        education: reg.education || "",
+        linkedin: reg.linkedin || reg.linkedinUrl || "",
+        website: reg.website || reg.websiteUrl || "",
+        founderType: reg.founderType || "Founder",
+        teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
+        createdAt: user.createdAt,
+      };
+
+      const idea = await prisma.startupIdea.findFirst({
+        where: { founder: id, deletedAt: null },
+        orderBy: { createdAt: 'desc' }
+      }).catch(() => null);
+
+      let startupDetails: any = null;
+      if (idea) {
+        const { industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+        startupDetails = formatStartupResponse(idea, user, profile, industryMap, optionMap, true);
+        if (startupDetails) {
+          delete startupDetails.user; // Remove redundant nested user
+        }
+      }
+
+      const result = {
+        ...founderDetails,
+        startup: startupDetails
+      };
+
+      return res.json(successResponse('Details retrieved for founder', result));
     }
 
     return res.json(successResponse(`Details retrieved for ${modelName}`, { id: req.params.id }));
