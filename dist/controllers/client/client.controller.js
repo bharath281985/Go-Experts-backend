@@ -211,20 +211,55 @@ export const listClientProjects = async (req, res, next) => {
         const user = await loadClientUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const where = clientProjectWhere(user, user.clientProfile);
-        const page = Math.max(1, Number(req.query.page) || 1);
-        const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 50));
+        const body = req.body || {};
+        const query = req.query || {};
+        const page = Math.max(1, Number(body.page ?? query.page) || 1);
+        const limit = Math.min(100, Math.max(1, Number(body.limit ?? body.pageSize ?? query.limit ?? query.pageSize) || 15));
+        const search = String(body.search ?? body.query ?? body.searchQuery ?? body.keyword ?? query.search ?? query.query ?? query.searchQuery ?? query.keyword ?? "").trim();
+        const status = String(body.status ?? query.status ?? "").trim();
+        const category = String(body.category ?? query.category ?? "").trim();
+        const baseWhere = clientProjectWhere(user, user.clientProfile);
+        const where = { ...baseWhere };
+        if (status) {
+            where.status = { equals: status };
+        }
+        if (category) {
+            where.category = { contains: category };
+        }
+        if (search) {
+            where.OR = [
+                { title: { contains: search } },
+                { description: { contains: search } },
+                { category: { contains: search } },
+                { technology: { contains: search } },
+                { client: { contains: search } },
+            ];
+        }
         const [rows, total] = await Promise.all([
             prisma.project.findMany({
                 where,
                 orderBy: { createdAt: "desc" },
-                skip: (page - 1) * pageSize,
-                take: pageSize,
+                skip: (page - 1) * limit,
+                take: limit,
                 include: { proposals: { select: { id: true } }, tasks: { select: { id: true, status: true } } },
             }),
             prisma.project.count({ where }),
         ]);
-        res.json({ success: true, rows, total });
+        const totalPages = Math.ceil(total / limit);
+        res.json({
+            success: true,
+            message: "Projects retrieved successfully",
+            rows,
+            data: rows,
+            total,
+            meta: {
+                page,
+                limit,
+                pageSize: limit,
+                total,
+                totalPages,
+            },
+        });
     }
     catch (err) {
         handleError(err, res, next);
@@ -276,6 +311,9 @@ export const createClientProject = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const body = req.body || {};
+        if ((body.page != null || body.limit != null || body.pageSize != null || body.search != null || body.query != null || body.searchQuery != null) && !body.title) {
+            return listClientProjects(req, res, next);
+        }
         const title = String(body.title || "").trim() || "Untitled Project";
         const budget = Number.isFinite(Number(body.budget)) ? Number(body.budget) : 0;
         const category = String(body.category || "").trim() || "Engineering";

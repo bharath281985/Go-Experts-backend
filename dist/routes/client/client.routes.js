@@ -12,6 +12,7 @@ router.get("/profile", getClientProfile);
 router.patch("/profile", updateClientProfile);
 router.put("/profile", updateClientProfile);
 router.get("/projects", listClientProjects);
+router.post("/projects/search", listClientProjects);
 router.get("/pipeline", getClientPipeline);
 router.post("/projects", createClientProject);
 router.get("/projects/:id", getClientProject);

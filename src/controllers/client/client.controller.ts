@@ -596,7 +596,7 @@ export const listClientTasks = async (req: AuthenticatedRequest, res: Response, 
       });
     }
 
-    res.json({ success: true, rows, total: rows.length });
+    res.json({ success: true, data: rows, rows, total: rows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -630,7 +630,7 @@ export const addClientTask = async (req: AuthenticatedRequest, res: Response, ne
       include: { project: { select: { id: true, title: true } } },
     });
 
-    res.status(201).json({ success: true, message: "Task added successfully", data: task });
+    res.status(201).json({ success: true, message: "Task added successfully", data: task, row: task });
   } catch (err) {
     handleError(err, res, next);
   }
