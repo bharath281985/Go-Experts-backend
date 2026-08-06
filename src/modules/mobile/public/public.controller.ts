@@ -676,28 +676,77 @@ const formatStartupResponse = (
     }
   }
 
+  const industryValue = isUUID(idea.industry) ? industryMap.get(idea.industry) || idea.industry : idea.industry;
+  const categoryValue = isUUID(idea.category) ? optionMap.get(idea.category) || idea.category : idea.category;
+  const stageValue = isUUID(idea.stage) ? optionMap.get(idea.stage) || idea.stage : idea.stage;
+
+  const teamSize = founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1);
+  const location = [userObj?.city, userObj?.countryId].filter(Boolean).join(', ') || "";
+
+  const raised = founderProfile?.raised || 0;
+  const goal = idea.funding || 0;
+  let percentage = goal > 0 ? (raised / goal) * 100 : 0;
+  percentage = parseFloat(percentage.toFixed(1));
+  if (percentage > 100) percentage = 100;
+
+  let tags: string[] = [];
+  if (Array.isArray(reg.tags) && reg.tags.length > 0) {
+    tags = reg.tags;
+  } else {
+    tags = [categoryValue, industryValue, "Technology", "Startup", "Innovation"].filter(Boolean).slice(0, 5) as string[];
+  }
+
+  let gallery: string[] = [];
+  if (Array.isArray(reg.gallery)) {
+    gallery = reg.gallery;
+  } else if (reg.gallery && typeof reg.gallery === 'string') {
+    try { gallery = JSON.parse(reg.gallery); } catch (e) { }
+  }
+  if (!Array.isArray(gallery)) gallery = [];
+
+  const additionalCount = gallery.length > 4 ? gallery.length - 4 : 0;
+
   const baseResult: any = {
     id: idea.id,
     startup: idea.startup,
-    funding: idea.funding,
-    equity: idea.equity,
-    visibility: idea.visibility,
-    status: idea.status,
+    tagline: reg.tagline || reg.mission || "Connecting Experts, Building Success",
+    website: reg.website || reg.websiteUrl || "",
+    location: location,
+    description: reg.description || reg.pitch || userObj?.bio || "",
     logo: idea.logo,
     coverUrl: idea.coverUrl,
+
+    industry: industryValue,
+    category: categoryValue,
+    stage: stageValue,
+
+    metrics: {
+      fundingGoal: goal,
+      equityOffered: idea.equity || 0,
+      teamSize: teamSize
+    },
+
+    fundingProgress: {
+      raised: raised,
+      goal: goal,
+      percentage: percentage
+    },
+
+    tags: tags,
+
+    media: {
+      gallery: gallery.slice(0, 4),
+      additionalCount: additionalCount
+    },
+
+    status: idea.status,
+    visibility: idea.visibility,
     views: idea.views,
     interestedInvestors: idea.interestedInvestors,
     createdAt: idea.createdAt,
     updatedAt: idea.updatedAt,
 
-    industry: isUUID(idea.industry) ? industryMap.get(idea.industry) || idea.industry : idea.industry,
-    category: isUUID(idea.category) ? optionMap.get(idea.category) || idea.category : idea.category,
-    stage: isUUID(idea.stage) ? optionMap.get(idea.stage) || idea.stage : idea.stage,
-
-    teamSize: founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
-    description: reg.description || reg.pitch || userObj?.bio || "",
-
-    user: userObj,
+    user: userObj ? { ...userObj, isVerified: user?.isVerified || false } : null,
     isSaved: false, // Public has no user attached
     hasInvested: false
   };
