@@ -155,8 +155,26 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
   const optionIds = [...new Set(ideas.flatMap(i => [i.category, i.stage]).filter(isUUID))];
   const optionMap = new Map();
   if (optionIds.length > 0) {
-    const rows = await (prisma as any).masterOption.findMany({ where: { id: { in: optionIds } }, select: { id: true, label: true } });
-    rows.forEach((r: any) => optionMap.set(r.id, r.label));
+    try {
+      const rows = await (prisma as any).masterOption.findMany({ where: { id: { in: optionIds } }, select: { id: true, label: true } });
+      rows.forEach((r: any) => optionMap.set(r.id, r.label));
+    } catch { }
+
+    const missingIds = optionIds.filter(id => !optionMap.has(id));
+    if (missingIds.length > 0) {
+      try {
+        const stages = await prisma.startupStage.findMany({ where: { id: { in: missingIds } }, select: { id: true, name: true } });
+        stages.forEach((s: any) => optionMap.set(s.id, s.name));
+      } catch { }
+      try {
+        const cats = await (prisma as any).projectCategory?.findMany({ where: { id: { in: missingIds } }, select: { id: true, name: true } });
+        cats?.forEach((c: any) => optionMap.set(c.id, c.name));
+      } catch { }
+      try {
+        const skillCats = await prisma.skillCategory.findMany({ where: { id: { in: missingIds } }, select: { id: true, name: true } });
+        skillCats.forEach((c: any) => optionMap.set(c.id, c.name));
+      } catch { }
+    }
   }
 
   return { userMap, fpMap, industryMap, optionMap };
