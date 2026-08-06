@@ -88,7 +88,9 @@ export const cancelInvestment = async (req: AuthRequest, res: Response, next: Ne
       where: {
         OR: [{ id: req.params.id }, { startup: req.params.id }],
         investor: req.user.id,
-        status: 'Pending'
+        // An investment can be created either as an expression of interest
+        // (Pending) or as a direct offer (Offer). Both are cancellable.
+        status: { in: ['Pending', 'Offer'] }
       },
       data: { status: 'Cancelled' }
     });
