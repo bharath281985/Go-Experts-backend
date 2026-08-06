@@ -924,25 +924,34 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       if (user) {
         const prof = user.investorProfile;
+        const reg = parseRegData(user.registrationData);
         return res.json(successResponse('Details retrieved for investor', {
           id,
-          fullName: user.fullName || `Investor ${id}`,
-          name: user.fullName || `Investor ${id}`,
+          userId: user.id,
+          fullName: user.fullName || reg.fullName || `Investor ${id}`,
+          name: user.fullName || reg.fullName || `Investor ${id}`,
           email: user.email,
-          avatarUrl: user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          phone: user.phone || reg.phone || reg.mobile || "",
+          avatarUrl: user.avatarUrl || reg.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
           role: user.role || 'investor',
-          bio: user.bio || 'Venture partner & active angel investor backing early-stage tech startups.',
-          company: prof?.firm || 'Venture Capital',
-          firm: prof?.firm || 'Venture Capital',
-          ticketMin: prof?.ticketMin ?? 25000,
-          ticketMax: prof?.ticketMax ?? 500000,
-          focusAreas: prof?.focusAreas || 'AI, SaaS, FinTech',
-          deals: prof?.deals ?? 5,
-          investmentsCount: prof?.deals ?? 5,
-          location: `${user.city || 'Bengaluru'}, ${user.country || 'India'}`,
-          city: user.city || 'Bengaluru',
-          country: user.country || 'India',
-          verified: user.isVerified ?? true
+          status: user.status || 'active',
+          bio: user.bio || reg.bio || reg.thesis || 'Venture partner & active angel investor backing early-stage tech startups.',
+          thesis: user.bio || reg.thesis || reg.bio || "",
+          company: prof?.firm || reg.firm || reg.firmName || 'Venture Capital',
+          firm: prof?.firm || reg.firm || reg.firmName || 'Venture Capital',
+          firmName: prof?.firm || reg.firm || reg.firmName || 'Venture Capital',
+          ticketMin: prof?.ticketMin ?? reg.ticketMin ?? 25000,
+          ticketMax: prof?.ticketMax ?? reg.ticketMax ?? 500000,
+          focusAreas: prof?.focusAreas || reg.focusAreas || 'AI, SaaS, FinTech',
+          deals: prof?.deals ?? reg.deals ?? 5,
+          investmentsCount: prof?.deals ?? reg.deals ?? 5,
+          location: `${user.city || reg.city || 'Bengaluru'}, ${user.country || reg.country || 'India'}`,
+          city: user.city || reg.city || 'Bengaluru',
+          country: user.country || reg.country || 'India',
+          verified: Boolean(user.isVerified || user.verified || true),
+          registrationData: reg,
+          savedData: true,
+          isSaved: true
         }));
       }
 
@@ -953,6 +962,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         email: `investor_${id}@example.com`,
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
         role: 'investor',
+        status: 'active',
+        savedData: false,
+        isSaved: false,
         bio: 'Venture partner & active angel investor backing early-stage tech startups.',
         company: 'Global VC Firm',
         firm: 'Global VC Firm',
@@ -1016,7 +1028,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       const founderDetails = {
         id: user.id,
+        userId: user.id,
         fullName: user.fullName || reg.fullName || "",
+        name: user.fullName || reg.fullName || "",
         email: user.email || reg.email || "",
         avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
         bio: user.bio || reg.bio || reg.pitch || "",
@@ -1024,7 +1038,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         city: user.city || reg.city || "",
         countryId: user.country || reg.country || "",
         role: user.role || 'founder',
-        isVerified: user.isVerified || false,
+        status: user.status || 'active',
+        isVerified: Boolean(user.isVerified || user.verified),
+        verified: Boolean(user.isVerified || user.verified),
         skills: reg.skills || "",
         experience: reg.experience || "",
         education: reg.education || "",
@@ -1033,6 +1049,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         founderType: reg.founderType || "Founder",
         teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
         createdAt: user.createdAt,
+        registrationData: reg,
+        savedData: true,
+        isSaved: true
       };
 
       const idea = await prisma.startupIdea.findFirst({
@@ -1079,6 +1098,88 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       return res.json(successResponse('Details retrieved for founder', result));
     }
 
-    return res.json(successResponse(`Details retrieved for ${modelName}`, { id: req.params.id }));
+    if (modelName === 'freelancer') {
+      const id = req.params.id;
+      const user = await prisma.user.findFirst({
+        where: { id },
+        include: { freelancerProfile: true }
+      }).catch(() => null);
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Freelancer not found' });
+      }
+
+      const reg = parseRegData(user.registrationData);
+      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
+      return res.json(successResponse('Details retrieved for freelancer', {
+        id: user.id,
+        userId: user.id,
+        fullName: user.fullName || reg.fullName || "",
+        name: user.fullName || reg.fullName || "",
+        email: user.email,
+        phone: user.phone || reg.phone || reg.mobile || "",
+        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        title: reg.title || reg.professionalTitle || "Freelancer",
+        professionalTitle: reg.professionalTitle || reg.title || "Freelancer",
+        bio: user.bio || reg.overview || reg.bio || "",
+        overview: user.bio || reg.overview || "",
+        city: user.city || reg.city || "",
+        country: user.country || reg.country || "",
+        industry: user.freelancerProfile?.industry || reg.industry || "",
+        hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
+        experience: user.freelancerProfile?.experience || reg.experience || "",
+        rating: user.freelancerProfile?.rating ?? 5.0,
+        status: user.status || "active",
+        verified: Boolean(user.isVerified || user.verified),
+        role: user.role || 'freelancer',
+        registrationData: reg,
+        savedData: true,
+        isSaved: true
+      }));
+    }
+
+    if (modelName === 'client') {
+      const id = req.params.id;
+      const user = await prisma.user.findFirst({
+        where: { id },
+        include: { clientProfile: true }
+      }).catch(() => null);
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Client not found' });
+      }
+
+      const reg = parseRegData(user.registrationData);
+      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+
+      return res.json(successResponse('Details retrieved for client', {
+        id: user.id,
+        userId: user.id,
+        fullName: user.fullName || reg.fullName || "",
+        name: user.fullName || reg.fullName || "",
+        email: user.email,
+        phone: user.phone || reg.phone || reg.mobile || "",
+        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        company: user.clientProfile?.company || reg.company || reg.companyName || "",
+        companyName: user.clientProfile?.company || reg.company || reg.companyName || "",
+        industry: user.clientProfile?.industry || reg.industry || "",
+        bio: user.bio || reg.bio || "",
+        city: user.city || reg.city || "",
+        country: user.country || reg.country || "",
+        totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
+        projectsPosted: user.clientProfile?.projectsPosted ?? 0,
+        status: user.status || "active",
+        verified: Boolean(user.isVerified || user.verified),
+        role: user.role || 'client',
+        registrationData: reg,
+        savedData: true,
+        isSaved: true
+      }));
+    }
+
+    return res.json(successResponse(`Details retrieved for ${modelName}`, { id: req.params.id, status: 'active' }));
   } catch (error) { next(error); }
 };

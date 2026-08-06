@@ -191,7 +191,7 @@ export const getClientProfile = async (req: AuthenticatedRequest, res: Response,
         industry: user.clientProfile?.industry || "",
         totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
         projectsPosted: user.clientProfile?.projectsPosted ?? 0,
-        status: user.status,
+        status: user.status || "active",
         verified: Boolean(user.isVerified || user.verified),
         role: user.role,
       },
@@ -256,22 +256,61 @@ export const listClientProjects = async (req: AuthenticatedRequest, res: Respons
     const user = await loadClientUser(userId);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    const where = clientProjectWhere(user, user.clientProfile);
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 50));
+    const body = req.body || {};
+    const query = req.query || {};
+
+    const page = Math.max(1, Number(body.page ?? query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(body.limit ?? body.pageSize ?? query.limit ?? query.pageSize) || 15));
+    const search = String(body.search ?? body.query ?? body.searchQuery ?? body.keyword ?? query.search ?? query.query ?? query.searchQuery ?? query.keyword ?? "").trim();
+    const status = String(body.status ?? query.status ?? "").trim();
+    const category = String(body.category ?? query.category ?? "").trim();
+
+    const baseWhere = clientProjectWhere(user, user.clientProfile);
+    const where: any = { ...baseWhere };
+
+    if (status) {
+      where.status = { equals: status };
+    }
+    if (category) {
+      where.category = { contains: category };
+    }
+    if (search) {
+      where.OR = [
+        { title: { contains: search } },
+        { description: { contains: search } },
+        { category: { contains: search } },
+        { technology: { contains: search } },
+        { client: { contains: search } },
+      ];
+    }
 
     const [rows, total] = await Promise.all([
       prisma.project.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        skip: (page - 1) * limit,
+        take: limit,
         include: { proposals: { select: { id: true } }, tasks: { select: { id: true, status: true } } },
       }),
       prisma.project.count({ where }),
     ]);
 
-    res.json({ success: true, rows, total });
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      success: true,
+      message: "Projects retrieved successfully",
+      rows,
+      data: rows,
+      total,
+      meta: {
+        page,
+        limit,
+        pageSize: limit,
+        total,
+        totalPages,
+      },
+    });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -324,6 +363,9 @@ export const createClientProject = async (req: AuthenticatedRequest, res: Respon
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     const body = req.body || {};
+    if ((body.page != null || body.limit != null || body.pageSize != null || body.search != null || body.query != null || body.searchQuery != null) && !body.title) {
+      return listClientProjects(req, res, next);
+    }
     const title = String(body.title || "").trim() || "Untitled Project";
     const budget = Number.isFinite(Number(body.budget)) ? Number(body.budget) : 0;
     const category = String(body.category || "").trim() || "Engineering";
@@ -554,7 +596,7 @@ export const listClientTasks = async (req: AuthenticatedRequest, res: Response, 
       });
     }
 
-    res.json({ success: true, rows, total: rows.length });
+    res.json({ success: true, data: rows, rows, total: rows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -588,7 +630,7 @@ export const addClientTask = async (req: AuthenticatedRequest, res: Response, ne
       include: { project: { select: { id: true, title: true } } },
     });
 
-    res.status(201).json({ success: true, message: "Task added successfully", data: task });
+    res.status(201).json({ success: true, message: "Task added successfully", data: task, row: task });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -656,23 +698,6 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
     if (body.priority != null) data.priority = String(body.priority).trim();
     if (body.status != null) data.status = String(body.status).trim();
     if (body.progress != null && !isNaN(Number(body.progress))) data.progress = Number(body.progress);
-    if (body.assignee != null) data.assignedTo = String(body.assignee).trim() || null;
-    if (body.dueDate != null || body.due != null) data.dueDate = body.dueDate || body.due || null;
-
-    if (body.projectId != null && String(body.projectId).trim()) {
-      const pId = String(body.projectId).trim();
-      const projExists = await prisma.project.findUnique({ where: { id: pId } });
-      if (projExists) {
-        data.projectId = pId;
-      }
-    }
-
-    const updated = await prisma.task.update({
-      where: { id: task.id },
-      data,
-      include: { project: { select: { id: true, title: true } } },
-    });
-    res.json({ success: true, message: "Task updated successfully", data: updated });
     if (body.assignee != null) data.assignedTo = String(body.assignee).trim() || null;
     if (body.dueDate != null || body.due != null) data.dueDate = body.dueDate || body.due || null;
 

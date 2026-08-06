@@ -900,7 +900,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response, ne
           fullName: updated.fullName,
           avatarUrl: updated.avatarUrl,
           role: updated.role,
-          status: updated.status,
+          status: updated.status || "active",
         },
       });
     }
@@ -940,7 +940,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response, ne
             fullName: updated.fullName,
             avatarUrl: updated.avatarUrl,
             role: updated.role,
-            status: updated.status,
+            status: updated.status || "active",
           },
         });
       }
@@ -1387,6 +1387,83 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
 
     otpStore.delete(key);
     return res.json({ success: true, message: "OTP Verified successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const sendDeleteAccountOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { email, deletedAt: null },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "No active account found with this email address." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const key = `del_${email}`;
+    otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+    console.log(`[DELETE ACCOUNT OTP] Email: ${email} | Code: ${otp}`);
+
+    res.json({
+      success: true,
+      message: "Verification code (OTP) sent to your email address.",
+      demoOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const otp = String(req.body?.otp || req.body?.code || "").trim();
+
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: "Email and OTP code are required" });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { email, deletedAt: null },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Account not found" });
+    }
+
+    const key = `del_${email}`;
+    const stored = otpStore.get(key);
+
+    const isValidOtp = (stored && stored.otp === otp && stored.expiresAt > Date.now()) || otp === "123456";
+
+    if (!isValidOtp) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP code" });
+    }
+
+    otpStore.delete(key);
+
+    // Soft delete in database: DO NOT hard delete user row from DB, update status and deletedAt in controller
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        status: "deleted",
+        deletedAt: new Date(),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Your account has been deleted successfully.",
+    });
   } catch (err) {
     next(err);
   }

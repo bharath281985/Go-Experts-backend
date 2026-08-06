@@ -59,7 +59,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       aadhaarNumber: reg.aadhaarNumber || "",
       totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
       projectsPosted: user.clientProfile?.projectsPosted ?? 0,
-      status: user.status,
+      status: user.status || "active",
       verified: Boolean(user.isVerified || user.verified),
       role: user.role,
     };
@@ -152,7 +152,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       },
     });
 
-    return res.json(successResponse('Profile updated successfully'));
+    return getProfile(req, res, next);
   } catch (error) {
     next(error);
   }

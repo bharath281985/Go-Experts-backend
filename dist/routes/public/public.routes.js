@@ -5,6 +5,7 @@ import { parseCatalogListBody, parseFreelancersListBody, parseSkillsListBody } f
 import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreelancers, } from "../../services/public/freelancers.service.js";
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
+import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
 const router = Router();
 router.get("/settings/branding", async (req, res) => {
     const result = await getSettingsSection("branding");
@@ -450,6 +451,8 @@ router.get("/privacy", getPageHandler("Privacy"));
 router.get("/refund", getPageHandler("Refund Policy"));
 router.get("/refund-policy", getPageHandler("Refund Policy"));
 router.get("/faq", getPageHandler("FAQ"));
+router.post("/delete-account/send-otp", sendDeleteAccountOtp);
+router.post("/delete-account/verify", verifyDeleteAccountOtp);
 router.get("/industries", async (req, res, next) => {
     try {
         const rows = await prisma.industry.findMany({

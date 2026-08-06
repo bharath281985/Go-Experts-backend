@@ -134,6 +134,8 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       aadhaarNumber: reg.aadhaarNumber || "",
       idDocument: reg.idDocument || reg.idDocumentUrl || "",
       avatarUrl: user?.avatarUrl || reg.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`,
+      status: (user as any)?.status || 'active',
+      role: user?.role || 'founder',
       createdAt: profile?.createdAt || firstIdea?.createdAt || new Date().toISOString(),
       updatedAt: profile?.updatedAt || firstIdea?.updatedAt || new Date().toISOString()
     };
@@ -440,7 +442,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       }).catch(() => null);
     }
 
-    return res.json(successResponse('Profile updated successfully'));
+    return getProfile(req, res, next);
   } catch (error) { next(error); }
 };
 

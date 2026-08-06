@@ -78,7 +78,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       aadhaarNumber: reg.aadhaarNumber || "",
       panGst: reg.panGst || reg.panNumber || "",
       deals: user.investorProfile?.deals ?? 0,
-      status: user.status,
+      status: user.status || "active",
       verified: Boolean(user.isVerified || user.verified),
       role: user.role,
     };
@@ -196,7 +196,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       }
     });
 
-    return res.json(successResponse('Profile updated successfully'));
+    return getProfile(req, res, next);
   } catch (error) { next(error); }
 };
 

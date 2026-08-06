@@ -93,7 +93,7 @@ const formatStartupResponse = (
 
     user: userObj,
     isSaved: savedIds.has(idea.id) || (user && savedIds.has(user.id)),
-    hasInvested: investedIds.has(idea.id) || (user && investedIds.has(user.id))
+    hasInvested: investedIds.has(idea.id) || (user && investedIds.has(user.id)) || (idea.founder && investedIds.has(idea.founder))
   };
 
   // If not detailed, return the stripped down version

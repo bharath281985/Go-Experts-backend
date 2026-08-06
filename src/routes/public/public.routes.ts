@@ -20,6 +20,7 @@ import {
   listPublicProjects,
 } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
+import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
 
 const router = Router();
 
@@ -513,6 +514,9 @@ router.get("/privacy", getPageHandler("Privacy"));
 router.get("/refund", getPageHandler("Refund Policy"));
 router.get("/refund-policy", getPageHandler("Refund Policy"));
 router.get("/faq", getPageHandler("FAQ"));
+
+router.post("/delete-account/send-otp", sendDeleteAccountOtp as any);
+router.post("/delete-account/verify", verifyDeleteAccountOtp as any);
 
 router.get("/industries", async (req: Request, res: Response, next: NextFunction) => {
   try {
