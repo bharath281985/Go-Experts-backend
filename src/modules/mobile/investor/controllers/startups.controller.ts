@@ -78,9 +78,7 @@ export const formatStartupResponse = (
   const teamSize = founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1);
   const location = [userObj?.city, userObj?.countryId].filter(Boolean).join(', ') || "";
 
-  const baseRaised = founderProfile?.raised || 0;
-  const platformRaised = platformRaisedMap?.get(idea.id) || 0;
-  const raised = baseRaised + platformRaised;
+  const raised = platformRaisedMap?.get(idea.id) || 0;
 
   const goal = idea.funding || 0;
   let percentage = goal > 0 ? (raised / goal) * 100 : 0;
