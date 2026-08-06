@@ -581,6 +581,7 @@ export const addClientTask = async (req: AuthenticatedRequest, res: Response, ne
         projectId,
         priority: body.priority || "Medium",
         status: body.status || "Todo",
+        progress: Number(body.progress || 0),
         assignedTo: body.assignee || null,
         dueDate: body.dueDate || null,
       },
@@ -599,7 +600,15 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
 
     const taskId = String(req.params.id || "").trim();
     let task = await prisma.task.findFirst({
-      where: { OR: [{ id: taskId }, { title: taskId }] },
+      where: {
+        deletedAt: null,
+        OR: [
+          { id: taskId },
+          { id: { contains: taskId } },
+          { title: taskId },
+          { title: { contains: taskId } },
+        ],
+      },
     });
 
     const body = req.body || {};
