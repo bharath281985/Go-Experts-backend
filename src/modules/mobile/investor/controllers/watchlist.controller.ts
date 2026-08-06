@@ -391,7 +391,17 @@ export const saveFounder = async (req: AuthRequest, res: Response, next: NextFun
 
     items.unshift(entry);
     await writeFounderList(req.user.id, items);
-    return res.status(201).json(successResponse('Founder saved to watchlist', { ...entry, isSaved: true }));
+
+    const idea = await prisma.startupIdea.findFirst({ where: { founder: founderId, deletedAt: null }, orderBy: { createdAt: 'desc' } });
+    let hasInvested = false;
+    if (idea) {
+      const checkInvestment = await prisma.investment.findFirst({
+        where: { investor: req.user.id, startup: idea.id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+      });
+      hasInvested = !!checkInvestment;
+    }
+
+    return res.status(201).json(successResponse('Founder saved to watchlist', { ...entry, isSaved: true, hasInvested }));
   } catch (error) { next(error); }
 };
 

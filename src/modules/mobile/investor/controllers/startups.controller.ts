@@ -342,7 +342,11 @@ export const saveStartup = async (req: AuthRequest, res: Response, next: NextFun
     items.unshift(entry);
     await writeList(req.user.id, items);
 
-    return res.status(201).json(successResponse('Startup saved to watchlist', entry));
+    const checkInvestment = await prisma.investment.findFirst({
+      where: { investor: req.user.id, startup: startupId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+    });
+
+    return res.status(201).json(successResponse('Startup saved to watchlist', { ...entry, isSaved: true, hasInvested: !!checkInvestment }));
   } catch (error) { next(error); }
 };
 
