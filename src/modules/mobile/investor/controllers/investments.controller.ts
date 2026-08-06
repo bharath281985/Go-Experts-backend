@@ -30,7 +30,7 @@ export const getInvestment = async (req: AuthRequest, res: Response, next: NextF
 export const expressInterest = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { startupId, offer, amount, equity, message, meetingDate } = req.body;
-    
+
     // Fallback logic to prevent NaN crashes
     const parsedOffer = parseFloat(offer ?? amount ?? 0);
     const parsedEquity = parseFloat(equity ?? 0);
@@ -38,12 +38,12 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
     const finalEquity = isNaN(parsedEquity) ? 0 : parsedEquity;
 
     const investment = await prisma.investment.create({
-      data: { 
-        investor: req.user.id, 
-        startup: startupId, 
-        offer: finalOffer, 
-        equity: finalEquity, 
-        meetingDate: meetingDate || null, 
+      data: {
+        investor: req.user.id,
+        startup: startupId,
+        offer: finalOffer,
+        equity: finalEquity,
+        meetingDate: meetingDate || null,
         status: 'Pending',
         docs: message || 'View folder' // Storing optional custom message if provided
       }
@@ -55,19 +55,19 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
 export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { startupId, offer, amount, equity } = req.body;
-    
+
     const parsedOffer = parseFloat(offer ?? amount ?? 0);
     const parsedEquity = parseFloat(equity ?? 0);
     const finalOffer = isNaN(parsedOffer) ? 0 : parsedOffer;
     const finalEquity = isNaN(parsedEquity) ? 0 : parsedEquity;
 
     const investment = await prisma.investment.create({
-      data: { 
-        investor: req.user.id, 
-        startup: startupId, 
-        offer: finalOffer, 
-        equity: finalEquity, 
-        status: 'Offer' 
+      data: {
+        investor: req.user.id,
+        startup: startupId,
+        offer: finalOffer,
+        equity: finalEquity,
+        status: 'Offer'
       }
     });
     return res.status(201).json(successResponse('Offer made', investment));
@@ -84,7 +84,14 @@ export const updateInvestmentStatus = async (req: AuthRequest, res: Response, ne
 
 export const cancelInvestment = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await prisma.investment.updateMany({ where: { id: req.params.id, investor: req.user.id, status: 'Pending' }, data: { status: 'Cancelled' } });
+    await prisma.investment.updateMany({
+      where: {
+        OR: [{ id: req.params.id }, { startup: req.params.id }],
+        investor: req.user.id,
+        status: 'Pending'
+      },
+      data: { status: 'Cancelled' }
+    });
     return res.json(successResponse('Investment cancelled'));
   } catch (error) { next(error); }
 };
