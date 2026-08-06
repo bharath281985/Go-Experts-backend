@@ -306,7 +306,6 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         watchlistId: item.id,
         founderId: founderId,
         id: founderId,
-        isSaved: true,
         notes: item.notes || '',
         priority: item.priority || 'medium',
         savedAt: item.savedAt,
@@ -376,7 +375,7 @@ export const saveFounder = async (req: AuthRequest, res: Response, next: NextFun
 
     items.unshift(entry);
     await writeFounderList(req.user.id, items);
-    return res.status(201).json(successResponse('Founder saved to watchlist', { ...entry, isSaved: true }));
+    return res.status(201).json(successResponse('Founder saved to watchlist', entry));
   } catch (error) { next(error); }
 };
 
