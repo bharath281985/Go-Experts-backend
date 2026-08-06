@@ -71,6 +71,8 @@ router.get('/startups/featured', getFeaturedStartups);
 router.get('/startups/:id', getStartupDetails);
 router.post('/startups/:id/save', saveStartup);
 router.delete('/startups/:id/save', unsaveStartup);
+router.post('/founders/:id/save', saveStartup);
+router.delete('/founders/:id/save', unsaveStartup);
 
 // ─── Investments ───
 router.get('/investments', listInvestments);
