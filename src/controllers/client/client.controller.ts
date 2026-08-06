@@ -554,31 +554,11 @@ export const listClientTasks = async (req: AuthenticatedRequest, res: Response, 
       });
     }
 
-    const sanitizedRows = rows.map((r) => {
-      let p = r.progress;
-      if (p == null || p === 0) {
-        p = getStatusDefaultProgress(r.status);
-      }
-      return {
-        ...r,
-        progress: p,
-      };
-    });
-
-    res.json({ success: true, rows: sanitizedRows, total: sanitizedRows.length });
+    res.json({ success: true, rows, total: rows.length });
   } catch (err) {
     handleError(err, res, next);
   }
 };
-
-function getStatusDefaultProgress(statusStr?: string | null): number {
-  const s = String(statusStr || "").toLowerCase();
-  if (s.includes("complete") || s.includes("done")) return 100;
-  if (s.includes("review")) return 85;
-  if (s.includes("progress") || s.includes("in_progress")) return 50;
-  if (s.includes("blocked")) return 10;
-  return 25;
-}
 
 export const addClientTask = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
@@ -595,19 +575,13 @@ export const addClientTask = async (req: AuthenticatedRequest, res: Response, ne
     const projectId = String(body.projectId || "").trim();
     if (!projectId) return res.status(400).json({ success: false, message: "projectId is required" });
 
-    const taskStatus = body.status || "Todo";
-    const taskProgress =
-      body.progress != null && !isNaN(Number(body.progress)) && Number(body.progress) > 0
-        ? Number(body.progress)
-        : getStatusDefaultProgress(taskStatus);
-
     const task = await prisma.task.create({
       data: {
         title,
         projectId,
         priority: body.priority || "Medium",
-        status: taskStatus,
-        progress: taskProgress,
+        status: body.status || "Todo",
+        progress: body.progress != null && !isNaN(Number(body.progress)) ? Number(body.progress) : 0,
         assignedTo: body.assignee || null,
         dueDate: body.dueDate || null,
       },
@@ -661,19 +635,13 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
       }
 
       if (validProjId) {
-        const newStatus = body.status || "Todo";
-        const newProgress =
-          body.progress != null && !isNaN(Number(body.progress)) && Number(body.progress) > 0
-            ? Number(body.progress)
-            : getStatusDefaultProgress(newStatus);
-
         task = await prisma.task.create({
           data: {
             title: String(body.title || "Task").trim(),
             projectId: validProjId,
             priority: body.priority || "Medium",
-            status: newStatus,
-            progress: newProgress,
+            status: body.status || "Todo",
+            progress: body.progress != null && !isNaN(Number(body.progress)) ? Number(body.progress) : 0,
             assignedTo: body.assignee ? String(body.assignee).trim() : null,
             dueDate: body.dueDate || body.due || null,
           },
@@ -687,13 +655,24 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
     if (body.title != null && String(body.title).trim()) data.title = String(body.title).trim();
     if (body.priority != null) data.priority = String(body.priority).trim();
     if (body.status != null) data.status = String(body.status).trim();
+    if (body.progress != null && !isNaN(Number(body.progress))) data.progress = Number(body.progress);
+    if (body.assignee != null) data.assignedTo = String(body.assignee).trim() || null;
+    if (body.dueDate != null || body.due != null) data.dueDate = body.dueDate || body.due || null;
 
-    const targetStatus = data.status || task.status;
-    if (body.progress !== undefined && body.progress !== null && !isNaN(Number(body.progress))) {
-      data.progress = Number(body.progress);
-    } else if (body.status != null) {
-      data.progress = getStatusDefaultProgress(targetStatus);
+    if (body.projectId != null && String(body.projectId).trim()) {
+      const pId = String(body.projectId).trim();
+      const projExists = await prisma.project.findUnique({ where: { id: pId } });
+      if (projExists) {
+        data.projectId = pId;
+      }
     }
+
+    const updated = await prisma.task.update({
+      where: { id: task.id },
+      data,
+      include: { project: { select: { id: true, title: true } } },
+    });
+    res.json({ success: true, message: "Task updated successfully", data: updated });
     if (body.assignee != null) data.assignedTo = String(body.assignee).trim() || null;
     if (body.dueDate != null || body.due != null) data.dueDate = body.dueDate || body.due || null;
 
