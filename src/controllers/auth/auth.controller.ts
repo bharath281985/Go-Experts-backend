@@ -900,7 +900,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response, ne
           fullName: updated.fullName,
           avatarUrl: updated.avatarUrl,
           role: updated.role,
-          status: updated.status,
+          status: updated.status || "active",
         },
       });
     }
@@ -940,7 +940,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response, ne
             fullName: updated.fullName,
             avatarUrl: updated.avatarUrl,
             role: updated.role,
-            status: updated.status,
+            status: updated.status || "active",
           },
         });
       }
