@@ -160,7 +160,12 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
   const startupIds = items.map(i => i.startupId);
   try {
     const ideas = await prisma.startupIdea.findMany({
-      where: { id: { in: startupIds } },
+      where: {
+        OR: [
+          { id: { in: startupIds } },
+          { founder: { in: startupIds }, deletedAt: null }
+        ]
+      },
     });
 
     const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
@@ -169,6 +174,10 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
     ideas.forEach(idea => {
       const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap);
       ideaMap.set(idea.id, formatted);
+      if (idea.founder) {
+        // Also map legacy bookmarked founder IDs so they don't return null and crash Flutter UI parser
+        ideaMap.set(idea.founder, formatted);
+      }
     });
 
     return items.map(item => {
