@@ -585,9 +585,10 @@ export const addClientTask = async (req: AuthenticatedRequest, res: Response, ne
         assignedTo: body.assignee || null,
         dueDate: body.dueDate || null,
       },
+      include: { project: { select: { id: true, title: true } } },
     });
 
-    res.status(201).json({ success: true, message: "Task added", data: task });
+    res.status(201).json({ success: true, message: "Task added successfully", data: task });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -633,22 +634,20 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
         if (anyProj) validProjId = anyProj.id;
       }
 
-      if (validProjId) {
-        task = await prisma.task.create({
-          data: {
-            title: String(body.title || "Task").trim(),
-            projectId: validProjId,
-            priority: body.priority || "Medium",
-            status: body.status || "Todo",
-            progress: Number(body.progress || 0),
-            assignedTo: body.assignee ? String(body.assignee).trim() : null,
-            dueDate: body.dueDate || body.due || null,
-          },
-        });
-        return res.json({ success: true, message: "Task updated", data: task });
-      } else {
-        return res.json({ success: true, message: "Task update saved" });
-      }
+    if (validProjId) {
+      task = await prisma.task.create({
+        data: {
+          title: String(body.title || "Task").trim(),
+          projectId: validProjId,
+          priority: body.priority || "Medium",
+          status: body.status || "Todo",
+          progress: Number(body.progress || 0),
+          assignedTo: body.assignee ? String(body.assignee).trim() : null,
+          dueDate: body.dueDate || body.due || null,
+        },
+        include: { project: { select: { id: true, title: true } } },
+      });
+      return res.json({ success: true, message: "Task updated successfully", data: task });
     }
 
     const data: any = {};
@@ -667,8 +666,12 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
       }
     }
 
-    const updated = await prisma.task.update({ where: { id: task.id }, data });
-    res.json({ success: true, message: "Task updated", data: updated });
+    const updated = await prisma.task.update({
+      where: { id: task.id },
+      data,
+      include: { project: { select: { id: true, title: true } } },
+    });
+    res.json({ success: true, message: "Task updated successfully", data: updated });
   } catch (err) {
     handleError(err, res, next);
   }
