@@ -76,6 +76,7 @@ export const auditMiddleware = (action: string, entity: string) => {
               actorId = defaultAdmin?.id || null;
             }
           }
+
           const ipAddress = (req.ip || req.socket?.remoteAddress || "").toString();
           const userAgent = req.headers["user-agent"] || "";
 
@@ -104,6 +105,8 @@ export const auditMiddleware = (action: string, entity: string) => {
               ipAddress,
               userAgent,
             },
+          }).catch(err => {
+            console.error("Non-fatal AuditLog creation error:", err);
           });
         }
       } catch (err) {
