@@ -950,8 +950,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
           country: user.country || reg.country || 'India',
           verified: Boolean(user.isVerified || user.verified || true),
           registrationData: reg,
-          savedData: reg,
-          profile: prof || reg
+          savedData: true,
+          isSaved: true
         }));
       }
 
@@ -963,6 +963,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
         role: 'investor',
         status: 'active',
+        savedData: false,
+        isSaved: false,
         bio: 'Venture partner & active angel investor backing early-stage tech startups.',
         company: 'Global VC Firm',
         firm: 'Global VC Firm',
@@ -1033,8 +1035,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
         createdAt: user.createdAt,
         registrationData: reg,
-        savedData: reg,
-        profile: profile || reg
+        savedData: true,
+        isSaved: true
       };
 
       const idea = await prisma.startupIdea.findFirst({
@@ -1096,8 +1098,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         verified: Boolean(user.isVerified || user.verified),
         role: user.role || 'freelancer',
         registrationData: reg,
-        savedData: reg,
-        profile: user.freelancerProfile || reg
+        savedData: true,
+        isSaved: true
       }));
     }
 
@@ -1136,8 +1138,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         verified: Boolean(user.isVerified || user.verified),
         role: user.role || 'client',
         registrationData: reg,
-        savedData: reg,
-        profile: user.clientProfile || reg
+        savedData: true,
+        isSaved: true
       }));
     }
 
