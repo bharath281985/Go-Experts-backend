@@ -8,6 +8,7 @@ import {
   getInvestorTypes, getFounderTypes, getTeamSizes, getCountries, getStates,
   getBusinessTypes, getServicesTaxonomy, getProjectCategories
 } from './public.controller.js';
+import { authenticateOptional } from '../../../middlewares/auth.js';
 import { cacheControl } from '../../../middleware/cache.js';
 
 const router = Router();
@@ -40,8 +41,8 @@ router.get('/clients/:id', directoryCache, getById('client'));
 router.get('/investors', directoryCache, getInvestors);
 router.get('/investors/:id', directoryCache, getById('investor'));
 router.get('/startups', directoryCache, getStartups);
-router.get('/startups/:id', directoryCache, getById('startup'));
-router.get('/founders/:id', directoryCache, getById('founder'));
+router.get('/startups/:id', authenticateOptional, getById('startup'));
+router.get('/founders/:id', authenticateOptional, getById('founder'));
 router.get('/projects', directoryCache, getProjects);
 router.get('/projects/:id', directoryCache, getById('project'));
 router.post('/projects/:id/share', shareProject);

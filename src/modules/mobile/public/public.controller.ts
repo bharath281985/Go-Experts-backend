@@ -971,17 +971,32 @@ export const getById = (modelName: string) => async (req: Request, res: Response
     if (modelName === 'startup') {
       const id = req.params.id;
 
-      // Only search by Idea ID for startup detail view
       const idea = await prisma.startupIdea.findUnique({ where: { id } }).catch(() => null);
-
       if (!idea || idea.deletedAt) {
         return res.status(404).json({ success: false, message: 'Startup not found' });
       }
 
       const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
 
+      let isSaved = false;
+      let hasInvested = false;
+      const viewingUserId = (req as any).user?.id;
+      if (viewingUserId) {
+        const row = await prisma.setting.findUnique({ where: { key: `investor_watchlist:${viewingUserId}` } });
+        if (row?.value) {
+          try {
+            const list = JSON.parse(row.value);
+            if (Array.isArray(list) && list.some((i: any) => i.startupId === id)) isSaved = true;
+          } catch { }
+        }
+        const inv = await prisma.investment.findFirst({
+          where: { investor: viewingUserId, startup: id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+        });
+        if (inv) hasInvested = true;
+      }
+
       const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, true);
-      return res.json(successResponse('Details retrieved for startup', data));
+      return res.json(successResponse('Details retrieved for startup', { ...data, isSaved, hasInvested }));
     }
 
     if (modelName === 'founder') {
@@ -1026,16 +1041,38 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }).catch(() => null);
 
       let startupDetails: any = null;
+      let isSaved = false;
+      let hasInvested = false;
+      const viewingUserId = (req as any).user?.id;
+
+      if (viewingUserId) {
+        const row = await prisma.setting.findUnique({ where: { key: `investor_watchlist_founders:${viewingUserId}` } });
+        if (row?.value) {
+          try {
+            const list = JSON.parse(row.value);
+            if (Array.isArray(list) && list.some((i: any) => i.startupId === id)) isSaved = true;
+          } catch { }
+        }
+      }
+
       if (idea) {
         const { industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
         startupDetails = formatStartupResponse(idea, user, profile, industryMap, optionMap, true);
         if (startupDetails) {
           delete startupDetails.user; // Remove redundant nested user
         }
+        if (viewingUserId) {
+          const inv = await prisma.investment.findFirst({
+            where: { investor: viewingUserId, startup: idea.id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+          });
+          if (inv) hasInvested = true;
+        }
       }
 
       const result = {
         ...founderDetails,
+        isSaved,
+        hasInvested,
         startup: startupDetails
       };
 
