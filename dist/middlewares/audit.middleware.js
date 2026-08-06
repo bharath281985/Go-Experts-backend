@@ -94,6 +94,8 @@ export const auditMiddleware = (action, entity) => {
                             ipAddress,
                             userAgent,
                         },
+                    }).catch(err => {
+                        console.error("Non-fatal AuditLog creation error:", err);
                     });
                 }
             }

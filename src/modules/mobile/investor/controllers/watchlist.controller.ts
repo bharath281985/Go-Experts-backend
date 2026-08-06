@@ -64,6 +64,7 @@ const formatStartupResponse = (
   idea: any,
   user: any,
   founderProfile: any,
+  investedIds: Set<string>,
   industryMap: Map<string, string>,
   optionMap: Map<string, string>
 ) => {
@@ -109,7 +110,7 @@ const formatStartupResponse = (
 
     user: userObj,
     isSaved: true,
-    hasInvested: false
+    hasInvested: investedIds.has(idea.id) || (user && investedIds.has(user.id))
   };
 
   return baseResult;
@@ -171,24 +172,31 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
   return { userMap, fpMap, industryMap, optionMap };
 };
 
-const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]> => {
+const populateInvestorWatchlist = async (userId: string, items: WatchlistEntry[]): Promise<any[]> => {
   if (items.length === 0) return [];
   const startupIds = items.map(i => i.startupId);
   try {
-    const ideas = await prisma.startupIdea.findMany({
-      where: {
-        OR: [
-          { id: { in: startupIds } },
-          { founder: { in: startupIds }, deletedAt: null }
-        ]
-      },
-    });
+    const [ideas, investments] = await Promise.all([
+      prisma.startupIdea.findMany({
+        where: {
+          OR: [
+            { id: { in: startupIds } },
+            { founder: { in: startupIds }, deletedAt: null }
+          ]
+        },
+      }),
+      prisma.investment.findMany({
+        where: { investor: userId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } },
+        select: { startup: true }
+      })
+    ]);
 
     const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const investedIds = new Set<string>(investments.map(i => i.startup));
 
     const ideaMap = new Map<string, any>();
     ideas.forEach(idea => {
-      const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap);
+      const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), investedIds, industryMap, optionMap);
       ideaMap.set(idea.id, formatted);
       if (idea.founder) {
         // Also map legacy bookmarked founder IDs so they don't return null and crash Flutter UI parser
@@ -221,7 +229,7 @@ const populateInvestorWatchlist = async (items: WatchlistEntry[]): Promise<any[]
 export const getWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const items = await readList(req.user.id);
-    const populated = await populateInvestorWatchlist(items);
+    const populated = await populateInvestorWatchlist(req.user.id, items);
 
     const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
     const sorted = [...populated].sort((a, b) => {
@@ -247,7 +255,7 @@ export const addToWatchlist = async (req: AuthRequest, res: Response, next: Next
     items.unshift(entry);
     await writeList(req.user.id, items);
 
-    const populatedList = await populateInvestorWatchlist([entry]);
+    const populatedList = await populateInvestorWatchlist(req.user.id, [entry]);
     return res.status(201).json(successResponse('Startup added to watchlist', populatedList[0]));
   } catch (error) { next(error); }
 };
@@ -286,15 +294,22 @@ export const updateWatchlistPriority = async (req: AuthRequest, res: Response, n
   } catch (error) { next(error); }
 };
 
-const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]> => {
+const populateFounderWatchlist = async (userId: string, items: WatchlistEntry[]): Promise<any[]> => {
   if (items.length === 0) return [];
   const founderIds = items.map(i => i.startupId);
   try {
-    const ideas = await prisma.startupIdea.findMany({
-      where: { founder: { in: founderIds }, deletedAt: null }
-    });
+    const [ideas, investments] = await Promise.all([
+      prisma.startupIdea.findMany({
+        where: { founder: { in: founderIds }, deletedAt: null }
+      }),
+      prisma.investment.findMany({
+        where: { investor: userId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } },
+        select: { startup: true }
+      })
+    ]);
 
     const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const investedIds = new Set<string>(investments.map(i => i.startup));
 
     return items.map(item => {
       const founderId = item.startupId;
@@ -328,7 +343,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         result.founderType = reg.founderType || "Founder";
 
         if (idea) {
-          let startupDetails: any = formatStartupResponse(idea, user, profile, industryMap, optionMap);
+          let startupDetails: any = formatStartupResponse(idea, user, profile, investedIds, industryMap, optionMap);
           if (startupDetails) delete startupDetails.user;
           result.startup = startupDetails;
         }
@@ -345,7 +360,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
 export const getFounderWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const items = await readFounderList(req.user.id);
-    const populated = await populateFounderWatchlist(items);
+    const populated = await populateFounderWatchlist(req.user.id, items);
 
     const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
     const sorted = [...populated].sort((a, b) => {

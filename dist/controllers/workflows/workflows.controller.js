@@ -20,16 +20,10 @@ function toAuditString(val, maxLen = 3000) {
 // Helper for notifications & activity/audit logs
 async function logWorkflowAction(params) {
     const { userId, action, entity, entityId, description, oldValue, newValue } = params;
-    let adminUserId = null;
-    if (userId && userId !== "system") {
-        const adminExists = await prisma.adminUser.findUnique({ where: { id: userId }, select: { id: true } }).catch(() => null);
-        if (adminExists)
-            adminUserId = adminExists.id;
-    }
-    if (!adminUserId) {
-        const defaultAdmin = await prisma.adminUser.findFirst({ select: { id: true } }).catch(() => null);
-        adminUserId = defaultAdmin?.id || null;
-    }
+    // 1. Create activity log
+    // Since activityLog maps to adminUserId, if userId is not an adminUserId, we find an admin or use system default
+    const defaultAdmin = await prisma.adminUser.findFirst().catch(() => null);
+    const adminUserId = defaultAdmin?.id || (userId !== "system" ? userId : null);
     if (adminUserId) {
         try {
             await prisma.activityLog.create({
