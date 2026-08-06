@@ -673,23 +673,6 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
       include: { project: { select: { id: true, title: true } } },
     });
     res.json({ success: true, message: "Task updated successfully", data: updated });
-    if (body.assignee != null) data.assignedTo = String(body.assignee).trim() || null;
-    if (body.dueDate != null || body.due != null) data.dueDate = body.dueDate || body.due || null;
-
-    if (body.projectId != null && String(body.projectId).trim()) {
-      const pId = String(body.projectId).trim();
-      const projExists = await prisma.project.findUnique({ where: { id: pId } });
-      if (projExists) {
-        data.projectId = pId;
-      }
-    }
-
-    const updated = await prisma.task.update({
-      where: { id: task.id },
-      data,
-      include: { project: { select: { id: true, title: true } } },
-    });
-    res.json({ success: true, message: "Task updated successfully", data: updated });
   } catch (err) {
     handleError(err, res, next);
   }
