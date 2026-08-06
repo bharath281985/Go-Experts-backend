@@ -6,6 +6,7 @@ import { prisma } from "../../config/database.js";
 import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { SmsChannelAdapter } from "../../modules/notifications/notification.service.js";
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
+import { sendEmail } from "../../services/mobile/email.service.js";
 
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 
@@ -1413,9 +1414,28 @@ export const sendDeleteAccountOtp = async (req: Request, res: Response, next: Ne
 
     console.log(`[DELETE ACCOUNT OTP] Email: ${email} | Code: ${otp}`);
 
+    // Dispatch real email via SMTP transporter
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e4e4e7; border-radius: 12px; background-color: #ffffff;">
+        <h2 style="color: #e11d48; margin-top: 0;">Go Experts — Delete Account Request</h2>
+        <p style="color: #3f3f46; font-size: 15px;">You have requested to delete your account registered on Go Experts (<strong>${email}</strong>).</p>
+        <p style="color: #3f3f46; font-size: 15px;">Your 6-digit OTP verification code is:</p>
+        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 16px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #be123c; border-radius: 10px; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p style="color: #71717a; font-size: 13px;">This verification code is valid for 10 minutes. If you did not request account deletion, please ignore this email or contact support immediately.</p>
+        <hr style="border: none; border-top: 1px solid #f4f4f5; margin: 24px 0;" />
+        <p style="font-size: 12px; color: #a1a1aa; margin: 0;">Go Experts Support Team · support@goexperts.in</p>
+      </div>
+    `;
+
+    await sendEmail(email, "Delete Account Verification Code - Go Experts", emailHtml).catch((e) => {
+      console.error("[DELETE ACCOUNT OTP EMAIL ERROR]", e);
+    });
+
     res.json({
       success: true,
-      message: "Verification code (OTP) sent to your email address.",
+      message: `Verification code (OTP) sent to ${email}.`,
       demoOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
   } catch (err) {
@@ -1451,18 +1471,17 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
 
     otpStore.delete(key);
 
-    // Soft delete in database: DO NOT hard delete user row from DB, update status and deletedAt in controller
+    // Pass request to Admin: update user status to pending_deletion for admin review
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        status: "deleted",
-        deletedAt: new Date(),
+        status: "pending_deletion",
       },
     });
 
     res.json({
       success: true,
-      message: "Your account has been deleted successfully.",
+      message: "Your account deletion request has been submitted to the Admin for approval.",
     });
   } catch (err) {
     next(err);

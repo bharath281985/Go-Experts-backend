@@ -453,6 +453,106 @@ router.get("/refund-policy", getPageHandler("Refund Policy"));
 router.get("/faq", getPageHandler("FAQ"));
 router.post("/delete-account/send-otp", sendDeleteAccountOtp);
 router.post("/delete-account/verify", verifyDeleteAccountOtp);
+router.get("/delete-requests", async (req, res, next) => {
+    try {
+        const rows = await prisma.user.findMany({
+            where: {
+                OR: [
+                    { status: "pending_deletion" },
+                    { status: "deleted" },
+                    { status: "inactive" },
+                    { deletedAt: { not: null } },
+                ],
+            },
+            select: {
+                id: true,
+                fullName: true,
+                email: true,
+                role: true,
+                status: true,
+                avatarUrl: true,
+                createdAt: true,
+                updatedAt: true,
+                deletedAt: true,
+            },
+            orderBy: { updatedAt: "desc" },
+        });
+        res.json({ success: true, rows, total: rows.length, data: rows });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/delete-requests/:id/approve", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const user = await prisma.user.update({
+            where: { id },
+            data: {
+                status: "deleted",
+                deletedAt: new Date(),
+            },
+        });
+        res.json({ success: true, message: `Account deletion approved for ${user.email}. User has been deactivated.`, user });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/delete-requests/:id/reject", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const user = await prisma.user.update({
+            where: { id },
+            data: {
+                status: "active",
+                deletedAt: null,
+            },
+        });
+        res.json({ success: true, message: `Account deletion request rejected for ${user.email}. Account restored to active.`, user });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.post("/delete-requests/:id/permanent-delete", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        // Clean up dependent child profiles to satisfy foreign key constraints
+        await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.notificationLog.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.notificationPreference.deleteMany({ where: { userId: id } }).catch(() => { });
+        // Permanently remove the user from database
+        const user = await prisma.user.delete({
+            where: { id },
+        });
+        res.json({ success: true, message: `Account for ${user.email} has been PERMANENTLY deleted from the database.`, user });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.delete("/delete-requests/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+        await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => { });
+        const user = await prisma.user.delete({
+            where: { id },
+        });
+        res.json({ success: true, message: `Account for ${user.email} has been PERMANENTLY deleted from the database.`, user });
+    }
+    catch (err) {
+        next(err);
+    }
+});
 router.get("/industries", async (req, res, next) => {
     try {
         const rows = await prisma.industry.findMany({

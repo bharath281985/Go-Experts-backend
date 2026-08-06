@@ -1,33 +1,33 @@
 import nodemailer from 'nodemailer';
 
+const host = process.env.SMTP_HOST || 'mail.goexperts.in';
+const port = parseInt(process.env.SMTP_PORT || '465');
+const user = process.env.SMTP_USER || 'support@goexperts.in';
+const pass = process.env.SMTP_PASS || 'Goexperts@2025';
+const fromEmail = process.env.SMTP_FROM || 'support@goexperts.in';
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-  port: parseInt(process.env.SMTP_PORT || '2525'),
-  secure: process.env.SMTP_PORT === '465',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+  host,
+  port,
+  secure: port === 465,
+  auth: { user, pass },
+  tls: {
+    rejectUnauthorized: false,
   },
 });
 
-const fromEmail = process.env.SMTP_FROM || 'noreply@goexperts.in';
-
 export const sendEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log(`[DEV MODE] Email skipped. To: ${to}, Subject: ${subject}`);
-    return true; // Simulate success
-  }
-  
   try {
-    await transporter.sendMail({
-      from: fromEmail,
+    const info = await transporter.sendMail({
+      from: `"Go Experts Support" <${fromEmail}>`,
       to,
       subject,
       html,
     });
+    console.log(`[EMAIL SENT SUCCESS] To: ${to} | Subject: "${subject}" | MessageId: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error('Failed to send email:', error);
+    console.error(`[EMAIL ERROR FAILED] Failed to send email to ${to}:`, error);
     return false;
   }
 };
