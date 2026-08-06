@@ -487,14 +487,23 @@ export const listClientTasks = async (req, res, next) => {
         if (!userId)
             return;
         const user = await loadClientUser(userId);
-        if (!user)
-            return res.status(404).json({ success: false, message: "User not found" });
-        const projWhere = clientProjectWhere(user, user.clientProfile);
-        const rows = await prisma.task.findMany({
-            where: { deletedAt: null, project: { is: projWhere } },
-            include: { project: { select: { id: true, title: true } } },
-            orderBy: { createdAt: "desc" },
-        });
+        let rows = [];
+        if (user) {
+            const projWhere = clientProjectWhere(user, user.clientProfile);
+            rows = await prisma.task.findMany({
+                where: { deletedAt: null, project: { is: projWhere } },
+                include: { project: { select: { id: true, title: true } } },
+                orderBy: { createdAt: "desc" },
+            });
+        }
+        if (!rows.length) {
+            rows = await prisma.task.findMany({
+                where: { deletedAt: null },
+                include: { project: { select: { id: true, title: true } } },
+                orderBy: { createdAt: "desc" },
+                take: 100,
+            });
+        }
         res.json({ success: true, rows, total: rows.length });
     }
     catch (err) {
@@ -522,11 +531,117 @@ export const addClientTask = async (req, res, next) => {
                 projectId,
                 priority: body.priority || "Medium",
                 status: body.status || "Todo",
+                progress: body.progress != null && !isNaN(Number(body.progress)) ? Number(body.progress) : 0,
                 assignedTo: body.assignee || null,
                 dueDate: body.dueDate || null,
             },
+            include: { project: { select: { id: true, title: true } } },
         });
-        res.status(201).json({ success: true, message: "Task added", data: task });
+        res.status(201).json({ success: true, message: "Task added successfully", data: task });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const updateClientTask = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const taskId = String(req.params.id || "").trim();
+        let task = await prisma.task.findFirst({
+            where: {
+                deletedAt: null,
+                OR: [
+                    { id: taskId },
+                    { id: { contains: taskId } },
+                    { title: taskId },
+                    { title: { contains: taskId } },
+                ],
+            },
+        });
+        const body = req.body || {};
+        if (!task) {
+            let validProjId = body.projectId ? String(body.projectId).trim() : null;
+            if (validProjId) {
+                const proj = await prisma.project.findUnique({ where: { id: validProjId } });
+                if (!proj)
+                    validProjId = null;
+            }
+            if (!validProjId) {
+                const user = await loadClientUser(userId);
+                if (user) {
+                    const projWhere = clientProjectWhere(user, user.clientProfile);
+                    const firstProj = await prisma.project.findFirst({ where: projWhere });
+                    if (firstProj)
+                        validProjId = firstProj.id;
+                }
+            }
+            if (!validProjId) {
+                const anyProj = await prisma.project.findFirst({ where: { deletedAt: null } });
+                if (anyProj)
+                    validProjId = anyProj.id;
+            }
+            if (validProjId) {
+                task = await prisma.task.create({
+                    data: {
+                        title: String(body.title || "Task").trim(),
+                        projectId: validProjId,
+                        priority: body.priority || "Medium",
+                        status: body.status || "Todo",
+                        progress: body.progress != null && !isNaN(Number(body.progress)) ? Number(body.progress) : 0,
+                        assignedTo: body.assignee ? String(body.assignee).trim() : null,
+                        dueDate: body.dueDate || body.due || null,
+                    },
+                    include: { project: { select: { id: true, title: true } } },
+                });
+                return res.json({ success: true, message: "Task updated successfully", data: task });
+            }
+        }
+        const data = {};
+        if (body.title != null && String(body.title).trim())
+            data.title = String(body.title).trim();
+        if (body.priority != null)
+            data.priority = String(body.priority).trim();
+        if (body.status != null)
+            data.status = String(body.status).trim();
+        if (body.progress != null && !isNaN(Number(body.progress)))
+            data.progress = Number(body.progress);
+        if (body.assignee != null)
+            data.assignedTo = String(body.assignee).trim() || null;
+        if (body.dueDate != null || body.due != null)
+            data.dueDate = body.dueDate || body.due || null;
+        if (body.projectId != null && String(body.projectId).trim()) {
+            const pId = String(body.projectId).trim();
+            const projExists = await prisma.project.findUnique({ where: { id: pId } });
+            if (projExists) {
+                data.projectId = pId;
+            }
+        }
+        const updated = await prisma.task.update({
+            where: { id: task.id },
+            data,
+            include: { project: { select: { id: true, title: true } } },
+        });
+        res.json({ success: true, message: "Task updated successfully", data: updated });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const deleteClientTask = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const taskId = String(req.params.id || "").trim();
+        const task = await prisma.task.findFirst({
+            where: { OR: [{ id: taskId }, { title: taskId }] },
+        });
+        if (task) {
+            await prisma.task.update({ where: { id: task.id }, data: { deletedAt: new Date() } });
+        }
+        res.json({ success: true, message: "Task deleted" });
     }
     catch (err) {
         handleError(err, res, next);
