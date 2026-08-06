@@ -554,7 +554,18 @@ export const listClientTasks = async (req: AuthenticatedRequest, res: Response, 
       });
     }
 
-    res.json({ success: true, rows, total: rows.length });
+    const sanitizedRows = rows.map((r) => {
+      let p = r.progress;
+      if (p == null || p === 0) {
+        p = getStatusDefaultProgress(r.status);
+      }
+      return {
+        ...r,
+        progress: p,
+      };
+    });
+
+    res.json({ success: true, rows: sanitizedRows, total: sanitizedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
