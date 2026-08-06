@@ -110,7 +110,7 @@ const formatStartupResponse = (
 
     user: userObj,
     isSaved: true,
-    hasInvested: investedIds.has(idea.id) || (user && investedIds.has(user.id))
+    hasInvested: investedIds.has(idea.id) || (user && investedIds.has(user.id)) || (idea.founder && investedIds.has(idea.founder))
   };
 
   return baseResult;
@@ -186,7 +186,7 @@ const populateInvestorWatchlist = async (userId: string, items: WatchlistEntry[]
         },
       }),
       prisma.investment.findMany({
-        where: { investor: userId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } },
+        where: { investor: userId, status: { notIn: ['Cancelled', 'Rejected', 'cancelled', 'rejected'] } },
         select: { startup: true }
       })
     ]);
@@ -206,6 +206,7 @@ const populateInvestorWatchlist = async (userId: string, items: WatchlistEntry[]
 
     return items.map(item => {
       const startupDetails = ideaMap.get(item.startupId) || null;
+      const isInvested = investedIds.has(item.startupId) || (startupDetails && startupDetails.hasInvested);
       return {
         // Watchlist metadata
         watchlistId: item.id,
@@ -218,6 +219,7 @@ const populateInvestorWatchlist = async (userId: string, items: WatchlistEntry[]
 
         // Flat details at root level matching Startup APIs
         ...(startupDetails || {}),
+        hasInvested: Boolean(isInvested),
       };
     });
   } catch (e) {
