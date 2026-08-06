@@ -645,7 +645,8 @@ const formatStartupResponse = (
   founderProfile: any,
   industryMap: Map<string, string>,
   optionMap: Map<string, string>,
-  isDetailed: boolean = false
+  isDetailed: boolean = false,
+  platformRaisedMap?: Map<string, number>
 ) => {
   if (!idea) return null;
 
@@ -683,7 +684,10 @@ const formatStartupResponse = (
   const teamSize = founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1);
   const location = [userObj?.city, userObj?.countryId].filter(Boolean).join(', ') || "";
 
-  const raised = founderProfile?.raised || 0;
+  const baseRaised = founderProfile?.raised || 0;
+  const platformRaised = platformRaisedMap?.get(idea.id) || 0;
+  const raised = baseRaised + platformRaised;
+
   const goal = idea.funding || 0;
   let percentage = goal > 0 ? (raised / goal) * 100 : 0;
   percentage = parseFloat(percentage.toFixed(1));
@@ -812,7 +816,7 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
       rows.forEach((r: any) => optionMap.set(r.id, r.label));
     } catch { }
 
-    const missingIds = optionIds.filter(id => !optionMap.has(id));
+    const missingIds = optionIds.filter((id: string) => !optionMap.has(id));
     if (missingIds.length > 0) {
       try {
         const stages = await prisma.startupStage.findMany({ where: { id: { in: missingIds } }, select: { id: true, name: true } });
@@ -829,7 +833,19 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
     }
   }
 
-  return { userMap, fpMap, industryMap, optionMap };
+  // Calculate platform raised dynamically based on ACTIVE/COMPLETED/OFFER investments
+  const platformRaisedMap = new Map<string, number>();
+  const ideaIds = ideas.map(i => i.id).filter(Boolean);
+  if (ideaIds.length > 0) {
+    const agg = await prisma.investment.groupBy({
+      by: ['startup'],
+      _sum: { offer: true },
+      where: { startup: { in: ideaIds }, status: { in: ['Offer', 'Pending', 'Active', 'Completed', 'Closed'] } }
+    });
+    agg.forEach((a: any) => platformRaisedMap.set(a.startup, parseFloat(a._sum.offer ?? 0)));
+  }
+
+  return { userMap, fpMap, industryMap, optionMap, platformRaisedMap };
 };
 
 export const getStartups = async (req: Request, res: Response, next: NextFunction) => {
@@ -847,11 +863,11 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
       prisma.startupIdea.count({ where: { status: 'active', deletedAt: null } })
     ]);
 
-    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(ideas);
 
     const data = ideas.map(idea => {
       // isDetailed = false
-      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap);
+      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, false, platformRaisedMap);
     }).filter(Boolean);
 
     return res.json(successResponse('Startups retrieved', data, { page, limit, total, totalPages: Math.ceil(total / limit) }));
@@ -1037,7 +1053,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         return res.status(404).json({ success: false, message: 'Startup not found' });
       }
 
-      const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+      const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas([idea]);
 
       let isSaved = false;
       let hasInvested = false;
@@ -1056,7 +1072,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         if (inv) hasInvested = true;
       }
 
-      const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, true);
+      const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, true, platformRaisedMap);
       return res.json(successResponse('Details retrieved for startup', { ...data, isSaved, hasInvested }));
     }
 

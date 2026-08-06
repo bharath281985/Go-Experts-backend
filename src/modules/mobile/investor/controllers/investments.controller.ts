@@ -29,13 +29,13 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
       startups = await prisma.startupIdea.findMany({ where: { id: { in: startupIds } } });
     }
 
-    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(startups);
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(startups);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
     const investedIds = new Set<string>(startupIds);
 
     const enriched = investments.map(inv => {
       const idea = startups.find(s => s.id === inv.startup);
-      const details = idea ? formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false) : null;
+      const details = idea ? formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap) : null;
       return { ...inv, startupDetails: details };
     });
 
@@ -53,10 +53,10 @@ export const getInvestment = async (req: AuthRequest, res: Response, next: NextF
 
     if (idea) {
       const watchlist = await readList(req.user.id);
-      const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+      const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas([idea]);
       const savedIds = new Set<string>(watchlist.map(w => w.startupId));
       const investedIds = new Set<string>([idea.id]);
-      details = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true);
+      details = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true, platformRaisedMap);
     }
 
     return res.json(successResponse('Investment details', { ...investment, startupDetails: details }));

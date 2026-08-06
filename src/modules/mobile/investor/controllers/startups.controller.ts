@@ -39,7 +39,8 @@ export const formatStartupResponse = (
   investedIds: Set<string>,
   industryMap: Map<string, string>,
   optionMap: Map<string, string>,
-  isDetailed: boolean = false
+  isDetailed: boolean = false,
+  platformRaisedMap?: Map<string, number>
 ) => {
   if (!idea) return null;
 
@@ -77,7 +78,10 @@ export const formatStartupResponse = (
   const teamSize = founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1);
   const location = [userObj?.city, userObj?.countryId].filter(Boolean).join(', ') || "";
 
-  const raised = founderProfile?.raised || 0;
+  const baseRaised = founderProfile?.raised || 0;
+  const platformRaised = platformRaisedMap?.get(idea.id) || 0;
+  const raised = baseRaised + platformRaised;
+
   const goal = idea.funding || 0;
   let percentage = goal > 0 ? (raised / goal) * 100 : 0;
   percentage = parseFloat(percentage.toFixed(1));
@@ -209,7 +213,7 @@ export const loadRelatedDataForIdeas = async (ideas: any[]) => {
       rows.forEach((r: any) => optionMap.set(r.id, r.label));
     } catch { }
 
-    const missingIds = optionIds.filter(id => !optionMap.has(id));
+    const missingIds = optionIds.filter((id: string) => !optionMap.has(id));
     if (missingIds.length > 0) {
       try {
         const stages = await prisma.startupStage.findMany({ where: { id: { in: missingIds } }, select: { id: true, name: true } });
@@ -226,7 +230,19 @@ export const loadRelatedDataForIdeas = async (ideas: any[]) => {
     }
   }
 
-  return { userMap, fpMap, industryMap, optionMap };
+  // Calculate platform raised dynamically based on ACTIVE/COMPLETED/OFFER investments
+  const platformRaisedMap = new Map<string, number>();
+  const ideaIds = ideas.map(i => i.id).filter(Boolean);
+  if (ideaIds.length > 0) {
+    const agg = await prisma.investment.groupBy({
+      by: ['startup'],
+      _sum: { offer: true },
+      where: { startup: { in: ideaIds }, status: { in: ['Offer', 'Pending', 'Active', 'Completed', 'Closed'] } }
+    });
+    agg.forEach((a: any) => platformRaisedMap.set(a.startup, parseFloat(a._sum.offer ?? 0)));
+  }
+
+  return { userMap, fpMap, industryMap, optionMap, platformRaisedMap };
 };
 
 export const listStartups = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -255,13 +271,13 @@ export const listStartups = async (req: AuthRequest, res: Response, next: NextFu
       })
     ]);
 
-    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(ideas);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
     const investedIds = new Set<string>(investments.map(i => i.startup));
 
     const data = ideas.map(idea => {
       // isDetailed = false by default
-      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap);
+      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap);
     }).filter(Boolean);
 
     return res.json(successResponse('Startups retrieved', data, {
@@ -286,12 +302,12 @@ export const getStartupDetails = async (req: AuthRequest, res: Response, next: N
     const idea = ideaFromIdeaId || ideaFromFounderId;
     if (!idea) return res.status(404).json(errorResponse('Startup not found', 'NOT_FOUND'));
 
-    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas([idea]);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
     const investedIds = new Set<string>(investments.map(i => i.startup));
 
     // pass isDetailed = true
-    const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true);
+    const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true, platformRaisedMap);
     return res.json(successResponse('Startup details', data));
   } catch (error) { next(error); }
 };
@@ -310,11 +326,11 @@ export const getRecommendedStartups = async (req: AuthRequest, res: Response, ne
       })
     ]);
 
-    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(ideas);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
     const investedIds = new Set<string>(investments.map(i => i.startup));
 
-    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap)).filter(Boolean);
+    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap)).filter(Boolean);
     return res.json(successResponse('Recommended startups', data));
   } catch (error) { next(error); }
 };
@@ -333,11 +349,11 @@ export const getTrendingStartups = async (req: AuthRequest, res: Response, next:
       })
     ]);
 
-    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(ideas);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
     const investedIds = new Set<string>(investments.map(i => i.startup));
 
-    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap)).filter(Boolean);
+    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap)).filter(Boolean);
     return res.json(successResponse('Trending startups', data));
   } catch (error) { next(error); }
 };
@@ -356,11 +372,11 @@ export const getFeaturedStartups = async (req: AuthRequest, res: Response, next:
       })
     ]);
 
-    const { userMap, fpMap, industryMap, optionMap } = await loadRelatedDataForIdeas(ideas);
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(ideas);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
     const investedIds = new Set<string>(investments.map(i => i.startup));
 
-    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap)).filter(Boolean);
+    const data = ideas.map(idea => formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap)).filter(Boolean);
     return res.json(successResponse('Featured startups', data));
   } catch (error) { next(error); }
 };
