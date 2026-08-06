@@ -560,6 +560,15 @@ export const listClientTasks = async (req: AuthenticatedRequest, res: Response, 
   }
 };
 
+function getStatusDefaultProgress(statusStr?: string | null): number {
+  const s = String(statusStr || "").toLowerCase();
+  if (s.includes("complete") || s.includes("done")) return 100;
+  if (s.includes("review")) return 85;
+  if (s.includes("progress") || s.includes("in_progress")) return 50;
+  if (s.includes("blocked")) return 10;
+  return 25;
+}
+
 export const addClientTask = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = requireUser(req, res);
@@ -575,13 +584,19 @@ export const addClientTask = async (req: AuthenticatedRequest, res: Response, ne
     const projectId = String(body.projectId || "").trim();
     if (!projectId) return res.status(400).json({ success: false, message: "projectId is required" });
 
+    const taskStatus = body.status || "Todo";
+    const taskProgress =
+      body.progress != null && !isNaN(Number(body.progress)) && Number(body.progress) > 0
+        ? Number(body.progress)
+        : getStatusDefaultProgress(taskStatus);
+
     const task = await prisma.task.create({
       data: {
         title,
         projectId,
         priority: body.priority || "Medium",
-        status: body.status || "Todo",
-        progress: Number(body.progress || 0),
+        status: taskStatus,
+        progress: taskProgress,
         assignedTo: body.assignee || null,
         dueDate: body.dueDate || null,
       },
@@ -634,27 +649,41 @@ export const updateClientTask = async (req: AuthenticatedRequest, res: Response,
         if (anyProj) validProjId = anyProj.id;
       }
 
-    if (validProjId) {
-      task = await prisma.task.create({
-        data: {
-          title: String(body.title || "Task").trim(),
-          projectId: validProjId,
-          priority: body.priority || "Medium",
-          status: body.status || "Todo",
-          progress: Number(body.progress || 0),
-          assignedTo: body.assignee ? String(body.assignee).trim() : null,
-          dueDate: body.dueDate || body.due || null,
-        },
-        include: { project: { select: { id: true, title: true } } },
-      });
-      return res.json({ success: true, message: "Task updated successfully", data: task });
+      if (validProjId) {
+        const newStatus = body.status || "Todo";
+        const newProgress =
+          body.progress != null && !isNaN(Number(body.progress)) && Number(body.progress) > 0
+            ? Number(body.progress)
+            : getStatusDefaultProgress(newStatus);
+
+        task = await prisma.task.create({
+          data: {
+            title: String(body.title || "Task").trim(),
+            projectId: validProjId,
+            priority: body.priority || "Medium",
+            status: newStatus,
+            progress: newProgress,
+            assignedTo: body.assignee ? String(body.assignee).trim() : null,
+            dueDate: body.dueDate || body.due || null,
+          },
+          include: { project: { select: { id: true, title: true } } },
+        });
+        return res.json({ success: true, message: "Task updated successfully", data: task });
+      }
     }
 
     const data: any = {};
     if (body.title != null && String(body.title).trim()) data.title = String(body.title).trim();
     if (body.priority != null) data.priority = String(body.priority).trim();
     if (body.status != null) data.status = String(body.status).trim();
-    if (body.progress != null && !isNaN(Number(body.progress))) data.progress = Number(body.progress);
+
+    const targetStatus = data.status || task.status;
+    if (body.progress != null && !isNaN(Number(body.progress))) {
+      const p = Number(body.progress);
+      data.progress = p > 0 ? p : getStatusDefaultProgress(targetStatus);
+    } else if (body.status != null) {
+      data.progress = getStatusDefaultProgress(targetStatus);
+    }
     if (body.assignee != null) data.assignedTo = String(body.assignee).trim() || null;
     if (body.dueDate != null || body.due != null) data.dueDate = body.dueDate || body.due || null;
 
