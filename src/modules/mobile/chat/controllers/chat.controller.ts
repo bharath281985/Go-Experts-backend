@@ -38,7 +38,7 @@ const findOrCreateDm = async (
       status: 'active',
       avatar: recipient?.avatarUrl || null,
       time: new Date().toISOString(),
-      ...( {
+      ...({
         userA: a,
         userB: b,
         projectId: projectId || null,
@@ -74,8 +74,35 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
       prisma.conversation.count({ where }),
     ]);
 
+    const userIds = new Set<string>();
+    conversations.forEach((c: any) => {
+      if (c.userA && c.userA !== req.user.id) userIds.add(c.userA);
+      if (c.userB && c.userB !== req.user.id) userIds.add(c.userB);
+    });
+
+    const userMap = new Map();
+    if (userIds.size > 0) {
+      const users = await prisma.user.findMany({
+        where: { id: { in: Array.from(userIds) } },
+        select: { id: true, fullName: true, avatarUrl: true, role: true }
+      });
+      users.forEach(u => userMap.set(u.id, u));
+    }
+
+    const shapedConversations = conversations.map((c: any) => {
+      const otherId = c.userA === req.user.id ? c.userB : (c.userB === req.user.id ? c.userA : null);
+      const otherUser = otherId ? userMap.get(otherId) : null;
+
+      return {
+        ...c,
+        name: otherUser ? otherUser.fullName : (c.name || 'Chat'),
+        avatar: otherUser ? otherUser.avatarUrl : (c.avatar || null),
+        role: otherUser ? otherUser.role : c.role
+      };
+    });
+
     return res.json(
-      successResponse('Conversations retrieved', conversations, {
+      successResponse('Conversations retrieved', shapedConversations, {
         page,
         limit,
         total,
@@ -114,8 +141,8 @@ export const getConversation = async (req: AuthRequest, res: Response, next: Nex
       ...m,
       from:
         (m as any).senderId === req.user.id ||
-        m.from === 'me' ||
-        m.from === req.user.fullName
+          m.from === 'me' ||
+          m.from === req.user.fullName
           ? 'me'
           : m.from,
       isMine:
@@ -181,7 +208,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
         from: req.user.fullName || 'me',
         text: text || (attachmentUrl ? '[Attachment]' : ''),
         time: new Date().toISOString(),
-        ...( {
+        ...({
           senderId: req.user.id,
           attachmentUrl: attachmentUrl || null,
         } as any),
