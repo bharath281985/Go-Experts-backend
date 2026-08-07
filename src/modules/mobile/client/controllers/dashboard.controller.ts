@@ -22,6 +22,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       completion,
       rawUpcomingMeetings,
       unreadMessages,
+      notifications,
       pendingPayments,
       allPayments,
       supportTicketsCount,
@@ -70,6 +71,12 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           senderId: { not: userId },
           readAt: null,
         },
+      }),
+      // Recent notifications for activities
+      prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
       }),
       // Pending payments
       prisma.payment.count({ where: { userId, status: 'pending' } }),
@@ -132,10 +139,17 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     });
     const categoryDistribution = Array.from(categoryMap.entries()).map(([category, count]) => ({ category, count }));
 
-    // Accepted proposals count
+    // Accept proposals count
     const acceptedProposals = await prisma.proposal.count({
       where: { project: { client: userId }, status: 'accepted' },
     });
+
+    const recentActivities = (notifications || []).map(n => ({
+      id: n.id,
+      title: n.title,
+      content: n.message,
+      createdAt: n.createdAt,
+    }));
 
     return res.json(
       successResponse('Client dashboard retrieved', {
@@ -166,6 +180,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           categoryDistribution,
         },
         upcomingMeetingsList,
+        recentActivities,
       })
     );
   } catch (error) {

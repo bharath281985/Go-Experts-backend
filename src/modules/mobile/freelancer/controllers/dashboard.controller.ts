@@ -13,7 +13,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       upcomingMeetings, unreadNotifications, pendingProposals,
       acceptedProjects, completedProjects, currentContracts,
       reviews, rawUpcomingMeetings, completion,
-      unreadMessages, allPayments, allProposals,
+      unreadMessages, notifications, allPayments, allProposals,
     ] = await Promise.all([
       prisma.freelancerProfile.findUnique({ where: { userId } }),
       prisma.wallet.findUnique({ where: { userId } }),
@@ -56,6 +56,12 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           senderId: { not: userId },
           readAt: null,
         },
+      }),
+      // Recent notifications for activities
+      prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
       }),
       // All payments for earnings computation
       prisma.payment.findMany({ where: { userId, status: 'completed' } }),
@@ -150,6 +156,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     // Monthly activity: sum of projects + proposals + payments per month
     const monthlyActivity = earningsChart.map((e, i) => projectsChart[i] + proposalsChart[i] + (e > 0 ? 1 : 0));
 
+    const recentActivities = (notifications || []).map(n => ({
+      id: n.id,
+      title: n.title,
+      content: n.message,
+      createdAt: n.createdAt,
+    }));
+
     const data = {
       profileCompletion: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
@@ -176,6 +189,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         monthlyActivity,
       },
       upcomingMeetingsList,
+      recentActivities,
     };
 
     return res.json(successResponse('Freelancer dashboard retrieved', data));
