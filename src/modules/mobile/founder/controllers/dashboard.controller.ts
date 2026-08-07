@@ -217,67 +217,33 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     // Business plan completion
     const businessPlanCompletion = startupIdea?.businessPlan ? 100 : 0;
 
-    // --- Compute charts from real investment data ---
-    const now = new Date();
-    const fundingProgress: number[] = [];
-    const investorGrowthArr: number[] = [];
-    const monthlyFundingTrend = [0, 0, 0, 0, 0, 0];
+    // --- Compute charts from raw DB data ---
+    const fundingProgress = allInvestments.map(inv => ({ date: inv.createdAt, amount: inv.offer, status: inv.status }));
+    const investorGrowthArr = allInvestments.map(inv => ({ date: inv.createdAt, count: 1 }));
+    const monthlyFundingTrend = allInvestments.map(inv => ({ date: inv.createdAt, amount: inv.offer }));
 
-    // Sort investments by date for cumulative charts
-    const sortedInvestments = [...allInvestments]
-      .filter(i => i.status === 'Active')
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    // Profile views & pitch deck view trends (mapped straight from db proxy values for raw plotting if needed)
+    const startupProfileViews = [{ metric: "pitchDeckViews", value: pitchDeckViews }];
 
-    let cumFunding = 0;
-    sortedInvestments.forEach((inv, idx) => {
-      cumFunding += inv.offer;
-      fundingProgress.push(cumFunding);
-      investorGrowthArr.push(idx + 1);
-    });
-    // Ensure at least one data point
-    if (fundingProgress.length === 0) { fundingProgress.push(0); investorGrowthArr.push(0); }
-
-    allInvestments.forEach(inv => {
-      const invDate = new Date(inv.createdAt);
-      const monthsAgo = (now.getFullYear() - invDate.getFullYear()) * 12 + (now.getMonth() - invDate.getMonth());
-      if (monthsAgo >= 0 && monthsAgo < 6) {
-        monthlyFundingTrend[5 - monthsAgo] += inv.offer;
-      }
-    });
-
-    // Profile views & pitch deck view trends from startupIdea.views (simplified monthly estimate)
-    const startupProfileViews = startupIdea
-      ? [
-        Math.round(pitchDeckViews * 0.05), Math.round(pitchDeckViews * 0.15),
-        Math.round(pitchDeckViews * 0.3), Math.round(pitchDeckViews * 0.55),
-        Math.round(pitchDeckViews * 0.8), pitchDeckViews,
-      ]
-      : [0, 0, 0, 0, 0, 0];
-
-    // Revenue/cash flow/burn rate from wallet transactions if available
+    // Revenue/cash flow/burn rate from wallet transactions
     const walletTransactions = wallet ? await prisma.walletTransaction.findMany({
       where: { walletId: wallet.id },
       orderBy: { createdAt: 'desc' },
       take: 100,
     }) : [];
 
-    const revenueTrend = [0, 0, 0, 0, 0, 0];
-    const cashFlow = [0, 0, 0, 0, 0, 0];
-    let burnRate = 0;
+    const cashFlow = walletTransactions.map(tx => ({
+      date: tx.createdAt,
+      amount: tx.direction === 'credit' ? tx.amount : -tx.amount,
+      type: tx.direction
+    }));
 
-    walletTransactions.forEach(tx => {
-      const txDate = new Date(tx.createdAt);
-      const monthsAgo = (now.getFullYear() - txDate.getFullYear()) * 12 + (now.getMonth() - txDate.getMonth());
-      if (monthsAgo >= 0 && monthsAgo < 6) {
-        if (tx.direction === 'credit') {
-          revenueTrend[5 - monthsAgo] += tx.amount;
-          cashFlow[5 - monthsAgo] += tx.amount;
-        } else {
-          cashFlow[5 - monthsAgo] -= tx.amount;
-          if (monthsAgo === 0) burnRate += tx.amount;
-        }
-      }
-    });
+    const revenueTrend = walletTransactions.filter(tx => tx.direction === 'credit').map(tx => ({
+      date: tx.createdAt,
+      amount: tx.amount
+    }));
+
+    const burnRate = walletTransactions.filter(tx => tx.direction === 'debit').reduce((sum, tx) => sum + tx.amount, 0);
 
     const milestoneCompletion = startupCompletion; // use startup completion as milestoneCompletion proxy
 

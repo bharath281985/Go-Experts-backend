@@ -188,10 +188,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     const activeInvestmentsList = allInvestments.filter(inv => inv.status === 'Active');
     const portfolioValue = activeInvestmentsList.reduce((sum, inv) => sum + inv.offer, 0);
 
-    // --- Compute charts from real investment data ---
-    const now = new Date();
-    const monthlyInvestments = [0, 0, 0, 0, 0, 0];
-    const portfolioGrowth = [0, 0, 0, 0, 0, 0];
+    // --- Compute charts from raw DB data ---
     const industryDistributionMap = new Map<string, number>();
     const stageMap = new Map<string, number>();
 
@@ -204,13 +201,6 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     investedStartups.forEach(s => startupByFounder.set(s.id, s));
 
     allInvestments.forEach(inv => {
-      const invDate = new Date(inv.createdAt);
-      const monthsAgo = (now.getFullYear() - invDate.getFullYear()) * 12 + (now.getMonth() - invDate.getMonth());
-      if (monthsAgo >= 0 && monthsAgo < 6) {
-        monthlyInvestments[5 - monthsAgo] += 1;
-        portfolioGrowth[5 - monthsAgo] += inv.offer;
-      }
-
       // Industry & stage distribution
       const startup = startupByFounder.get(inv.startup);
       if (startup) {
@@ -218,11 +208,6 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         stageMap.set(startup.stage, (stageMap.get(startup.stage) || 0) + inv.offer);
       }
     });
-
-    // Cumulative portfolio growth
-    for (let i = 1; i < 6; i++) {
-      portfolioGrowth[i] += portfolioGrowth[i - 1];
-    }
 
     const investmentAllocation = allInvestments
       .filter(i => i.status === 'Active')
@@ -234,8 +219,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     const industryDistribution = Array.from(industryDistributionMap.entries()).map(([industry, amount]) => ({ industry, amount }));
     const fundingStageDistribution = Array.from(stageMap.entries()).map(([stage, amount]) => ({ stage, amount }));
 
-    // ROI trend (simplified: monthly cumulative returns)
-    const roiTrend = portfolioGrowth.map(v => (portfolioValue > 0 ? Math.round(((v - portfolioValue) / portfolioValue) * 100) : 0));
+    // Raw mapping rather than bucketing
+    const portfolioGrowth = allInvestments.map(inv => ({ date: inv.createdAt, amount: inv.offer, status: inv.status }));
+    const monthlyInvestments = allInvestments.map(inv => ({ date: inv.createdAt, count: 1 }));
+    const roiTrend = allInvestments.map(inv => ({ date: inv.createdAt, amount: inv.offer }));
 
     const watchlistCount = watchlist.length;
 

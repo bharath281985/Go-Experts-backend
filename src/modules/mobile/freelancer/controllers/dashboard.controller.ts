@@ -119,42 +119,25 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       }
     }
 
-    // --- Compute charts from real data ---
-    const earningsChart = [0, 0, 0, 0, 0, 0];
-    allPayments.forEach(p => {
-      const pDate = new Date(p.createdAt);
-      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
-      if (monthsAgo >= 0 && monthsAgo < 6) {
-        earningsChart[5 - monthsAgo] += p.amount;
-      }
-    });
+    // --- Compute charts from raw DB data ---
+    const earningsChart = allPayments.map(p => ({ date: p.createdAt, amount: p.amount }));
 
     // Projects chart: count projects completed per month
     const allCompletedProjects = await prisma.project.findMany({
       where: { freelancer: userId, status: 'completed' },
       select: { updatedAt: true },
     });
-    const projectsChart = [0, 0, 0, 0, 0, 0];
-    allCompletedProjects.forEach(p => {
-      const pDate = new Date(p.updatedAt);
-      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
-      if (monthsAgo >= 0 && monthsAgo < 6) {
-        projectsChart[5 - monthsAgo] += 1;
-      }
-    });
+    const projectsChart = allCompletedProjects.map(p => ({ date: p.updatedAt, count: 1 }));
 
     // Proposals chart: proposals submitted per month
-    const proposalsChart = [0, 0, 0, 0, 0, 0];
-    allProposals.forEach(p => {
-      const pDate = new Date(p.createdAt);
-      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
-      if (monthsAgo >= 0 && monthsAgo < 6) {
-        proposalsChart[5 - monthsAgo] += 1;
-      }
-    });
+    const proposalsChart = allProposals.map(p => ({ date: p.createdAt, count: 1 }));
 
-    // Monthly activity: sum of projects + proposals + payments per month
-    const monthlyActivity = earningsChart.map((e, i) => projectsChart[i] + proposalsChart[i] + (e > 0 ? 1 : 0));
+    // Monthly activity: sum of projects + proposals + payments per month (Raw representation mapping the available arrays if possible, but we will return raw actions now)
+    const monthlyActivity = {
+      earnings: earningsChart,
+      projects: projectsChart,
+      proposals: proposalsChart
+    };
 
     const recentActivities = (notifications || []).map(n => ({
       id: n.id,

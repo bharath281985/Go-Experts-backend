@@ -118,15 +118,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       })
       .reduce((acc, p) => acc + p.amount, 0);
 
-    // Spend trend: last 6 months
-    const spendTrend = [0, 0, 0, 0, 0, 0];
-    allPayments.forEach(p => {
-      const pDate = new Date(p.createdAt);
-      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
-      if (monthsAgo >= 0 && monthsAgo < 6) {
-        spendTrend[5 - monthsAgo] += p.amount;
-      }
-    });
+    // Spend trend: Raw mapping from DB
+    const spendTrend = allPayments.map(p => ({ date: p.createdAt, amount: p.amount }));
 
     // Category distribution from user's projects
     const allProjects = await prisma.project.findMany({
