@@ -55,7 +55,7 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
         where: {
           status: 'active',
           deletedAt: null,
-          OR: [{ userA: req.user.id }, { userB: req.user.id }, { role: req.user.role }],
+          OR: [{ userA: req.user.id }, { userB: req.user.id }],
         } as any,
         include: { messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
         take: 50,
@@ -101,15 +101,24 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
         }
       }
 
-      return {
+      const result = {
         ...c,
         name: otherUser ? otherUser.fullName : fallbackName,
         avatar: otherUser ? otherUser.avatarUrl : (c.avatar || null),
         role: otherUser ? otherUser.role : c.role
       };
+
+      delete result.userA;
+      delete result.userB;
+      delete result.messages;
+
+      return result;
     });
 
-    return res.json(successResponse('Conversations retrieved', shapedConversations));
+    // Filter out conversations that have no messages
+    const filteredConversations = shapedConversations.filter((c: any) => c.messages && c.messages.length > 0);
+
+    return res.json(successResponse('Conversations retrieved', filteredConversations));
   } catch (error) {
     return res.json(successResponse('Conversations retrieved', []));
   }

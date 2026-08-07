@@ -53,15 +53,10 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
-    let where: any = { role: req.user.role, deletedAt: null };
-    try {
-      where = {
-        deletedAt: null,
-        OR: [{ userA: req.user.id }, { userB: req.user.id }, { role: req.user.role }],
-      };
-    } catch {
-      /* ignore */
-    }
+    let where: any = {
+      deletedAt: null,
+      OR: [{ userA: req.user.id }, { userB: req.user.id }],
+    };
 
     const [conversations, total] = await Promise.all([
       prisma.conversation.findMany({
@@ -103,16 +98,25 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
         }
       }
 
-      return {
+      const result = {
         ...c,
         name: otherUser ? otherUser.fullName : fallbackName,
         avatar: otherUser ? otherUser.avatarUrl : (c.avatar || null),
         role: otherUser ? otherUser.role : c.role
       };
+
+      delete result.userA;
+      delete result.userB;
+      delete result.messages;
+
+      return result;
     });
 
+    // Filter out conversations that have no messages
+    const filteredConversations = shapedConversations.filter((c: any) => c.messages && c.messages.length > 0);
+
     return res.json(
-      successResponse('Conversations retrieved', shapedConversations, {
+      successResponse('Conversations retrieved', filteredConversations, {
         page,
         limit,
         total,
