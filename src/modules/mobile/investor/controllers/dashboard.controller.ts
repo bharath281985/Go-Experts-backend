@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { resolveProfileCompletion } from '../../../../services/mobile/profile-completion.service.js';
+import { loadRelatedDataForIdeas, formatStartupResponse, readList } from './startups.controller.js';
 
 export const getDashboard = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -118,55 +119,32 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       });
     });
 
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas([...ideas, ...trendingStartups]);
+    const watchlist = await readList(userId);
+    const savedIds = new Set<string>(watchlist.map((w: any) => w.startupId));
+    const investedIds = new Set<string>(allInvestments.map(i => i.startup));
+
     const recommendedStartups = ideas.map(idea => {
-      const founderInfo = founderMap.get(idea.founder) || null;
+      const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap);
       return {
-        id: idea.id,
-        startup: idea.startup,
-        industry: idea.industry,
-        category: idea.category,
-        stage: idea.stage,
-        funding: idea.funding,
-        equity: idea.equity,
-        visibility: idea.visibility,
-        pitchDeck: idea.pitchDeck,
-        businessPlan: idea.businessPlan,
-        logo: idea.logo,
-        coverUrl: idea.coverUrl,
-        status: idea.status,
-        views: idea.views,
-        interestedInvestors: idea.interestedInvestors,
-        createdAt: idea.createdAt,
-        updatedAt: idea.updatedAt,
-        deletedAt: idea.deletedAt,
-        founderId: idea.founder,
-        founder: founderInfo,
+        ...idea,
+        industry: formatted?.industry || idea.industry,
+        category: formatted?.category || idea.category,
+        stage: formatted?.stage || idea.stage,
+        founder: formatted?.user || null
       };
     });
 
-    // Populate trending startups with founder info
-    const trendingFounderIds = Array.from(new Set(trendingStartups.map(s => s.founder).filter(Boolean))) as string[];
-    const trendingFounders = trendingFounderIds.length > 0 ? await prisma.user.findMany({
-      where: { id: { in: trendingFounderIds }, role: 'founder' },
-      select: {
-        id: true, fullName: true, email: true, avatarUrl: true,
-        city: true, country: true, bio: true,
-        founderProfile: { select: { id: true, startupName: true, industry: true, stage: true } },
-      },
-    }) : [];
-    const trendingFounderMap = new Map<string, any>();
-    trendingFounders.forEach(f => {
-      trendingFounderMap.set(f.id, {
-        id: f.id, fullName: f.fullName, avatarUrl: f.avatarUrl,
-        startupName: f.founderProfile?.startupName ?? null,
-      });
+    const trendingStartupsList = trendingStartups.map(idea => {
+      const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap);
+      return {
+        ...idea,
+        industry: formatted?.industry || idea.industry,
+        category: formatted?.category || idea.category,
+        stage: formatted?.stage || idea.stage,
+        founder: formatted?.user || null
+      };
     });
-    const trendingStartupsList = trendingStartups.map(s => ({
-      id: s.id, startup: s.startup, industry: s.industry, category: s.category,
-      stage: s.stage, funding: s.funding, equity: s.equity, logo: s.logo,
-      coverUrl: s.coverUrl, views: s.views, interestedInvestors: s.interestedInvestors,
-      createdAt: s.createdAt, founder: trendingFounderMap.get(s.founder) || null,
-    }));
 
     // Populate founder details for meetings
     const founderIdsForMeetings = rawUpcomingMeetings.map(m => m.founder);
@@ -214,7 +192,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     const now = new Date();
     const monthlyInvestments = [0, 0, 0, 0, 0, 0];
     const portfolioGrowth = [0, 0, 0, 0, 0, 0];
-    const industryMap = new Map<string, number>();
+    const industryDistributionMap = new Map<string, number>();
     const stageMap = new Map<string, number>();
 
     // Get startup details for industry/stage distribution
@@ -236,7 +214,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       // Industry & stage distribution
       const startup = startupByFounder.get(inv.startup);
       if (startup) {
-        industryMap.set(startup.industry, (industryMap.get(startup.industry) || 0) + inv.offer);
+        industryDistributionMap.set(startup.industry, (industryDistributionMap.get(startup.industry) || 0) + inv.offer);
         stageMap.set(startup.stage, (stageMap.get(startup.stage) || 0) + inv.offer);
       }
     });
@@ -253,7 +231,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         amount: i.offer,
       }));
 
-    const industryDistribution = Array.from(industryMap.entries()).map(([industry, amount]) => ({ industry, amount }));
+    const industryDistribution = Array.from(industryDistributionMap.entries()).map(([industry, amount]) => ({ industry, amount }));
     const fundingStageDistribution = Array.from(stageMap.entries()).map(([stage, amount]) => ({ stage, amount }));
 
     // ROI trend (simplified: monthly cumulative returns)
