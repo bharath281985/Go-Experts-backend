@@ -29,7 +29,10 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
       users.forEach(u => userMap.set(u.id, u));
     }
 
-    const shapedConversations = conversations.map((c: any) => {
+    // Filter out conversations that have no messages
+    const validConversations = conversations.filter((c: any) => c.messages && c.messages.length > 0);
+
+    const shapedConversations = validConversations.map((c: any) => {
       const otherId = c.userA === req.user.id ? c.userB : (c.userB === req.user.id ? c.userA : null);
       const otherUser = otherId ? userMap.get(otherId) : null;
 
@@ -57,10 +60,7 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
       return result;
     });
 
-    // Filter out conversations that have no messages
-    const filteredConversations = shapedConversations.filter((c: any) => c.messages && c.messages.length > 0);
-
-    return res.json(successResponse('Conversations retrieved', filteredConversations));
+    return res.json(successResponse('Conversations retrieved', shapedConversations));
   } catch (error) { next(error); }
 };
 
