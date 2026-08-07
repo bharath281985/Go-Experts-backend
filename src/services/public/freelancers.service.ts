@@ -94,6 +94,13 @@ export async function listPublicFreelancers(body: FreelancersListBody) {
     });
   }
 
+  sortedRows = sortedRows.map((row: any) => {
+    if (row) {
+      delete row.password;
+    }
+    return row;
+  });
+
   return { rows: sortedRows, total, degraded, categoryId: categoryId ?? null };
 }
 
