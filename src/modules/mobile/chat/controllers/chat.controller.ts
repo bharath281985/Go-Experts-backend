@@ -4,6 +4,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { notifyNewMessage } from '../../../../utils/notify-message.js';
+import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
 const BASE_URL = process.env.BASE_URL || 'https://mobileapi.goexperts.in';
 
@@ -229,10 +230,10 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       },
     });
 
-    await prisma.conversation.update({
+    const updatedConv = await prisma.conversation.update({
       where: { id: convId },
       data: { msg: message.text, time: new Date().toISOString(), updatedAt: new Date() },
-    });
+    }) as any;
 
     const payload = {
       ...message,
@@ -242,6 +243,25 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       senderId: req.user.id,
     };
     await notifyNewMessage(convId, payload);
+
+    try {
+      const receiverId = updatedConv.userA === req.user.id ? updatedConv.userB : updatedConv.userA;
+      if (receiverId) {
+        await NotificationEngine.queueNotification({
+          userId: receiverId,
+          type: 'new_message',
+          title: `New message from ${req.user.fullName || 'User'}`,
+          message: text ? (text.length > 50 ? text.substring(0, 50) + '...' : text) : 'Sent an attachment',
+          channel: 'all',
+          payload: {
+            conversationId: convId,
+            messageId: message.id
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Failed to queue message notification:', err);
+    }
 
     return res.status(201).json(
       successResponse('Message sent', {
