@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
 export const listProposals = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -55,7 +56,19 @@ export const getProposal = async (req: AuthRequest, res: Response, next: NextFun
 
 const updateProposalStatus = (status: string) => async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await prisma.proposal.updateMany({ where: { id: req.params.id, project: { client: req.user.id } }, data: { status } });
+    const proposal = await prisma.proposal.findFirst({ where: { id: req.params.id, project: { client: req.user.id } } });
+    if (!proposal) return res.status(404).json(successResponse('Proposal not found'));
+
+    await prisma.proposal.update({ where: { id: proposal.id }, data: { status } });
+
+    await NotificationEngine.queueNotification({
+      userId: proposal.freelancerId,
+      type: `proposal_${status}`,
+      title: `Proposal ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      message: `${req.user.fullName || 'The client'} has ${status} your proposal.`,
+      channel: 'all'
+    });
+
     return res.json(successResponse(`Proposal ${status}`));
   } catch (error) { next(error); }
 };

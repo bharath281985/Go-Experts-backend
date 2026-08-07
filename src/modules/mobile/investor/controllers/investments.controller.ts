@@ -3,6 +3,7 @@ import { readList, formatStartupResponse, loadRelatedDataForIdeas } from './star
 import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
 export const listInvestments = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -103,6 +104,17 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
       });
     }
 
+    const idea = await prisma.startupIdea.findUnique({ where: { id: startupId } });
+    if (idea && idea.founder) {
+      await NotificationEngine.queueNotification({
+        userId: idea.founder,
+        type: 'investment_interest',
+        title: 'New Investment Interest',
+        message: `${req.user.fullName || 'An investor'} has expressed interest in your startup!`,
+        channel: 'all'
+      });
+    }
+
     return res.status(201).json(successResponse('Interest expressed', investment));
   } catch (error) { next(error); }
 };
@@ -142,6 +154,17 @@ export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunct
       });
     }
 
+    const idea = await prisma.startupIdea.findUnique({ where: { id: startupId } });
+    if (idea && idea.founder) {
+      await NotificationEngine.queueNotification({
+        userId: idea.founder,
+        type: 'investment_offer',
+        title: 'New Investment Offer',
+        message: `${req.user.fullName || 'An investor'} has made a direct offer for your startup!`,
+        channel: 'all'
+      });
+    }
+
     return res.status(201).json(successResponse('Offer made', investment));
   } catch (error) { next(error); }
 };
@@ -163,6 +186,18 @@ export const cancelInvestment = async (req: AuthRequest, res: Response, next: Ne
         status: { in: ['Pending', 'Offer'] }
       }
     });
+
+    const idea = await prisma.startupIdea.findUnique({ where: { id: req.params.id } });
+    if (idea && idea.founder) {
+      await NotificationEngine.queueNotification({
+        userId: idea.founder,
+        type: 'investment_withdrawn',
+        title: 'Investment Withdrawn',
+        message: `${req.user.fullName || 'An investor'} has withdrawn their investment interest.`,
+        channel: 'all'
+      });
+    }
+
     return res.json(successResponse('Investment withdrawn and removed successfully'));
   } catch (error) { next(error); }
 };

@@ -2,12 +2,9 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
-import {
-  shapeProject,
-  shapeProjects,
-  serializeAttachments,
-} from '../../../../services/mobile/project-shape.service.js';
+import { shapeProject, shapeProjects, serializeAttachments } from '../../../../services/mobile/project-shape.service.js';
 import { parseProjectListQuery } from '../../../../services/mobile/project-list-query.service.js';
+import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
 const EXPERIENCE_LEVELS = ['beginner', 'intermediate', 'expert'] as const;
 type ExperienceLevelKey = (typeof EXPERIENCE_LEVELS)[number];
@@ -174,6 +171,38 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
     });
 
     const shaped = await shapeProject(project, req.user.id);
+
+    // Notify matching freelancers (limit 20)
+    process.nextTick(async () => {
+      try {
+        const freelancers = await prisma.user.findMany({
+          where: { role: 'freelancer', status: 'active' },
+          include: { freelancerProfile: true },
+          take: 50
+        });
+        const techKeywords = technologyValue.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+        const matched = freelancers.filter(fl => {
+          if (!fl.freelancerProfile) return false;
+          const flSkills = (fl.freelancerProfile.skills || '').toLowerCase();
+          const flCat = (fl.freelancerProfile.industry || '').toLowerCase();
+          if (categoryValue && flCat.includes(categoryValue.toLowerCase())) return true;
+          return techKeywords.some(kw => flSkills.includes(kw));
+        });
+
+        for (const fl of matched.slice(0, 20)) {
+          await NotificationEngine.queueNotification({
+            userId: fl.id,
+            type: 'new_project_match',
+            title: 'New Project Match!',
+            message: `A new project '${title}' was just posted that fits your profile!`,
+            channel: 'all'
+          });
+        }
+      } catch (e) {
+        console.error('Failed to notify freelancers of new project', e);
+      }
+    });
+
     return res.status(201).json(successResponse('Project created', shaped));
   } catch (error) {
     next(error);

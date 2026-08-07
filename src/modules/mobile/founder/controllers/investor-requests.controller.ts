@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
 export const listInvestorRequests = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -27,14 +28,38 @@ export const getInvestorRequest = async (req: AuthRequest, res: Response, next: 
 
 export const acceptRequest = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await prisma.investment.updateMany({ where: { id: req.params.id, startup: req.user.id }, data: { status: 'Active' } });
+    const investment = await prisma.investment.findFirst({ where: { id: req.params.id, startup: req.user.id } });
+    if (!investment) return res.status(404).json(errorResponse('Request not found', 'NOT_FOUND'));
+
+    await prisma.investment.update({ where: { id: investment.id }, data: { status: 'Active' } });
+
+    await NotificationEngine.queueNotification({
+      userId: investment.investor,
+      type: 'investment_accepted',
+      title: 'Investment Accepted',
+      message: `${req.user.fullName || 'The founder'} has accepted your investment request!`,
+      channel: 'all'
+    });
+
     return res.json(successResponse('Request accepted'));
   } catch (error) { next(error); }
 };
 
 export const rejectRequest = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await prisma.investment.updateMany({ where: { id: req.params.id, startup: req.user.id }, data: { status: 'Rejected' } });
+    const investment = await prisma.investment.findFirst({ where: { id: req.params.id, startup: req.user.id } });
+    if (!investment) return res.status(404).json(errorResponse('Request not found', 'NOT_FOUND'));
+
+    await prisma.investment.update({ where: { id: investment.id }, data: { status: 'Rejected' } });
+
+    await NotificationEngine.queueNotification({
+      userId: investment.investor,
+      type: 'investment_rejected',
+      title: 'Investment Rejected',
+      message: `${req.user.fullName || 'The founder'} has declined your investment request at this time.`,
+      channel: 'all'
+    });
+
     return res.json(successResponse('Request rejected'));
   } catch (error) { next(error); }
 };

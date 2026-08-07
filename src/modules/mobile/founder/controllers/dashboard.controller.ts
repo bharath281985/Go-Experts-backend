@@ -23,6 +23,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       allInvestments,
       unreadMessages,
       completedMeetings,
+      recentFiles,
     ] = await Promise.all([
       prisma.founderProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -69,31 +70,41 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       }),
       // Completed meetings count for profile views proxy
       prisma.meeting.count({ where: { founder: userId, status: 'Completed' } }),
+      // Recent Documents
+      prisma.mediaFile.findMany({
+        where: { uploadedBy: userId, status: 'active' },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
     ]);
 
     // Format recommendedInvestors with user fields nested inside investorProfile
-    const recommendedInvestors = rawRecommendedInvestors.map((u) => {
-      return {
-        id: u.id,
-        investorProfile: u.investorProfile ? {
-          id: u.investorProfile.id,
-          userId: u.investorProfile.userId,
-          fullName: u.fullName,
-          email: u.email,
-          avatarUrl: u.avatarUrl,
-          city: u.city,
-          country: u.country,
-          bio: u.bio,
-          firm: u.investorProfile.firm,
-          ticketMin: u.investorProfile.ticketMin,
-          ticketMax: u.investorProfile.ticketMax,
-          focusAreas: u.investorProfile.focusAreas,
-          deals: u.investorProfile.deals,
-          createdAt: u.investorProfile.createdAt,
-          updatedAt: u.investorProfile.updatedAt,
-        } : null,
-      };
-    });
+    // Filter out users who don't have an investor profile yet
+    const recommendedInvestors = rawRecommendedInvestors
+      .filter(u => u.investorProfile != null)
+      .map((u) => {
+        return {
+          id: u.id,
+          // We know investorProfile is non-null because of the filter above
+          investorProfile: {
+            id: u.investorProfile!.id,
+            userId: u.investorProfile!.userId,
+            fullName: u.fullName,
+            email: u.email,
+            avatarUrl: u.avatarUrl,
+            city: u.city,
+            country: u.country,
+            bio: u.bio,
+            firm: u.investorProfile!.firm,
+            ticketMin: u.investorProfile!.ticketMin,
+            ticketMax: u.investorProfile!.ticketMax,
+            focusAreas: u.investorProfile!.focusAreas,
+            deals: u.investorProfile!.deals,
+            createdAt: u.investorProfile!.createdAt,
+            updatedAt: u.investorProfile!.updatedAt,
+          },
+        };
+      });
 
     // Populate investor details for upcoming meetings
     const investorIdsForMeetings = rawUpcomingMeetings.map(m => m.investor);
@@ -143,6 +154,16 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     const pendingInvestorRequestsList = rawPendingInvestments.map(inv => ({
       ...inv,
       investorDetails: investmentInvestorMap.get(inv.investor) || null
+    }));
+
+    // Recent documents
+    const recentDocuments = recentFiles.map(f => ({
+      id: f.id,
+      name: f.originalName,
+      url: f.filepath,
+      type: f.filetype,
+      size: f.filesize,
+      createdAt: f.createdAt,
     }));
 
     // Recent notifications as activities
@@ -252,6 +273,15 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
 
     const milestoneCompletion = startupCompletion; // use startup completion as milestoneCompletion proxy
 
+    let aiSuggestions = 'Optimize your pitch deck to focus more on your monetization strategy based on similar successful startups.';
+    if (startupIdea && fundingRemaining > 0 && fundingRaised === 0) {
+      aiSuggestions = 'Your startup idea is fully outlined, but you have not received any funding yet. Consider highlighting your competitive advantage or uploading a clearer business plan to attract early stages investors.';
+    } else if (startupCompletion < 50) {
+      aiSuggestions = 'Complete your startup profile by adding a pitch deck, business plan, and clear funding goals to improve your visibility to investors.';
+    } else if (activeInvestorsCount > 0) {
+      aiSuggestions = `You currently have ${activeInvestorsCount} active investors. Keep them updated with regular reports and consider hosting a strategic alignment meeting to secure follow-on funding.`;
+    }
+
     return res.json(
       successResponse('Founder dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
@@ -293,9 +323,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           recommendedInvestors,
           upcomingMeetingsList,
           recentActivities,
-          recentDocuments: [],
-          aiSuggestions:
-            'Optimize your pitch deck to focus more on your monetization strategy based on similar successful startups.',
+          recentDocuments: recentDocuments,
+          aiSuggestions: aiSuggestions,
           pendingInvestorRequestsList,
         },
       })

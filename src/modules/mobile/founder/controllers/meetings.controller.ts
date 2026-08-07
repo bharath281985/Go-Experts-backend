@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
 const generateMeetingLink = (meetingId: string) => {
   const short = meetingId.replace(/-/g, '').substring(0, 12);
@@ -121,6 +122,15 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
     const meeting = await prisma.meeting.create({
       data: { founder: req.user.id, investor: investorId, date, time, mode: mode || 'Google Meet', status: 'Scheduled' }
     });
+
+    await NotificationEngine.queueNotification({
+      userId: investorId,
+      type: 'meeting_scheduled',
+      title: 'New Meeting Scheduled',
+      message: `${req.user.fullName || 'A founder'} has scheduled a meeting with you for ${date} at ${time}.`,
+      channel: 'all'
+    });
+
     return res.status(201).json(successResponse('Meeting scheduled', meeting));
   } catch (error) { next(error); }
 };
@@ -135,14 +145,38 @@ export const getMeeting = async (req: AuthRequest, res: Response, next: NextFunc
 export const rescheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { date, time } = req.body;
-    await prisma.meeting.updateMany({ where: { id: req.params.id, founder: req.user.id }, data: { date, time } });
+    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id } });
+    if (!meeting) return res.status(404).json(successResponse('Meeting not found'));
+
+    await prisma.meeting.update({ where: { id: meeting.id }, data: { date, time } });
+
+    await NotificationEngine.queueNotification({
+      userId: meeting.investor,
+      type: 'meeting_rescheduled',
+      title: 'Meeting Rescheduled',
+      message: `${req.user.fullName || 'The founder'} has rescheduled your meeting to ${date} at ${time}.`,
+      channel: 'all'
+    });
+
     return res.json(successResponse('Meeting rescheduled'));
   } catch (error) { next(error); }
 };
 
 export const cancelMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await prisma.meeting.updateMany({ where: { id: req.params.id, founder: req.user.id }, data: { status: 'Cancelled' } });
+    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id } });
+    if (!meeting) return res.status(404).json(successResponse('Meeting not found'));
+
+    await prisma.meeting.update({ where: { id: meeting.id }, data: { status: 'Cancelled' } });
+
+    await NotificationEngine.queueNotification({
+      userId: meeting.investor,
+      type: 'meeting_cancelled',
+      title: 'Meeting Cancelled',
+      message: `${req.user.fullName || 'The founder'} has cancelled the upcoming meeting.`,
+      channel: 'all'
+    });
+
     return res.json(successResponse('Meeting cancelled'));
   } catch (error) { next(error); }
 };

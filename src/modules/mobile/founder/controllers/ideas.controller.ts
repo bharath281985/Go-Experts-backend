@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
-
+import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 import { isSchemaDriftError } from '../../../../common/helpers/prisma-compat.js';
 
 export const createIdea = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -42,6 +42,37 @@ export const createIdea = async (req: AuthRequest, res: Response, next: NextFunc
         throw err;
       }
     }
+
+    // Notify matching investors in the background
+    process.nextTick(async () => {
+      try {
+        const investors = await prisma.user.findMany({
+          where: { role: 'investor', status: 'active' },
+          include: { investorProfile: true },
+          take: 50
+        });
+
+        const ideaInd = (industry || '').toLowerCase();
+        const ideaCat = (category || '').toLowerCase();
+        const matched = investors.filter(inv => {
+          if (!inv.investorProfile) return false;
+          const focusAreas = (inv.investorProfile.focusAreas || '').toLowerCase();
+          return focusAreas.includes(ideaInd) || focusAreas.includes(ideaCat);
+        });
+
+        for (const inv of matched.slice(0, 20)) {
+          await NotificationEngine.queueNotification({
+            userId: inv.id,
+            type: 'new_idea_match',
+            title: 'New Startup Idea!',
+            message: `A new startup '${startup}' was just posted in your focus area!`,
+            channel: 'all'
+          });
+        }
+      } catch (e) {
+        console.error('Failed to notify investors of new idea', e);
+      }
+    });
 
     return res.status(201).json(successResponse('Startup idea created successfully', idea));
   } catch (error) {
