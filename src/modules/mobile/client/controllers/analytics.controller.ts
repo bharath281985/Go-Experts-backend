@@ -6,12 +6,22 @@ import { AuthRequest } from '../../../../middlewares/auth.js';
 export const getAnalytics = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user.id;
-    const [totalProjects, activeContracts, totalPayments] = await Promise.all([
+    const [totalProjects, activeContracts, allPayments] = await Promise.all([
       prisma.project.count({ where: { client: userId } }),
       prisma.contract.count({ where: { clientId: userId, status: 'active' } }),
-      prisma.payment.count({ where: { userId } })
+      prisma.payment.findMany({ where: { userId, status: 'completed' } }),
     ]);
-    return res.json(successResponse('Analytics retrieved', { totalProjects, activeContracts, totalPayments, monthlySpend: 0 }));
+
+    const totalPayments = allPayments.reduce((acc, p) => acc + p.amount, 0);
+    const now = new Date();
+    const monthlySpend = allPayments
+      .filter(p => {
+        const d = new Date(p.createdAt);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((acc, p) => acc + p.amount, 0);
+
+    return res.json(successResponse('Analytics retrieved', { totalProjects, activeContracts, totalPayments, monthlySpend }));
   } catch (error) { next(error); }
 };
 

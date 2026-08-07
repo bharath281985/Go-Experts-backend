@@ -14,12 +14,17 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       draftProjects,
       completedProjects,
       pendingProposals,
+      shortlistedProposals,
       activeContracts,
       unreadNotifications,
       upcomingMeetings,
       totalSpendWallet,
       completion,
       rawUpcomingMeetings,
+      unreadMessages,
+      pendingPayments,
+      allPayments,
+      supportTicketsCount,
     ] = await Promise.all([
       prisma.clientProfile.findUnique({ where: { userId } }),
       prisma.project.count({ where: { client: userId, status: 'in_progress' } }),
@@ -27,6 +32,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       prisma.project.count({ where: { client: userId, status: 'completed' } }),
       prisma.proposal.count({
         where: { project: { client: userId }, status: 'pending' },
+      }),
+      // Shortlisted freelancers: proposals with "shortlisted" status
+      prisma.proposal.count({
+        where: { project: { client: userId }, status: 'shortlisted' },
       }),
       prisma.contract.count({ where: { clientId: userId, status: 'active' } }),
       prisma.notification.count({ where: { userId, readAt: null } }),
@@ -52,6 +61,22 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         orderBy: [{ date: 'asc' }, { time: 'asc' }],
         take: 5,
       }),
+      // Unread messages
+      prisma.message.count({
+        where: {
+          conversation: {
+            OR: [{ userA: userId }, { userB: userId }],
+          },
+          senderId: { not: userId },
+          readAt: null,
+        },
+      }),
+      // Pending payments
+      prisma.payment.count({ where: { userId, status: 'pending' } }),
+      // All completed payments for spend calculations
+      prisma.payment.findMany({ where: { userId, status: 'completed' } }),
+      // Support tickets
+      prisma.supportTicket.count({ where: { user: userId, status: { not: 'Closed' } } }),
     ]);
 
     // Populate target details for upcoming meetings
@@ -77,6 +102,41 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       targetDetails: targetMap.get(m.founder === userId ? m.investor : m.founder) || null
     }));
 
+    // Compute monthly spend & spend trend from real payments
+    const now = new Date();
+    const monthlySpend = allPayments
+      .filter(p => {
+        const d = new Date(p.createdAt);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((acc, p) => acc + p.amount, 0);
+
+    // Spend trend: last 6 months
+    const spendTrend = [0, 0, 0, 0, 0, 0];
+    allPayments.forEach(p => {
+      const pDate = new Date(p.createdAt);
+      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
+      if (monthsAgo >= 0 && monthsAgo < 6) {
+        spendTrend[5 - monthsAgo] += p.amount;
+      }
+    });
+
+    // Category distribution from user's projects
+    const allProjects = await prisma.project.findMany({
+      where: { client: userId },
+      select: { category: true, status: true },
+    });
+    const categoryMap = new Map<string, number>();
+    allProjects.forEach(p => {
+      categoryMap.set(p.category, (categoryMap.get(p.category) || 0) + 1);
+    });
+    const categoryDistribution = Array.from(categoryMap.entries()).map(([category, count]) => ({ category, count }));
+
+    // Accepted proposals count
+    const acceptedProposals = await prisma.proposal.count({
+      where: { project: { client: userId }, status: 'accepted' },
+    });
+
     return res.json(
       successResponse('Client dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
@@ -85,25 +145,25 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         draftProjects,
         completedProjects,
         pendingProposals,
-        shortlistedFreelancers: 0,
+        shortlistedFreelancers: shortlistedProposals,
         activeContracts,
-        pendingPayments: 0,
-        monthlySpend: 0,
+        pendingPayments,
+        monthlySpend,
         totalSpend: clientProfile?.totalSpend || 0,
-        unreadMessages: 0,
+        unreadMessages,
         unreadNotifications,
         upcomingMeetings,
-        supportTickets: 0,
+        supportTickets: supportTicketsCount,
         walletBalance: totalSpendWallet?.balance || 0,
         charts: {
-          spendTrend: [0, 0, 0, 0, 0, 0],
+          spendTrend,
           projectStatus: {
             active: activeProjects,
             draft: draftProjects,
             completed: completedProjects,
           },
-          proposalFunnel: { pending: pendingProposals, shortlisted: 0, accepted: 0 },
-          categoryDistribution: [],
+          proposalFunnel: { pending: pendingProposals, shortlisted: shortlistedProposals, accepted: acceptedProposals },
+          categoryDistribution,
         },
         upcomingMeetingsList,
       })

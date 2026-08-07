@@ -2,16 +2,18 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { resolveProfileCompletion } from '../../../../services/mobile/profile-completion.service.js';
 
 export const getDashboard = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user.id;
-    
+
     const [
-      profile, wallet, subscription, todayTasksCount, 
+      profile, wallet, subscription, todayTasksCount,
       upcomingMeetings, unreadNotifications, pendingProposals,
       acceptedProjects, completedProjects, currentContracts,
-      reviews, rawUpcomingMeetings
+      reviews, rawUpcomingMeetings, completion,
+      unreadMessages, allPayments, allProposals,
     ] = await Promise.all([
       prisma.freelancerProfile.findUnique({ where: { userId } }),
       prisma.wallet.findUnique({ where: { userId } }),
@@ -43,6 +45,22 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         orderBy: [{ date: 'asc' }, { time: 'asc' }],
         take: 5,
       }),
+      // Profile completion from service
+      resolveProfileCompletion(userId),
+      // Unread messages
+      prisma.message.count({
+        where: {
+          conversation: {
+            OR: [{ userA: userId }, { userB: userId }],
+          },
+          senderId: { not: userId },
+          readAt: null,
+        },
+      }),
+      // All payments for earnings computation
+      prisma.payment.findMany({ where: { userId, status: 'completed' } }),
+      // All proposals for chart
+      prisma.proposal.findMany({ where: { freelancerId: userId } }),
     ]);
 
     // Populate target details for upcoming meetings
@@ -68,7 +86,18 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       targetDetails: targetMap.get(m.founder === userId ? m.investor : m.founder) || null
     }));
 
-    let lifetimeEarnings = 0;
+    // Compute earnings from payments
+    const lifetimeEarnings = allPayments.reduce((acc, p) => acc + p.amount, 0);
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthlyEarnings = allPayments
+      .filter(p => {
+        const d = new Date(p.createdAt);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((acc, p) => acc + p.amount, 0);
+
     const avgRating = reviews.length > 0 ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length : 5.0;
 
     // Resolve topSkills UUIDs to names
@@ -84,29 +113,67 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       }
     }
 
+    // --- Compute charts from real data ---
+    const earningsChart = [0, 0, 0, 0, 0, 0];
+    allPayments.forEach(p => {
+      const pDate = new Date(p.createdAt);
+      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
+      if (monthsAgo >= 0 && monthsAgo < 6) {
+        earningsChart[5 - monthsAgo] += p.amount;
+      }
+    });
+
+    // Projects chart: count projects completed per month
+    const allCompletedProjects = await prisma.project.findMany({
+      where: { freelancer: userId, status: 'completed' },
+      select: { updatedAt: true },
+    });
+    const projectsChart = [0, 0, 0, 0, 0, 0];
+    allCompletedProjects.forEach(p => {
+      const pDate = new Date(p.updatedAt);
+      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
+      if (monthsAgo >= 0 && monthsAgo < 6) {
+        projectsChart[5 - monthsAgo] += 1;
+      }
+    });
+
+    // Proposals chart: proposals submitted per month
+    const proposalsChart = [0, 0, 0, 0, 0, 0];
+    allProposals.forEach(p => {
+      const pDate = new Date(p.createdAt);
+      const monthsAgo = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
+      if (monthsAgo >= 0 && monthsAgo < 6) {
+        proposalsChart[5 - monthsAgo] += 1;
+      }
+    });
+
+    // Monthly activity: sum of projects + proposals + payments per month
+    const monthlyActivity = earningsChart.map((e, i) => projectsChart[i] + proposalsChart[i] + (e > 0 ? 1 : 0));
+
     const data = {
-      profileCompletion: profile ? 80 : 0,
+      profileCompletion: completion.profileCompletion,
+      isProfileComplete: completion.isProfileComplete,
       walletBalance: wallet?.balance || 0,
       subscriptionStatus: subscription ? 'active' : 'inactive',
       todaysTasks: todayTasksCount,
       upcomingMeetings,
       unreadNotifications,
-      unreadMessages: 0, 
+      unreadMessages,
       pendingProposals,
       acceptedProjects,
       completedProjects,
       currentContracts,
-      monthlyEarnings: 0,
+      monthlyEarnings,
       lifetimeEarnings,
       averageRating: avgRating,
       reviewCount: reviews.length,
       topSkills,
       projectStatistics: { total: acceptedProjects + completedProjects, completed: completedProjects },
       charts: {
-        earnings: [0, 0, 0, 0, 0, 0],
-        projects: [0, 0, 0, 0, 0, 0],
-        proposals: [0, 0, 0, 0, 0, 0],
-        monthlyActivity: [0, 0, 0, 0, 0, 0]
+        earnings: earningsChart,
+        projects: projectsChart,
+        proposals: proposalsChart,
+        monthlyActivity,
       },
       upcomingMeetingsList,
     };

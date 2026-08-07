@@ -19,6 +19,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       completion,
       rawUpcomingMeetings,
       rawPendingInvestments,
+      startupIdea,
+      allInvestments,
+      unreadMessages,
+      completedMeetings,
     ] = await Promise.all([
       prisma.founderProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -46,6 +50,25 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
+      // Founder's startup idea for real data
+      prisma.startupIdea.findFirst({
+        where: { founder: userId, status: 'active' },
+        orderBy: { createdAt: 'desc' },
+      }),
+      // All investments for this founder's startup for charts
+      prisma.investment.findMany({ where: { startup: userId } }),
+      // Unread messages
+      prisma.message.count({
+        where: {
+          conversation: {
+            OR: [{ userA: userId }, { userB: userId }],
+          },
+          senderId: { not: userId },
+          readAt: null,
+        },
+      }),
+      // Completed meetings count for profile views proxy
+      prisma.meeting.count({ where: { founder: userId, status: 'Completed' } }),
     ]);
 
     // Format recommendedInvestors with user fields nested inside investorProfile
@@ -135,42 +158,136 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       createdAt: n.createdAt,
     }));
 
+    // --- Compute real values from startup idea ---
+    const fundingGoal = startupIdea?.funding || 0;
+    const fundingRaised = allInvestments
+      .filter(i => i.status === 'Active')
+      .reduce((sum, i) => sum + i.offer, 0);
+    const fundingRemaining = Math.max(0, fundingGoal - fundingRaised);
+    const pitchDeckViews = startupIdea?.views || 0;
+    const startupVerificationStatus = startupIdea?.status || 'pending';
+
+    // Startup completion: check how many fields in startupIdea are filled
+    let startupCompletion = 0;
+    if (startupIdea) {
+      const totalFields = 10;
+      let filled = 0;
+      if (startupIdea.startup) filled++;
+      if (startupIdea.industry) filled++;
+      if (startupIdea.category) filled++;
+      if (startupIdea.stage) filled++;
+      if (startupIdea.funding > 0) filled++;
+      if (startupIdea.equity > 0) filled++;
+      if (startupIdea.pitchDeck) filled++;
+      if (startupIdea.businessPlan) filled++;
+      if (startupIdea.logo) filled++;
+      if (startupIdea.coverUrl) filled++;
+      startupCompletion = Math.round((filled / totalFields) * 100);
+    }
+
+    // Business plan completion
+    const businessPlanCompletion = startupIdea?.businessPlan ? 100 : 0;
+
+    // --- Compute charts from real investment data ---
+    const now = new Date();
+    const fundingProgress: number[] = [];
+    const investorGrowthArr: number[] = [];
+    const monthlyFundingTrend = [0, 0, 0, 0, 0, 0];
+
+    // Sort investments by date for cumulative charts
+    const sortedInvestments = [...allInvestments]
+      .filter(i => i.status === 'Active')
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    let cumFunding = 0;
+    sortedInvestments.forEach((inv, idx) => {
+      cumFunding += inv.offer;
+      fundingProgress.push(cumFunding);
+      investorGrowthArr.push(idx + 1);
+    });
+    // Ensure at least one data point
+    if (fundingProgress.length === 0) { fundingProgress.push(0); investorGrowthArr.push(0); }
+
+    allInvestments.forEach(inv => {
+      const invDate = new Date(inv.createdAt);
+      const monthsAgo = (now.getFullYear() - invDate.getFullYear()) * 12 + (now.getMonth() - invDate.getMonth());
+      if (monthsAgo >= 0 && monthsAgo < 6) {
+        monthlyFundingTrend[5 - monthsAgo] += inv.offer;
+      }
+    });
+
+    // Profile views & pitch deck view trends from startupIdea.views (simplified monthly estimate)
+    const startupProfileViews = startupIdea
+      ? [
+        Math.round(pitchDeckViews * 0.05), Math.round(pitchDeckViews * 0.15),
+        Math.round(pitchDeckViews * 0.3), Math.round(pitchDeckViews * 0.55),
+        Math.round(pitchDeckViews * 0.8), pitchDeckViews,
+      ]
+      : [0, 0, 0, 0, 0, 0];
+
+    // Revenue/cash flow/burn rate from wallet transactions if available
+    const walletTransactions = wallet ? await prisma.walletTransaction.findMany({
+      where: { walletId: wallet.id },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    }) : [];
+
+    const revenueTrend = [0, 0, 0, 0, 0, 0];
+    const cashFlow = [0, 0, 0, 0, 0, 0];
+    let burnRate = 0;
+
+    walletTransactions.forEach(tx => {
+      const txDate = new Date(tx.createdAt);
+      const monthsAgo = (now.getFullYear() - txDate.getFullYear()) * 12 + (now.getMonth() - txDate.getMonth());
+      if (monthsAgo >= 0 && monthsAgo < 6) {
+        if (tx.direction === 'credit') {
+          revenueTrend[5 - monthsAgo] += tx.amount;
+          cashFlow[5 - monthsAgo] += tx.amount;
+        } else {
+          cashFlow[5 - monthsAgo] -= tx.amount;
+          if (monthsAgo === 0) burnRate += tx.amount;
+        }
+      }
+    });
+
+    const milestoneCompletion = startupCompletion; // use startup completion as milestoneCompletion proxy
+
     return res.json(
       successResponse('Founder dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
         isProfileComplete: completion.isProfileComplete,
-        startupCompletion: founderProfile ? 75 : 10,
-        startupVerificationStatus: 'verified',
+        startupCompletion,
+        startupVerificationStatus,
         subscription: subscription
           ? {
-              status: subscription.status,
-              planId: subscription.planId,
-              planName: subscription.plan.name,
-            }
+            status: subscription.status,
+            planId: subscription.planId,
+            planName: subscription.plan.name,
+          }
           : null,
         walletBalance: wallet?.balance || 0,
-        fundingGoal: 500000,
-        fundingRaised: founderProfile?.raised || 0,
-        fundingRemaining: 500000 - (founderProfile?.raised || 0),
+        fundingGoal,
+        fundingRaised,
+        fundingRemaining,
         investorInterests: pendingRequests,
         activeInvestors: activeInvestorsCount,
         pendingMeetings: upcomingMeetingsCount,
-        pitchDeckViews: 120,
-        profileViews: 450,
-        businessPlanCompletion: 100,
+        pitchDeckViews,
+        profileViews: completedMeetings, // use completed meetings as a proxy for profile engagement
+        businessPlanCompletion,
         upcomingMilestones: [],
         pendingDocuments: 0,
         unreadNotifications,
-        unreadMessages: 0,
+        unreadMessages,
         charts: {
-          fundingProgress: [0, 10000, 50000, 150000, 200000],
-          investorGrowth: [1, 2, 4, 8, 12],
-          startupProfileViews: [10, 50, 100, 300, 450],
-          monthlyFundingTrend: [0, 0, 50000, 100000, 50000, 0],
-          burnRate: 15000,
-          cashFlow: [10000, -5000, 2000, -1000, -15000],
-          revenueTrend: [0, 1000, 2000, 5000, 8000],
-          milestoneCompletion: 60,
+          fundingProgress,
+          investorGrowth: investorGrowthArr,
+          startupProfileViews,
+          monthlyFundingTrend,
+          burnRate,
+          cashFlow,
+          revenueTrend,
+          milestoneCompletion,
         },
         widgets: {
           recommendedInvestors,

@@ -21,6 +21,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       ideas,
       completion,
       rawUpcomingMeetings,
+      unreadMessages,
+      trendingStartups,
+      allInvestments,
+      supportTicketsCount,
     ] = await Promise.all([
       prisma.investorProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -44,6 +48,28 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         orderBy: [{ date: 'asc' }, { time: 'asc' }],
         take: 5,
       }),
+      // Unread messages: count messages in conversations where user is a participant and messages are unread
+      prisma.message.count({
+        where: {
+          conversation: {
+            OR: [{ userA: userId }, { userB: userId }],
+          },
+          senderId: { not: userId },
+          readAt: null,
+        },
+      }),
+      // Trending startups by views
+      prisma.startupIdea.findMany({
+        where: { status: 'active', visibility: 'Public' },
+        orderBy: { views: 'desc' },
+        take: 5,
+      }),
+      // All investments for chart computation
+      prisma.investment.findMany({
+        where: { investor: userId },
+      }),
+      // Support tickets count
+      prisma.supportTicket.count({ where: { user: userId, status: { not: 'Closed' } } }),
     ]);
 
     // Populate founder info for recommended startups
@@ -118,6 +144,30 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       };
     });
 
+    // Populate trending startups with founder info
+    const trendingFounderIds = Array.from(new Set(trendingStartups.map(s => s.founder).filter(Boolean))) as string[];
+    const trendingFounders = trendingFounderIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: trendingFounderIds }, role: 'founder' },
+      select: {
+        id: true, fullName: true, email: true, avatarUrl: true,
+        city: true, country: true, bio: true,
+        founderProfile: { select: { id: true, startupName: true, industry: true, stage: true } },
+      },
+    }) : [];
+    const trendingFounderMap = new Map<string, any>();
+    trendingFounders.forEach(f => {
+      trendingFounderMap.set(f.id, {
+        id: f.id, fullName: f.fullName, avatarUrl: f.avatarUrl,
+        startupName: f.founderProfile?.startupName ?? null,
+      });
+    });
+    const trendingStartupsList = trendingStartups.map(s => ({
+      id: s.id, startup: s.startup, industry: s.industry, category: s.category,
+      stage: s.stage, funding: s.funding, equity: s.equity, logo: s.logo,
+      coverUrl: s.coverUrl, views: s.views, interestedInvestors: s.interestedInvestors,
+      createdAt: s.createdAt, founder: trendingFounderMap.get(s.founder) || null,
+    }));
+
     // Populate founder details for meetings
     const founderIdsForMeetings = rawUpcomingMeetings.map(m => m.founder);
     const meetingFounders = founderIdsForMeetings.length > 0 ? await prisma.user.findMany({
@@ -156,10 +206,61 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       createdAt: n.createdAt,
     }));
 
-    const activeInvestmentsList = await prisma.investment.findMany({
-      where: { investor: userId, status: 'Active' },
-    });
+    // Portfolio value from active investments
+    const activeInvestmentsList = allInvestments.filter(inv => inv.status === 'Active');
     const portfolioValue = activeInvestmentsList.reduce((sum, inv) => sum + inv.offer, 0);
+
+    // --- Compute charts from real investment data ---
+    const now = new Date();
+    const monthlyInvestments = [0, 0, 0, 0, 0, 0];
+    const portfolioGrowth = [0, 0, 0, 0, 0, 0];
+    const industryMap = new Map<string, number>();
+    const stageMap = new Map<string, number>();
+
+    // Get startup details for industry/stage distribution
+    const startupUserIds = Array.from(new Set(allInvestments.map(i => i.startup)));
+    const investedStartups = startupUserIds.length > 0 ? await prisma.startupIdea.findMany({
+      where: { founder: { in: startupUserIds } },
+    }) : [];
+    const startupByFounder = new Map<string, any>();
+    investedStartups.forEach(s => startupByFounder.set(s.founder, s));
+
+    allInvestments.forEach(inv => {
+      const invDate = new Date(inv.createdAt);
+      const monthsAgo = (now.getFullYear() - invDate.getFullYear()) * 12 + (now.getMonth() - invDate.getMonth());
+      if (monthsAgo >= 0 && monthsAgo < 6) {
+        monthlyInvestments[5 - monthsAgo] += 1;
+        portfolioGrowth[5 - monthsAgo] += inv.offer;
+      }
+
+      // Industry & stage distribution
+      const startup = startupByFounder.get(inv.startup);
+      if (startup) {
+        industryMap.set(startup.industry, (industryMap.get(startup.industry) || 0) + inv.offer);
+        stageMap.set(startup.stage, (stageMap.get(startup.stage) || 0) + inv.offer);
+      }
+    });
+
+    // Cumulative portfolio growth
+    for (let i = 1; i < 6; i++) {
+      portfolioGrowth[i] += portfolioGrowth[i - 1];
+    }
+
+    const investmentAllocation = allInvestments
+      .filter(i => i.status === 'Active')
+      .map(i => ({
+        startup: startupByFounder.get(i.startup)?.startup || 'Unknown',
+        amount: i.offer,
+      }));
+
+    const industryDistribution = Array.from(industryMap.entries()).map(([industry, amount]) => ({ industry, amount }));
+    const fundingStageDistribution = Array.from(stageMap.entries()).map(([stage, amount]) => ({ stage, amount }));
+
+    // ROI trend (simplified: monthly cumulative returns)
+    const roiTrend = portfolioGrowth.map(v => (portfolioValue > 0 ? Math.round(((v - portfolioValue) / portfolioValue) * 100) : 0));
+
+    // Watchlist count — no Favorite model in schema yet, default to 0
+    const watchlistCount = 0;
 
     return res.json(
       successResponse('Investor dashboard retrieved', {
@@ -167,10 +268,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         isProfileComplete: completion.isProfileComplete,
         subscription: subscription
           ? {
-              status: subscription.status,
-              planId: subscription.planId,
-              planName: subscription.plan.name,
-            }
+            status: subscription.status,
+            planId: subscription.planId,
+            planName: subscription.plan.name,
+          }
           : null,
         walletBalance: wallet?.balance || 0,
         portfolioValue,
@@ -178,19 +279,20 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         activeInvestments,
         closedInvestments,
         pendingInvestments,
-        unreadMessages: 0,
+        unreadMessages,
         unreadNotifications,
         upcomingMeetings: upcomingMeetingsCount,
-        watchlistCount: 0,
+        watchlistCount,
+        supportTickets: supportTicketsCount,
         recommendedStartups,
-        trendingStartups: [],
+        trendingStartups: trendingStartupsList,
         charts: {
-          portfolioGrowth: [0, 0, 0, 0, 0, 0],
-          investmentAllocation: [],
-          industryDistribution: [],
-          fundingStageDistribution: [],
-          monthlyInvestments: [0, 0, 0, 0, 0, 0],
-          roiTrend: [0, 0, 0, 0, 0, 0],
+          portfolioGrowth,
+          investmentAllocation,
+          industryDistribution,
+          fundingStageDistribution,
+          monthlyInvestments,
+          roiTrend,
         },
         recentActivities,
         upcomingMeetingsList,
