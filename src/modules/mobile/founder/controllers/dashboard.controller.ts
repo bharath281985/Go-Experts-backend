@@ -7,11 +7,20 @@ import { resolveProfileCompletion } from '../../../../services/mobile/profile-co
 export const getDashboard = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user.id;
+
+    // Founder's startup idea for real data
+    const startupIdea = await prisma.startupIdea.findFirst({
+      where: { founder: userId, status: 'active' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const startupIdeaId = startupIdea ? startupIdea.id : 'no-idea-found';
+
     const [
       founderProfile,
       subscription,
       wallet,
-      pendingRequests,
+      pendingRequestsCount,
       activeInvestorsCount,
       unreadNotifications,
       upcomingMeetingsCount,
@@ -19,11 +28,11 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       completion,
       rawUpcomingMeetings,
       rawPendingInvestments,
-      startupIdea,
       allInvestments,
       unreadMessages,
       completedMeetings,
       recentFiles,
+      pendingDocumentsCount,
     ] = await Promise.all([
       prisma.founderProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -31,8 +40,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         include: { plan: true },
       }),
       prisma.wallet.findUnique({ where: { userId } }),
-      prisma.investment.count({ where: { startup: userId, status: 'Pending' } }),
-      prisma.investment.count({ where: { startup: userId, status: 'Active' } }),
+      prisma.investment.count({ where: { startup: startupIdeaId, status: 'Pending' } }),
+      prisma.investment.count({ where: { startup: startupIdeaId, status: 'Active' } }),
       prisma.notification.count({ where: { userId, readAt: null } }),
       prisma.meeting.count({ where: { founder: userId, status: 'Scheduled' } }),
       prisma.user.findMany({
@@ -47,17 +56,12 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         take: 5,
       }),
       prisma.investment.findMany({
-        where: { startup: userId, status: 'Pending' },
+        where: { startup: startupIdeaId, status: 'Pending' },
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
-      // Founder's startup idea for real data
-      prisma.startupIdea.findFirst({
-        where: { founder: userId, status: 'active' },
-        orderBy: { createdAt: 'desc' },
-      }),
       // All investments for this founder's startup for charts
-      prisma.investment.findMany({ where: { startup: userId } }),
+      prisma.investment.findMany({ where: { startup: startupIdeaId } }),
       // Unread messages
       prisma.message.count({
         where: {
@@ -68,7 +72,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           readAt: null,
         },
       }),
-      // Completed meetings count for profile views proxy
+      // Completed meetings count (can be used for historic record)
       prisma.meeting.count({ where: { founder: userId, status: 'Completed' } }),
       // Recent Documents
       prisma.mediaFile.findMany({
@@ -76,6 +80,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
+      // Pending documents
+      prisma.mediaFile.count({
+        where: { uploadedBy: userId, status: 'pending' },
+      })
     ]);
 
     // Format recommendedInvestors with user fields nested inside investorProfile
@@ -299,14 +307,14 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         fundingGoal,
         fundingRaised,
         fundingRemaining,
-        investorInterests: pendingRequests,
+        investorInterests: pendingRequestsCount,
         activeInvestors: activeInvestorsCount,
         pendingMeetings: upcomingMeetingsCount,
         pitchDeckViews,
-        profileViews: completedMeetings, // use completed meetings as a proxy for profile engagement
+        profileViews: startupIdea?.views || 0,
         businessPlanCompletion,
         upcomingMilestones: [],
-        pendingDocuments: 0,
+        pendingDocuments: pendingDocumentsCount,
         unreadNotifications,
         unreadMessages,
         charts: {

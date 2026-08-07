@@ -198,10 +198,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     // Get startup details for industry/stage distribution
     const startupUserIds = Array.from(new Set(allInvestments.map(i => i.startup)));
     const investedStartups = startupUserIds.length > 0 ? await prisma.startupIdea.findMany({
-      where: { founder: { in: startupUserIds } },
+      where: { id: { in: startupUserIds } },
     }) : [];
     const startupByFounder = new Map<string, any>();
-    investedStartups.forEach(s => startupByFounder.set(s.founder, s));
+    investedStartups.forEach(s => startupByFounder.set(s.id, s));
 
     allInvestments.forEach(inv => {
       const invDate = new Date(inv.createdAt);
@@ -237,8 +237,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     // ROI trend (simplified: monthly cumulative returns)
     const roiTrend = portfolioGrowth.map(v => (portfolioValue > 0 ? Math.round(((v - portfolioValue) / portfolioValue) * 100) : 0));
 
-    // Watchlist count — no Favorite model in schema yet, default to 0
-    const watchlistCount = 0;
+    const watchlistCount = watchlist.length;
 
     return res.json(
       successResponse('Investor dashboard retrieved', {
