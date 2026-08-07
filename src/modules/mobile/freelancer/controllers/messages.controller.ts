@@ -33,9 +33,19 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
       const otherId = c.userA === req.user.id ? c.userB : (c.userB === req.user.id ? c.userA : null);
       const otherUser = otherId ? userMap.get(otherId) : null;
 
+      let fallbackName = c.name;
+      if (!fallbackName || fallbackName === 'Chat') {
+        const lastMsg = (c.messages && c.messages[0]) ? c.messages[0] : null;
+        if (lastMsg && lastMsg.from && lastMsg.from !== 'me' && lastMsg.from !== req.user.fullName) {
+          fallbackName = lastMsg.from;
+        } else {
+          fallbackName = 'Unknown User';
+        }
+      }
+
       return {
         ...c,
-        name: otherUser ? otherUser.fullName : (c.name || 'Chat'),
+        name: otherUser ? otherUser.fullName : fallbackName,
         avatar: otherUser ? otherUser.avatarUrl : (c.avatar || null),
         role: otherUser ? otherUser.role : c.role
       };
