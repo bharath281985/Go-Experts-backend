@@ -3,9 +3,28 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 
-const mapInvestor = (investor: any) => {
+const mapInvestorAsync = async (investor: any) => {
   const prof = investor?.investorProfile;
   const { investorProfile, ...rest } = investor;
+
+  let focusAreas = prof?.focusAreas || 'AI, SaaS, FinTech, HealthTech';
+  if (prof?.focusAreas && prof.focusAreas.includes('-')) {
+    try {
+      const parsed = prof.focusAreas.startsWith('[')
+        ? JSON.parse(prof.focusAreas)
+        : prof.focusAreas.split(',').map((s: string) => s.trim());
+
+      const names: string[] = [];
+      for (const id of parsed) {
+        let record = await prisma.industry.findUnique({ where: { id } });
+        if (!record) {
+          record = await prisma.skillCategory.findUnique({ where: { id } }) as any;
+        }
+        names.push(record ? record.name : id);
+      }
+      if (names.length > 0) focusAreas = names.join(', ');
+    } catch { }
+  }
 
   return {
     ...rest,
@@ -20,7 +39,7 @@ const mapInvestor = (investor: any) => {
     firm: prof?.firm || 'Global VC Firm',
     ticketMin: prof?.ticketMin ?? 25000,
     ticketMax: prof?.ticketMax ?? 500000,
-    focusAreas: prof?.focusAreas || 'AI, SaaS, FinTech, HealthTech',
+    focusAreas,
     deals: prof?.deals ?? 12,
     investmentsCount: prof?.deals ?? 12,
     preferredStage: 'Seed / Series A',
@@ -49,7 +68,7 @@ export const listInvestors = async (req: AuthRequest, res: Response, next: NextF
       }),
       prisma.user.count({ where: { role: 'investor', status: 'active' } })
     ]);
-    const mappedInvestors = investors.map(mapInvestor);
+    const mappedInvestors = await Promise.all(investors.map(mapInvestorAsync));
     return res.json(successResponse('Investors retrieved', mappedInvestors, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
@@ -69,7 +88,7 @@ export const getInvestor = async (req: AuthRequest, res: Response, next: NextFun
       investor = allInvestors[0] || null;
     }
 
-    const data = mapInvestor(investor);
+    const data = await mapInvestorAsync(investor);
     return res.json(successResponse('Details retrieved for investor', data));
   } catch (error) { next(error); }
 };
@@ -77,7 +96,8 @@ export const getInvestor = async (req: AuthRequest, res: Response, next: NextFun
 export const getRecommendedInvestors = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const investors = await prisma.user.findMany({ where: { role: 'investor', status: 'active' }, include: { investorProfile: true }, take: 10 });
-    return res.json(successResponse('Recommended investors', investors.map(mapInvestor)));
+    const mapped = await Promise.all(investors.map(mapInvestorAsync));
+    return res.json(successResponse('Recommended investors', mapped));
   } catch (error) { next(error); }
 };
 
