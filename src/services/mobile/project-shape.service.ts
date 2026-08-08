@@ -57,21 +57,21 @@ export const shapeProjects = async (
   const [clients, categories, skills] = await Promise.all([
     clientIds.length
       ? prisma.user.findMany({
-          where: { id: { in: clientIds } },
-          select: { id: true, fullName: true, avatarUrl: true, isVerified: true },
-        })
+        where: { id: { in: clientIds } },
+        select: { id: true, fullName: true, avatarUrl: true, isVerified: true },
+      })
       : Promise.resolve([]),
     categoryIds.length
       ? prisma.skillCategory.findMany({
-          where: { id: { in: categoryIds } },
-          select: { id: true, name: true },
-        })
+        where: { id: { in: categoryIds } },
+        select: { id: true, name: true },
+      })
       : Promise.resolve([]),
     skillIds.length
       ? prisma.skill.findMany({
-          where: { id: { in: skillIds } },
-          select: { id: true, name: true },
-        })
+        where: { id: { in: skillIds } },
+        select: { id: true, name: true },
+      })
       : Promise.resolve([]),
   ]);
 
@@ -99,20 +99,26 @@ export const shapeProjects = async (
       ? categoryById.get(project.category) ?? 'General'
       : project.category || 'General';
 
+    const formattedSkills = skillIdList.map((id, index) => ({
+      skillId: id,
+      skillName: skillNames[index]
+    }));
+
     return {
       id: project.id,
       title: project.title,
       description: project.description ?? '',
-      clientId: project.client,
-      clientName: client?.fullName || 'Client',
-      clientAvatar: client?.avatarUrl ?? null,
-      clientVerified: Boolean(client?.isVerified),
+      client: {
+        id: project.client,
+        name: client?.fullName || 'Client',
+        avatar: client?.avatarUrl ?? null,
+        isVerified: Boolean(client?.isVerified),
+      },
       category: categoryName,
       categoryId: uuidLike.test(String(project.category || ''))
         ? project.category
         : null,
-      skills: skillNames,
-      skillIds: skillIdList,
+      skills: formattedSkills,
       techStack: skillNames,
       technology: skillNames.join(', '),
       budget: project.budget,

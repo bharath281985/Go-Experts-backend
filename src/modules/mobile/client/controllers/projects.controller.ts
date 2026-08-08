@@ -80,14 +80,18 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
         };
         return {
           ...project,
-          clientId: project.client,
-          clientName: 'Client',
+          client: {
+            id: project.client,
+            name: 'Client',
+            avatar: null,
+            isVerified: false
+          },
           category: project.category,
           skills: String(project.technology || '')
             .split(',')
             .map((s) => s.trim())
-            .filter(Boolean),
-          skillIds: [],
+            .filter(Boolean)
+            .map((name) => ({ skillId: '', skillName: name })),
           budgetMin: project.budgetMin ?? project.budget,
           budgetMax: project.budgetMax ?? project.budget,
           workMode: project.workMode ?? 'Remote',
