@@ -108,12 +108,10 @@ export const shapeProjects = async (
       id: project.id,
       title: project.title,
       description: project.description ?? '',
-      client: {
-        id: project.client,
-        name: client?.fullName || 'Client',
-        avatar: client?.avatarUrl ?? null,
-        isVerified: Boolean(client?.isVerified),
-      },
+      clientId: project.client,
+      clientName: client?.fullName || 'Client',
+      clientAvatar: client?.avatarUrl ?? null,
+      clientVerified: Boolean(client?.isVerified),
       category: categoryName,
       categoryId: uuidLike.test(String(project.category || ''))
         ? project.category

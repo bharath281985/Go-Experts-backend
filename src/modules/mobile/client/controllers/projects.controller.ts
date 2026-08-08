@@ -80,12 +80,8 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
         };
         return {
           ...project,
-          client: {
-            id: project.client,
-            name: 'Client',
-            avatar: null,
-            isVerified: false
-          },
+          clientId: project.client,
+          clientName: 'Client',
           category: project.category,
           skills: String(project.technology || '')
             .split(',')
