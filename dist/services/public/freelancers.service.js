@@ -81,6 +81,12 @@ export async function listPublicFreelancers(body) {
             return ascending ? left - right : right - left;
         });
     }
+    sortedRows = sortedRows.map((row) => {
+        if (row) {
+            delete row.password;
+        }
+        return row;
+    });
     return { rows: sortedRows, total, degraded, categoryId: categoryId ?? null };
 }
 export async function getFreelancerRateRange() {

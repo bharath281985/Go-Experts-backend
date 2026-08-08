@@ -57,7 +57,12 @@ export const apiLoggerMiddleware = (req: Request, res: Response, next: NextFunct
       })
       .catch((err: any) => {
         // Silently swallow — logging must never crash the server
-        console.error("[API LOGGER] Failed to write log:", err?.message);
+        const msg = err?.message || String(err);
+        if (msg.includes("Can't reach database server") || msg.includes("PrismaClientInitializationError")) {
+          // DB is offline; suppress verbose multi-line stack trace dump
+          return;
+        }
+        console.error("[API LOGGER] Failed to write log:", msg);
       });
   };
 

@@ -595,9 +595,16 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       console.warn("[REGISTER EMAIL WARN] Could not send welcome email:", emailErr);
     }
 
+    const tokenPayload = { id: user.id, email: user.email, role: user.role, type: "portal" as const };
+    const accessToken = signAccessToken(tokenPayload);
+    const refreshToken = signRefreshToken(tokenPayload);
+
     return res.status(201).json({
       success: true,
-      message: "Account created successfully. Pending admin verification.",
+      message: "Account created successfully.",
+      accessToken,
+      refreshToken,
+      token: accessToken,
       user: {
         id: user.id,
         email: user.email,
@@ -1635,6 +1642,146 @@ export const updateVerificationData = async (req: AuthenticatedRequest, res: Res
       success: true,
       message: "Verification data updated successfully",
       registrationData: updatedUser.registrationData,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.type !== "portal") {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const userId = req.user.id;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const {
+      step,
+      bio,
+      phone,
+      country,
+      city,
+      // Freelancer fields
+      skills,
+      hourlyRate,
+      experienceLevel,
+      // Client fields
+      company,
+      industry,
+      // Investor fields
+      firm,
+      ticketMin,
+      ticketMax,
+      focusAreas,
+      // Founder fields
+      startupName,
+      stage,
+      raised,
+      teamSize,
+      ...extraData
+    } = req.body || {};
+
+    const currentRegData = typeof user.registrationData === "object" && user.registrationData !== null ? (user.registrationData as object) : {};
+    const mergedRegData = {
+      ...currentRegData,
+      ...req.body,
+      lastStep: step !== undefined ? step : (currentRegData as any).lastStep,
+    };
+
+    // Update User model basic fields
+    const userUpdate: any = {
+      registrationData: mergedRegData,
+    };
+    if (bio !== undefined) userUpdate.bio = String(bio);
+    if (phone !== undefined) userUpdate.phone = String(phone);
+    if (country !== undefined) userUpdate.country = String(country);
+    if (city !== undefined) userUpdate.city = String(city);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: userUpdate,
+    });
+
+    const userRole = (user.role || "").toLowerCase();
+
+    // Upsert role profile if role matches
+    if (userRole === "freelancer") {
+      await prisma.freelancerProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          skills: skills ? (Array.isArray(skills) ? skills.join(", ") : String(skills)) : undefined,
+          hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) || null : undefined,
+          experience: experienceLevel ? String(experienceLevel) : undefined,
+          industry: industry ? String(industry) : undefined,
+        },
+        update: {
+          ...(skills !== undefined && { skills: Array.isArray(skills) ? skills.join(", ") : String(skills) }),
+          ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) || null }),
+          ...(experienceLevel !== undefined && { experience: String(experienceLevel) }),
+          ...(industry !== undefined && { industry: String(industry) }),
+        },
+      });
+    } else if (userRole === "client") {
+      await prisma.clientProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          company: company ? String(company) : undefined,
+          industry: industry ? String(industry) : undefined,
+        },
+        update: {
+          ...(company !== undefined && { company: String(company) }),
+          ...(industry !== undefined && { industry: String(industry) }),
+        },
+      });
+    } else if (userRole === "investor") {
+      await prisma.investorProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          firm: firm ? String(firm) : undefined,
+          ticketMin: ticketMin !== undefined ? parseFloat(ticketMin) || null : undefined,
+          ticketMax: ticketMax !== undefined ? parseFloat(ticketMax) || null : undefined,
+          focusAreas: focusAreas ? (Array.isArray(focusAreas) ? focusAreas.join(", ") : String(focusAreas)) : undefined,
+        },
+        update: {
+          ...(firm !== undefined && { firm: String(firm) }),
+          ...(ticketMin !== undefined && { ticketMin: parseFloat(ticketMin) || null }),
+          ...(ticketMax !== undefined && { ticketMax: parseFloat(ticketMax) || null }),
+          ...(focusAreas !== undefined && { focusAreas: Array.isArray(focusAreas) ? focusAreas.join(", ") : String(focusAreas) }),
+        },
+      });
+    } else if (userRole === "founder") {
+      await prisma.founderProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          startupName: startupName ? String(startupName) : undefined,
+          industry: industry ? String(industry) : undefined,
+          stage: stage ? String(stage) : undefined,
+          raised: raised !== undefined ? parseFloat(raised) || null : undefined,
+          teamSize: teamSize !== undefined ? parseInt(teamSize) || 1 : undefined,
+        },
+        update: {
+          ...(startupName !== undefined && { startupName: String(startupName) }),
+          ...(industry !== undefined && { industry: String(industry) }),
+          ...(stage !== undefined && { stage: String(stage) }),
+          ...(raised !== undefined && { raised: parseFloat(raised) || null }),
+          ...(teamSize !== undefined && { teamSize: parseInt(teamSize) || 1 }),
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Draft saved successfully",
+      step: step ?? null,
     });
   } catch (err) {
     next(err);

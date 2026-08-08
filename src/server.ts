@@ -23,30 +23,44 @@ const server = http.createServer(app);
 
 initSocket(server);
 
-server.listen(port, () => {
+server.listen(port, async () => {
   console.log(`Server running in ${env.NODE_ENV} mode on port ${port}`);
 
-  const dbUrl = process.env.DATABASE_URL || "";
-  const match = dbUrl.match(/mysql:\/\/(?:[^@]+@)?([^:\/]+)(?::(\d+))?\/([^?]+)/);
-  if (match) {
-    console.log(`🗄️ Database Connected: MySQL database "${match[3]}" on ${match[1]}:${match[2] || 3306}`);
-  } else {
-    console.log(`🗄️ Database Connected: ${dbUrl}`);
+  let isDbConnected = false;
+
+  // Verify Database Connection
+  try {
+    const { prisma } = await import("./config/database.js");
+    await prisma.$connect();
+    isDbConnected = true;
+    const dbUrl = process.env.DATABASE_URL || "";
+    const match = dbUrl.match(/mysql:\/\/(?:[^@]+@)?([^:\/]+)(?::(\d+))?\/([^?]+)/);
+    if (match) {
+      console.log(`🗄️ Database Connected: MySQL database "${match[3]}" on ${match[1]}:${match[2] || 3306}`);
+    } else {
+      console.log(`🗄️ Database Connected: ${dbUrl}`);
+    }
+  } catch (dbErr: any) {
+    console.error(`⚠️ Database Connection Warning: Cannot reach MySQL server at localhost:3306`);
+    console.error(`👉 Background queue worker and scheduler are paused until database connection is restored.`);
   }
 
-  // Start Notification worker
-  try {
-    startQueueWorker();
-  } catch (err) {
-    console.error("Failed to start notification queue worker:", err);
-  }
+  // Only launch background workers if DB is reachable
+  if (isDbConnected) {
+    // Start Notification worker
+    try {
+      startQueueWorker();
+    } catch (err) {
+      console.error("Failed to start notification queue worker:", err);
+    }
 
-  // Register and Start Scheduler Engine
-  try {
-    registerSystemJobs();
-    SchedulerService.startScheduler();
-  } catch (err) {
-    console.error("Failed to start background job scheduler:", err);
+    // Register and Start Scheduler Engine
+    try {
+      registerSystemJobs();
+      SchedulerService.startScheduler();
+    } catch (err) {
+      console.error("Failed to start background job scheduler:", err);
+    }
   }
 });
 

@@ -1,0 +1,207 @@
+export interface RawDesignation {
+  name: string;
+  slug: string;
+  code: string;
+  category: string;
+  level: string; // Executive, Management, Senior, Mid, Entry
+}
+
+export const RAW_DESIGNATIONS: RawDesignation[] = [
+  // Executive C-Suite
+  { name: "Founder", slug: "founder", code: "DES_FOUNDER", category: "Leadership", level: "Executive" },
+  { name: "Co-Founder", slug: "co-founder", code: "DES_COFOUNDER", category: "Leadership", level: "Executive" },
+  { name: "Chief Executive Officer (CEO)", slug: "ceo", code: "DES_CEO", category: "Leadership", level: "Executive" },
+  { name: "Chief Technology Officer (CTO)", slug: "cto", code: "DES_CTO", category: "Leadership", level: "Executive" },
+  { name: "Chief Operating Officer (COO)", slug: "coo", code: "DES_COO", category: "Leadership", level: "Executive" },
+  { name: "Chief Financial Officer (CFO)", slug: "cfo", code: "DES_CFO", category: "Leadership", level: "Executive" },
+  { name: "Chief Marketing Officer (CMO)", slug: "cmo", code: "DES_CMO", category: "Leadership", level: "Executive" },
+  { name: "Chief Product Officer (CPO)", slug: "cpo", code: "DES_CPO", category: "Leadership", level: "Executive" },
+  { name: "Chief Information Officer (CIO)", slug: "cio", code: "DES_CIO", category: "Leadership", level: "Executive" },
+  { name: "Chief Information Security Officer (CISO)", slug: "ciso", code: "DES_CISO", category: "Leadership", level: "Executive" },
+  { name: "Chief Revenue Officer (CRO)", slug: "cro", code: "DES_CRO", category: "Leadership", level: "Executive" },
+  { name: "Chief People Officer (CPO-HR)", slug: "cpo-hr", code: "DES_CPO_HR", category: "Leadership", level: "Executive" },
+  { name: "Chief Commercial Officer (CCO)", slug: "cco", code: "DES_CCO", category: "Leadership", level: "Executive" },
+  { name: "Chief Compliance Officer", slug: "ccompl-o", code: "DES_CCOMPL_O", category: "Leadership", level: "Executive" },
+  { name: "Chief Strategy Officer (CSO)", slug: "cso", code: "DES_CSO", category: "Leadership", level: "Executive" },
+  { name: "Chief Risk Officer (CRO-Risk)", slug: "cro-risk", code: "DES_CRO_RISK", category: "Leadership", level: "Executive" },
+  { name: "Chief Scientific Officer (CSO-Sci)", slug: "cso-sci", code: "DES_CSO_SCI", category: "Leadership", level: "Executive" },
+  { name: "Chief Design Officer (CDO)", slug: "cdo", code: "DES_CDO", category: "Leadership", level: "Executive" },
+  { name: "Chief Data Officer (CDO-Data)", slug: "cdo-data", code: "DES_CDO_DATA", category: "Leadership", level: "Executive" },
+  { name: "Chief Growth Officer (CGO)", slug: "cgo", code: "DES_CGO", category: "Leadership", level: "Executive" },
+  { name: "Managing Director (MD)", slug: "md", code: "DES_MD", category: "Leadership", level: "Executive" },
+  { name: "General Partner (GP)", slug: "general-partner", code: "DES_GP", category: "Investment", level: "Executive" },
+  { name: "Managing Partner", slug: "managing-partner", code: "DES_MANAGING_PARTNER", category: "Leadership", level: "Executive" },
+  { name: "Partner", slug: "partner", code: "DES_PARTNER", category: "Leadership", level: "Executive" },
+  { name: "Board Member / Director", slug: "board-member", code: "DES_BOARD", category: "Leadership", level: "Executive" },
+
+  // Investors & VC
+  { name: "Angel Investor", slug: "angel-investor", code: "DES_ANGEL", category: "Investment", level: "Executive" },
+  { name: "Venture Capitalist", slug: "venture-capitalist", code: "DES_VC", category: "Investment", level: "Executive" },
+  { name: "Venture Partner", slug: "venture-partner", code: "DES_VENTURE_PARTNER", category: "Investment", level: "Executive" },
+  { name: "Super Angel", slug: "super-angel", code: "DES_SUPER_ANGEL", category: "Investment", level: "Executive" },
+  { name: "Syndicate Lead", slug: "syndicate-lead", code: "DES_SYNDICATE_LEAD", category: "Investment", level: "Executive" },
+  { name: "Fund Manager", slug: "fund-manager", code: "DES_FUND_MGR", category: "Investment", level: "Management" },
+  { name: "Portfolio Manager", slug: "portfolio-manager", code: "DES_PORTFOLIO_MGR", category: "Investment", level: "Management" },
+  { name: "Investment Director", slug: "investment-director", code: "DES_INVESTMENT_DIR", category: "Investment", level: "Management" },
+  { name: "Investment Vice President", slug: "investment-vp", code: "DES_INVESTMENT_VP", category: "Investment", level: "Senior" },
+  { name: "Senior Investment Associate", slug: "senior-investment-associate", code: "DES_SR_INVESTMENT_ASSOC", category: "Investment", level: "Senior" },
+  { name: "Investment Associate", slug: "investment-associate", code: "DES_INVESTMENT_ASSOC", category: "Investment", level: "Mid" },
+  { name: "Investment Analyst", slug: "investment-analyst", code: "DES_INVESTMENT_ANALYST", category: "Investment", level: "Entry" },
+
+  // Technology & Engineering
+  { name: "VP of Engineering", slug: "vp-engineering", code: "DES_VP_ENG", category: "Engineering", level: "Executive" },
+  { name: "Director of Engineering", slug: "director-engineering", code: "DES_DIR_ENG", category: "Engineering", level: "Management" },
+  { name: "Engineering Manager", slug: "engineering-manager", code: "DES_ENG_MGR", category: "Engineering", level: "Management" },
+  { name: "Principal Software Engineer", slug: "principal-engineer", code: "DES_PRINCIPAL_ENG", category: "Engineering", level: "Senior" },
+  { name: "Staff Software Engineer", slug: "staff-engineer", code: "DES_STAFF_ENG", category: "Engineering", level: "Senior" },
+  { name: "Lead Software Architect", slug: "lead-architect", code: "DES_LEAD_ARCH", category: "Engineering", level: "Senior" },
+  { name: "Senior Full Stack Engineer", slug: "senior-fullstack-engineer", code: "DES_SR_FULLSTACK", category: "Engineering", level: "Senior" },
+  { name: "Full Stack Developer", slug: "fullstack-developer", code: "DES_FULLSTACK", category: "Engineering", level: "Mid" },
+  { name: "Junior Full Stack Developer", slug: "junior-fullstack-developer", code: "DES_JR_FULLSTACK", category: "Engineering", level: "Entry" },
+  { name: "Senior Frontend Engineer", slug: "senior-frontend-engineer", code: "DES_SR_FRONTEND", category: "Engineering", level: "Senior" },
+  { name: "Frontend Developer", slug: "frontend-developer", code: "DES_FRONTEND", category: "Engineering", level: "Mid" },
+  { name: "Senior Backend Engineer", slug: "senior-backend-engineer", code: "DES_SR_BACKEND", category: "Engineering", level: "Senior" },
+  { name: "Backend Developer", slug: "backend-developer", code: "DES_BACKEND", category: "Engineering", level: "Mid" },
+  { name: "Senior Mobile Engineer (iOS / Android)", slug: "senior-mobile-engineer", code: "DES_SR_MOBILE", category: "Engineering", level: "Senior" },
+  { name: "Mobile App Developer", slug: "mobile-developer", code: "DES_MOBILE", category: "Engineering", level: "Mid" },
+  { name: "DevOps Lead", slug: "devops-lead", code: "DES_DEVOPS_LEAD", category: "Engineering", level: "Senior" },
+  { name: "DevOps Engineer", slug: "devops-engineer", code: "DES_DEVOPS", category: "Engineering", level: "Mid" },
+  { name: "Cloud Architect", slug: "cloud-architect", code: "DES_CLOUD_ARCH", category: "Engineering", level: "Senior" },
+  { name: "Site Reliability Engineer (SRE)", slug: "sre-engineer", code: "DES_SRE", category: "Engineering", level: "Mid" },
+  { name: "QA Lead", slug: "qa-lead", code: "DES_QA_LEAD", category: "Engineering", level: "Senior" },
+  { name: "QA Automation Engineer", slug: "qa-automation", code: "DES_QA_AUTO", category: "Engineering", level: "Mid" },
+  { name: "Security Engineer", slug: "security-engineer", code: "DES_SEC_ENG", category: "Engineering", level: "Mid" },
+  { name: "Embedded Systems Engineer", slug: "embedded-engineer", code: "DES_EMBEDDED_ENG", category: "Engineering", level: "Senior" },
+
+  // AI & Data
+  { name: "Head of AI / Data", slug: "head-ai-data", code: "DES_HEAD_AI", category: "AI & Data", level: "Management" },
+  { name: "Lead AI Researcher", slug: "lead-ai-researcher", code: "DES_LEAD_AI_RESEARCHER", category: "AI & Data", level: "Senior" },
+  { name: "Senior Machine Learning Engineer", slug: "senior-ml-engineer", code: "DES_SR_ML_ENG", category: "AI & Data", level: "Senior" },
+  { name: "Machine Learning Engineer", slug: "ml-engineer", code: "DES_ML_ENG", category: "AI & Data", level: "Mid" },
+  { name: "Generative AI Specialist", slug: "generative-ai-specialist", code: "DES_GEN_AI_SPEC", category: "AI & Data", level: "Senior" },
+  { name: "Data Science Lead", slug: "data-science-lead", code: "DES_DS_LEAD", category: "AI & Data", level: "Senior" },
+  { name: "Senior Data Scientist", slug: "senior-data-scientist", code: "DES_SR_DATA_SCIENTIST", category: "AI & Data", level: "Senior" },
+  { name: "Data Scientist", slug: "data-scientist", code: "DES_DATA_SCIENTIST", category: "AI & Data", level: "Mid" },
+  { name: "Lead Data Engineer", slug: "lead-data-engineer", code: "DES_LEAD_DATA_ENG", category: "AI & Data", level: "Senior" },
+  { name: "Data Engineer", slug: "data-engineer", code: "DES_DATA_ENG", category: "AI & Data", level: "Mid" },
+  { name: "Business Intelligence Analyst", slug: "bi-analyst", code: "DES_BI_ANALYST", category: "AI & Data", level: "Mid" },
+
+  // Product & Design
+  { name: "VP of Product", slug: "vp-product", code: "DES_VP_PROD", category: "Product", level: "Executive" },
+  { name: "Director of Product Management", slug: "director-product", code: "DES_DIR_PROD", category: "Product", level: "Management" },
+  { name: "Group Product Manager", slug: "group-product-manager", code: "DES_GPM", category: "Product", level: "Management" },
+  { name: "Senior Product Manager", slug: "senior-product-manager", code: "DES_SR_PM", category: "Product", level: "Senior" },
+  { name: "Product Manager", slug: "product-manager", code: "DES_PM", category: "Product", level: "Mid" },
+  { name: "Associate Product Manager (APM)", slug: "associate-product-manager", code: "DES_APM", category: "Product", level: "Entry" },
+  { name: "Head of Design", slug: "head-of-design", code: "DES_HEAD_DESIGN", category: "Design", level: "Management" },
+  { name: "Design Director", slug: "design-director", code: "DES_DESIGN_DIR", category: "Design", level: "Management" },
+  { name: "Principal Product Designer", slug: "principal-product-designer", code: "DES_PRINCIPAL_DESIGNER", category: "Design", level: "Senior" },
+  { name: "Lead UI/UX Designer", slug: "lead-uiux-designer", code: "DES_LEAD_UIUX", category: "Design", level: "Senior" },
+  { name: "Senior Product Designer", slug: "senior-product-designer", code: "DES_SR_PROD_DESIGNER", category: "Design", level: "Senior" },
+  { name: "UI/UX Designer", slug: "uiux-designer", code: "DES_UIUX_DESIGNER", category: "Design", level: "Mid" },
+  { name: "Brand Designer", slug: "brand-designer", code: "DES_BRAND_DESIGNER", category: "Design", level: "Mid" },
+  { name: "Motion Designer", slug: "motion-designer", code: "DES_MOTION_DESIGNER", category: "Design", level: "Mid" },
+
+  // Marketing & Growth
+  { name: "VP of Marketing", slug: "vp-marketing", code: "DES_VP_MKTG", category: "Marketing", level: "Executive" },
+  { name: "Marketing Director", slug: "marketing-director", code: "DES_MKTG_DIR", category: "Marketing", level: "Management" },
+  { name: "Head of Growth", slug: "head-of-growth", code: "DES_HEAD_GROWTH", category: "Marketing", level: "Management" },
+  { name: "Growth Lead / Growth Hacker", slug: "growth-lead", code: "DES_GROWTH_LEAD", category: "Marketing", level: "Senior" },
+  { name: "Digital Marketing Manager", slug: "digital-marketing-manager", code: "DES_DIGITAL_MKTG_MGR", category: "Marketing", level: "Management" },
+  { name: "SEO Lead", slug: "seo-lead", code: "DES_SEO_LEAD", category: "Marketing", level: "Senior" },
+  { name: "Performance Marketing Manager", slug: "performance-marketing-manager", code: "DES_PERF_MKTG_MGR", category: "Marketing", level: "Management" },
+  { name: "Content Marketing Lead", slug: "content-marketing-lead", code: "DES_CONTENT_MKTG_LEAD", category: "Marketing", level: "Senior" },
+  { name: "Senior Copywriter", slug: "senior-copywriter", code: "DES_SR_COPYWRITER", category: "Marketing", level: "Senior" },
+  { name: "Social Media Manager", slug: "social-media-manager", code: "DES_SMM_MGR", category: "Marketing", level: "Mid" },
+
+  // Sales & Business Development
+  { name: "VP of Sales", slug: "vp-sales", code: "DES_VP_SALES", category: "Sales", level: "Executive" },
+  { name: "Sales Director", slug: "sales-director", code: "DES_SALES_DIR", category: "Sales", level: "Management" },
+  { name: "Head of Business Development", slug: "head-of-bizdev", code: "DES_HEAD_BIZDEV", category: "Sales", level: "Management" },
+  { name: "Enterprise Account Executive", slug: "enterprise-account-executive", code: "DES_ENTERPRISE_AE", category: "Sales", level: "Senior" },
+  { name: "Account Executive (AE)", slug: "account-executive", code: "DES_AE", category: "Sales", level: "Mid" },
+  { name: "Sales Development Representative (SDR)", slug: "sales-dev-rep", code: "DES_SDR", category: "Sales", level: "Entry" },
+
+  // Finance, Legal & HR
+  { name: "VP of Finance", slug: "vp-finance", code: "DES_VP_FINANCE", category: "Finance", level: "Executive" },
+  { name: "Finance Director / Financial Controller", slug: "finance-director", code: "DES_FIN_DIR", category: "Finance", level: "Management" },
+  { name: "Chartered Accountant (CA)", slug: "chartered-accountant", code: "DES_CA", category: "Finance", level: "Senior" },
+  { name: "Senior Financial Analyst", slug: "senior-financial-analyst", code: "DES_SR_FIN_ANALYST", category: "Finance", level: "Senior" },
+  { name: "Legal Counsel / Attorney", slug: "legal-counsel", code: "DES_LEGAL_COUNSEL", category: "Legal", level: "Senior" },
+  { name: "Company Secretary (CS)", slug: "company-secretary", code: "DES_CS", category: "Legal", level: "Senior" },
+  { name: "Head of HR / People Ops", slug: "head-of-hr", code: "DES_HEAD_HR", category: "HR", level: "Management" },
+  { name: "Talent Acquisition Manager", slug: "talent-acquisition-manager", code: "DES_TA_MGR", category: "HR", level: "Management" },
+  { name: "Senior Technical Recruiter", slug: "senior-tech-recruiter", code: "DES_SR_TECH_RECRUITER", category: "HR", level: "Senior" },
+  { name: "General Manager (GM)", slug: "gm", code: "DES_GM", category: "Operations", level: "Executive" },
+  { name: "Assistant Vice President (AVP)", slug: "avp", code: "DES_AVP", category: "Leadership", level: "Management" },
+  { name: "Operations Director", slug: "ops-director", code: "DES_OPS_DIR", category: "Operations", level: "Management" },
+  { name: "Supply Chain Manager", slug: "supply-chain-mgr", code: "DES_SCM_MGR", category: "Operations", level: "Management" },
+  { name: "Procurement Manager", slug: "procurement-mgr", code: "DES_PROCUREMENT_MGR", category: "Operations", level: "Management" }
+];
+
+// Dynamically generate extra specialized designations across domain verticals to reach 160+ total designations
+const EXTRA_ROLES = [
+  { name: "Chief AI Officer (CAIO)", category: "Leadership", level: "Executive" },
+  { name: "Chief Transformation Officer", category: "Leadership", level: "Executive" },
+  { name: "Venture Builder / Studio Director", category: "Leadership", level: "Executive" },
+  { name: "Head of Innovation & R&D", category: "Leadership", level: "Management" },
+  { name: "Head of Investor Relations", category: "Leadership", level: "Management" },
+  { name: "Head of Community & Ecosystem", category: "Marketing", level: "Management" },
+  { name: "Head of Customer Success", category: "Operations", level: "Management" },
+  { name: "Principal AI Architect", category: "AI & Data", level: "Senior" },
+  { name: "Senior Cloud Solutions Architect", category: "Engineering", level: "Senior" },
+  { name: "Senior Blockchain Engineer", slug: "sr-blockchain-eng", category: "Engineering", level: "Senior" },
+  { name: "Senior Security Analyst / Ethic Hacker", category: "Engineering", level: "Senior" },
+  { name: "Lead Microservices Engineer", category: "Engineering", level: "Senior" },
+  { name: "Senior Infrastructure Engineer", category: "Engineering", level: "Senior" },
+  { name: "Senior Flutter Architect", category: "Engineering", level: "Senior" },
+  { name: "Lead iOS Engineer", category: "Engineering", level: "Senior" },
+  { name: "Lead Android Engineer", category: "Engineering", level: "Senior" },
+  { name: "Senior Quantitative Developer", category: "Finance", level: "Senior" },
+  { name: "Risk & Compliance Manager", category: "Legal", level: "Management" },
+  { name: "Patent Attorney / IP Specialist", category: "Legal", level: "Senior" },
+  { name: "Corporate Development Lead", category: "Sales", level: "Senior" },
+  { name: "Senior Business Analyst (BA)", category: "Product", level: "Senior" },
+  { name: "Scrum Master / Agile Coach", category: "Product", level: "Senior" },
+  { name: "Technical Project Manager (TPM)", category: "Product", level: "Senior" },
+  { name: "Program Manager", category: "Product", level: "Management" },
+  { name: "Senior UX Researcher", category: "Design", level: "Senior" },
+  { name: "Senior 3D Artist / Animator", category: "Design", level: "Senior" },
+  { name: "Creative Director", category: "Design", level: "Executive" },
+  { name: "Art Director", category: "Design", level: "Management" },
+  { name: "Senior Technical Writer", category: "Marketing", level: "Senior" },
+  { name: "Growth Marketing Strategist", category: "Marketing", level: "Senior" },
+  { name: "Influencer Marketing Lead", category: "Marketing", level: "Senior" },
+  { name: "Public Relations (PR) Manager", category: "Marketing", level: "Management" },
+  { name: "Customer Retention Manager", category: "Sales", level: "Mid" },
+  { name: "Channel Sales Manager", category: "Sales", level: "Management" },
+  { name: "Key Account Manager (KAM)", category: "Sales", level: "Senior" },
+  { name: "Internal Audit Lead", category: "Finance", level: "Senior" },
+  { name: "Taxation Specialist (GST / Direct Tax)", category: "Finance", level: "Senior" },
+  { name: "Payroll & Compensation Lead", category: "HR", level: "Senior" },
+  { name: "HR Business Partner (HRBP)", category: "HR", level: "Senior" },
+  { name: "Learning & Development (L&D) Manager", category: "HR", level: "Management" },
+  { name: "Logistics Operations Lead", category: "Operations", level: "Senior" },
+  { name: "Warehouse Operations Manager", category: "Operations", level: "Management" },
+  { name: "Vendor Operations Lead", category: "Operations", level: "Senior" },
+  { name: "Quality Assurance (QA) Director", category: "Engineering", level: "Management" },
+  { name: "Chief ESG & Sustainability Officer", category: "Leadership", level: "Executive" },
+  { name: "Franchise Operations Manager", category: "Operations", level: "Management" },
+  { name: "E-Commerce Category Manager", category: "Marketing", level: "Management" },
+  { name: "D2C Brand Manager", category: "Marketing", level: "Management" },
+  { name: "Chief Medical Officer", category: "Leadership", level: "Executive" },
+  { name: "Chief Academic Officer", category: "Leadership", level: "Executive" }
+];
+
+let dCounter = 200;
+for (const r of EXTRA_ROLES) {
+  const code = `DES_EXP_${dCounter++}`;
+  const slug = r.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  RAW_DESIGNATIONS.push({
+    name: r.name,
+    slug,
+    code,
+    category: r.category,
+    level: r.level
+  });
+}

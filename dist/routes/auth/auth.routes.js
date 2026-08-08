@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login, register, registerAdmin, logout, refresh, me, forgotPassword, resetPassword, changePassword, updateProfile, uploadAvatar, sendOtp, verifyOtp, getOtpInfo, sendVerificationLink, updateVerificationData, } from "../../controllers/auth/auth.controller.js";
+import { login, register, registerAdmin, logout, refresh, me, forgotPassword, resetPassword, changePassword, updateProfile, uploadAvatar, sendOtp, verifyOtp, getOtpInfo, sendVerificationLink, updateVerificationData, saveOnboardingDraft, } from "../../controllers/auth/auth.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 const router = Router();
@@ -22,4 +22,5 @@ router.post("/verify-otp", verifyOtp);
 router.get("/otp-info", getOtpInfo);
 router.post("/send-verification-link", sendVerificationLink);
 router.patch("/verification", authMiddleware, updateVerificationData);
+router.patch("/onboarding/draft", authMiddleware, saveOnboardingDraft);
 export default router;

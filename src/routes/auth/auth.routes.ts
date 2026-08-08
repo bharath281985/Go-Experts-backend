@@ -16,6 +16,7 @@ import {
   getOtpInfo,
   sendVerificationLink,
   updateVerificationData,
+  saveOnboardingDraft,
 } from "../../controllers/auth/auth.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
@@ -41,5 +42,6 @@ router.post("/verify-otp", verifyOtp);
 router.get("/otp-info", getOtpInfo);
 router.post("/send-verification-link", sendVerificationLink);
 router.patch("/verification", authMiddleware as any, updateVerificationData as any);
+router.patch("/onboarding/draft", authMiddleware as any, saveOnboardingDraft as any);
 
 export default router;
