@@ -76,6 +76,45 @@ export function createCrudRouter(
     }
   });
 
+  // 1b. POST LIST (compatibility helper for POST /list)
+  router.post("/list", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const page = req.body?.page || parseInt(req.query.page as string) || 1;
+      const pageSize = req.body?.pageSize || parseInt(req.query.pageSize as string) || 50;
+      const search = req.body?.search || (req.query.search as string);
+      const orderBy = req.body?.orderBy || (req.query.orderBy as string);
+      const ascending = req.body?.ascending !== undefined ? req.body.ascending : req.query.ascending === "true";
+      
+      const where: any = {};
+      const rawFilters = req.body?.filters || (req.query.filters ? JSON.parse(req.query.filters as string) : {});
+      Object.entries(rawFilters || {}).forEach(([key, value]) => {
+        if (value == null || value === "") return;
+        where[key] = value;
+      });
+
+      if (search && searchColumns.length > 0) {
+        where.OR = searchColumns.map(col => ({
+          [col]: {
+            contains: search,
+          }
+        }));
+      }
+
+      const total = await db.count({ where });
+      const rows = await db.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: orderBy ? { [orderBy]: ascending ? "asc" : "desc" } : { createdAt: "desc" },
+        ...(include ? { include } : {}),
+      });
+
+      res.json({ success: true, rows, total });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // 2. EXPORT (Excel/CSV mock data file download or full JSON dump)
   router.get("/export", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {

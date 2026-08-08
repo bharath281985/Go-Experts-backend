@@ -1271,6 +1271,18 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       return res.status(400).json({ success: false, message: "Email or mobile number is required" });
     }
 
+    if (email && req.body?.isSignup !== false) {
+      const existingUser = await prisma.user.findFirst({
+        where: { email },
+      });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "User with this email address already exists. Please log in.",
+        });
+      }
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const key = (email || mobile).toLowerCase();
     otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });

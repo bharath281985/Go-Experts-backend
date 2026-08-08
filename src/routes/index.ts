@@ -154,6 +154,7 @@ const tableModelMapping: Record<string, string> = {
   work_modes: "WorkMode",
   experience_levels: "ExperienceLevel",
   pricing_plans: "SubscriptionPlan",
+  master_options: "MasterOption",
   coupons: "Coupon",
   campaigns: "Campaign",
   insight_reports: "InsightReport",
@@ -620,18 +621,100 @@ adminCategoriesRouter.post("/list", async (req: Request, res: Response, next: Ne
     const pageSize = body.pageSize ?? 50;
     const search = body.search;
 
-    const where: { status: string; name?: { contains: string } } = { status: "active" };
+    const where: any = {};
     if (search) where.name = { contains: search };
 
-    const total = await prisma.industry.count({ where });
-    const rows = await prisma.industry.findMany({
+    const total = await prisma.skillCategory.count({ where });
+    const rows = await prisma.skillCategory.findMany({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { name: "asc" },
+      include: { _count: { select: { skills: true } } },
     });
 
     res.json({ success: true, rows, total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminCategoriesRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 50;
+    const search = req.query.search as string;
+
+    const where: any = {};
+    if (search) where.name = { contains: search };
+
+    const total = await prisma.skillCategory.count({ where });
+    const rows = await prisma.skillCategory.findMany({
+      where,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { skills: true } } },
+    });
+
+    res.json({ success: true, rows, total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminCategoriesRouter.post("/", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, status = "active", sortOrder = 0 } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Category Name is required" });
+    }
+
+    const created = await prisma.skillCategory.create({
+      data: {
+        name: name.trim(),
+        status: status || "active",
+        sortOrder: Number(sortOrder) || 0,
+      },
+    });
+
+    res.status(201).json({ success: true, data: created });
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      return res.status(400).json({ success: false, message: `Skill category "${req.body?.name}" already exists.` });
+    }
+    next(err);
+  }
+});
+
+adminCategoriesRouter.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { name, status, sortOrder } = req.body || {};
+
+    const updated = await prisma.skillCategory.update({
+      where: { id },
+      data: {
+        ...(name && { name: name.trim() }),
+        ...(status && { status }),
+        ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+      },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      return res.status(400).json({ success: false, message: `Skill category name already exists.` });
+    }
+    next(err);
+  }
+});
+
+adminCategoriesRouter.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    await prisma.skillCategory.delete({ where: { id } });
+    res.json({ success: true, ok: true });
   } catch (err) {
     next(err);
   }
