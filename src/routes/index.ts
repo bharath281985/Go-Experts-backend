@@ -1443,6 +1443,10 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
   const include =
     modelName === "Task"
       ? { attachments: true, project: { select: { id: true, title: true, category: true } } }
+      : modelName === "SkillCategory"
+      ? { _count: { select: { skills: true } } }
+      : modelName === "Skill"
+      ? { category: { select: { id: true, name: true } } }
       : undefined;
 
   // Create router using factory
