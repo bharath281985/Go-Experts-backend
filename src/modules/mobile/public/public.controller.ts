@@ -176,7 +176,7 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
       ];
     }
 
-    let [skills, total] = await Promise.all([
+    let [skills, total]: [any[], number] = await Promise.all([
       prisma.skill.findMany({
         where,
         orderBy: { name: 'asc' },
@@ -185,7 +185,7 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
         select: { id: true, name: true, categoryId: true, industry: true },
       }),
       prisma.skill.count({ where }),
-    ]).catch(() => [[], 0]);
+    ]).catch(() => [[], 0] as [any[], number]);
 
     if (skills.length === 0 && (indId || indName)) {
       const allActiveSkills = await prisma.skill.findMany({

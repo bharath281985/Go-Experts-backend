@@ -1689,22 +1689,36 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       state,
       city,
       // Freelancer fields
+      titleHeadline,
       skills,
       hourlyRate,
       experienceLevel,
+      workMode,
       // Client fields
       company,
+      companySize,
+      websiteUrl,
+      jobTitle,
+      hiringGoal,
       industry,
       // Investor fields
+      investorType,
       firm,
+      isAccredited,
       ticketMin,
       ticketMax,
       focusAreas,
+      preferredStage,
       // Founder fields
       startupName,
       stage,
+      pitch,
+      founderRole,
+      founderBio,
       raised,
+      targetRaise,
       teamSize,
+      primaryGoal,
       ...extraData
     } = req.body || {};
 
