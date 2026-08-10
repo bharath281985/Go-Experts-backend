@@ -127,12 +127,11 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
 export const getSkills = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit, skip } = parsePagination(req);
-    // Support filtering skills based on industryId / categoryId query parameter
     const categoryId = readCatalogParam(req, 'categoryId', 'category_id', 'industryId', 'industry_id', 'industry');
     const search = readCatalogParam(req, 'search', 'q') || '';
 
     const respond = (
-      skills: Array<{ id: string; name: string; categoryId?: string | null }>,
+      skills: Array<{ id: string; name: string; categoryId?: string | null; industryId?: string | null }>,
       total: number
     ) =>
       res.json(
@@ -146,90 +145,84 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
 
     const nameFilter = search ? { name: { contains: search } } : {};
 
-    // Resolve category/industry so we know when "uncategorized" tech skills apply.
-    let categoryName: string | undefined;
+    let targetIndustry: any = null;
     if (categoryId) {
-      const fromCategory = await prisma.skillCategory
-        .findFirst({ where: { id: categoryId }, select: { name: true } })
-        .catch(() => null);
-      const fromIndustry =
-        fromCategory ??
-        (await prisma.industry
-          .findFirst({ where: { id: categoryId }, select: { name: true } })
-          .catch(() => null));
-      categoryName = fromIndustry?.name;
-    }
-
-    const isTechnology =
-      !!categoryName && categoryName.trim().toLowerCase() === 'technology';
-
-    try {
-      const where: Record<string, unknown> = {
-        status: 'active',
-        ...nameFilter,
-      };
-
-      if (categoryId) {
-        const orConditions: any[] = [
-          { categoryId },
-          { category: { is: { id: categoryId } } }
-        ];
-        if (isTechnology) {
-          orConditions.push({ categoryId: null });
+      targetIndustry = await prisma.industry.findFirst({
+        where: {
+          OR: [
+            { id: categoryId },
+            { name: categoryId },
+            { name: { contains: categoryId } }
+          ]
         }
-        where.OR = orConditions;
-      }
-
-      let [skills, total] = await Promise.all([
-        prisma.skill.findMany({
-          where,
-          orderBy: { name: 'asc' },
-          skip,
-          take: limit,
-          select: { id: true, name: true, categoryId: true },
-        }),
-        prisma.skill.count({ where }),
-      ]);
-
-      if (skills.length === 0 && categoryId) {
-        const fallbackWhere = { status: 'active', ...nameFilter };
-        [skills, total] = await Promise.all([
-          prisma.skill.findMany({
-            where: fallbackWhere,
-            orderBy: { name: 'asc' },
-            skip,
-            take: limit,
-            select: { id: true, name: true, categoryId: true },
-          }),
-          prisma.skill.count({ where: fallbackWhere }),
-        ]);
-      }
-
-      return respond(skills, total);
-    } catch (error) {
-      if (!isLegacySkillSchemaError(error)) throw error;
-
-      // Schema without category_id: cannot filter — return empty when category requested.
-      if (categoryId && !isTechnology) {
-        return respond([], 0);
-      }
-
-      const legacyWhere = {
-        status: 'active',
-        ...nameFilter,
-      };
-      const [legacySkills, legacyTotal] = await Promise.all([
-        prisma.skill.findMany({
-          where: legacyWhere,
-          orderBy: { name: 'asc' },
-          skip,
-          take: limit,
-          select: { id: true, name: true },
-        }),
-        prisma.skill.count({ where: legacyWhere }),
-      ]);
-      return respond(legacySkills, legacyTotal);
+      }).catch(() => null);
     }
+
+    const indId = targetIndustry?.id || categoryId;
+    const indName = targetIndustry?.name || categoryId;
+
+    const where: Record<string, unknown> = {
+      status: 'active',
+      ...nameFilter,
+    };
+
+    if (indId || indName) {
+      where.OR = [
+        { industry: indId },
+        { industry: indName },
+        { categoryId: indId },
+        { category: { is: { industryId: indId } } },
+        { category: { is: { name: { contains: indName } } } }
+      ];
+    }
+
+    let [skills, total] = await Promise.all([
+      prisma.skill.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+        select: { id: true, name: true, categoryId: true, industry: true },
+      }),
+      prisma.skill.count({ where }),
+    ]).catch(() => [[], 0]);
+
+    if (skills.length === 0 && (indId || indName)) {
+      const allActiveSkills = await prisma.skill.findMany({
+        where: { status: 'active', ...nameFilter },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, categoryId: true, industry: true }
+      }).catch(() => []);
+
+      const lowerName = (indName || "").toLowerCase();
+
+      skills = allActiveSkills.filter((s: any) => {
+        const sName = s.name.toLowerCase();
+        if (lowerName.includes('data') || lowerName.includes('ai')) {
+          return ['data science', 'machine learning', 'python', 'ai', 'big data', 'nlp', 'tensorflow', 'pytorch', 'graphql', 'mongodb', 'postgresql'].some(k => sName.includes(k));
+        } else if (lowerName.includes('fintech') || lowerName.includes('finance')) {
+          return ['blockchain', 'python', 'postgresql', 'redis', 'security', 'quant', 'golang', 'financial'].some(k => sName.includes(k));
+        } else if (lowerName.includes('design') || lowerName.includes('media')) {
+          return ['ui/ux', 'design', 'figma', 'motion', 'graphic', '3d', 'creative'].some(k => sName.includes(k));
+        } else if (lowerName.includes('agri')) {
+          return ['agri', 'iot', 'drone', 'gis', 'sensor', 'python'].some(k => sName.includes(k));
+        } else {
+          return true;
+        }
+      });
+
+      total = skills.length;
+      skills = skills.slice(skip, skip + limit);
+    }
+
+    const result = skills.map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      categoryId: s.categoryId || null,
+      industryId: indId || null
+    }));
+
+    return respond(result, total);
   } catch (error) {
     next(error);
   }
