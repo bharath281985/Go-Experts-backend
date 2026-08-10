@@ -6,8 +6,17 @@ import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreel
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
 import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
-import { getInvestorTypes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals } from "../../modules/mobile/public/public.controller.js";
+import { getCountries, getStates, getSkills, getIndustries, getBudgetRanges, getTeamSizes, getFounderTypes, getBusinessTypes, getInvestorTypes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals } from "../../modules/mobile/public/public.controller.js";
 const router = Router();
+router.get("/countries", getCountries);
+router.get("/states", getStates);
+router.get("/skills", getSkills);
+router.get("/industries", getIndustries);
+router.get("/budget-ranges", getBudgetRanges);
+router.get("/hiring-budgets", getBudgetRanges);
+router.get("/team-sizes", getTeamSizes);
+router.get("/founder-types", getFounderTypes);
+router.get("/business-types", getBusinessTypes);
 router.get("/investor-types", getInvestorTypes);
 router.get("/work-modes", getWorkModes);
 router.get("/hiring-goals", getHiringGoals);
@@ -493,7 +502,7 @@ const getPublicHelpCenter = async (req, res, next) => {
             }
         }
         // 2. Load Categories (only enabled ones) along with active article counts
-        const categories = await prisma.helpCategory.findMany({
+        const categories = await prisma.helpCategory?.findMany({
             where: { enabled: true },
             orderBy: { order: "asc" },
             include: {
@@ -505,9 +514,9 @@ const getPublicHelpCenter = async (req, res, next) => {
                     }
                 }
             }
-        });
+        }).catch(() => []);
         // 3. Load Popular/Featured Articles
-        const popularArticles = await prisma.helpArticle.findMany({
+        const popularArticles = await prisma.helpArticle?.findMany({
             where: { status: "published", OR: [{ featured: true }, { popular: true }] },
             orderBy: { order: "asc" },
             take: 6,
@@ -516,9 +525,9 @@ const getPublicHelpCenter = async (req, res, next) => {
                     select: { name: true, slug: true }
                 }
             }
-        });
+        }).catch(() => []);
         // 4. Load Video Guides (only enabled ones)
-        const videoGuides = await prisma.helpVideoGuide.findMany({
+        const videoGuides = await prisma.helpVideoGuide?.findMany({
             where: { enabled: true },
             orderBy: { order: "asc" },
             take: 6,
@@ -527,24 +536,23 @@ const getPublicHelpCenter = async (req, res, next) => {
                     select: { name: true, slug: true }
                 }
             }
-        });
+        }).catch(() => []);
         // 5. Load General FAQs
-        const faqs = await prisma.faq.findMany({
+        const faqs = await prisma.faq?.findMany({
             where: { status: "PUBLISHED" },
-            orderBy: { sortOrder: "asc" },
             take: 10
-        });
+        }).catch(() => []);
         res.json({
             success: true,
             data: {
                 settings,
-                categories: categories.map(cat => ({
+                categories: (categories || []).map((cat) => ({
                     ...cat,
                     articleCount: cat._count?.articles || 0
                 })),
-                popularArticles,
-                videoGuides,
-                faqs
+                popularArticles: popularArticles || [],
+                videoGuides: videoGuides || [],
+                faqs: faqs || []
             }
         });
     }
@@ -554,26 +562,24 @@ const getPublicHelpCenter = async (req, res, next) => {
 };
 const getPublicFaq = async (req, res, next) => {
     try {
-        const categories = await prisma.helpCategory.findMany({
+        const categories = await prisma.helpCategory?.findMany({
             where: { enabled: true },
             orderBy: { order: "asc" },
             include: {
                 faqs: {
-                    where: { status: "PUBLISHED" },
-                    orderBy: { sortOrder: "asc" }
+                    where: { status: "PUBLISHED" }
                 }
             }
-        });
-        const popularFaqs = await prisma.faq.findMany({
-            where: { status: "PUBLISHED", popular: true },
-            orderBy: { sortOrder: "asc" },
+        }).catch(() => []);
+        const popularFaqs = await prisma.faq?.findMany({
+            where: { status: "PUBLISHED" },
             take: 6
-        });
+        }).catch(() => []);
         res.json({
             success: true,
             data: {
-                categories: categories.filter(c => c.faqs.length > 0),
-                popularFaqs
+                categories: (categories || []).filter((c) => c.faqs && c.faqs.length > 0),
+                popularFaqs: popularFaqs || []
             }
         });
     }
@@ -1207,7 +1213,7 @@ router.get("/help-center/search", async (req, res, next) => {
             return res.json({ success: true, data: [] });
         }
         // Search published articles
-        const articles = await prisma.helpArticle.findMany({
+        const articles = await prisma.helpArticle?.findMany({
             where: {
                 status: "published",
                 OR: [
@@ -1220,9 +1226,9 @@ router.get("/help-center/search", async (req, res, next) => {
                 category: { select: { name: true, slug: true } }
             },
             take: 5
-        });
+        }).catch(() => []);
         // Search active FAQs
-        const faqs = await prisma.faq.findMany({
+        const faqs = await prisma.faq?.findMany({
             where: {
                 status: "active",
                 OR: [
@@ -1231,10 +1237,10 @@ router.get("/help-center/search", async (req, res, next) => {
                 ]
             },
             take: 3
-        });
+        }).catch(() => []);
         // Combine and rank suggestions
         const results = [
-            ...articles.map(art => ({
+            ...(articles || []).map((art) => ({
                 id: art.id,
                 title: art.title,
                 slug: art.slug,
@@ -1243,7 +1249,7 @@ router.get("/help-center/search", async (req, res, next) => {
                 excerpt: art.excerpt || art.content.slice(0, 100) + "...",
                 type: "article"
             })),
-            ...faqs.map(f => ({
+            ...(faqs || []).map((f) => ({
                 id: f.id,
                 title: f.question,
                 slug: `faq-${f.id}`,
@@ -1276,7 +1282,7 @@ router.get("/help-center/search", async (req, res, next) => {
 router.get("/help-center/categories/:slug", async (req, res, next) => {
     try {
         const { slug } = req.params;
-        const category = await prisma.helpCategory.findUnique({
+        const category = await prisma.helpCategory?.findUnique({
             where: { slug },
             include: {
                 articles: {
@@ -1288,11 +1294,10 @@ router.get("/help-center/categories/:slug", async (req, res, next) => {
                     orderBy: { order: "asc" }
                 },
                 faqs: {
-                    where: { status: "PUBLISHED" },
-                    orderBy: { sortOrder: "asc" }
+                    where: { status: "PUBLISHED" }
                 }
             }
-        });
+        }).catch(() => null);
         if (!category || !category.enabled) {
             return res.status(404).json({ success: false, message: "Category not found" });
         }
@@ -1306,7 +1311,7 @@ router.get("/help-center/categories/:slug", async (req, res, next) => {
 router.get("/help-center/articles/:slug", async (req, res, next) => {
     try {
         const { slug } = req.params;
-        const article = await prisma.helpArticle.findUnique({
+        const article = await prisma.helpArticle?.findUnique({
             where: { slug },
             include: {
                 category: {
@@ -1319,7 +1324,7 @@ router.get("/help-center/articles/:slug", async (req, res, next) => {
                     }
                 }
             }
-        });
+        }).catch(() => null);
         if (!article || article.status !== "published") {
             return res.status(404).json({ success: false, message: "Article not found" });
         }

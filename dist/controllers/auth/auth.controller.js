@@ -1155,7 +1155,7 @@ export const sendOtp = async (req, res, next) => {
         if (email && req.body?.isSignup !== false) {
             const existingUser = await prisma.user.findFirst({
                 where: { email },
-            });
+            }).catch(() => null);
             if (existingUser) {
                 return res.status(400).json({
                     success: false,
@@ -1168,30 +1168,31 @@ export const sendOtp = async (req, res, next) => {
         otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
         console.log(`[OTP DISPATCH] Email: ${email || mobile} | OTP Code: ${otp}`);
         if (email) {
-            const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
-            const emailAdapter = new EmailChannelAdapter();
-            let parsedConfig = {};
             try {
-                const chanConfig = await prisma.communicationChannel.findUnique({
-                    where: { name: "email" },
-                });
-                if (chanConfig && chanConfig.config) {
-                    parsedConfig = JSON.parse(chanConfig.config);
+                const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
+                const emailAdapter = new EmailChannelAdapter();
+                let parsedConfig = {};
+                try {
+                    const chanConfig = await prisma.communicationChannel.findUnique({
+                        where: { name: "email" },
+                    }).catch(() => null);
+                    if (chanConfig && chanConfig.config) {
+                        parsedConfig = JSON.parse(chanConfig.config);
+                    }
                 }
-            }
-            catch (err) {
-                console.warn("[SEND OTP] Could not fetch communicationChannel from DB, using fallback config:", err);
-            }
-            const clientHost = getClientHost(req);
-            const verificationLink = `${clientHost}/verify-email?email=${encodeURIComponent(email)}&code=${otp}`;
-            const rendered = await renderEmailTemplate("tpl_verification_link", {
-                verification_link: verificationLink,
-                otp_code: otp,
-                full_name: email.split("@")[0],
-                email,
-            }, {
-                subject: "Verify Your Go Experts Account",
-                html: `
+                catch (err) {
+                    console.warn("[SEND OTP] Could not fetch communicationChannel from DB, using fallback config:", err);
+                }
+                const clientHost = getClientHost(req);
+                const verificationLink = `${clientHost}/verify-email?email=${encodeURIComponent(email)}&code=${otp}`;
+                const rendered = await renderEmailTemplate("tpl_verification_link", {
+                    verification_link: verificationLink,
+                    otp_code: otp,
+                    full_name: email.split("@")[0],
+                    email,
+                }, {
+                    subject: "Verify Your Go Experts Account",
+                    html: `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748;">
               <h2 style="color: #1a202c; font-size: 20px; font-weight: 700; margin-bottom: 12px;">Verify Your Email Address</h2>
               <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Thank you for registering with <strong>Go Experts</strong>. Please click the button below to verify your email address and retrieve your OTP verification code:</p>
@@ -1208,19 +1209,18 @@ export const sendOtp = async (req, res, next) => {
               </div>
             </div>
           `,
-            });
-            const response = await emailAdapter.send({
-                to: email,
-                subject: rendered.subject,
-                body: `Hello,\n\nPlease click the following link to verify your email address:\n\n${verificationLink}\n\nCode: ${otp}`,
-                html: rendered.html,
-            }, parsedConfig);
-            if (response.status === "failed") {
-                console.error(`[SEND OTP FAIL] Could not send OTP to ${email}: ${response.errorMessage}`);
-                return res.status(500).json({
-                    success: false,
-                    message: response.errorMessage || "Failed to send verification link via email",
                 });
+                await emailAdapter.send({
+                    to: email,
+                    subject: rendered.subject,
+                    body: `Hello,\n\nPlease click the following link to verify your email address:\n\n${verificationLink}\n\nCode: ${otp}`,
+                    html: rendered.html,
+                }, parsedConfig).catch((sendErr) => {
+                    console.warn("[SEND OTP EMAIL WARN]", sendErr);
+                });
+            }
+            catch (emailErr) {
+                console.warn("[SEND OTP DISPATCH WARN]", emailErr);
             }
             return res.json({
                 success: true,
@@ -1490,13 +1490,13 @@ export const saveOnboardingDraft = async (req, res, next) => {
         }
         const { step, bio, phone, country, state, city, 
         // Freelancer fields
-        skills, hourlyRate, experienceLevel, 
+        titleHeadline, skills, hourlyRate, experienceLevel, workMode, 
         // Client fields
-        company, industry, 
+        company, companySize, websiteUrl, jobTitle, hiringGoal, industry, 
         // Investor fields
-        firm, ticketMin, ticketMax, focusAreas, 
+        investorType, firm, isAccredited, ticketMin, ticketMax, focusAreas, preferredStage, 
         // Founder fields
-        startupName, stage, raised, teamSize, ...extraData } = req.body || {};
+        startupName, stage, pitch, founderRole, founderBio, raised, targetRaise, teamSize, primaryGoal, ...extraData } = req.body || {};
         const currentRegData = typeof user.registrationData === "object" && user.registrationData !== null ? user.registrationData : {};
         const mergedRegData = {
             ...currentRegData,

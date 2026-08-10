@@ -231,23 +231,31 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
 export const getIndustries = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const defaultIndustries = [
-      { id: "07f378bf-7e20-4828-ad87-36cc225b48ce", name: "Software Development", status: "active" },
-      { id: "cfd78d15-899b-4582-9be9-0c26f7f431fc", name: "Data & AI", status: "active" },
-      { id: "63daaa36-e2a6-43fd-b67f-fbb7a6220a64", name: "Finance & FinTech", status: "active" },
-      { id: "e1a2b3c4-5678-90ab-cdef-1234567890ab", name: "HealthTech", status: "active" },
-      { id: "f2b3c4d5-6789-01ab-cdef-234567890abc", name: "E-Commerce", status: "active" }
+      { id: "07f378bf-7e20-4828-ad87-36cc225b48ce", name: "Software Development" },
+      { id: "cfd78d15-899b-4582-9be9-0c26f7f431fc", name: "Data & AI" },
+      { id: "63daaa36-e2a6-43fd-b67f-fbb7a6220a64", name: "Finance & FinTech" },
+      { id: "e1a2b3c4-5678-90ab-cdef-1234567890ab", name: "HealthTech" },
+      { id: "f2b3c4d5-6789-01ab-cdef-234567890abc", name: "E-Commerce" }
     ];
 
-    const dbIndustries = await prisma.industry.findMany({ where: { status: 'active' }, orderBy: { name: 'asc' } }).catch(() => []);
-    const industries = dbIndustries && dbIndustries.length > 0 ? dbIndustries : defaultIndustries;
+    const dbIndustries = await prisma.industry.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true }
+    }).catch(() => []);
+
+    const industries = dbIndustries && dbIndustries.length > 0
+      ? dbIndustries.map((ind) => ({ id: ind.id, name: ind.name }))
+      : defaultIndustries;
+
     return res.json(successResponse('Industries retrieved', industries));
   } catch (error) {
     const fallbackIndustries = [
-      { id: "07f378bf-7e20-4828-ad87-36cc225b48ce", name: "Software Development", status: "active" },
-      { id: "cfd78d15-899b-4582-9be9-0c26f7f431fc", name: "Data & AI", status: "active" },
-      { id: "63daaa36-e2a6-43fd-b67f-fbb7a6220a64", name: "Finance & FinTech", status: "active" },
-      { id: "e1a2b3c4-5678-90ab-cdef-1234567890ab", name: "HealthTech", status: "active" },
-      { id: "f2b3c4d5-6789-01ab-cdef-234567890abc", name: "E-Commerce", status: "active" }
+      { id: "07f378bf-7e20-4828-ad87-36cc225b48ce", name: "Software Development" },
+      { id: "cfd78d15-899b-4582-9be9-0c26f7f431fc", name: "Data & AI" },
+      { id: "63daaa36-e2a6-43fd-b67f-fbb7a6220a64", name: "Finance & FinTech" },
+      { id: "e1a2b3c4-5678-90ab-cdef-1234567890ab", name: "HealthTech" },
+      { id: "f2b3c4d5-6789-01ab-cdef-234567890abc", name: "E-Commerce" }
     ];
     return res.json(successResponse('Industries retrieved', fallbackIndustries));
   }

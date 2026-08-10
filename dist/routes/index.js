@@ -73,6 +73,7 @@ router.get("/docs/postman.json", (req, res) => {
 // 2. Admin operations
 // 2.1 Public operations (used by the public frontend)
 router.use("/public", publicRoutes);
+router.use("/v1/public", publicRoutes);
 // 2.2 Admin operations
 router.use("/admin/dashboard", dashboardRoutes);
 router.use("/admin/dashboard", dashboardInsightsRouter);
@@ -411,6 +412,33 @@ export function sanitizeUserRecord(row) {
         "hg_2": "Hire Freelancers"
     };
     const hgNames = hiringGoalArr.map(id => HIRING_GOAL_NAME_MAP[id] || id);
+    const PREFERRED_STAGE_MAP = {
+        "stg_1": "Seed Stage",
+        "stg_2": "Pre-Series A",
+        "stg_3": "Series A+",
+        "stg_4": "MVP / Beta",
+        "stg_5": "Idea / Concept"
+    };
+    const psNames = preferredStageArr.map(id => PREFERRED_STAGE_MAP[id] || id);
+    const PRIMARY_GOAL_MAP = {
+        "pg_1": "Looking for Investors",
+        "pg_2": "Hiring Top Freelancers",
+        "pg_3": "Scaling Startup"
+    };
+    const pgNames = primaryGoalArr.map(id => PRIMARY_GOAL_MAP[id] || id);
+    const FOCUS_AREAS_MAP = {
+        "fa_1": "FinTech & AI",
+        "fa_2": "HealthTech",
+        "fa_3": "SaaS & Enterprise"
+    };
+    const faNames = focusAreasArr.map(id => FOCUS_AREAS_MAP[id] || id);
+    const INVESTOR_TYPE_MAP = {
+        "angel": "Angel Investor",
+        "vc": "Venture Capitalist",
+        "syndicate": "Syndicate / PE",
+        "family_office": "Family Office"
+    };
+    const invTypeVal = investorProfile.investorType ?? regData.investorType ?? null;
     return {
         ...rest,
         hasPassword: Boolean(password && String(password).length > 0),
@@ -458,12 +486,30 @@ export function sanitizeUserRecord(row) {
         hiringGoalName: hgNames,
         hiringGoalNames: hgNames,
         hiringGoal: hiringGoalArr,
-        preferredStage: preferredStageArr.length > 0 ? preferredStageArr : (investorProfile.preferredStage ? investorProfile.preferredStage.split(",").map(s => s.trim()) : []),
+        PreferredStage: preferredStageArr.map((id, index) => ({
+            preferredStageId: id,
+            preferredStageName: psNames[index] || id
+        })),
+        preferredStage: preferredStageArr,
         preferredStageIds: preferredStageArr,
-        primaryGoal: primaryGoalArr.length > 0 ? primaryGoalArr : (founderProfile.primaryGoal ? founderProfile.primaryGoal.split(",").map(s => s.trim()) : []),
+        preferredStageNames: psNames,
+        PrimaryGoal: primaryGoalArr.map((id, index) => ({
+            primaryGoalId: id,
+            primaryGoalName: pgNames[index] || id
+        })),
+        primaryGoal: primaryGoalArr,
         primaryGoalIds: primaryGoalArr,
-        focusAreas: focusAreasArr.length > 0 ? focusAreasArr : (investorProfile.focusAreas ? investorProfile.focusAreas.split(",").map(s => s.trim()) : []),
+        primaryGoalNames: pgNames,
+        FocusAreas: focusAreasArr.map((id, index) => ({
+            focusAreaId: id,
+            focusAreaName: faNames[index] || id
+        })),
+        focusAreas: focusAreasArr,
         focusAreaIds: focusAreasArr,
+        focusAreaNames: faNames,
+        investorType: invTypeVal,
+        investorTypeId: invTypeVal,
+        investorTypeName: invTypeVal ? (INVESTOR_TYPE_MAP[invTypeVal] || invTypeVal) : null,
         projects_posted: projectsPosted,
         projectsPosted,
         total_spend: totalSpend,
@@ -506,7 +552,6 @@ export function sanitizeUserRecord(row) {
         websiteUrl: clientProfile.websiteUrl ?? regData.websiteUrl ?? null,
         jobTitle: clientProfile.jobTitle ?? regData.jobTitle ?? null,
         // Investor fields
-        investorType: investorProfile.investorType ?? regData.investorType ?? null,
         firm: investorProfile.firm ?? regData.firm ?? null,
         isAccredited: investorProfile.isAccredited ?? regData.isAccredited ?? null,
         // Founder fields
