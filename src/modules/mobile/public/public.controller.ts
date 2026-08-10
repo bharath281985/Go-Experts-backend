@@ -420,6 +420,27 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
   } catch (error) { next(error); }
 };
 
+export const getBudgetRanges = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbRanges = await (prisma as any).masterOption?.findMany({
+      where: { type: 'budget_range', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true, min: true, max: true }
+    }).catch(() => []);
+
+    const defaultRanges = [
+      { id: "bgt_1", label: "< $5,000", value: "0-5000", min: 0, max: 5000 },
+      { id: "bgt_2", label: "$5,000 - $10,000", value: "5000-10000", min: 5000, max: 10000 },
+      { id: "bgt_3", label: "$10,000 - $50,000", value: "10000-50000", min: 10000, max: 50000 },
+      { id: "bgt_4", label: "$50,000 - $100,000", value: "50000-100000", min: 50000, max: 100000 },
+      { id: "bgt_5", label: "$100,000+", value: "100000+", min: 100000, max: 1000000 }
+    ];
+
+    const result = dbRanges && dbRanges.length > 0 ? deduplicateMasterOptions(dbRanges) : defaultRanges;
+    return res.json(successResponse('Budget ranges retrieved', result));
+  } catch (error) { next(error); }
+};
+
 export const getTicketSizes = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const dbTickets = await (prisma as any).masterOption?.findMany({
@@ -1353,7 +1374,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const csId = reg.companySizeId || user.clientProfile?.companySize || reg.companySize || "1-10";
       const teamVal = user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || reg.companySize || "1-10";
       const teamId = reg.currentTeamId || reg.currentTeamSizeId || user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || "1-10";
-      const budgetVal = user.clientProfile?.projectHireBudget || reg.projectHireBudget || reg.budget || "34000";
+      const rawB = user.clientProfile?.projectHireBudget || reg.projectHireBudgetId || reg.projectHireBudget || reg.budget || "bgt_3";
+      const bgtId = rawB === "34000" || rawB === "34000.0" || rawB === "34000.00" ? "bgt_3" : (rawB.startsWith("bgt_") ? rawB : (rawB ? rawB : "bgt_3"));
       const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
       const hgArr = user.clientProfile?.hiringGoal ? String(user.clientProfile.hiringGoal).split(",").map(s => s.trim()) : (reg.hiringGoal || []);
@@ -1375,7 +1397,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         currentTeamId: teamId,
         currentTeamSize: teamVal,
         currentTeamSizeId: teamId,
-        projectHireBudget: budgetVal,
+        projectHireBudget: bgtId,
+        projectHireBudgetId: bgtId,
+        projectHireBudgetLabel: bgtId === "bgt_3" ? "$10,000 - $50,000" : bgtId,
         industry: user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : (reg.industry || []),
         industryIds: reg.industryIds || (user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : []),
         hiringGoal: hgArr,
