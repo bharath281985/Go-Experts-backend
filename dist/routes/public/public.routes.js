@@ -6,7 +6,9 @@ import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreel
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
 import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
+import { getInvestorTypes } from "../../modules/mobile/public/public.controller.js";
 const router = Router();
+router.get("/investor-types", getInvestorTypes);
 router.get("/settings/branding", async (req, res) => {
     const result = await getSettingsSection("branding");
     res.json(result);

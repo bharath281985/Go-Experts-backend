@@ -7,6 +7,24 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
     if (!db) {
         throw new Error(`Model ${String(modelName)} does not exist in Prisma Client.`);
     }
+    // Helper to format generic master records with description, code, and slug
+    const formatRecord = (row) => {
+        if (!row)
+            return row;
+        const label = row.label || row.name || row.title || row.value || "Reference Item";
+        const slugVal = row.slug || row.code || label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const codeVal = row.code || row.referenceCode || row.value || label.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+        const descVal = row.description || `Platform reference catalog configuration option for ${label}.`;
+        return {
+            ...row,
+            name: row.name || label,
+            label: row.label || label,
+            description: descVal,
+            code: codeVal,
+            referenceCode: codeVal,
+            slug: slugVal,
+        };
+    };
     // 1. LIST (with search, pagination, sorting, filters)
     router.get("/", async (req, res, next) => {
         try {
@@ -57,7 +75,43 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                 orderBy: orderBy ? { [orderBy]: ascending ? "asc" : "desc" } : { createdAt: "desc" },
                 ...(include ? { include } : {}),
             });
-            res.json({ success: true, rows, total });
+            res.json({ success: true, rows: rows.map(formatRecord), total });
+        }
+        catch (err) {
+            next(err);
+        }
+    });
+    // 1b. POST LIST (compatibility helper for POST /list)
+    router.post("/list", async (req, res, next) => {
+        try {
+            const page = req.body?.page || parseInt(req.query.page) || 1;
+            const pageSize = req.body?.pageSize || parseInt(req.query.pageSize) || 50;
+            const search = req.body?.search || req.query.search;
+            const orderBy = req.body?.orderBy || req.query.orderBy;
+            const ascending = req.body?.ascending !== undefined ? req.body.ascending : req.query.ascending === "true";
+            const where = {};
+            const rawFilters = req.body?.filters || (req.query.filters ? JSON.parse(req.query.filters) : {});
+            Object.entries(rawFilters || {}).forEach(([key, value]) => {
+                if (value == null || value === "")
+                    return;
+                where[key] = value;
+            });
+            if (search && searchColumns.length > 0) {
+                where.OR = searchColumns.map(col => ({
+                    [col]: {
+                        contains: search,
+                    }
+                }));
+            }
+            const total = await db.count({ where });
+            const rows = await db.findMany({
+                where,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                orderBy: orderBy ? { [orderBy]: ascending ? "asc" : "desc" } : { createdAt: "desc" },
+                ...(include ? { include } : {}),
+            });
+            res.json({ success: true, rows: rows.map(formatRecord), total });
         }
         catch (err) {
             next(err);
@@ -69,7 +123,7 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
             const rows = await db.findMany();
             res.setHeader("Content-Type", "application/json");
             res.setHeader("Content-Disposition", `attachment; filename=${String(modelName).toLowerCase()}_export.json`);
-            res.json({ success: true, rows });
+            res.json({ success: true, rows: rows.map(formatRecord) });
         }
         catch (err) {
             next(err);
@@ -87,7 +141,7 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                 const row = await db.create({ data: item });
                 created.push(row);
             }
-            res.status(201).json({ success: true, count: created.length, rows: created });
+            res.status(201).json({ success: true, count: created.length, rows: created.map(formatRecord) });
         }
         catch (err) {
             next(err);
@@ -103,7 +157,8 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
             if (!row) {
                 return res.status(404).json({ success: false, message: "Record not found" });
             }
-            res.json({ success: true, data: row });
+            const formatted = formatRecord(row);
+            res.json({ success: true, data: formatted, row: formatted });
         }
         catch (err) {
             next(err);
@@ -176,6 +231,17 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
         try {
             const modelFields = prisma._dmmf?.modelMap?.[modelName]?.fields || [];
             const hasDeletedAt = modelFields.some((f) => f.name === "deletedAt");
+            if (String(modelName).toLowerCase() === "skillcategory") {
+                const cat = await prisma.skillCategory.findUnique({ where: { id: req.params.id } }).catch(() => null);
+                await prisma.skill.deleteMany({
+                    where: {
+                        OR: [
+                            { categoryId: req.params.id },
+                            ...(cat?.name ? [{ category: { is: { name: cat.name } } }, { industry: cat.name }] : [])
+                        ]
+                    }
+                }).catch(() => { });
+            }
             if (hasDeletedAt) {
                 await db.update({
                     where: { id: req.params.id },
@@ -200,6 +266,11 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
             }
             const modelFields = prisma._dmmf?.modelMap?.[modelName]?.fields || [];
             const hasDeletedAt = modelFields.some((f) => f.name === "deletedAt");
+            if (String(modelName).toLowerCase() === "skillcategory") {
+                await prisma.skill.deleteMany({
+                    where: { categoryId: { in: ids } }
+                }).catch(() => { });
+            }
             if (hasDeletedAt) {
                 await db.updateMany({
                     where: { id: { in: ids } },
@@ -229,6 +300,35 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                 data: { [field]: value },
             });
             res.json({ success: true, ok: true });
+        }
+        catch (err) {
+            next(err);
+        }
+    });
+    // 11. BULK IMPORT
+    router.post("/import", async (req, res, next) => {
+        try {
+            const { rows } = req.body;
+            const importItems = Array.isArray(rows) ? rows : (Array.isArray(req.body) ? req.body : []);
+            if (importItems.length === 0) {
+                return res.status(400).json({ success: false, message: "Array of rows is required for import" });
+            }
+            const createdRecords = [];
+            for (const rawRow of importItems) {
+                if (!rawRow || typeof rawRow !== "object")
+                    continue;
+                if (!rawRow.name && !rawRow.label && !rawRow.title && !rawRow.code)
+                    continue;
+                const sanitized = sanitizeModelData(String(modelName), rawRow);
+                const created = await db.create({ data: sanitized }).catch(() => null);
+                if (created)
+                    createdRecords.push(created);
+            }
+            res.status(201).json({
+                success: true,
+                count: createdRecords.length,
+                data: createdRecords,
+            });
         }
         catch (err) {
             next(err);

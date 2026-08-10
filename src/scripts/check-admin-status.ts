@@ -24,7 +24,8 @@ async function main() {
       password: newHash,
       fullName: "Super Admin",
       status: "active",
-    },
+      role: { connectOrCreate: { where: { name: "super_admin" }, create: { name: "super_admin" } } }
+    } as any,
   });
 
   await prisma.user.upsert({

@@ -135,6 +135,7 @@ const tableModelMapping = {
     work_modes: "WorkMode",
     experience_levels: "ExperienceLevel",
     pricing_plans: "SubscriptionPlan",
+    master_options: "MasterOption",
     coupons: "Coupon",
     campaigns: "Campaign",
     insight_reports: "InsightReport",
@@ -597,6 +598,48 @@ adminSkillsRouter.get("/", async (req, res, next) => {
         next(err);
     }
 });
+adminSkillsRouter.get("/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const skill = await prisma.skill.findUnique({
+            where: { id },
+            include: {
+                category: {
+                    select: { id: true, name: true, industry: { select: { id: true, name: true } } }
+                }
+            }
+        });
+        if (!skill) {
+            return res.status(404).json({ success: false, message: "Skill not found" });
+        }
+        const categoryName = skill.category?.name || "General";
+        const industryName = skill.industry || skill.category?.industry?.name || categoryName;
+        const formatted = {
+            ...skill,
+            industry: industryName,
+            category: skill.category ? {
+                ...skill.category,
+                industry: skill.category.industry?.name || skill.category.industry || categoryName,
+            } : null,
+            description: skill.description || `Professional skill mapping for ${skill.name} under ${categoryName} domain.`,
+            code: skill.code || (skill.name ? skill.name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) : "SKL")
+        };
+        res.json({ success: true, data: formatted, row: formatted });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminSkillsRouter.delete("/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        await prisma.skill.delete({ where: { id } });
+        res.json({ success: true, ok: true, message: "Skill deleted successfully" });
+    }
+    catch (err) {
+        next(err);
+    }
+});
 const adminCategoriesRouter = Router();
 adminCategoriesRouter.post("/list", async (req, res, next) => {
     try {
@@ -604,17 +647,138 @@ adminCategoriesRouter.post("/list", async (req, res, next) => {
         const page = body.page ?? 1;
         const pageSize = body.pageSize ?? 50;
         const search = body.search;
-        const where = { status: "active" };
+        const where = {};
         if (search)
             where.name = { contains: search };
-        const total = await prisma.industry.count({ where });
-        const rows = await prisma.industry.findMany({
+        const total = await prisma.skillCategory.count({ where });
+        const rows = await prisma.skillCategory.findMany({
             where,
             skip: (page - 1) * pageSize,
             take: pageSize,
             orderBy: { name: "asc" },
+            include: { _count: { select: { skills: true } } },
         });
         res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminCategoriesRouter.get("/", async (req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.pageSize) || 50;
+        const search = req.query.search;
+        const where = {};
+        if (search)
+            where.name = { contains: search };
+        const total = await prisma.skillCategory.count({ where });
+        const rows = await prisma.skillCategory.findMany({
+            where,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            orderBy: { createdAt: "desc" },
+            include: { _count: { select: { skills: true } } },
+        });
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminCategoriesRouter.get("/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const cat = await prisma.skillCategory.findUnique({
+            where: { id },
+            include: {
+                _count: { select: { skills: true } },
+                skills: { select: { id: true, name: true, status: true, createdAt: true } },
+                industry: true,
+            }
+        });
+        if (!cat) {
+            return res.status(404).json({ success: false, message: "Skill Category not found" });
+        }
+        const formatted = {
+            ...cat,
+            industry: cat.industry?.name || cat.industryId || null,
+            description: cat.description || `Skill Category domain for ${cat.name} organizing related professional skills across the platform.`,
+            code: cat.code || (cat.name ? cat.name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) : "CAT")
+        };
+        res.json({ success: true, data: formatted, row: formatted });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+adminCategoriesRouter.post("/", async (req, res, next) => {
+    try {
+        const { name, status = "active", sortOrder = 0 } = req.body || {};
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, message: "Category Name is required" });
+        }
+        const created = await prisma.skillCategory.create({
+            data: {
+                name: name.trim(),
+                status: status || "active",
+                sortOrder: Number(sortOrder) || 0,
+            },
+        });
+        res.status(201).json({ success: true, data: created });
+    }
+    catch (err) {
+        if (err?.code === "P2002") {
+            return res.status(400).json({ success: false, message: `Skill category "${req.body?.name}" already exists.` });
+        }
+        next(err);
+    }
+});
+adminCategoriesRouter.put("/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { name, status, sortOrder } = req.body || {};
+        const updated = await prisma.skillCategory.update({
+            where: { id },
+            data: {
+                ...(name && { name: name.trim() }),
+                ...(status && { status }),
+                ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+            },
+        });
+        res.json({ success: true, data: updated });
+    }
+    catch (err) {
+        if (err?.code === "P2002") {
+            return res.status(400).json({ success: false, message: `Skill category name already exists.` });
+        }
+        next(err);
+    }
+});
+adminCategoriesRouter.delete("/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        // Find category to get name
+        const cat = await prisma.skillCategory.findUnique({ where: { id } });
+        const catName = cat?.name;
+        // 1. Delete all skills mapped to this category ID or matching category name
+        if (catName) {
+            await prisma.skill.deleteMany({
+                where: {
+                    OR: [
+                        { categoryId: id },
+                        { category: { is: { name: catName } } },
+                        { industry: catName }
+                    ]
+                }
+            }).catch(() => { });
+        }
+        else {
+            await prisma.skill.deleteMany({ where: { categoryId: id } }).catch(() => { });
+        }
+        // 2. Delete the category record
+        await prisma.skillCategory.delete({ where: { id } });
+        res.json({ success: true, ok: true, message: "Skill category and all associated skills deleted successfully." });
     }
     catch (err) {
         next(err);
@@ -1315,7 +1479,11 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
     const searchCols = searchColumnsMapping[modelName] || ["name"];
     const include = modelName === "Task"
         ? { attachments: true, project: { select: { id: true, title: true, category: true } } }
-        : undefined;
+        : modelName === "SkillCategory"
+            ? { _count: { select: { skills: true } } }
+            : modelName === "Skill"
+                ? { category: { select: { id: true, name: true } } }
+                : undefined;
     // Create router using factory
     const crudRouter = createCrudRouter(modelName, searchCols, include ? { include } : {});
     // We wrap list get request to auto inject default role query filters for user roles

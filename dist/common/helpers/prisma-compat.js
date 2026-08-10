@@ -92,6 +92,11 @@ export async function listSkillsCompat(page, pageSize, search, filters) {
             skip: (page - 1) * pageSize,
             take: pageSize,
             orderBy: { createdAt: "desc" },
+            include: {
+                category: {
+                    select: { id: true, name: true, industry: { select: { id: true, name: true } } }
+                }
+            }
         });
         if (rows.length === 0 && (categoryId || industry)) {
             const fallbackWhere = {};
@@ -103,9 +108,28 @@ export async function listSkillsCompat(page, pageSize, search, filters) {
                 skip: (page - 1) * pageSize,
                 take: pageSize,
                 orderBy: { createdAt: "desc" },
+                include: {
+                    category: {
+                        select: { id: true, name: true, industry: { select: { id: true, name: true } } }
+                    }
+                }
             });
         }
-        return { rows, total, degraded: false };
+        const formattedRows = rows.map((row) => {
+            const categoryName = row.category?.name || "General";
+            const industryName = row.industry || row.category?.industry?.name || categoryName;
+            return {
+                ...row,
+                industry: industryName,
+                category: row.category ? {
+                    ...row.category,
+                    industry: row.category.industry?.name || row.category.industry || categoryName,
+                } : null,
+                description: row.description || `Professional skill mapping for ${row.name} under ${categoryName} domain.`,
+                code: row.code || (row.name ? row.name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) : "SKL")
+            };
+        });
+        return { rows: formattedRows, total, degraded: false };
     }
     catch (err) {
         if (!isMissingColumnError(err, "industry"))
