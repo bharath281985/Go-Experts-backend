@@ -450,8 +450,11 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     linkedInUrl: freelancerProfile.linkedInUrl ?? regData.linkedInUrl ?? regData.linkedin ?? null,
     githubUrl: freelancerProfile.githubUrl ?? regData.githubUrl ?? regData.github ?? null,
     // Client fields
-    company: clientProfile.company ?? regData.company ?? null,
+    company: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
+    companyName: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
     companySize: clientProfile.companySize ?? regData.companySize ?? null,
+    currentTeam: clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
+    projectHireBudget: clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null,
     websiteUrl: clientProfile.websiteUrl ?? regData.websiteUrl ?? null,
     jobTitle: clientProfile.jobTitle ?? regData.jobTitle ?? null,
     // Investor fields

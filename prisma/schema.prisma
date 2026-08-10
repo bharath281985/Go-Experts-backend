@@ -183,6 +183,8 @@ model ClientProfile {
   company        String?
   industry       String?
   companySize    String?  @map("company_size")
+  currentTeam    String?  @map("current_team")
+  projectHireBudget String? @map("project_hire_budget")
   websiteUrl     String?  @map("website_url")
   jobTitle       String?  @map("job_title")
   hiringGoal     String?  @map("hiring_goal")

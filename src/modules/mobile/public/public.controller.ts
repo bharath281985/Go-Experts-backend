@@ -1338,6 +1338,13 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const reg = parseRegData(user.registrationData);
       const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
 
+      const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
+      const teamVal = user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || reg.companySize || "1-10";
+      const budgetVal = user.clientProfile?.projectHireBudget || reg.projectHireBudget || reg.budget || "34000";
+      const rawC = reg.countryId || user.country || reg.country || "";
+      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
+      const hgArr = user.clientProfile?.hiringGoal ? String(user.clientProfile.hiringGoal).split(",").map(s => s.trim()) : (reg.hiringGoal || []);
+
       return res.json(successResponse('Details retrieved for client', {
         id: user.id,
         userId: user.id,
@@ -1347,12 +1354,20 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         phone: user.phone || reg.phone || reg.mobile || "",
         avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
         avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
-        company: user.clientProfile?.company || reg.company || reg.companyName || "",
-        companyName: user.clientProfile?.company || reg.company || reg.companyName || "",
-        industry: user.clientProfile?.industry || reg.industry || "",
+        company: compVal,
+        companyName: compVal,
+        currentTeam: teamVal,
+        projectHireBudget: budgetVal,
+        industry: user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : (reg.industry || []),
+        industryIds: reg.industryIds || (user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : []),
+        hiringGoal: hgArr,
+        hiringGoalIds: reg.hiringGoalIds || hgArr,
         bio: user.bio || reg.bio || "",
         city: user.city || reg.city || "",
         country: user.country || reg.country || "",
+        countryId: cntryId,
+        state: user.state || reg.state || "",
+        stateId: reg.stateId || user.state || "",
         totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
         projectsPosted: user.clientProfile?.projectsPosted ?? 0,
         status: user.status || "active",

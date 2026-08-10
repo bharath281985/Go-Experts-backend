@@ -1783,21 +1783,29 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
           },
         });
       } else if (userRole === "client") {
+        const compName = req.body?.companyName || req.body?.company;
+        const currTeam = req.body?.currentTeam || req.body?.teamSize || req.body?.companySize;
+        const projBudget = req.body?.projectHireBudget || req.body?.budget;
+
         await prisma.clientProfile.upsert({
           where: { userId },
           create: {
             userId,
-            company: company ? String(company) : undefined,
+            company: compName ? String(compName) : undefined,
             industry: joinArray(industry),
             companySize: companySize ? String(companySize) : undefined,
+            currentTeam: currTeam ? String(currTeam) : undefined,
+            projectHireBudget: projBudget ? String(projBudget) : undefined,
             websiteUrl: websiteUrl ? String(websiteUrl) : undefined,
             jobTitle: jobTitle ? String(jobTitle) : undefined,
             hiringGoal: joinArray(hiringGoal),
           },
           update: {
-            ...(company !== undefined && { company: String(company) }),
+            ...(compName !== undefined && { company: String(compName) }),
             ...(industry !== undefined && { industry: joinArray(industry) }),
             ...(companySize !== undefined && { companySize: String(companySize) }),
+            ...(currTeam !== undefined && { currentTeam: String(currTeam) }),
+            ...(projBudget !== undefined && { projectHireBudget: String(projBudget) }),
             ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
             ...(jobTitle !== undefined && { jobTitle: String(jobTitle) }),
             ...(hiringGoal !== undefined && { hiringGoal: joinArray(hiringGoal) }),
