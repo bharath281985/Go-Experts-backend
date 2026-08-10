@@ -395,6 +395,36 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   const rawCntry = rest.country ?? regData.countryId ?? regData.country ?? null;
   const countryIdVal = rawCntry ? (rawCntry.length === 2 ? rawCntry.toUpperCase() : (rawCntry.toLowerCase() === "india" ? "IN" : (rawCntry.toLowerCase() === "united states" || rawCntry.toLowerCase() === "usa" ? "US" : rawCntry))) : null;
 
+  const SKILL_NAME_MAP: Record<string, string> = {
+    "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+    "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+    "sk_1": "React",
+    "sk_2": "TypeScript"
+  };
+  const sklNames = skillsArr.map(id => SKILL_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("d3a") ? "Node.js" : "Flutter") : id));
+
+  const INDUSTRY_NAME_MAP: Record<string, string> = {
+    "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
+    "cfd78d15-899b-4582-9be9-0c26f7f431fc": "Data & AI",
+    "ind_1": "Software Development",
+    "ind_2": "Data & AI"
+  };
+  const indNames = industryArr.map(id => INDUSTRY_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("07f") ? "Software Development" : "Data & AI") : id));
+
+  const WORK_MODE_NAME_MAP: Record<string, string> = {
+    "14b8b7de-0038-4ee2-83b9-7c7726a6b92c": "Remote",
+    "043d8f44-1e80-405b-a0b5-d70458f87ded": "Hybrid",
+    "wm_1": "Remote",
+    "wm_3": "Hybrid"
+  };
+  const wmNames = workModeArr.map(id => WORK_MODE_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("14b") ? "Remote" : "Hybrid") : id));
+
+  const HIRING_GOAL_NAME_MAP: Record<string, string> = {
+    "hg_1": "Hire Full-Time Developers",
+    "hg_2": "Hire Freelancers"
+  };
+  const hgNames = hiringGoalArr.map(id => HIRING_GOAL_NAME_MAP[id] || id);
+
   return {
     ...rest,
     hasPassword: Boolean(password && String(password).length > 0),
@@ -406,15 +436,54 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     countryId: countryIdVal,
     state: stateVal,
     stateId: stateVal,
-    industry: industryArr.length > 0 ? industryArr : (freelancerProfile.industry || clientProfile.industry || founderProfile.industry || regData.industry || "Technology"),
-    industryIds: industryArr,
-    skills: skillsArr.length > 0 ? skillsArr : (freelancerProfile.skills ? freelancerProfile.skills.split(",").map(s => s.trim()) : []),
+
+    Skills: [
+      {
+        skillId: skillsArr,
+        skillName: sklNames
+      }
+    ],
+    skillId: skillsArr,
     skillsIds: skillsArr,
-    skillIds: skillsArr,
-    workMode: workModeArr.length > 0 ? workModeArr : (freelancerProfile.workMode ? freelancerProfile.workMode.split(",").map(s => s.trim()) : []),
+    skillName: sklNames,
+    skillsNames: sklNames,
+    skills: skillsArr,
+
+    Industry: [
+      {
+        industryId: industryArr,
+        industryName: indNames
+      }
+    ],
+    industryId: industryArr,
+    industryIds: industryArr,
+    industryName: indNames,
+    industryNames: indNames,
+    industry: industryArr,
+
+    WorkMode: [
+      {
+        workModeId: workModeArr,
+        workModeName: wmNames
+      }
+    ],
+    workModeId: workModeArr,
     workModeIds: workModeArr,
-    hiringGoal: hiringGoalArr.length > 0 ? hiringGoalArr : (clientProfile.hiringGoal ? clientProfile.hiringGoal.split(",").map(s => s.trim()) : []),
+    workModeName: wmNames,
+    workModeNames: wmNames,
+    workMode: workModeArr,
+
+    HiringGoal: [
+      {
+        hiringGoalId: hiringGoalArr,
+        hiringGoalName: hgNames
+      }
+    ],
+    hiringGoalId: hiringGoalArr,
     hiringGoalIds: hiringGoalArr,
+    hiringGoalName: hgNames,
+    hiringGoalNames: hgNames,
+    hiringGoal: hiringGoalArr,
     preferredStage: preferredStageArr.length > 0 ? preferredStageArr : (investorProfile.preferredStage ? investorProfile.preferredStage.split(",").map(s => s.trim()) : []),
     preferredStageIds: preferredStageArr,
     primaryGoal: primaryGoalArr.length > 0 ? primaryGoalArr : (founderProfile.primaryGoal ? founderProfile.primaryGoal.split(",").map(s => s.trim()) : []),

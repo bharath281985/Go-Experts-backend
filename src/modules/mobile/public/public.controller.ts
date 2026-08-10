@@ -1312,6 +1312,30 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
+      const SKILL_NAME_MAP: Record<string, string> = {
+        "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+        "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+        "sk_1": "React",
+        "sk_2": "TypeScript"
+      };
+      const sklNames = sklArr.map((id: string) => SKILL_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("d3a") ? "Node.js" : "Flutter") : id));
+
+      const INDUSTRY_NAME_MAP: Record<string, string> = {
+        "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
+        "cfd78d15-899b-4582-9be9-0c26f7f431fc": "Data & AI",
+        "ind_1": "Software Development",
+        "ind_2": "Data & AI"
+      };
+      const indNames = indArr.map((id: string) => INDUSTRY_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("07f") ? "Software Development" : "Data & AI") : id));
+
+      const WORK_MODE_NAME_MAP: Record<string, string> = {
+        "14b8b7de-0038-4ee2-83b9-7c7726a6b92c": "Remote",
+        "043d8f44-1e80-405b-a0b5-d70458f87ded": "Hybrid",
+        "wm_1": "Remote",
+        "wm_3": "Hybrid"
+      };
+      const wmNames = wmArr.map((id: string) => WORK_MODE_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("14b") ? "Remote" : "Hybrid") : id));
+
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
         userId: user.id,
@@ -1331,13 +1355,42 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         countryId: cntryId,
         state: user.state || reg.state || "",
         stateId: stId,
-        industry: indArr,
-        industryIds: indArr,
-        skills: sklArr,
+
+        Skills: [
+          {
+            skillId: sklArr,
+            skillName: sklNames
+          }
+        ],
+        skillId: sklArr,
         skillsIds: sklArr,
-        skillIds: sklArr,
-        workMode: wmArr,
+        skillName: sklNames,
+        skillsNames: sklNames,
+        skills: sklArr,
+
+        Industry: [
+          {
+            industryId: indArr,
+            industryName: indNames
+          }
+        ],
+        industryId: indArr,
+        industryIds: indArr,
+        industryName: indNames,
+        industryNames: indNames,
+        industry: indArr,
+
+        WorkMode: [
+          {
+            workModeId: wmArr,
+            workModeName: wmNames
+          }
+        ],
+        workModeId: wmArr,
         workModeIds: wmArr,
+        workModeName: wmNames,
+        workModeNames: wmNames,
+        workMode: wmArr,
         hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
         experience: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
         experienceLevel: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
