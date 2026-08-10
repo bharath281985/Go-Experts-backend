@@ -1274,6 +1274,12 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const reg = parseRegData(user.registrationData);
       const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
 
+      const indArr = Array.isArray(reg.industry) ? reg.industry : (user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : (reg.industryIds || (reg.industry ? [String(reg.industry)] : [])));
+      const sklArr = Array.isArray(reg.skills) ? reg.skills : (user.freelancerProfile?.skills ? String(user.freelancerProfile.skills).split(",").map(s => s.trim()) : (reg.skillsIds || reg.skillIds || (reg.skills ? [String(reg.skills)] : [])));
+      const wmArr = Array.isArray(reg.workMode) ? reg.workMode : (user.freelancerProfile?.workMode ? String(user.freelancerProfile.workMode).split(",").map(s => s.trim()) : (reg.workModeIds || (reg.workMode ? [String(reg.workMode)] : [])));
+      const stId = reg.stateId || user.state || reg.state || "";
+      const cntryId = reg.countryId || user.country || reg.country || "";
+
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
         userId: user.id,
@@ -1290,14 +1296,16 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         overview: user.bio || reg.bio || reg.overview || "",
         city: user.city || reg.city || "",
         country: user.country || reg.country || "",
+        countryId: cntryId,
         state: user.state || reg.state || "",
-        stateId: reg.stateId || user.state || "",
-        industry: user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : (reg.industry || []),
-        industryIds: reg.industryIds || (user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : []),
-        skills: user.freelancerProfile?.skills ? String(user.freelancerProfile.skills).split(",").map(s => s.trim()) : (reg.skills || []),
-        skillsIds: reg.skillsIds || (user.freelancerProfile?.skills ? String(user.freelancerProfile.skills).split(",").map(s => s.trim()) : []),
-        workMode: user.freelancerProfile?.workMode ? String(user.freelancerProfile.workMode).split(",").map(s => s.trim()) : (reg.workMode || []),
-        workModeIds: reg.workModeIds || (user.freelancerProfile?.workMode ? String(user.freelancerProfile.workMode).split(",").map(s => s.trim()) : []),
+        stateId: stId,
+        industry: indArr,
+        industryIds: indArr,
+        skills: sklArr,
+        skillsIds: sklArr,
+        skillIds: sklArr,
+        workMode: wmArr,
+        workModeIds: wmArr,
         hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
         experience: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
         experienceLevel: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
@@ -1305,7 +1313,6 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         portfolioUrl: user.freelancerProfile?.portfolioUrl || reg.portfolioUrl || reg.portfolio || reg.websiteUrl || null,
         linkedInUrl: user.freelancerProfile?.linkedInUrl || reg.linkedInUrl || reg.linkedin || null,
         githubUrl: user.freelancerProfile?.githubUrl || reg.githubUrl || reg.github || null,
-        dribbbleUrl: user.freelancerProfile?.dribbbleUrl || reg.dribbbleUrl || reg.dribbble || null,
         rating: user.freelancerProfile?.rating ?? 5.0,
         status: user.status || "active",
         verified: Boolean(user.isVerified || user.verified),
