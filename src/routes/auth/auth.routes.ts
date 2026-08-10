@@ -43,5 +43,6 @@ router.get("/otp-info", getOtpInfo);
 router.post("/send-verification-link", sendVerificationLink);
 router.patch("/verification", authMiddleware as any, updateVerificationData as any);
 router.patch("/onboarding/draft", authMiddleware as any, saveOnboardingDraft as any);
+router.put("/onboarding/draft", authMiddleware as any, saveOnboardingDraft as any);
 
 export default router;
