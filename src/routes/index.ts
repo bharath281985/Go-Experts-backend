@@ -342,7 +342,7 @@ const founderInclude = {
   },
 };
 
-function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(row: T): T {
+export function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(row: T): T {
   if (!row || typeof row !== "object") return row;
   const { password, ...rest } = row as Record<string, any>;
 
@@ -425,6 +425,8 @@ function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(ro
     raised,
     stage,
     // Freelancer fields
+    titleHeadline: freelancerProfile.titleHeadline ?? regData.titleHeadline ?? rest.titleHeadline ?? null,
+    bio: rest.bio ?? regData.bio ?? null,
     hourly_rate: freelancerProfile.hourlyRate ?? regData.hourlyRate ?? null,
     hourlyRate: freelancerProfile.hourlyRate ?? regData.hourlyRate ?? null,
     experience: freelancerProfile.experience ?? regData.experienceLevel ?? null,
@@ -443,6 +445,7 @@ function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(ro
     pitch: founderProfile.pitch ?? regData.pitch ?? null,
     founderRole: founderProfile.founderRole ?? regData.founderRole ?? null,
     founderBio: founderProfile.founderBio ?? regData.founderBio ?? null,
+    teamSize: founderProfile.teamSize ?? regData.teamSize ?? null,
     targetRaise: founderProfile.targetRaise ?? regData.targetRaise ?? null,
 
     wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,

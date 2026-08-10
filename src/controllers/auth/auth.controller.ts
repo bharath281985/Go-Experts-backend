@@ -7,6 +7,7 @@ import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { SmsChannelAdapter } from "../../modules/notifications/notification.service.js";
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
 import { sendEmail } from "../../services/mobile/email.service.js";
+import { sanitizeUserRecord } from "../../routes/index.js";
 
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 
@@ -605,24 +606,25 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const accessToken = signAccessToken(tokenPayload);
     const refreshToken = signRefreshToken(tokenPayload);
 
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        freelancerProfile: true,
+        clientProfile: true,
+        investorProfile: true,
+        founderProfile: true,
+      },
+    });
+
+    const sanitizedUser = sanitizeUserRecord(fullUser || user);
+
     return res.status(201).json({
       success: true,
       message: "Account created successfully.",
       accessToken,
       refreshToken,
       token: accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
-        status: user.status,
-        country: user.country,
-        state: user.state,
-        city: user.city,
-        registrationData: user.registrationData,
-      },
+      user: sanitizedUser,
     });
   } catch (err) {
     next(err);
@@ -809,24 +811,19 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
     if (req.user.type === "portal") {
       const user = await prisma.user.findFirst({
         where: { id: req.user.id, deletedAt: null },
+        include: {
+          freelancerProfile: true,
+          clientProfile: true,
+          investorProfile: true,
+          founderProfile: true,
+        },
       });
       if (!user) {
         return res.status(404).json({ success: false, message: "User not found" });
       }
       return res.json({
         success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
-          avatarUrl: user.avatarUrl,
-          role: user.role,
-          status: user.status,
-          country: user.country,
-          state: user.state,
-          city: user.city,
-          registrationData: user.registrationData,
-        },
+        user: sanitizeUserRecord(user),
       });
     }
 
@@ -839,19 +836,17 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
       // Fallback for older tokens without type claim
       const user = await prisma.user.findFirst({
         where: { id: req.user.id, deletedAt: null },
+        include: {
+          freelancerProfile: true,
+          clientProfile: true,
+          investorProfile: true,
+          founderProfile: true,
+        },
       });
       if (user) {
         return res.json({
           success: true,
-          user: {
-            id: user.id,
-            email: user.email,
-            fullName: user.fullName,
-            avatarUrl: user.avatarUrl,
-            role: user.role,
-            status: user.status,
-            registrationData: user.registrationData,
-          },
+          user: sanitizeUserRecord(user),
         });
       }
       return res.status(404).json({ success: false, message: "User not found" });
@@ -1848,10 +1843,21 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       console.warn("Profile upsert warning:", profileErr);
     }
 
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        freelancerProfile: true,
+        clientProfile: true,
+        investorProfile: true,
+        founderProfile: true,
+      },
+    });
+
     return res.json({
       success: true,
       message: "Draft saved successfully",
       step: step ?? null,
+      user: sanitizeUserRecord(updatedUser),
     });
   } catch (err) {
     next(err);
