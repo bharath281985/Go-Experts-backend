@@ -1212,6 +1212,25 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const profile = await prisma.founderProfile.findUnique({ where: { userId: id } }).catch(() => null);
       const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
 
+      const rawC = reg.countryId || user.country || reg.country || "";
+      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
+
+      const pgArr = profile?.primaryGoal ? String(profile.primaryGoal).split(",").map(s => s.trim()) : (reg.primaryGoal || []);
+      const indArr = profile?.industry ? String(profile.industry).split(",").map(s => s.trim()) : (reg.industry || []);
+
+      const PRIMARY_GOAL_MAP: Record<string, string> = {
+        "pg_1": "Looking for Investors",
+        "pg_2": "Hiring Top Freelancers",
+        "pg_3": "Scaling Startup"
+      };
+      const pgNames = pgArr.map((i: string) => PRIMARY_GOAL_MAP[i] || i);
+
+      const INDUSTRY_NAME_MAP: Record<string, string> = {
+        "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
+        "cfd78d15-899b-4582-9be9-0c26f7f431fc": "Data & AI"
+      };
+      const indNames = indArr.map((i: string) => INDUSTRY_NAME_MAP[i] || i);
+
       const founderDetails = {
         id: user.id,
         userId: user.id,
@@ -1219,22 +1238,37 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         name: user.fullName || reg.fullName || "",
         email: user.email || reg.email || "",
         avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
         bio: user.bio || reg.bio || reg.pitch || "",
         phone: user.phone || reg.phone || reg.mobile || "",
         city: user.city || reg.city || "",
-        countryId: user.country || reg.country || "",
+        country: user.country || reg.country || "",
+        countryId: cntryId,
+        state: user.state || reg.state || "",
+        stateId: reg.stateId || user.state || "",
+        startupName: profile?.startupName || reg.startupName || "",
+        pitch: profile?.pitch || reg.pitch || "",
+        founderRole: profile?.founderRole || reg.founderRole || "Founder",
+        founderBio: profile?.founderBio || reg.founderBio || "",
+        stage: profile?.stage || reg.stage || "Seed",
+        raised: profile?.raised ?? reg.raised ?? 0,
+        targetRaise: profile?.targetRaise ?? reg.targetRaise ?? 500000,
+        teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
+        PrimaryGoal: pgArr.map((id: string, idx: number) => ({
+          primaryGoalId: id,
+          primaryGoalName: pgNames[idx] || id
+        })),
+        primaryGoal: pgArr,
+        primaryGoalIds: reg.primaryGoalIds || pgArr,
+        Industry: indArr.map((id: string, idx: number) => ({
+          industryId: id,
+          industryName: indNames[idx] || id
+        })),
+        industry: indArr,
+        industryIds: reg.industryIds || indArr,
         role: user.role || 'founder',
         status: user.status || 'active',
-        isVerified: Boolean(user.isVerified || user.verified),
         verified: Boolean(user.isVerified || user.verified),
-        skills: reg.skills || "",
-        experience: reg.experience || "",
-        education: reg.education || "",
-        linkedin: reg.linkedin || reg.linkedinUrl || "",
-        website: reg.website || reg.websiteUrl || "",
-        founderType: reg.founderType || "Founder",
-        teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
-        createdAt: user.createdAt,
         registrationData: reg,
         savedData: true,
         isSaved: true
@@ -1465,6 +1499,91 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         status: user.status || "active",
         verified: Boolean(user.isVerified || user.verified),
         role: user.role || 'client',
+        registrationData: reg,
+        savedData: true,
+        isSaved: true
+      }));
+    }
+
+    if (modelName === 'investor') {
+      const id = req.params.id;
+      const user = await prisma.user.findFirst({
+        where: { id },
+        include: { investorProfile: true }
+      }).catch(() => null);
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Investor not found' });
+      }
+
+      const reg = parseRegData(user.registrationData);
+      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
+      const rawC = reg.countryId || user.country || reg.country || "";
+      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
+
+      const psArr = user.investorProfile?.preferredStage ? String(user.investorProfile.preferredStage).split(",").map(s => s.trim()) : (reg.preferredStage || []);
+      const faArr = user.investorProfile?.focusAreas ? String(user.investorProfile.focusAreas).split(",").map(s => s.trim()) : (reg.focusAreas || []);
+
+      const PREFERRED_STAGE_MAP: Record<string, string> = {
+        "stg_1": "Seed Stage",
+        "stg_2": "Pre-Series A",
+        "stg_3": "Series A+",
+        "stg_4": "MVP / Beta",
+        "stg_5": "Idea / Concept"
+      };
+      const psNames = psArr.map((i: string) => PREFERRED_STAGE_MAP[i] || i);
+
+      const FOCUS_AREAS_MAP: Record<string, string> = {
+        "fa_1": "FinTech & AI",
+        "fa_2": "HealthTech",
+        "fa_3": "SaaS & Enterprise"
+      };
+      const faNames = faArr.map((i: string) => FOCUS_AREAS_MAP[i] || i);
+
+      const INVESTOR_TYPE_MAP: Record<string, string> = {
+        "angel": "Angel Investor",
+        "vc": "Venture Capitalist",
+        "syndicate": "Syndicate / PE",
+        "family_office": "Family Office"
+      };
+      const invType = user.investorProfile?.investorType || reg.investorType || "angel";
+
+      return res.json(successResponse('Details retrieved for investor', {
+        id: user.id,
+        userId: user.id,
+        fullName: user.fullName || reg.fullName || "",
+        name: user.fullName || reg.fullName || "",
+        email: user.email,
+        phone: user.phone || reg.phone || reg.mobile || "",
+        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        investorType: invType,
+        investorTypeId: invType,
+        investorTypeName: INVESTOR_TYPE_MAP[invType] || invType,
+        firm: user.investorProfile?.firm || reg.firm || "",
+        isAccredited: user.investorProfile?.isAccredited || reg.isAccredited || "Yes",
+        ticketMin: user.investorProfile?.ticketMin ?? reg.ticketMin ?? 25000,
+        ticketMax: user.investorProfile?.ticketMax ?? reg.ticketMax ?? 250000,
+        PreferredStage: psArr.map((id: string, idx: number) => ({
+          preferredStageId: id,
+          preferredStageName: psNames[idx] || id
+        })),
+        preferredStage: psArr,
+        preferredStageIds: reg.preferredStageIds || psArr,
+        FocusAreas: faArr.map((id: string, idx: number) => ({
+          focusAreaId: id,
+          focusAreaName: faNames[idx] || id
+        })),
+        focusAreas: faArr,
+        focusAreaIds: reg.focusAreaIds || faArr,
+        city: user.city || reg.city || "",
+        country: user.country || reg.country || "",
+        countryId: cntryId,
+        state: user.state || reg.state || "",
+        stateId: reg.stateId || user.state || "",
+        status: user.status || "active",
+        verified: Boolean(user.isVerified || user.verified),
+        role: user.role || 'investor',
         registrationData: reg,
         savedData: true,
         isSaved: true
