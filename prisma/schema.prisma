@@ -951,16 +951,87 @@ model Blog {
 }
 
 model Faq {
-  id        String    @id @default(uuid())
-  question  String
-  answer    String
-  category  String
-  status    String    @default("active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  id             String        @id @default(uuid())
+  question       String        @db.Text
+  answer         String        @db.Text
+  category       String?
+  categoryId     String?       @map("help_category_id")
+  status         String        @default("PUBLISHED")
+  featured       Boolean       @default(false)
+  popular        Boolean       @default(false)
+  sortOrder      Int           @default(0) @map("sort_order")
+  views          Int           @default(0)
+  helpfulYes     Int           @default(0) @map("helpful_yes")
+  helpfulNo      Int           @default(0) @map("helpful_no")
+  publishedAt    DateTime?     @map("published_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+  helpCategory   HelpCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
+  @@index([categoryId], map: "faqs_help_category_id_fkey")
+  @@index([status])
+  @@index([popular])
   @@map("faqs")
+}
+
+model HelpCategory {
+  id               String           @id @default(uuid())
+  name             String
+  slug             String           @unique
+  icon             String           @default("BookOpen")
+  shortDescription String?          @map("short_description")
+  order            Int              @default(0) @map("sort_order")
+  featured         Boolean          @default(false)
+  enabled          Boolean          @default(true)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  articles         HelpArticle[]
+  faqs             Faq[]
+  videoGuides      HelpVideoGuide[]
+
+  @@map("help_categories")
+}
+
+model HelpArticle {
+  id             String        @id @default(uuid())
+  categoryId     String        @map("category_id")
+  title          String
+  slug           String        @unique
+  excerpt        String?       @db.Text
+  content        String        @db.Text
+  articleType    String        @default("Article") @map("article_type")
+  featured       Boolean       @default(false)
+  popular        Boolean       @default(false)
+  status         String        @default("draft")
+  order          Int           @default(0) @map("sort_order")
+  seoTitle       String?       @map("seo_title")
+  seoDescription String?       @map("seo_description")
+  publishedAt    DateTime?     @map("published_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  category       HelpCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId], map: "help_articles_category_id_fkey")
+  @@map("help_articles")
+}
+
+model HelpVideoGuide {
+  id          String       @id @default(uuid())
+  categoryId  String       @map("category_id")
+  title       String
+  description String?      @db.Text
+  thumbnail   String?
+  videoUrl    String       @map("video_url")
+  duration    String       @default("0:00")
+  order       Int          @default(0) @map("sort_order")
+  enabled     Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  category    HelpCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId], map: "help_video_guides_category_id_fkey")
+  @@map("help_video_guides")
 }
 
 model Testimonial {

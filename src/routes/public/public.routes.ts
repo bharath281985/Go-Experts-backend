@@ -500,6 +500,10 @@ const getPageHandler = (pageName: string) => async (req: Request, res: Response,
   }
 };
 
+router.get("/legal", getPageHandler("Legal"));
+router.get("/privacy", getPageHandler("Privacy"));
+router.get("/refund", getPageHandler("Refund Policy"));
+
 router.get("/cms_pages", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const pageName = req.query.name;
@@ -549,13 +553,140 @@ router.get("/jobs", listPublicJobs);
 router.get("/jobs/:slug", getPublicJobBySlug);
 router.post("/jobs/:jobId/apply", submitCareerApplication);
 
-router.get("/help_center", getPageHandler("Help Center"));
-router.get("/help-center", getPageHandler("Help Center"));
+const getPublicHelpCenter = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // 1. Load Help Center page settings from CmsPage
+    const pageConfig = await prisma.cmsPage.findFirst({
+      where: { name: "Help Center", status: "active" }
+    });
+
+    let settings = {
+      heroEyebrow: "GO EXPERTS HELP CENTER",
+      heroTitle: "How can we help you?",
+      heroHighlighted: "help you",
+      heroDescription: "Find answers, guides and step-by-step solutions for everything in Go Experts.",
+      searchPlaceholder: "Search for articles, guides and FAQs...",
+      searchSupporting: "Popular: Profile Setup · Payments · Projects · Security",
+      popularSearches: "Profile Setup, Payments, Projects, Security",
+      backgroundStyle: "mesh",
+      heroMedia: "",
+      heroMediaAlt: "",
+      heroEnabled: true
+    };
+
+    if (pageConfig?.content) {
+      try {
+        const parsed = typeof pageConfig.content === "string" 
+          ? JSON.parse(pageConfig.content) 
+          : pageConfig.content;
+        settings = { ...settings, ...parsed };
+      } catch (e) {
+        // Fallback to default if JSON parse fails
+      }
+    }
+
+    // 2. Load Categories (only enabled ones) along with active article counts
+    const categories = await prisma.helpCategory.findMany({
+      where: { enabled: true },
+      orderBy: { order: "asc" },
+      include: {
+        _count: {
+          select: {
+            articles: {
+              where: { status: "published" }
+            }
+          }
+        }
+      }
+    });
+
+    // 3. Load Popular/Featured Articles
+    const popularArticles = await prisma.helpArticle.findMany({
+      where: { status: "published", OR: [{ featured: true }, { popular: true }] },
+      orderBy: { order: "asc" },
+      take: 6,
+      include: {
+        category: {
+          select: { name: true, slug: true }
+        }
+      }
+    });
+
+    // 4. Load Video Guides (only enabled ones)
+    const videoGuides = await prisma.helpVideoGuide.findMany({
+      where: { enabled: true },
+      orderBy: { order: "asc" },
+      take: 6,
+      include: {
+        category: {
+          select: { name: true, slug: true }
+        }
+      }
+    });
+
+    // 5. Load General FAQs
+    const faqs = await prisma.faq.findMany({
+      where: { status: "PUBLISHED" },
+      orderBy: { sortOrder: "asc" },
+      take: 10
+    });
+
+    res.json({
+      success: true,
+      data: {
+        settings,
+        categories: categories.map(cat => ({
+          ...cat,
+          articleCount: cat._count?.articles || 0
+        })),
+        popularArticles,
+        videoGuides,
+        faqs
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getPublicFaq = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const categories = await prisma.helpCategory.findMany({
+      where: { enabled: true },
+      orderBy: { order: "asc" },
+      include: {
+        faqs: {
+          where: { status: "PUBLISHED" },
+          orderBy: { sortOrder: "asc" }
+        }
+      }
+    });
+
+    const popularFaqs = await prisma.faq.findMany({
+      where: { status: "PUBLISHED", popular: true },
+      orderBy: { sortOrder: "asc" },
+      take: 6
+    });
+
+    res.json({
+      success: true,
+      data: {
+        categories: categories.filter(c => c.faqs.length > 0),
+        popularFaqs
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+router.get("/help_center", getPublicHelpCenter);
+router.get("/help-center", getPublicHelpCenter);
 router.get("/legal", getPageHandler("Legal"));
 router.get("/privacy", getPageHandler("Privacy"));
 router.get("/refund", getPageHandler("Refund Policy"));
 router.get("/refund-policy", getPageHandler("Refund Policy"));
-router.get("/faq", getPageHandler("FAQ"));
+router.get("/faq", getPublicFaq);
 
 router.post("/delete-account/send-otp", sendDeleteAccountOtp as any);
 router.post("/delete-account/verify", verifyDeleteAccountOtp as any);
@@ -1213,6 +1344,147 @@ router.post("/support_tickets", async (req: Request, res: Response, next: NextFu
       },
     });
     res.status(201).json({ success: true, data: created });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Public Help Center Custom Route defined above
+
+// Help Center Unified Live Search Suggestions
+router.get("/help-center/search", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const query = String(req.query.q || "").trim();
+    if (!query) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Search published articles
+    const articles = await prisma.helpArticle.findMany({
+      where: {
+        status: "published",
+        OR: [
+          { title: { contains: query } },
+          { excerpt: { contains: query } },
+          { content: { contains: query } }
+        ]
+      },
+      include: {
+        category: { select: { name: true, slug: true } }
+      },
+      take: 5
+    });
+
+    // Search active FAQs
+    const faqs = await prisma.faq.findMany({
+      where: {
+        status: "active",
+        OR: [
+          { question: { contains: query } },
+          { answer: { contains: query } }
+        ]
+      },
+      take: 3
+    });
+
+    // Combine and rank suggestions
+    const results = [
+      ...articles.map(art => ({
+        id: art.id,
+        title: art.title,
+        slug: art.slug,
+        category: art.category?.name || "General",
+        categorySlug: art.category?.slug || "",
+        excerpt: art.excerpt || art.content.slice(0, 100) + "...",
+        type: "article"
+      })),
+      ...faqs.map(f => ({
+        id: f.id,
+        title: f.question,
+        slug: `faq-${f.id}`,
+        category: "FAQ",
+        categorySlug: "faq",
+        excerpt: f.answer.slice(0, 100) + "...",
+        type: "faq"
+      }))
+    ];
+
+    // Simple priority rank matching title prefix first
+    results.sort((a, b) => {
+      const aTitleLower = a.title.toLowerCase();
+      const bTitleLower = b.title.toLowerCase();
+      const queryLower = query.toLowerCase();
+
+      const aStartsWith = aTitleLower.startsWith(queryLower);
+      const bStartsWith = bTitleLower.startsWith(queryLower);
+
+      if (aStartsWith && !bStartsWith) return -1;
+      if (!aStartsWith && bStartsWith) return 1;
+      return 0;
+    });
+
+    res.json({ success: true, data: results });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Category Detail
+router.get("/help-center/categories/:slug", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { slug } = req.params;
+    const category = await prisma.helpCategory.findUnique({
+      where: { slug },
+      include: {
+        articles: {
+          where: { status: "published" },
+          orderBy: { order: "asc" }
+        },
+        videoGuides: {
+          where: { enabled: true },
+          orderBy: { order: "asc" }
+        },
+        faqs: {
+          where: { status: "PUBLISHED" },
+          orderBy: { sortOrder: "asc" }
+        }
+      }
+    });
+
+    if (!category || !category.enabled) {
+      return res.status(404).json({ success: false, message: "Category not found" });
+    }
+
+    res.json({ success: true, data: category });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Article Detail
+router.get("/help-center/articles/:slug", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { slug } = req.params;
+    const article = await prisma.helpArticle.findUnique({
+      where: { slug },
+      include: {
+        category: {
+          include: {
+            articles: {
+              where: { status: "published" },
+              select: { title: true, slug: true, order: true },
+              orderBy: { order: "asc" }
+            }
+          }
+        }
+      }
+    });
+
+    if (!article || article.status !== "published") {
+      return res.status(404).json({ success: false, message: "Article not found" });
+    }
+
+    res.json({ success: true, data: article });
   } catch (err) {
     next(err);
   }

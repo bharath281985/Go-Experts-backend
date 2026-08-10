@@ -161,6 +161,46 @@ router.get("/admin/careers/applications", listCareerApplications);
 router.get("/admin/careers/applications/:id", getCareerApplicationById);
 router.patch("/admin/careers/applications/:id", updateCareerApplication);
 
+// Dedicated Admin Legal Policies APIs
+router.get("/admin/legal-policies/:policyId", async (req, res, next) => {
+  try {
+    const policyId = req.params.policyId;
+    const dbNameMap: Record<string, string> = { "legal": "Legal", "privacy": "Privacy", "refund-policy": "Refund Policy" };
+    const dbName = dbNameMap[policyId];
+    if (!dbName) return res.status(400).json({ success: false, message: "Invalid policy ID" });
+
+    const row = await prisma.cmsPage.findFirst({ where: { name: dbName } });
+    res.json({ success: true, data: row });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.put("/admin/legal-policies/:policyId", async (req, res, next) => {
+  try {
+    const policyId = req.params.policyId;
+    const dbNameMap: Record<string, string> = { "legal": "Legal", "privacy": "Privacy", "refund-policy": "Refund Policy" };
+    const dbName = dbNameMap[policyId];
+    if (!dbName) return res.status(400).json({ success: false, message: "Invalid policy ID" });
+
+    const existing = await prisma.cmsPage.findFirst({ where: { name: dbName } });
+    if (existing) {
+      const updated = await prisma.cmsPage.update({
+        where: { id: existing.id },
+        data: req.body,
+      });
+      res.json({ success: true, data: updated });
+    } else {
+      const created = await prisma.cmsPage.create({
+        data: { name: dbName, category: "legal", ...req.body },
+      });
+      res.json({ success: true, data: created });
+    }
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Map frontend table names to Prisma Models
 const tableModelMapping: Record<string, string> = {
   profiles: "User",
@@ -237,6 +277,9 @@ const tableModelMapping: Record<string, string> = {
   api_versions: "ApiVersion",
   api_usage_logs: "ApiUsageLog",
   api_changelog: "ApiChangelog",
+  help_categories: "HelpCategory",
+  help_articles: "HelpArticle",
+  help_video_guides: "HelpVideoGuide",
 };
 
 // Searchable columns for each model
@@ -244,6 +287,9 @@ const searchColumnsMapping: Record<string, string[]> = {
   User: ["fullName", "email", "country"],
   Project: ["title", "client", "freelancer", "category", "technology", "timeline", "status"],
   Task: ["title", "assignedTo"],
+  HelpCategory: ["name", "slug", "shortDescription"],
+  HelpArticle: ["title", "slug", "excerpt", "content"],
+  HelpVideoGuide: ["title", "description"],
   StartupIdea: ["startup", "founder", "industry"],
   Investment: ["investor", "startup"],
   Meeting: ["founder", "investor"],
