@@ -484,7 +484,15 @@ export const getFounderTypes = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Founder types retrieved', deduplicateMasterOptions(types || [])));
+    const defaultFounderTypes = [
+      { id: "ft_1", label: "Solo Founder", value: "Solo Founder" },
+      { id: "ft_2", label: "Co-Founder / Technical", value: "Co-Founder / Technical" },
+      { id: "ft_3", label: "Co-Founder / Business", value: "Co-Founder / Business" },
+      { id: "ft_4", label: "Early Executive / CEO", value: "Early Executive / CEO" }
+    ];
+
+    const result = types && types.length > 0 ? deduplicateMasterOptions(types) : defaultFounderTypes;
+    return res.json(successResponse('Founder types retrieved', result));
   } catch (error) { next(error); }
 };
 
