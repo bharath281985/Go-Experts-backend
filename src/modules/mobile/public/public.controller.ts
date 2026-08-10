@@ -406,7 +406,17 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Company sizes retrieved', deduplicateMasterOptions(sizes || [])));
+    const defaultSizes = [
+      { id: "1-10", label: "1-10 Employees", value: "1-10" },
+      { id: "11-50", label: "11-50 Employees", value: "11-50" },
+      { id: "51-200", label: "51-200 Employees", value: "51-200" },
+      { id: "201-500", label: "201-500 Employees", value: "201-500" },
+      { id: "501-1000", label: "501-1000 Employees", value: "501-1000" },
+      { id: "1000+", label: "1000+ Employees", value: "1000+" }
+    ];
+
+    const result = sizes && sizes.length > 0 ? deduplicateMasterOptions(sizes) : defaultSizes;
+    return res.json(successResponse('Company sizes retrieved', result));
   } catch (error) { next(error); }
 };
 
@@ -1339,7 +1349,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
 
       const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
+      const csVal = user.clientProfile?.companySize || reg.companySize || reg.companySizeId || "1-10 Employees";
+      const csId = reg.companySizeId || user.clientProfile?.companySize || reg.companySize || "1-10";
       const teamVal = user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || reg.companySize || "1-10";
+      const teamId = reg.currentTeamId || reg.currentTeamSizeId || user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || "1-10";
       const budgetVal = user.clientProfile?.projectHireBudget || reg.projectHireBudget || reg.budget || "34000";
       const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
@@ -1356,7 +1369,12 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
         company: compVal,
         companyName: compVal,
+        companySize: csVal,
+        companySizeId: csId,
         currentTeam: teamVal,
+        currentTeamId: teamId,
+        currentTeamSize: teamVal,
+        currentTeamSizeId: teamId,
         projectHireBudget: budgetVal,
         industry: user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : (reg.industry || []),
         industryIds: reg.industryIds || (user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : []),
