@@ -111,6 +111,7 @@ model User {
   verified                Boolean                 @default(false)
   phone                   String?
   country                 String?
+  state                   String?
   city                    String?
   bio                     String?
   referralCode            String?                 @unique @map("referral_code")
@@ -153,18 +154,20 @@ model User {
 }
 
 model FreelancerProfile {
-  id         String   @id @default(uuid())
-  userId     String   @unique @map("user_id")
-  skills     String?
-  hourlyRate Float?   @map("hourly_rate")
-  rating     Float?   @default(5)
-  experience String?  @map("experience_level")
-  industry   String?
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  verificationJson String? @map("verification_json") @db.Text
-  portfolioJson String? @map("portfolio_json") @db.Text
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  titleHeadline    String?  @map("title_headline")
+  skills           String?
+  hourlyRate       Float?   @map("hourly_rate")
+  rating           Float?   @default(5)
+  experience       String?  @map("experience_level")
+  industry         String?
+  workMode         String?  @map("work_mode")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson String?  @map("verification_json") @db.Text
+  portfolioJson    String?  @map("portfolio_json") @db.Text
 
   @@map("freelancer_profiles")
 }
@@ -174,6 +177,10 @@ model ClientProfile {
   userId         String   @unique @map("user_id")
   company        String?
   industry       String?
+  companySize    String?  @map("company_size")
+  websiteUrl     String?  @map("website_url")
+  jobTitle       String?  @map("job_title")
+  hiringGoal     String?  @map("hiring_goal")
   totalSpend     Float?   @default(0) @map("total_spend")
   projectsPosted Int      @default(0) @map("projects_posted")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -184,16 +191,19 @@ model ClientProfile {
 }
 
 model InvestorProfile {
-  id         String   @id @default(uuid())
-  userId     String   @unique @map("user_id")
-  firm       String?
-  ticketMin  Float?   @map("ticket_min")
-  ticketMax  Float?   @map("ticket_max")
-  focusAreas String?  @map("focus_areas")
-  deals      Int      @default(0)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  investorType   String?  @map("investor_type")
+  firm           String?
+  isAccredited   String?  @map("is_accredited")
+  ticketMin      Float?   @map("ticket_min")
+  ticketMax      Float?   @map("ticket_max")
+  focusAreas     String?  @map("focus_areas")
+  preferredStage String?  @map("preferred_stage")
+  deals          Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("investor_profiles")
 }
@@ -204,8 +214,13 @@ model FounderProfile {
   startupName String?  @map("startup_name")
   industry    String?
   stage       String?
+  pitch       String?  @db.Text
+  founderRole String?  @map("founder_role")
+  founderBio  String?  @map("founder_bio") @db.Text
   raised      Float?   @default(0)
+  targetRaise Float?   @map("target_raise")
   teamSize    Int      @default(1) @map("team_size")
+  primaryGoal String?  @map("primary_goal")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

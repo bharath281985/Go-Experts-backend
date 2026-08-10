@@ -286,6 +286,105 @@ export const getStartupStages = async (req: Request, res: Response, next: NextFu
   } catch (error) { next(error); }
 };
 
+export const getWorkModes = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbModes = await prisma.workMode.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' }
+    }).catch(() => []);
+
+    if (dbModes.length > 0) {
+      const modes = dbModes.map((m) => ({ id: m.id, label: m.name, value: m.name }));
+      return res.json(successResponse('Work modes retrieved', modes));
+    }
+
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: 'work_mode', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    if (options && options.length > 0) {
+      return res.json(successResponse('Work modes retrieved', options));
+    }
+
+    const defaults = [
+      { id: "wm_1", label: "Remote", value: "Remote" },
+      { id: "wm_2", label: "On-site", value: "On-site" },
+      { id: "wm_3", label: "Hybrid", value: "Hybrid" }
+    ];
+    return res.json(successResponse('Work modes retrieved', defaults));
+  } catch (error) { next(error); }
+};
+
+export const getHiringGoals = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: 'hiring_goal', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    if (options && options.length > 0) {
+      return res.json(successResponse('Hiring goals retrieved', options));
+    }
+
+    const defaults = [
+      { id: "hg_1", label: "Hire freelancers for projects", value: "Hire freelancers for projects" },
+      { id: "hg_2", label: "Build dedicated contract teams", value: "Build dedicated contract teams" },
+      { id: "hg_3", label: "Consult with top advisors", value: "Consult with top advisors" },
+      { id: "hg_4", label: "Full-time hiring", value: "Full-time hiring" }
+    ];
+    return res.json(successResponse('Hiring goals retrieved', defaults));
+  } catch (error) { next(error); }
+};
+
+export const getInvestorStages = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbStages = await prisma.startupStage.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' }
+    }).catch(() => []);
+
+    if (dbStages.length > 0) {
+      const stages = dbStages.map((s) => ({ id: s.id, label: s.name, value: s.name }));
+      return res.json(successResponse('Investor stages retrieved', stages));
+    }
+
+    const defaults = [
+      { id: "is_1", label: "Idea / Concept", value: "Idea / Concept" },
+      { id: "is_2", label: "MVP / Beta", value: "MVP / Beta" },
+      { id: "is_3", label: "Seed", value: "Seed" },
+      { id: "is_4", label: "Pre-Series A", value: "Pre-Series A" },
+      { id: "is_5", label: "Series A+", value: "Series A+" },
+      { id: "is_6", label: "Scaling / Growth", value: "Scaling / Growth" }
+    ];
+    return res.json(successResponse('Investor stages retrieved', defaults));
+  } catch (error) { next(error); }
+};
+
+export const getPlatformGoals = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: 'platform_goal', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    if (options && options.length > 0) {
+      return res.json(successResponse('Platform goals retrieved', options));
+    }
+
+    const defaults = [
+      { id: "pg_1", label: "Looking for Investors", value: "Looking for Investors" },
+      { id: "pg_2", label: "Hiring Top Freelancers", value: "Hiring Top Freelancers" },
+      { id: "pg_3", label: "Finding Co-Founders", value: "Finding Co-Founders" },
+      { id: "pg_4", label: "Networking & Mentorship", value: "Networking & Mentorship" }
+    ];
+    return res.json(successResponse('Platform goals retrieved', defaults));
+  } catch (error) { next(error); }
+};
+
 function deduplicateMasterOptions(items: Array<any>): Array<any> {
   const seen = new Set<string>();
   const result: Array<any> = [];

@@ -351,11 +351,13 @@ function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(ro
   const investorProfile = rest.investorProfile ?? {};
   const founderProfile = rest.founderProfile ?? {};
   const wallet = rest.wallet ?? {};
+  const regData = rest.registrationData ?? {};
 
   const industry = freelancerProfile.industry
     || clientProfile.industry
     || founderProfile.industry
     || (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",")[0] : null)
+    || regData.industry
     || rest.industry
     || "Technology";
 
@@ -375,16 +377,42 @@ function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(ro
     ?? rest.raised
     ?? 0;
 
-  const ticketMin = investorProfile.ticketMin ?? rest.ticket_min ?? rest.ticketMin ?? 25000;
-  const ticketMax = investorProfile.ticketMax ?? rest.ticket_max ?? rest.ticketMax ?? 250000;
+  const ticketMin = investorProfile.ticketMin ?? rest.ticket_min ?? rest.ticketMin ?? regData.ticketMin ?? 25000;
+  const ticketMax = investorProfile.ticketMax ?? rest.ticket_max ?? rest.ticketMax ?? regData.ticketMax ?? 250000;
   const deals = investorProfile.deals ?? rest.deals ?? 0;
-  const raised = founderProfile.raised ?? rest.raised ?? 0;
-  const stage = founderProfile.stage ?? rest.stage ?? null;
+  const raised = founderProfile.raised ?? rest.raised ?? regData.raised ?? 0;
+  const stage = founderProfile.stage ?? rest.stage ?? regData.stage ?? null;
+
+  const workModeArr = Array.isArray(regData.workMode) ? regData.workMode : (freelancerProfile.workMode ? String(freelancerProfile.workMode).split(",").map(s => s.trim()) : (regData.workModeIds || []));
+  const industryArr = Array.isArray(regData.industry) ? regData.industry : (freelancerProfile.industry || clientProfile.industry || founderProfile.industry ? String(freelancerProfile.industry || clientProfile.industry || founderProfile.industry).split(",").map(s => s.trim()) : (regData.industryIds || []));
+  const skillsArr = Array.isArray(regData.skills) ? regData.skills : (freelancerProfile.skills ? String(freelancerProfile.skills).split(",").map(s => s.trim()) : (regData.skillsIds || []));
+  const hiringGoalArr = Array.isArray(regData.hiringGoal) ? regData.hiringGoal : (clientProfile.hiringGoal ? String(clientProfile.hiringGoal).split(",").map(s => s.trim()) : (regData.hiringGoalIds || []));
+  const preferredStageArr = Array.isArray(regData.preferredStage) ? regData.preferredStage : (investorProfile.preferredStage ? String(investorProfile.preferredStage).split(",").map(s => s.trim()) : (regData.preferredStageIds || []));
+  const primaryGoalArr = Array.isArray(regData.primaryGoal) ? regData.primaryGoal : (founderProfile.primaryGoal ? String(founderProfile.primaryGoal).split(",").map(s => s.trim()) : (regData.primaryGoalIds || []));
+  const focusAreasArr = Array.isArray(regData.focusAreas) ? regData.focusAreas : (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",").map(s => s.trim()) : (regData.focusAreaIds || []));
+
+  const stateVal = rest.state ?? regData.stateId ?? regData.state ?? null;
 
   return {
     ...rest,
     hasPassword: Boolean(password && String(password).length > 0),
-    industry,
+    state: stateVal,
+    stateId: stateVal,
+    industry: industryArr.length > 0 ? industryArr : (freelancerProfile.industry || clientProfile.industry || founderProfile.industry || regData.industry || "Technology"),
+    industryIds: industryArr,
+    skills: skillsArr.length > 0 ? skillsArr : (freelancerProfile.skills ? freelancerProfile.skills.split(",").map(s => s.trim()) : []),
+    skillsIds: skillsArr,
+    workMode: workModeArr.length > 0 ? workModeArr : (freelancerProfile.workMode ? freelancerProfile.workMode.split(",").map(s => s.trim()) : []),
+    workModeIds: workModeArr,
+    hiringGoal: hiringGoalArr.length > 0 ? hiringGoalArr : (clientProfile.hiringGoal ? clientProfile.hiringGoal.split(",").map(s => s.trim()) : []),
+    hiringGoalIds: hiringGoalArr,
+    preferredStage: preferredStageArr.length > 0 ? preferredStageArr : (investorProfile.preferredStage ? investorProfile.preferredStage.split(",").map(s => s.trim()) : []),
+    preferredStageIds: preferredStageArr,
+    primaryGoal: primaryGoalArr.length > 0 ? primaryGoalArr : (founderProfile.primaryGoal ? founderProfile.primaryGoal.split(",").map(s => s.trim()) : []),
+    primaryGoalIds: primaryGoalArr,
+    focusAreas: focusAreasArr.length > 0 ? focusAreasArr : (investorProfile.focusAreas ? investorProfile.focusAreas.split(",").map(s => s.trim()) : []),
+    focusAreaIds: focusAreasArr,
+
     projects_posted: projectsPosted,
     projectsPosted,
     total_spend: totalSpend,
@@ -396,6 +424,27 @@ function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(ro
     deals,
     raised,
     stage,
+    // Freelancer fields
+    hourly_rate: freelancerProfile.hourlyRate ?? regData.hourlyRate ?? null,
+    hourlyRate: freelancerProfile.hourlyRate ?? regData.hourlyRate ?? null,
+    experience: freelancerProfile.experience ?? regData.experienceLevel ?? null,
+    experienceLevel: freelancerProfile.experience ?? regData.experienceLevel ?? null,
+    // Client fields
+    company: clientProfile.company ?? regData.company ?? null,
+    companySize: clientProfile.companySize ?? regData.companySize ?? null,
+    websiteUrl: clientProfile.websiteUrl ?? regData.websiteUrl ?? null,
+    jobTitle: clientProfile.jobTitle ?? regData.jobTitle ?? null,
+    // Investor fields
+    investorType: investorProfile.investorType ?? regData.investorType ?? null,
+    firm: investorProfile.firm ?? regData.firm ?? null,
+    isAccredited: investorProfile.isAccredited ?? regData.isAccredited ?? null,
+    // Founder fields
+    startupName: founderProfile.startupName ?? regData.startupName ?? null,
+    pitch: founderProfile.pitch ?? regData.pitch ?? null,
+    founderRole: founderProfile.founderRole ?? regData.founderRole ?? null,
+    founderBio: founderProfile.founderBio ?? regData.founderBio ?? null,
+    targetRaise: founderProfile.targetRaise ?? regData.targetRaise ?? null,
+
     wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
     wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
   } as unknown as T;
