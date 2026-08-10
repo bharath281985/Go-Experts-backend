@@ -230,34 +230,16 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
 
 export const getIndustries = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const defaultIndustries = [
-      { id: "07f378bf-7e20-4828-ad87-36cc225b48ce", name: "Software Development" },
-      { id: "cfd78d15-899b-4582-9be9-0c26f7f431fc", name: "Data & AI" },
-      { id: "63daaa36-e2a6-43fd-b67f-fbb7a6220a64", name: "Finance & FinTech" },
-      { id: "e1a2b3c4-5678-90ab-cdef-1234567890ab", name: "HealthTech" },
-      { id: "f2b3c4d5-6789-01ab-cdef-234567890abc", name: "E-Commerce" }
-    ];
-
     const dbIndustries = await prisma.industry.findMany({
       where: { status: 'active' },
       orderBy: { name: 'asc' },
       select: { id: true, name: true }
-    }).catch(() => []);
+    });
 
-    const industries = dbIndustries && dbIndustries.length > 0
-      ? dbIndustries.map((ind) => ({ id: ind.id, name: ind.name }))
-      : defaultIndustries;
-
+    const industries = dbIndustries.map((ind) => ({ id: ind.id, name: ind.name }));
     return res.json(successResponse('Industries retrieved', industries));
   } catch (error) {
-    const fallbackIndustries = [
-      { id: "07f378bf-7e20-4828-ad87-36cc225b48ce", name: "Software Development" },
-      { id: "cfd78d15-899b-4582-9be9-0c26f7f431fc", name: "Data & AI" },
-      { id: "63daaa36-e2a6-43fd-b67f-fbb7a6220a64", name: "Finance & FinTech" },
-      { id: "e1a2b3c4-5678-90ab-cdef-1234567890ab", name: "HealthTech" },
-      { id: "f2b3c4d5-6789-01ab-cdef-234567890abc", name: "E-Commerce" }
-    ];
-    return res.json(successResponse('Industries retrieved', fallbackIndustries));
+    next(error);
   }
 };
 
@@ -323,16 +305,7 @@ export const getWorkModes = async (req: Request, res: Response, next: NextFuncti
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    if (options && options.length > 0) {
-      return res.json(successResponse('Work modes retrieved', options));
-    }
-
-    const defaults = [
-      { id: "wm_1", label: "Remote", value: "Remote" },
-      { id: "wm_2", label: "On-site", value: "On-site" },
-      { id: "wm_3", label: "Hybrid", value: "Hybrid" }
-    ];
-    return res.json(successResponse('Work modes retrieved', defaults));
+    return res.json(successResponse('Work modes retrieved', options || []));
   } catch (error) { next(error); }
 };
 
@@ -344,17 +317,7 @@ export const getHiringGoals = async (req: Request, res: Response, next: NextFunc
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    if (options && options.length > 0) {
-      return res.json(successResponse('Hiring goals retrieved', options));
-    }
-
-    const defaults = [
-      { id: "hg_1", label: "Hire freelancers for projects", value: "Hire freelancers for projects" },
-      { id: "hg_2", label: "Build dedicated contract teams", value: "Build dedicated contract teams" },
-      { id: "hg_3", label: "Consult with top advisors", value: "Consult with top advisors" },
-      { id: "hg_4", label: "Full-time hiring", value: "Full-time hiring" }
-    ];
-    return res.json(successResponse('Hiring goals retrieved', defaults));
+    return res.json(successResponse('Hiring goals retrieved', options || []));
   } catch (error) { next(error); }
 };
 
@@ -370,15 +333,13 @@ export const getInvestorStages = async (req: Request, res: Response, next: NextF
       return res.json(successResponse('Investor stages retrieved', stages));
     }
 
-    const defaults = [
-      { id: "is_1", label: "Idea / Concept", value: "Idea / Concept" },
-      { id: "is_2", label: "MVP / Beta", value: "MVP / Beta" },
-      { id: "is_3", label: "Seed", value: "Seed" },
-      { id: "is_4", label: "Pre-Series A", value: "Pre-Series A" },
-      { id: "is_5", label: "Series A+", value: "Series A+" },
-      { id: "is_6", label: "Scaling / Growth", value: "Scaling / Growth" }
-    ];
-    return res.json(successResponse('Investor stages retrieved', defaults));
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: 'investor_stage', status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Investor stages retrieved', options || []));
   } catch (error) { next(error); }
 };
 
@@ -390,17 +351,7 @@ export const getPlatformGoals = async (req: Request, res: Response, next: NextFu
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    if (options && options.length > 0) {
-      return res.json(successResponse('Platform goals retrieved', options));
-    }
-
-    const defaults = [
-      { id: "pg_1", label: "Looking for Investors", value: "Looking for Investors" },
-      { id: "pg_2", label: "Hiring Top Freelancers", value: "Hiring Top Freelancers" },
-      { id: "pg_3", label: "Finding Co-Founders", value: "Finding Co-Founders" },
-      { id: "pg_4", label: "Networking & Mentorship", value: "Networking & Mentorship" }
-    ];
-    return res.json(successResponse('Platform goals retrieved', defaults));
+    return res.json(successResponse('Platform goals retrieved', options || []));
   } catch (error) { next(error); }
 };
 
@@ -425,17 +376,7 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    const defaultSizes = [
-      { id: "1-10", label: "1-10 Employees", value: "1-10" },
-      { id: "11-50", label: "11-50 Employees", value: "11-50" },
-      { id: "51-200", label: "51-200 Employees", value: "51-200" },
-      { id: "201-500", label: "201-500 Employees", value: "201-500" },
-      { id: "501-1000", label: "501-1000 Employees", value: "501-1000" },
-      { id: "1000+", label: "1000+ Employees", value: "1000+" }
-    ];
-
-    const result = sizes && sizes.length > 0 ? deduplicateMasterOptions(sizes) : defaultSizes;
-    return res.json(successResponse('Company sizes retrieved', result));
+    return res.json(successResponse('Company sizes retrieved', deduplicateMasterOptions(sizes || [])));
   } catch (error) { next(error); }
 };
 
@@ -447,16 +388,7 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true, min: true, max: true }
     }).catch(() => []);
 
-    const defaultRanges = [
-      { id: "bgt_1", label: "< $5,000", value: "0-5000", min: 0, max: 5000 },
-      { id: "bgt_2", label: "$5,000 - $10,000", value: "5000-10000", min: 5000, max: 10000 },
-      { id: "bgt_3", label: "$10,000 - $50,000", value: "10000-50000", min: 10000, max: 50000 },
-      { id: "bgt_4", label: "$50,000 - $100,000", value: "50000-100000", min: 50000, max: 100000 },
-      { id: "bgt_5", label: "$100,000+", value: "100000+", min: 100000, max: 1000000 }
-    ];
-
-    const result = dbRanges && dbRanges.length > 0 ? deduplicateMasterOptions(dbRanges) : defaultRanges;
-    return res.json(successResponse('Budget ranges retrieved', result));
+    return res.json(successResponse('Budget ranges retrieved', deduplicateMasterOptions(dbRanges || [])));
   } catch (error) { next(error); }
 };
 
@@ -492,15 +424,7 @@ export const getFounderTypes = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    const defaultFounderTypes = [
-      { id: "ft_1", label: "Solo Founder", value: "Solo Founder" },
-      { id: "ft_2", label: "Co-Founder / Technical", value: "Co-Founder / Technical" },
-      { id: "ft_3", label: "Co-Founder / Business", value: "Co-Founder / Business" },
-      { id: "ft_4", label: "Early Executive / CEO", value: "Early Executive / CEO" }
-    ];
-
-    const result = types && types.length > 0 ? deduplicateMasterOptions(types) : defaultFounderTypes;
-    return res.json(successResponse('Founder types retrieved', result));
+    return res.json(successResponse('Founder types retrieved', deduplicateMasterOptions(types || [])));
   } catch (error) { next(error); }
 };
 
@@ -590,21 +514,7 @@ export const getTeamSizes = async (req: Request, res: Response, next: NextFuncti
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    if (sizes && sizes.length > 0) {
-      return res.json(successResponse('Team sizes retrieved', sizes));
-    }
-
-    const defaultSizes = [
-      { id: "ts_1", label: "1 (Solo / Individual)", value: "1" },
-      { id: "ts_2", label: "2-5 members", value: "2-5" },
-      { id: "ts_3", label: "5-10 members", value: "5-10" },
-      { id: "ts_4", label: "10-20 members", value: "10-20" },
-      { id: "ts_5", label: "20-50 members", value: "20-50" },
-      { id: "ts_6", label: "50-100 members", value: "50-100" },
-      { id: "ts_7", label: "100+ members", value: "100+" },
-    ];
-
-    return res.json(successResponse('Team sizes retrieved', defaultSizes));
+    return res.json(successResponse('Team sizes retrieved', deduplicateMasterOptions(sizes || [])));
   } catch (error) { next(error); }
 };
 
