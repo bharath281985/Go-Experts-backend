@@ -1356,36 +1356,30 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         state: user.state || reg.state || "",
         stateId: stId,
 
-        Skills: [
-          {
-            skillId: sklArr,
-            skillName: sklNames
-          }
-        ],
+        Skills: sklArr.map((id: string, idx: number) => ({
+          skillId: id,
+          skillName: sklNames[idx] || id
+        })),
         skillId: sklArr,
         skillsIds: sklArr,
         skillName: sklNames,
         skillsNames: sklNames,
         skills: sklArr,
 
-        Industry: [
-          {
-            industryId: indArr,
-            industryName: indNames
-          }
-        ],
+        Industry: indArr.map((id: string, idx: number) => ({
+          industryId: id,
+          industryName: indNames[idx] || id
+        })),
         industryId: indArr,
         industryIds: indArr,
         industryName: indNames,
         industryNames: indNames,
         industry: indArr,
 
-        WorkMode: [
-          {
-            workModeId: wmArr,
-            workModeName: wmNames
-          }
-        ],
+        WorkMode: wmArr.map((id: string, idx: number) => ({
+          workModeId: id,
+          workModeName: wmNames[idx] || id
+        })),
         workModeId: wmArr,
         workModeIds: wmArr,
         workModeName: wmNames,
@@ -1433,6 +1427,12 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
       const hgArr = user.clientProfile?.hiringGoal ? String(user.clientProfile.hiringGoal).split(",").map(s => s.trim()) : (reg.hiringGoal || []);
 
+      const HIRING_GOAL_NAME_MAP: Record<string, string> = {
+        "hg_1": "Hire Full-Time Developers",
+        "hg_2": "Hire Freelancers"
+      };
+      const hgNames = hgArr.map((id: string) => HIRING_GOAL_NAME_MAP[id] || id);
+
       return res.json(successResponse('Details retrieved for client', {
         id: user.id,
         userId: user.id,
@@ -1455,6 +1455,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         projectHireBudgetLabel: bgtId === "bgt_3" ? "$10,000 - $50,000" : bgtId,
         industry: user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : (reg.industry || []),
         industryIds: reg.industryIds || (user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : []),
+        HiringGoal: hgArr.map((id: string, idx: number) => ({
+          hiringGoalId: id,
+          hiringGoalName: hgNames[idx] || id
+        })),
         hiringGoal: hgArr,
         hiringGoalIds: reg.hiringGoalIds || hgArr,
         bio: user.bio || reg.bio || "",

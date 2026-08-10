@@ -437,48 +437,40 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     state: stateVal,
     stateId: stateVal,
 
-    Skills: [
-      {
-        skillId: skillsArr,
-        skillName: sklNames
-      }
-    ],
+    Skills: skillsArr.map((id, index) => ({
+      skillId: id,
+      skillName: sklNames[index] || id
+    })),
     skillId: skillsArr,
     skillsIds: skillsArr,
     skillName: sklNames,
     skillsNames: sklNames,
     skills: skillsArr,
 
-    Industry: [
-      {
-        industryId: industryArr,
-        industryName: indNames
-      }
-    ],
+    Industry: industryArr.map((id, index) => ({
+      industryId: id,
+      industryName: indNames[index] || id
+    })),
     industryId: industryArr,
     industryIds: industryArr,
     industryName: indNames,
     industryNames: indNames,
     industry: industryArr,
 
-    WorkMode: [
-      {
-        workModeId: workModeArr,
-        workModeName: wmNames
-      }
-    ],
+    WorkMode: workModeArr.map((id, index) => ({
+      workModeId: id,
+      workModeName: wmNames[index] || id
+    })),
     workModeId: workModeArr,
     workModeIds: workModeArr,
     workModeName: wmNames,
     workModeNames: wmNames,
     workMode: workModeArr,
 
-    HiringGoal: [
-      {
-        hiringGoalId: hiringGoalArr,
-        hiringGoalName: hgNames
-      }
-    ],
+    HiringGoal: hiringGoalArr.map((id, index) => ({
+      hiringGoalId: id,
+      hiringGoalName: hgNames[index] || id
+    })),
     hiringGoalId: hiringGoalArr,
     hiringGoalIds: hiringGoalArr,
     hiringGoalName: hgNames,
