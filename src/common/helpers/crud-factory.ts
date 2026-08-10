@@ -15,6 +15,25 @@ export function createCrudRouter(
     throw new Error(`Model ${String(modelName)} does not exist in Prisma Client.`);
   }
 
+  // Helper to format generic master records with description, code, and slug
+  const formatRecord = (row: any) => {
+    if (!row) return row;
+    const label = row.label || row.name || row.title || row.value || "Reference Item";
+    const slugVal = row.slug || row.code || label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const codeVal = row.code || row.referenceCode || row.value || label.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+    const descVal = row.description || `Platform reference catalog configuration option for ${label}.`;
+
+    return {
+      ...row,
+      name: row.name || label,
+      label: row.label || label,
+      description: descVal,
+      code: codeVal,
+      referenceCode: codeVal,
+      slug: slugVal,
+    };
+  };
+
   // 1. LIST (with search, pagination, sorting, filters)
   router.get("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
@@ -70,7 +89,7 @@ export function createCrudRouter(
         ...(include ? { include } : {}),
       });
 
-      res.json({ success: true, rows, total });
+      res.json({ success: true, rows: rows.map(formatRecord), total });
     } catch (err) {
       next(err);
     }
@@ -109,7 +128,7 @@ export function createCrudRouter(
         ...(include ? { include } : {}),
       });
 
-      res.json({ success: true, rows, total });
+      res.json({ success: true, rows: rows.map(formatRecord), total });
     } catch (err) {
       next(err);
     }
@@ -121,7 +140,7 @@ export function createCrudRouter(
       const rows = await db.findMany();
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename=${String(modelName).toLowerCase()}_export.json`);
-      res.json({ success: true, rows });
+      res.json({ success: true, rows: rows.map(formatRecord) });
     } catch (err) {
       next(err);
     }
@@ -141,7 +160,7 @@ export function createCrudRouter(
         created.push(row);
       }
 
-      res.status(201).json({ success: true, count: created.length, rows: created });
+      res.status(201).json({ success: true, count: created.length, rows: created.map(formatRecord) });
     } catch (err) {
       next(err);
     }
@@ -157,7 +176,8 @@ export function createCrudRouter(
       if (!row) {
         return res.status(404).json({ success: false, message: "Record not found" });
       }
-      res.json({ success: true, data: row });
+      const formatted = formatRecord(row);
+      res.json({ success: true, data: formatted, row: formatted });
     } catch (err) {
       next(err);
     }
@@ -235,6 +255,18 @@ function sanitizeModelData(modelName: string, data: any) {
       const modelFields = (prisma as any)._dmmf?.modelMap?.[modelName]?.fields || [];
       const hasDeletedAt = modelFields.some((f: any) => f.name === "deletedAt");
 
+      if (String(modelName).toLowerCase() === "skillcategory") {
+        const cat = await (prisma as any).skillCategory.findUnique({ where: { id: req.params.id } }).catch(() => null);
+        await (prisma as any).skill.deleteMany({
+          where: {
+            OR: [
+              { categoryId: req.params.id },
+              ...(cat?.name ? [{ category: { is: { name: cat.name } } }, { industry: cat.name }] : [])
+            ]
+          }
+        }).catch(() => {});
+      }
+
       if (hasDeletedAt) {
         await db.update({
           where: { id: req.params.id },
@@ -260,6 +292,12 @@ function sanitizeModelData(modelName: string, data: any) {
 
       const modelFields = (prisma as any)._dmmf?.modelMap?.[modelName]?.fields || [];
       const hasDeletedAt = modelFields.some((f: any) => f.name === "deletedAt");
+
+      if (String(modelName).toLowerCase() === "skillcategory") {
+        await (prisma as any).skill.deleteMany({
+          where: { categoryId: { in: ids } }
+        }).catch(() => {});
+      }
 
       if (hasDeletedAt) {
         await db.updateMany({

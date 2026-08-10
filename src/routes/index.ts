@@ -612,6 +612,52 @@ adminSkillsRouter.get("/", async (req: Request, res: Response, next: NextFunctio
   }
 });
 
+adminSkillsRouter.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const skill = await prisma.skill.findUnique({
+      where: { id },
+      include: {
+        category: {
+          select: { id: true, name: true, industry: { select: { id: true, name: true } } }
+        }
+      }
+    });
+
+    if (!skill) {
+      return res.status(404).json({ success: false, message: "Skill not found" });
+    }
+
+    const categoryName = skill.category?.name || "General";
+    const industryName = skill.industry || skill.category?.industry?.name || categoryName;
+
+    const formatted = {
+      ...skill,
+      industry: industryName,
+      category: skill.category ? {
+        ...skill.category,
+        industry: skill.category.industry?.name || skill.category.industry || categoryName,
+      } : null,
+      description: (skill as any).description || `Professional skill mapping for ${skill.name} under ${categoryName} domain.`,
+      code: (skill as any).code || (skill.name ? skill.name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) : "SKL")
+    };
+
+    res.json({ success: true, data: formatted, row: formatted });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminSkillsRouter.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    await prisma.skill.delete({ where: { id } });
+    res.json({ success: true, ok: true, message: "Skill deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+
 const adminCategoriesRouter = Router();
 
 adminCategoriesRouter.post("/list", async (req: Request, res: Response, next: NextFunction) => {
@@ -658,6 +704,35 @@ adminCategoriesRouter.get("/", async (req: Request, res: Response, next: NextFun
     });
 
     res.json({ success: true, rows, total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminCategoriesRouter.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const cat = await prisma.skillCategory.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { skills: true } },
+        skills: { select: { id: true, name: true, status: true, createdAt: true } },
+        industry: true,
+      }
+    });
+
+    if (!cat) {
+      return res.status(404).json({ success: false, message: "Skill Category not found" });
+    }
+
+    const formatted = {
+      ...cat,
+      industry: cat.industry?.name || cat.industryId || null,
+      description: (cat as any).description || `Skill Category domain for ${cat.name} organizing related professional skills across the platform.`,
+      code: (cat as any).code || (cat.name ? cat.name.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) : "CAT")
+    };
+
+    res.json({ success: true, data: formatted, row: formatted });
   } catch (err) {
     next(err);
   }
@@ -713,8 +788,30 @@ adminCategoriesRouter.put("/:id", async (req: Request, res: Response, next: Next
 adminCategoriesRouter.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+
+    // Find category to get name
+    const cat = await prisma.skillCategory.findUnique({ where: { id } });
+    const catName = cat?.name;
+
+    // 1. Delete all skills mapped to this category ID or matching category name
+    if (catName) {
+      await prisma.skill.deleteMany({
+        where: {
+          OR: [
+            { categoryId: id },
+            { category: { is: { name: catName } } },
+            { industry: catName }
+          ]
+        }
+      }).catch(() => {});
+    } else {
+      await prisma.skill.deleteMany({ where: { categoryId: id } }).catch(() => {});
+    }
+
+    // 2. Delete the category record
     await prisma.skillCategory.delete({ where: { id } });
-    res.json({ success: true, ok: true });
+
+    res.json({ success: true, ok: true, message: "Skill category and all associated skills deleted successfully." });
   } catch (err) {
     next(err);
   }
