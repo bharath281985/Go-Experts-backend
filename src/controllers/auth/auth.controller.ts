@@ -625,6 +625,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       refreshToken,
       token: accessToken,
       user: sanitizedUser,
+      data: sanitizedUser,
     });
   } catch (err) {
     next(err);
@@ -1869,11 +1870,14 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       },
     });
 
+    const sanitizedUser = sanitizeUserRecord(updatedUser);
+
     return res.json({
       success: true,
-      message: "Draft saved successfully",
+      message: "Details retrieved for freelancer",
       step: step ?? null,
-      user: sanitizeUserRecord(updatedUser),
+      user: sanitizedUser,
+      data: sanitizedUser,
     });
   } catch (err) {
     next(err);
