@@ -1744,6 +1744,12 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
 
     // Upsert role profile if role matches
     try {
+      const portUrl = req.body?.portfolioUrl || req.body?.portfolio || req.body?.websiteUrl;
+      const linkUrl = req.body?.linkedInUrl || req.body?.linkedin;
+      const gitUrl = req.body?.githubUrl || req.body?.github;
+      const dribUrl = req.body?.dribbbleUrl || req.body?.dribbble;
+      const yrsExp = req.body?.yearsOfExperience || req.body?.yearsExperience || req.body?.years;
+
       if (userRole === "freelancer") {
         await prisma.freelancerProfile.upsert({
           where: { userId },
@@ -1753,6 +1759,11 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
             skills: joinArray(skills),
             hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) || null : undefined,
             experience: experienceLevel ? String(experienceLevel) : undefined,
+            yearsOfExperience: yrsExp ? String(yrsExp) : undefined,
+            portfolioUrl: portUrl ? String(portUrl) : undefined,
+            linkedInUrl: linkUrl ? String(linkUrl) : undefined,
+            githubUrl: gitUrl ? String(gitUrl) : undefined,
+            dribbbleUrl: dribUrl ? String(dribUrl) : undefined,
             industry: joinArray(industry),
             workMode: joinArray(workMode),
           },
@@ -1761,6 +1772,11 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
             ...(skills !== undefined && { skills: joinArray(skills) }),
             ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) || null }),
             ...(experienceLevel !== undefined && { experience: String(experienceLevel) }),
+            ...(yrsExp !== undefined && { yearsOfExperience: String(yrsExp) }),
+            ...(portUrl !== undefined && { portfolioUrl: String(portUrl) }),
+            ...(linkUrl !== undefined && { linkedInUrl: String(linkUrl) }),
+            ...(gitUrl !== undefined && { githubUrl: String(gitUrl) }),
+            ...(dribUrl !== undefined && { dribbbleUrl: String(dribUrl) }),
             ...(industry !== undefined && { industry: joinArray(industry) }),
             ...(workMode !== undefined && { workMode: joinArray(workMode) }),
           },
