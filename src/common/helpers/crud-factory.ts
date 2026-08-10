@@ -335,5 +335,33 @@ function sanitizeModelData(modelName: string, data: any) {
     }
   });
 
+  // 11. BULK IMPORT
+  router.post("/import", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { rows } = req.body;
+      const importItems = Array.isArray(rows) ? rows : (Array.isArray(req.body) ? req.body : []);
+      if (importItems.length === 0) {
+        return res.status(400).json({ success: false, message: "Array of rows is required for import" });
+      }
+
+      const createdRecords = [];
+      for (const rawRow of importItems) {
+        if (!rawRow || typeof rawRow !== "object") continue;
+        if (!rawRow.name && !rawRow.label && !rawRow.title && !rawRow.code) continue;
+        const sanitized = sanitizeModelData(String(modelName), rawRow);
+        const created = await db.create({ data: sanitized }).catch(() => null);
+        if (created) createdRecords.push(created);
+      }
+
+      res.status(201).json({
+        success: true,
+        count: createdRecords.length,
+        data: createdRecords,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
