@@ -31,6 +31,7 @@ import clientRoutes from "./client/client.routes.js";
 import investorRoutes from "./investor/investor.routes.js";
 import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
+import aboutRouter from "./admin/about.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import mobileRoutes from "../modules/mobile/index.js";
 const router = Router();
@@ -95,6 +96,26 @@ router.use("/admin/system", systemRouter);
 router.use("/admin/settings", settingsRouter);
 router.use("/admin/developer", developerRouter);
 router.use("/admin", workflowsRoutes);
+import { getAdminContactPage, saveContactDraft, publishContactPage, listContactEnquiries, getContactEnquiryById, updateContactEnquiry, } from "../controllers/admin/contact.controller.js";
+import { getAdminCareersPage, saveCareersDraft, publishCareersPage, listAdminJobs, createJob, updateJob, deleteJob, listCareerApplications, getCareerApplicationById, updateCareerApplication, } from "../controllers/admin/careers.controller.js";
+// Contact CMS & Enquiries Admin Routes
+router.get("/admin/contact-page", getAdminContactPage);
+router.put("/admin/contact-page/draft", saveContactDraft);
+router.post("/admin/contact-page/publish", publishContactPage);
+router.get("/admin/contact-enquiries", listContactEnquiries);
+router.get("/admin/contact-enquiries/:id", getContactEnquiryById);
+router.patch("/admin/contact-enquiries/:id", updateContactEnquiry);
+// Careers CMS, Jobs & Applications Admin Routes
+router.get("/admin/careers-page", getAdminCareersPage);
+router.put("/admin/careers-page/draft", saveCareersDraft);
+router.post("/admin/careers-page/publish", publishCareersPage);
+router.get("/admin/careers/jobs", listAdminJobs);
+router.post("/admin/careers/jobs", createJob);
+router.put("/admin/careers/jobs/:id", updateJob);
+router.delete("/admin/careers/jobs/:id", deleteJob);
+router.get("/admin/careers/applications", listCareerApplications);
+router.get("/admin/careers/applications/:id", getCareerApplicationById);
+router.patch("/admin/careers/applications/:id", updateCareerApplication);
 // Map frontend table names to Prisma Models
 const tableModelMapping = {
     profiles: "User",
@@ -117,6 +138,9 @@ const tableModelMapping = {
     testimonials: "Testimonial",
     email_templates: "EmailTemplate",
     support_tickets: "SupportTicket",
+    contact_enquiries: "ContactEnquiry",
+    job_openings: "JobOpening",
+    career_applications: "CareerApplication",
     api_keys: "ApiKey",
     backups: "Backup",
     proposals: "Proposal",
@@ -1472,6 +1496,7 @@ router.use("/admin/categories", authMiddleware, auditMiddleware("mutate", "indus
 router.use("/admin/clients", authMiddleware, auditMiddleware("mutate", "clients"), adminClientsRouter);
 router.use("/admin/investors", authMiddleware, auditMiddleware("mutate", "investors"), adminInvestorsRouter);
 router.use("/admin/founders", authMiddleware, auditMiddleware("mutate", "founders"), adminFoundersRouter);
+router.use("/admin/about-page", authMiddleware, aboutRouter);
 // 4. Dynamic Whitelisted CRUD Routers
 Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
     if (["freelancers", "clients", "investors", "founders"].includes(tableName))

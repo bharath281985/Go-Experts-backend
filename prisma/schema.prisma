@@ -878,18 +878,40 @@ model SubscriptionPlan {
 }
 
 model CmsPage {
-  id        String    @id @default(uuid())
-  name      String
-  category  String
-  items     Int       @default(0)
-  updated   String?
-  status    String    @default("active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-  content   String?   @db.LongText
+  id            String            @id @default(uuid())
+  name          String            @unique
+  category      String
+  items         Int               @default(0)
+  updated       String?
+  status        String            @default("active")
+  draftJson     String?           @map("draft_json") @db.LongText
+  publishedJson String?           @map("published_json") @db.LongText
+  version       Int               @default(1)
+  publishedAt   DateTime?         @map("published_at")
+  publishedBy   String?           @map("published_by")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  deletedAt     DateTime?         @map("deleted_at")
+  content       String?           @db.LongText
+  revisions     CmsPageRevision[]
 
   @@map("cms_pages")
+}
+
+model CmsPageRevision {
+  id            String   @id @default(uuid())
+  pageId        String   @map("page_id")
+  version       Int
+  contentJson   String   @map("content_json") @db.LongText
+  seoJson       String?  @map("seo_json") @db.Text
+  status        String   @default("published")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  changeSummary String?  @map("change_summary")
+  page          CmsPage  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, version])
+  @@map("cms_page_revisions")
 }
 
 model Blog {
@@ -1644,4 +1666,119 @@ model AnalyticsDashboard {
 
   @@map("analytics_dashboards")
 }
+
+model ContactEnquiry {
+  id                     String    @id @default(uuid())
+  referenceNumber        String    @unique @map("reference_number")
+  fullName               String    @map("full_name")
+  email                  String
+  phone                  String?
+  company                String?
+  enquiryType            String    @default("General Enquiry") @map("enquiry_type")
+  subject                String
+  message                String    @db.Text
+  preferredContactMethod String?   @map("preferred_contact_method")
+  status                 String    @default("new")
+  priority               String    @default("normal")
+  assignedAdminId        String?   @map("assigned_admin_id")
+  assignedAdminName      String?   @map("assigned_admin_name")
+  internalNotes          String?   @map("internal_notes") @db.Text
+  ipAddress              String?   @map("ip_address")
+  userAgent              String?   @map("user_agent")
+  resolvedAt             DateTime? @map("resolved_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  deletedAt              DateTime? @map("deleted_at")
+
+  @@index([referenceNumber])
+  @@index([email])
+  @@index([status])
+  @@index([enquiryType])
+  @@index([createdAt])
+  @@map("contact_enquiries")
+}
+
+model JobOpening {
+  id                      String              @id @default(uuid())
+  title                   String
+  slug                    String              @unique
+  jobCode                 String?             @map("job_code")
+  department              String
+  category                String?
+  location                String
+  workplaceType           String              @default("hybrid") @map("workplace_type")
+  employmentType          String              @default("full_time") @map("employment_type")
+  experienceLevel         String              @default("mid_level") @map("experience_level")
+  minExperience           Int?                @map("min_experience")
+  maxExperience           Int?                @map("max_experience")
+  openings                Int                 @default(1)
+  salaryMin               Float?              @map("salary_min")
+  salaryMax               Float?              @map("salary_max")
+  currency                String              @default("USD")
+  salaryVisibility        Boolean             @default(false) @map("salary_visibility")
+  applicationDeadline     DateTime?           @map("application_deadline")
+  hiringManager           String?             @map("hiring_manager")
+  recruiter               String?
+  shortSummary            String              @map("short_summary") @db.Text
+  fullDescription         String              @map("full_description") @db.LongText
+  responsibilities        String?             @db.LongText
+  requirements            String?             @db.LongText
+  preferredQualifications String?             @map("preferred_qualifications") @db.LongText
+  benefits                String?             @db.LongText
+  status                  String              @default("published")
+  featured                Boolean             @default(false)
+  applicationsCount       Int                 @default(0) @map("applications_count")
+  createdAt               DateTime            @default(now()) @map("created_at")
+  updatedAt               DateTime            @updatedAt @map("updated_at")
+  deletedAt               DateTime?           @map("deleted_at")
+  applications            CareerApplication[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([department])
+  @@index([location])
+  @@index([employmentType])
+  @@map("job_openings")
+}
+
+model CareerApplication {
+  id                  String     @id @default(uuid())
+  applicationNumber   String     @unique @map("application_number")
+  jobId               String     @map("job_id")
+  jobTitle            String     @map("job_title")
+  firstName           String     @map("first_name")
+  lastName            String     @map("last_name")
+  email               String
+  phone               String
+  currentLocation     String?    @map("current_location")
+  linkedinUrl         String?    @map("linkedin_url")
+  portfolioUrl        String?    @map("portfolio_url")
+  experienceYears     Float?     @map("experience_years")
+  currentCompany      String?    @map("current_company")
+  currentDesignation  String?    @map("current_designation")
+  currentCtc          String?    @map("current_ctc")
+  expectedCtc         String?    @map("expected_ctc")
+  noticePeriod        String?    @map("notice_period")
+  preferredLocation   String?    @map("preferred_location")
+  coverLetter         String?    @map("cover_letter") @db.Text
+  resumeUrl           String     @map("resume_url") @db.Text
+  resumeFileName      String?    @map("resume_file_name")
+  status              String     @default("new")
+  rating              Int        @default(0)
+  assignedRecruiterId String?    @map("assigned_recruiter_id")
+  assignedRecruiter   String?    @map("assigned_recruiter")
+  internalNotes       String?    @map("internal_notes") @db.Text
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+  deletedAt           DateTime?  @map("deleted_at")
+  job                 JobOpening @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([applicationNumber])
+  @@index([jobId])
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@map("career_applications")
+}
+
 

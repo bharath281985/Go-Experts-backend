@@ -443,11 +443,20 @@ router.get("/cms_pages", async (req, res, next) => {
         next(e);
     }
 });
-router.get("/about", getPageHandler("About"));
-router.get("/careers", getPageHandler("Careers"));
+import { getPublicAboutPage } from "../../controllers/admin/about.controller.js";
+import { getPublicContactPage, submitContactEnquiry } from "../../controllers/admin/contact.controller.js";
+import { getPublicCareersPage, listPublicJobs, getPublicJobBySlug, submitCareerApplication } from "../../controllers/admin/careers.controller.js";
+router.get("/about", getPublicAboutPage);
+router.get("/contact-page", getPublicContactPage);
+router.get("/contact", getPublicContactPage);
+router.post("/contact", submitContactEnquiry);
+router.get("/careers-page", getPublicCareersPage);
+router.get("/careers", getPublicCareersPage);
+router.get("/jobs", listPublicJobs);
+router.get("/jobs/:slug", getPublicJobBySlug);
+router.post("/jobs/:jobId/apply", submitCareerApplication);
 router.get("/help_center", getPageHandler("Help Center"));
 router.get("/help-center", getPageHandler("Help Center"));
-router.get("/contact", getPageHandler("Contact"));
 router.get("/legal", getPageHandler("Legal"));
 router.get("/privacy", getPageHandler("Privacy"));
 router.get("/refund", getPageHandler("Refund Policy"));
