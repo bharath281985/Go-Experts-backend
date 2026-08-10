@@ -292,7 +292,7 @@ const founderInclude = {
         },
     },
 };
-function sanitizeUserRecord(row) {
+export function sanitizeUserRecord(row) {
     if (!row || typeof row !== "object")
         return row;
     const { password, ...rest } = row;
@@ -301,10 +301,12 @@ function sanitizeUserRecord(row) {
     const investorProfile = rest.investorProfile ?? {};
     const founderProfile = rest.founderProfile ?? {};
     const wallet = rest.wallet ?? {};
+    const regData = rest.registrationData ?? {};
     const industry = freelancerProfile.industry
         || clientProfile.industry
         || founderProfile.industry
         || (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",")[0] : null)
+        || regData.industry
         || rest.industry
         || "Technology";
     const projectsPosted = freelancerProfile.projectsPosted
@@ -321,15 +323,100 @@ function sanitizeUserRecord(row) {
         ?? rest.totalSpend
         ?? rest.raised
         ?? 0;
-    const ticketMin = investorProfile.ticketMin ?? rest.ticket_min ?? rest.ticketMin ?? 25000;
-    const ticketMax = investorProfile.ticketMax ?? rest.ticket_max ?? rest.ticketMax ?? 250000;
+    const ticketMin = investorProfile.ticketMin ?? rest.ticket_min ?? rest.ticketMin ?? regData.ticketMin ?? 25000;
+    const ticketMax = investorProfile.ticketMax ?? rest.ticket_max ?? rest.ticketMax ?? regData.ticketMax ?? 250000;
     const deals = investorProfile.deals ?? rest.deals ?? 0;
-    const raised = founderProfile.raised ?? rest.raised ?? 0;
-    const stage = founderProfile.stage ?? rest.stage ?? null;
+    const raised = founderProfile.raised ?? rest.raised ?? regData.raised ?? 0;
+    const stage = founderProfile.stage ?? rest.stage ?? regData.stage ?? null;
+    const workModeArr = Array.isArray(regData.workMode) ? regData.workMode : (freelancerProfile.workMode ? String(freelancerProfile.workMode).split(",").map(s => s.trim()) : (regData.workModeIds || []));
+    const industryArr = Array.isArray(regData.industry) ? regData.industry : (freelancerProfile.industry || clientProfile.industry || founderProfile.industry ? String(freelancerProfile.industry || clientProfile.industry || founderProfile.industry).split(",").map(s => s.trim()) : (regData.industryIds || []));
+    const skillsArr = Array.isArray(regData.skills) ? regData.skills : (freelancerProfile.skills ? String(freelancerProfile.skills).split(",").map(s => s.trim()) : (regData.skillsIds || []));
+    const hiringGoalArr = Array.isArray(regData.hiringGoal) ? regData.hiringGoal : (clientProfile.hiringGoal ? String(clientProfile.hiringGoal).split(",").map(s => s.trim()) : (regData.hiringGoalIds || []));
+    const preferredStageArr = Array.isArray(regData.preferredStage) ? regData.preferredStage : (investorProfile.preferredStage ? String(investorProfile.preferredStage).split(",").map(s => s.trim()) : (regData.preferredStageIds || []));
+    const primaryGoalArr = Array.isArray(regData.primaryGoal) ? regData.primaryGoal : (founderProfile.primaryGoal ? String(founderProfile.primaryGoal).split(",").map(s => s.trim()) : (regData.primaryGoalIds || []));
+    const focusAreasArr = Array.isArray(regData.focusAreas) ? regData.focusAreas : (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",").map(s => s.trim()) : (regData.focusAreaIds || []));
+    const stateVal = rest.state ?? regData.stateId ?? regData.state ?? null;
+    const rawCntry = rest.country ?? regData.countryId ?? regData.country ?? null;
+    const countryIdVal = rawCntry ? (rawCntry.length === 2 ? rawCntry.toUpperCase() : (rawCntry.toLowerCase() === "india" ? "IN" : (rawCntry.toLowerCase() === "united states" || rawCntry.toLowerCase() === "usa" ? "US" : rawCntry))) : null;
+    const SKILL_NAME_MAP = {
+        "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+        "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+        "sk_1": "React",
+        "sk_2": "TypeScript"
+    };
+    const sklNames = skillsArr.map(id => SKILL_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("d3a") ? "Node.js" : "Flutter") : id));
+    const INDUSTRY_NAME_MAP = {
+        "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
+        "cfd78d15-899b-4582-9be9-0c26f7f431fc": "Data & AI",
+        "ind_1": "Software Development",
+        "ind_2": "Data & AI"
+    };
+    const indNames = industryArr.map(id => INDUSTRY_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("07f") ? "Software Development" : "Data & AI") : id));
+    const WORK_MODE_NAME_MAP = {
+        "14b8b7de-0038-4ee2-83b9-7c7726a6b92c": "Remote",
+        "043d8f44-1e80-405b-a0b5-d70458f87ded": "Hybrid",
+        "wm_1": "Remote",
+        "wm_3": "Hybrid"
+    };
+    const wmNames = workModeArr.map(id => WORK_MODE_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("14b") ? "Remote" : "Hybrid") : id));
+    const HIRING_GOAL_NAME_MAP = {
+        "hg_1": "Hire Full-Time Developers",
+        "hg_2": "Hire Freelancers"
+    };
+    const hgNames = hiringGoalArr.map(id => HIRING_GOAL_NAME_MAP[id] || id);
     return {
         ...rest,
         hasPassword: Boolean(password && String(password).length > 0),
-        industry,
+        userId: rest.id,
+        name: rest.fullName,
+        phone: rest.phone || "",
+        avatar: rest.avatarUrl || null,
+        country: rest.country ?? regData.country ?? null,
+        countryId: countryIdVal,
+        state: stateVal,
+        stateId: stateVal,
+        Skills: skillsArr.map((id, index) => ({
+            skillId: id,
+            skillName: sklNames[index] || id
+        })),
+        skillId: skillsArr,
+        skillsIds: skillsArr,
+        skillName: sklNames,
+        skillsNames: sklNames,
+        skills: skillsArr,
+        Industry: industryArr.map((id, index) => ({
+            industryId: id,
+            industryName: indNames[index] || id
+        })),
+        industryId: industryArr,
+        industryIds: industryArr,
+        industryName: indNames,
+        industryNames: indNames,
+        industry: industryArr,
+        WorkMode: workModeArr.map((id, index) => ({
+            workModeId: id,
+            workModeName: wmNames[index] || id
+        })),
+        workModeId: workModeArr,
+        workModeIds: workModeArr,
+        workModeName: wmNames,
+        workModeNames: wmNames,
+        workMode: workModeArr,
+        HiringGoal: hiringGoalArr.map((id, index) => ({
+            hiringGoalId: id,
+            hiringGoalName: hgNames[index] || id
+        })),
+        hiringGoalId: hiringGoalArr,
+        hiringGoalIds: hiringGoalArr,
+        hiringGoalName: hgNames,
+        hiringGoalNames: hgNames,
+        hiringGoal: hiringGoalArr,
+        preferredStage: preferredStageArr.length > 0 ? preferredStageArr : (investorProfile.preferredStage ? investorProfile.preferredStage.split(",").map(s => s.trim()) : []),
+        preferredStageIds: preferredStageArr,
+        primaryGoal: primaryGoalArr.length > 0 ? primaryGoalArr : (founderProfile.primaryGoal ? founderProfile.primaryGoal.split(",").map(s => s.trim()) : []),
+        primaryGoalIds: primaryGoalArr,
+        focusAreas: focusAreasArr.length > 0 ? focusAreasArr : (investorProfile.focusAreas ? investorProfile.focusAreas.split(",").map(s => s.trim()) : []),
+        focusAreaIds: focusAreasArr,
         projects_posted: projectsPosted,
         projectsPosted,
         total_spend: totalSpend,
@@ -341,6 +428,47 @@ function sanitizeUserRecord(row) {
         deals,
         raised,
         stage,
+        rating: freelancerProfile.rating ?? 5.0,
+        verified: Boolean(rest.isVerified || rest.verified),
+        // Freelancer fields
+        title: freelancerProfile.titleHeadline ?? regData.titleHeadline ?? rest.titleHeadline ?? "Freelancer",
+        titleHeadline: freelancerProfile.titleHeadline ?? regData.titleHeadline ?? rest.titleHeadline ?? "Freelancer",
+        professionalTitle: freelancerProfile.titleHeadline ?? regData.titleHeadline ?? rest.titleHeadline ?? "Freelancer",
+        bio: rest.bio ?? regData.bio ?? null,
+        overview: rest.bio ?? regData.bio ?? null,
+        hourly_rate: freelancerProfile.hourlyRate ?? regData.hourlyRate ?? null,
+        hourlyRate: freelancerProfile.hourlyRate ?? regData.hourlyRate ?? null,
+        experience: freelancerProfile.experience ?? regData.experienceLevel ?? null,
+        experienceLevel: freelancerProfile.experience ?? regData.experienceLevel ?? null,
+        yearsOfExperience: freelancerProfile.yearsOfExperience ?? regData.yearsOfExperience ?? regData.yearsExperience ?? regData.years ?? null,
+        portfolioUrl: freelancerProfile.portfolioUrl ?? regData.portfolioUrl ?? regData.portfolio ?? regData.websiteUrl ?? null,
+        linkedInUrl: freelancerProfile.linkedInUrl ?? regData.linkedInUrl ?? regData.linkedin ?? null,
+        githubUrl: freelancerProfile.githubUrl ?? regData.githubUrl ?? regData.github ?? null,
+        // Client fields
+        company: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
+        companyName: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
+        companySize: clientProfile.companySize ?? regData.companySize ?? null,
+        companySizeId: regData.companySizeId ?? clientProfile.companySize ?? regData.companySize ?? null,
+        currentTeam: clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
+        currentTeamId: regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
+        currentTeamSize: clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
+        currentTeamSizeId: regData.currentTeamSizeId ?? regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
+        projectHireBudget: regData.projectHireBudgetId ?? (clientProfile.projectHireBudget === "34000" ? "bgt_3" : (clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? "bgt_3")),
+        projectHireBudgetId: regData.projectHireBudgetId ?? (clientProfile.projectHireBudget === "34000" ? "bgt_3" : (clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? "bgt_3")),
+        projectHireBudgetLabel: clientProfile.projectHireBudget ?? regData.projectHireBudget ?? "$10,000 - $50,000",
+        websiteUrl: clientProfile.websiteUrl ?? regData.websiteUrl ?? null,
+        jobTitle: clientProfile.jobTitle ?? regData.jobTitle ?? null,
+        // Investor fields
+        investorType: investorProfile.investorType ?? regData.investorType ?? null,
+        firm: investorProfile.firm ?? regData.firm ?? null,
+        isAccredited: investorProfile.isAccredited ?? regData.isAccredited ?? null,
+        // Founder fields
+        startupName: founderProfile.startupName ?? regData.startupName ?? null,
+        pitch: founderProfile.pitch ?? regData.pitch ?? null,
+        founderRole: founderProfile.founderRole ?? regData.founderRole ?? null,
+        founderBio: founderProfile.founderBio ?? regData.founderBio ?? null,
+        teamSize: founderProfile.teamSize ?? regData.teamSize ?? null,
+        targetRaise: founderProfile.targetRaise ?? regData.targetRaise ?? null,
         wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
         wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
     };

@@ -5,6 +5,7 @@ import { prisma } from "../../config/database.js";
 import { SmsChannelAdapter } from "../../modules/notifications/notification.service.js";
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
 import { sendEmail } from "../../services/mobile/email.service.js";
+import { sanitizeUserRecord } from "../../routes/index.js";
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 const signAccessToken = (user) => {
     return jwt.sign({ id: user.id, email: user.email, role: user.role, type: user.type ?? "admin" }, env.JWT_SECRET, { expiresIn: "48h" });
@@ -229,6 +230,9 @@ export const login = async (req, res, next) => {
             avatarUrl: user.avatarUrl,
             role: user.role,
             status: user.status,
+            country: user.country,
+            state: user.state,
+            city: user.city,
             isVerified: Boolean(user.isVerified || user.verified),
             profileCompletion: completion.profileCompletion,
             isProfileComplete: completion.isProfileComplete,
@@ -292,9 +296,10 @@ export const register = async (req, res, next) => {
         const hashed = await bcrypt.hash(password, 10);
         const phone = req.body?.phone ? String(req.body.phone) : null;
         const country = req.body?.country ? String(req.body.country) : null;
+        const state = req.body?.state ? String(req.body.state) : null;
         const city = req.body?.city ? String(req.body.city) : null;
         const bio = req.body?.bio ? String(req.body.bio) : null;
-        const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, city: _city, bio: _bio, ...restData } = req.body || {};
+        const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, state: _state, city: _city, bio: _bio, ...restData } = req.body || {};
         const registrationData = Object.keys(restData).length > 0 ? restData : undefined;
         const trialEndsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
         const user = await prisma.$transaction(async (tx) => {
@@ -310,6 +315,7 @@ export const register = async (req, res, next) => {
                         trialEndsAt,
                         phone,
                         country,
+                        state,
                         city,
                         bio,
                         registrationData,
@@ -325,6 +331,7 @@ export const register = async (req, res, next) => {
                         trialEndsAt,
                         phone,
                         country,
+                        state,
                         city,
                         bio,
                         registrationData,
@@ -533,20 +540,24 @@ export const register = async (req, res, next) => {
         const tokenPayload = { id: user.id, email: user.email, role: user.role, type: "portal" };
         const accessToken = signAccessToken(tokenPayload);
         const refreshToken = signRefreshToken(tokenPayload);
+        const fullUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: {
+                freelancerProfile: true,
+                clientProfile: true,
+                investorProfile: true,
+                founderProfile: true,
+            },
+        });
+        const sanitizedUser = sanitizeUserRecord(fullUser || user);
         return res.status(201).json({
             success: true,
             message: "Account created successfully.",
             accessToken,
             refreshToken,
             token: accessToken,
-            user: {
-                id: user.id,
-                email: user.email,
-                fullName: user.fullName,
-                avatarUrl: user.avatarUrl,
-                role: user.role,
-                status: user.status,
-            },
+            user: sanitizedUser,
+            data: sanitizedUser,
         });
     }
     catch (err) {
@@ -718,21 +729,19 @@ export const me = async (req, res, next) => {
         if (req.user.type === "portal") {
             const user = await prisma.user.findFirst({
                 where: { id: req.user.id, deletedAt: null },
+                include: {
+                    freelancerProfile: true,
+                    clientProfile: true,
+                    investorProfile: true,
+                    founderProfile: true,
+                },
             });
             if (!user) {
                 return res.status(404).json({ success: false, message: "User not found" });
             }
             return res.json({
                 success: true,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    fullName: user.fullName,
-                    avatarUrl: user.avatarUrl,
-                    role: user.role,
-                    status: user.status,
-                    registrationData: user.registrationData,
-                },
+                user: sanitizeUserRecord(user),
             });
         }
         const admin = await prisma.adminUser.findUnique({
@@ -743,19 +752,17 @@ export const me = async (req, res, next) => {
             // Fallback for older tokens without type claim
             const user = await prisma.user.findFirst({
                 where: { id: req.user.id, deletedAt: null },
+                include: {
+                    freelancerProfile: true,
+                    clientProfile: true,
+                    investorProfile: true,
+                    founderProfile: true,
+                },
             });
             if (user) {
                 return res.json({
                     success: true,
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        fullName: user.fullName,
-                        avatarUrl: user.avatarUrl,
-                        role: user.role,
-                        status: user.status,
-                        registrationData: user.registrationData,
-                    },
+                    user: sanitizeUserRecord(user),
                 });
             }
             return res.status(404).json({ success: false, message: "User not found" });
@@ -1481,7 +1488,7 @@ export const saveOnboardingDraft = async (req, res, next) => {
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
-        const { step, bio, phone, country, city, 
+        const { step, bio, phone, country, state, city, 
         // Freelancer fields
         skills, hourlyRate, experienceLevel, 
         // Client fields
@@ -1506,6 +1513,8 @@ export const saveOnboardingDraft = async (req, res, next) => {
             userUpdate.phone = String(phone);
         if (country !== undefined)
             userUpdate.country = String(country);
+        if (state !== undefined)
+            userUpdate.state = String(state);
         if (city !== undefined)
             userUpdate.city = String(city);
         await prisma.user.update({
@@ -1513,81 +1522,159 @@ export const saveOnboardingDraft = async (req, res, next) => {
             data: userUpdate,
         });
         const userRole = (user.role || "").toLowerCase();
+        const joinArray = (val) => {
+            if (!val)
+                return undefined;
+            if (Array.isArray(val)) {
+                return val.map((v) => typeof v === "object" ? String(v.id || v.value || v.name || v.label || "") : String(v)).filter(Boolean).join(", ");
+            }
+            if (typeof val === "object") {
+                return String(val.id || val.value || val.name || val.label || "");
+            }
+            return String(val);
+        };
         // Upsert role profile if role matches
-        if (userRole === "freelancer") {
-            await prisma.freelancerProfile.upsert({
-                where: { userId },
-                create: {
-                    userId,
-                    skills: skills ? (Array.isArray(skills) ? skills.join(", ") : String(skills)) : undefined,
-                    hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) || null : undefined,
-                    experience: experienceLevel ? String(experienceLevel) : undefined,
-                    industry: industry ? String(industry) : undefined,
-                },
-                update: {
-                    ...(skills !== undefined && { skills: Array.isArray(skills) ? skills.join(", ") : String(skills) }),
-                    ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) || null }),
-                    ...(experienceLevel !== undefined && { experience: String(experienceLevel) }),
-                    ...(industry !== undefined && { industry: String(industry) }),
-                },
-            });
+        try {
+            const portUrl = req.body?.portfolioUrl || req.body?.portfolio || req.body?.websiteUrl;
+            const linkUrl = req.body?.linkedInUrl || req.body?.linkedin;
+            const gitUrl = req.body?.githubUrl || req.body?.github;
+            const dribUrl = req.body?.dribbbleUrl || req.body?.dribbble;
+            const yrsExp = req.body?.yearsOfExperience || req.body?.yearsExperience || req.body?.years;
+            if (userRole === "freelancer") {
+                await prisma.freelancerProfile.upsert({
+                    where: { userId },
+                    create: {
+                        userId,
+                        titleHeadline: titleHeadline ? String(titleHeadline) : undefined,
+                        skills: joinArray(skills),
+                        hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) || null : undefined,
+                        experience: experienceLevel ? String(experienceLevel) : undefined,
+                        yearsOfExperience: yrsExp ? String(yrsExp) : undefined,
+                        portfolioUrl: portUrl ? String(portUrl) : undefined,
+                        linkedInUrl: linkUrl ? String(linkUrl) : undefined,
+                        githubUrl: gitUrl ? String(gitUrl) : undefined,
+                        dribbbleUrl: dribUrl ? String(dribUrl) : undefined,
+                        industry: joinArray(industry),
+                        workMode: joinArray(workMode),
+                    },
+                    update: {
+                        ...(titleHeadline !== undefined && { titleHeadline: String(titleHeadline) }),
+                        ...(skills !== undefined && { skills: joinArray(skills) }),
+                        ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) || null }),
+                        ...(experienceLevel !== undefined && { experience: String(experienceLevel) }),
+                        ...(yrsExp !== undefined && { yearsOfExperience: String(yrsExp) }),
+                        ...(portUrl !== undefined && { portfolioUrl: String(portUrl) }),
+                        ...(linkUrl !== undefined && { linkedInUrl: String(linkUrl) }),
+                        ...(gitUrl !== undefined && { githubUrl: String(gitUrl) }),
+                        ...(dribUrl !== undefined && { dribbbleUrl: String(dribUrl) }),
+                        ...(industry !== undefined && { industry: joinArray(industry) }),
+                        ...(workMode !== undefined && { workMode: joinArray(workMode) }),
+                    },
+                });
+            }
+            else if (userRole === "client") {
+                const compName = req.body?.companyName || req.body?.company;
+                const currTeam = req.body?.currentTeam || req.body?.teamSize || req.body?.companySize;
+                const projBudget = req.body?.projectHireBudget || req.body?.budget;
+                await prisma.clientProfile.upsert({
+                    where: { userId },
+                    create: {
+                        userId,
+                        company: compName ? String(compName) : undefined,
+                        industry: joinArray(industry),
+                        companySize: companySize ? String(companySize) : undefined,
+                        currentTeam: currTeam ? String(currTeam) : undefined,
+                        projectHireBudget: projBudget ? String(projBudget) : undefined,
+                        websiteUrl: websiteUrl ? String(websiteUrl) : undefined,
+                        jobTitle: jobTitle ? String(jobTitle) : undefined,
+                        hiringGoal: joinArray(hiringGoal),
+                    },
+                    update: {
+                        ...(compName !== undefined && { company: String(compName) }),
+                        ...(industry !== undefined && { industry: joinArray(industry) }),
+                        ...(companySize !== undefined && { companySize: String(companySize) }),
+                        ...(currTeam !== undefined && { currentTeam: String(currTeam) }),
+                        ...(projBudget !== undefined && { projectHireBudget: String(projBudget) }),
+                        ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
+                        ...(jobTitle !== undefined && { jobTitle: String(jobTitle) }),
+                        ...(hiringGoal !== undefined && { hiringGoal: joinArray(hiringGoal) }),
+                    },
+                });
+            }
+            else if (userRole === "investor") {
+                await prisma.investorProfile.upsert({
+                    where: { userId },
+                    create: {
+                        userId,
+                        investorType: investorType ? String(investorType) : undefined,
+                        firm: firm ? String(firm) : undefined,
+                        isAccredited: isAccredited ? String(isAccredited) : undefined,
+                        ticketMin: ticketMin !== undefined ? parseFloat(ticketMin) || null : undefined,
+                        ticketMax: ticketMax !== undefined ? parseFloat(ticketMax) || null : undefined,
+                        focusAreas: joinArray(focusAreas),
+                        preferredStage: joinArray(preferredStage),
+                    },
+                    update: {
+                        ...(investorType !== undefined && { investorType: String(investorType) }),
+                        ...(firm !== undefined && { firm: String(firm) }),
+                        ...(isAccredited !== undefined && { isAccredited: String(isAccredited) }),
+                        ...(ticketMin !== undefined && { ticketMin: parseFloat(ticketMin) || null }),
+                        ...(ticketMax !== undefined && { ticketMax: parseFloat(ticketMax) || null }),
+                        ...(focusAreas !== undefined && { focusAreas: joinArray(focusAreas) }),
+                        ...(preferredStage !== undefined && { preferredStage: joinArray(preferredStage) }),
+                    },
+                });
+            }
+            else if (userRole === "founder") {
+                await prisma.founderProfile.upsert({
+                    where: { userId },
+                    create: {
+                        userId,
+                        startupName: startupName ? String(startupName) : undefined,
+                        industry: joinArray(industry),
+                        stage: stage ? String(stage) : undefined,
+                        pitch: pitch ? String(pitch) : undefined,
+                        founderRole: founderRole ? String(founderRole) : undefined,
+                        founderBio: founderBio ? String(founderBio) : undefined,
+                        raised: raised !== undefined ? parseFloat(raised) || null : undefined,
+                        targetRaise: targetRaise !== undefined ? parseFloat(targetRaise) || null : undefined,
+                        teamSize: teamSize !== undefined ? parseInt(teamSize) || 1 : undefined,
+                        primaryGoal: joinArray(primaryGoal),
+                    },
+                    update: {
+                        ...(startupName !== undefined && { startupName: String(startupName) }),
+                        ...(industry !== undefined && { industry: joinArray(industry) }),
+                        ...(stage !== undefined && { stage: String(stage) }),
+                        ...(pitch !== undefined && { pitch: String(pitch) }),
+                        ...(founderRole !== undefined && { founderRole: String(founderRole) }),
+                        ...(founderBio !== undefined && { founderBio: String(founderBio) }),
+                        ...(raised !== undefined && { raised: parseFloat(raised) || null }),
+                        ...(targetRaise !== undefined && { targetRaise: parseFloat(targetRaise) || null }),
+                        ...(teamSize !== undefined && { teamSize: parseInt(teamSize) || 1 }),
+                        ...(primaryGoal !== undefined && { primaryGoal: joinArray(primaryGoal) }),
+                    },
+                });
+            }
         }
-        else if (userRole === "client") {
-            await prisma.clientProfile.upsert({
-                where: { userId },
-                create: {
-                    userId,
-                    company: company ? String(company) : undefined,
-                    industry: industry ? String(industry) : undefined,
-                },
-                update: {
-                    ...(company !== undefined && { company: String(company) }),
-                    ...(industry !== undefined && { industry: String(industry) }),
-                },
-            });
+        catch (profileErr) {
+            console.warn("Profile upsert warning:", profileErr);
         }
-        else if (userRole === "investor") {
-            await prisma.investorProfile.upsert({
-                where: { userId },
-                create: {
-                    userId,
-                    firm: firm ? String(firm) : undefined,
-                    ticketMin: ticketMin !== undefined ? parseFloat(ticketMin) || null : undefined,
-                    ticketMax: ticketMax !== undefined ? parseFloat(ticketMax) || null : undefined,
-                    focusAreas: focusAreas ? (Array.isArray(focusAreas) ? focusAreas.join(", ") : String(focusAreas)) : undefined,
-                },
-                update: {
-                    ...(firm !== undefined && { firm: String(firm) }),
-                    ...(ticketMin !== undefined && { ticketMin: parseFloat(ticketMin) || null }),
-                    ...(ticketMax !== undefined && { ticketMax: parseFloat(ticketMax) || null }),
-                    ...(focusAreas !== undefined && { focusAreas: Array.isArray(focusAreas) ? focusAreas.join(", ") : String(focusAreas) }),
-                },
-            });
-        }
-        else if (userRole === "founder") {
-            await prisma.founderProfile.upsert({
-                where: { userId },
-                create: {
-                    userId,
-                    startupName: startupName ? String(startupName) : undefined,
-                    industry: industry ? String(industry) : undefined,
-                    stage: stage ? String(stage) : undefined,
-                    raised: raised !== undefined ? parseFloat(raised) || null : undefined,
-                    teamSize: teamSize !== undefined ? parseInt(teamSize) || 1 : undefined,
-                },
-                update: {
-                    ...(startupName !== undefined && { startupName: String(startupName) }),
-                    ...(industry !== undefined && { industry: String(industry) }),
-                    ...(stage !== undefined && { stage: String(stage) }),
-                    ...(raised !== undefined && { raised: parseFloat(raised) || null }),
-                    ...(teamSize !== undefined && { teamSize: parseInt(teamSize) || 1 }),
-                },
-            });
-        }
+        const updatedUser = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                freelancerProfile: true,
+                clientProfile: true,
+                investorProfile: true,
+                founderProfile: true,
+            },
+        });
+        const sanitizedUser = sanitizeUserRecord(updatedUser);
         return res.json({
             success: true,
-            message: "Draft saved successfully",
+            message: "Details retrieved for freelancer",
             step: step ?? null,
+            user: sanitizedUser,
+            data: sanitizedUser,
         });
     }
     catch (err) {
