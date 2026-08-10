@@ -127,8 +127,8 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
 export const getSkills = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit, skip } = parsePagination(req);
-    // Prefer query string (GET); body is fallback for older clients.
-    const categoryId = readCatalogParam(req, 'categoryId', 'category_id');
+    // Support filtering skills based on industryId / categoryId query parameter
+    const categoryId = readCatalogParam(req, 'categoryId', 'category_id', 'industryId', 'industry_id', 'industry');
     const search = readCatalogParam(req, 'search', 'q') || '';
 
     const respond = (
