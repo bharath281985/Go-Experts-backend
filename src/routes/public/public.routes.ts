@@ -21,10 +21,33 @@ import {
 } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
 import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
-import { getInvestorTypes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals } from "../../modules/mobile/public/public.controller.js";
+import {
+  getCountries,
+  getStates,
+  getSkills,
+  getIndustries,
+  getBudgetRanges,
+  getTeamSizes,
+  getFounderTypes,
+  getBusinessTypes,
+  getInvestorTypes,
+  getWorkModes,
+  getHiringGoals,
+  getInvestorStages,
+  getPlatformGoals
+} from "../../modules/mobile/public/public.controller.js";
 
 const router = Router();
 
+router.get("/countries", getCountries);
+router.get("/states", getStates);
+router.get("/skills", getSkills);
+router.get("/industries", getIndustries);
+router.get("/budget-ranges", getBudgetRanges);
+router.get("/hiring-budgets", getBudgetRanges);
+router.get("/team-sizes", getTeamSizes);
+router.get("/founder-types", getFounderTypes);
+router.get("/business-types", getBusinessTypes);
 router.get("/investor-types", getInvestorTypes);
 router.get("/work-modes", getWorkModes);
 router.get("/hiring-goals", getHiringGoals);

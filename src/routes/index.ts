@@ -87,6 +87,7 @@ router.get("/docs/postman.json", (req, res) => {
 // 2. Admin operations
 // 2.1 Public operations (used by the public frontend)
 router.use("/public", publicRoutes);
+router.use("/v1/public", publicRoutes);
 
 // 2.2 Admin operations
 router.use("/admin/dashboard",       dashboardRoutes);
