@@ -1278,7 +1278,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const sklArr = Array.isArray(reg.skills) ? reg.skills : (user.freelancerProfile?.skills ? String(user.freelancerProfile.skills).split(",").map(s => s.trim()) : (reg.skillsIds || reg.skillIds || (reg.skills ? [String(reg.skills)] : [])));
       const wmArr = Array.isArray(reg.workMode) ? reg.workMode : (user.freelancerProfile?.workMode ? String(user.freelancerProfile.workMode).split(",").map(s => s.trim()) : (reg.workModeIds || (reg.workMode ? [String(reg.workMode)] : [])));
       const stId = reg.stateId || user.state || reg.state || "";
-      const cntryId = reg.countryId || user.country || reg.country || "";
+      const rawC = reg.countryId || user.country || reg.country || "";
+      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,

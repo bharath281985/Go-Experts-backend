@@ -392,10 +392,14 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   const focusAreasArr = Array.isArray(regData.focusAreas) ? regData.focusAreas : (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",").map(s => s.trim()) : (regData.focusAreaIds || []));
 
   const stateVal = rest.state ?? regData.stateId ?? regData.state ?? null;
+  const rawCntry = rest.country ?? regData.countryId ?? regData.country ?? null;
+  const countryIdVal = rawCntry ? (rawCntry.length === 2 ? rawCntry.toUpperCase() : (rawCntry.toLowerCase() === "india" ? "IN" : (rawCntry.toLowerCase() === "united states" || rawCntry.toLowerCase() === "usa" ? "US" : rawCntry))) : null;
 
   return {
     ...rest,
     hasPassword: Boolean(password && String(password).length > 0),
+    country: rest.country ?? regData.country ?? null,
+    countryId: countryIdVal,
     state: stateVal,
     stateId: stateVal,
     industry: industryArr.length > 0 ? industryArr : (freelancerProfile.industry || clientProfile.industry || founderProfile.industry || regData.industry || "Technology"),
