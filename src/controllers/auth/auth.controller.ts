@@ -1188,17 +1188,26 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
         });
         console.log(`[password-reset] Email sent successfully: ${info.messageId}`);
       }
-    } catch (mailErr) {
+    } catch (mailErr: any) {
       console.warn("[password-reset] email send skipped/failed:", mailErr);
+      return res.json({ 
+        success: true, 
+        message: okMessage, 
+        debug_error: mailErr?.message || String(mailErr)
+      });
     }
 
-    const payload: Record<string, unknown> = { success: true, message: okMessage };
+    const payload: Record<string, unknown> = { 
+      success: true, 
+      message: okMessage,
+      debug_success: "Email sending logic completed without throwing errors"
+    };
     if (env.NODE_ENV !== "production") {
       payload.resetToken = resetToken;
       payload.resetUrl = resetUrl;
     }
     return res.json(payload);
-  } catch (err) {
+  } catch (err: any) {
     next(err);
   }
 };
