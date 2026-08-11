@@ -1,5 +1,20 @@
 "use strict";
-require("dotenv").config();
+const path = require("path");
+const fs = require("fs");
+const dotenv = require("dotenv");
+
+const envPaths = [
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(__dirname, ".env"),
+  path.resolve(__dirname, "../.env")
+];
+for (const p of envPaths) {
+  if (fs.existsSync(p)) {
+    dotenv.config({ path: p });
+  }
+}
+dotenv.config();
+
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -35227,6 +35242,7 @@ var JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production
 function resolveDatabaseUrl() {
   const envUrl = process.env.DATABASE_URL;
   if (!envUrl) {
+    console.warn("⚠️ DATABASE_URL not found in process.env! Check .env file in server root directory.");
     return "mysql://root:@localhost:3306/expertsportal_adminaigravity";
   }
   return envUrl;
