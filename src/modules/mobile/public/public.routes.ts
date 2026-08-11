@@ -7,7 +7,8 @@ import {
   getExperienceLevels, getStartupStages, getCompanySizes, getTicketSizes,
   getInvestorTypes, getFounderTypes, getTeamSizes, getCountries, getStates,
   getBusinessTypes, getServicesTaxonomy, getProjectCategories,
-  getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getBudgetRanges
+  getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getBudgetRanges,
+  getDesignations, getFounderGoals
 } from './public.controller.js';
 import { authenticateOptional } from '../../../middlewares/auth.js';
 import { cacheControl } from '../../../middleware/cache.js';
@@ -44,6 +45,12 @@ router.get('/hiring-budgets', masterCache, getBudgetRanges);
 router.get('/project-budgets', masterCache, getBudgetRanges);
 router.get('/project-budget-ranges', masterCache, getBudgetRanges);
 router.get('/hiring-budget-ranges', masterCache, getBudgetRanges);
+router.get('/designations', masterCache, getDesignations);
+router.get('/startup-roles', masterCache, getDesignations);
+router.get('/start-roles', masterCache, getDesignations);
+router.get('/roles', masterCache, getDesignations);
+router.get('/founder-goals', masterCache, getFounderGoals);
+router.get('/startup-goals', masterCache, getFounderGoals);
 router.get('/freelancers', directoryCache, getFreelancers);
 router.get('/freelancers/:id', directoryCache, getById('freelancer'));
 router.get('/clients', directoryCache, getClients);

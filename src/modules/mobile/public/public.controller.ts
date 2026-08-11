@@ -429,6 +429,64 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
   } catch (error) { next(error); }
 };
 
+export const getDesignations = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbDesignations = await (prisma as any).masterOption?.findMany({
+      where: { type: { in: ['designation', 'startup_role', 'role'] }, status: 'active' },
+      orderBy: { label: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    if (dbDesignations && dbDesignations.length > 0) {
+      return res.json(successResponse('Designations retrieved', deduplicateMasterOptions(dbDesignations)));
+    }
+
+    const fallbacks = [
+      { id: 'des_founder', label: 'Founder / Co-Founder', value: 'Founder / Co-Founder' },
+      { id: 'des_ceo', label: 'Chief Executive Officer (CEO)', value: 'CEO' },
+      { id: 'des_cto', label: 'Chief Technology Officer (CTO)', value: 'CTO' },
+      { id: 'des_cpo', label: 'Chief Product Officer (CPO)', value: 'CPO' },
+      { id: 'des_cmo', label: 'Chief Marketing Officer (CMO)', value: 'CMO' },
+      { id: 'des_coo', label: 'Chief Operating Officer (COO)', value: 'COO' },
+      { id: 'des_vp_eng', label: 'VP of Engineering', value: 'VP of Engineering' },
+      { id: 'des_product_manager', label: 'Product Manager', value: 'Product Manager' },
+      { id: 'des_lead_dev', label: 'Lead Developer / Architect', value: 'Lead Developer' },
+      { id: 'des_ui_ux', label: 'UI/UX Design Lead', value: 'UI/UX Design Lead' },
+      { id: 'des_marketing_lead', label: 'Growth / Marketing Lead', value: 'Growth Lead' },
+      { id: 'des_business_dev', label: 'Business Development Lead', value: 'Business Development Lead' }
+    ];
+
+    return res.json(successResponse('Designations retrieved', fallbacks));
+  } catch (error) { next(error); }
+};
+
+export const getFounderGoals = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbGoals = await (prisma as any).masterOption?.findMany({
+      where: { type: { in: ['founder_goal', 'startup_goal', 'platform_goal'] }, status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    if (dbGoals && dbGoals.length > 0) {
+      return res.json(successResponse('Founder goals retrieved', deduplicateMasterOptions(dbGoals)));
+    }
+
+    const fallbacks = [
+      { id: 'opt_founder_goal_funding', label: 'Funding / Seed Investment', value: 'Funding / Investment' },
+      { id: 'opt_founder_goal_tech_cofounder', label: 'Find Technical Co-Founder', value: 'Technical Co-Founder' },
+      { id: 'opt_founder_goal_business_cofounder', label: 'Find Business Co-Founder', value: 'Business Co-Founder' },
+      { id: 'opt_founder_goal_mvp', label: 'MVP Development & Architecture', value: 'MVP Development' },
+      { id: 'opt_founder_goal_team', label: 'Build Core Engineering Team', value: 'Team Building' },
+      { id: 'opt_founder_goal_mentorship', label: 'Mentorship & Advisory', value: 'Mentorship' },
+      { id: 'opt_founder_goal_market_connect', label: 'B2B Market Connect & Customers', value: 'Market Connect' },
+      { id: 'opt_founder_goal_growth', label: 'Customer Acquisition & Growth', value: 'Customer Acquisition' }
+    ];
+
+    return res.json(successResponse('Founder goals retrieved', fallbacks));
+  } catch (error) { next(error); }
+};
+
 export const getTicketSizes = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const dbTickets = await (prisma as any).masterOption?.findMany({
