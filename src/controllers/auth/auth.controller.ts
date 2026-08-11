@@ -243,7 +243,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       .create({ data: { email, ipAddress, userAgent, success: true } })
       .catch(() => {});
 
-    let completion = { profileCompletion: 100, isProfileComplete: true };
+    let completion: any = { profileCompletion: 100, isProfileComplete: true, completedSteps: [], pendingSteps: [] };
     let subscriptionGate: any = { status: 'none', planId: null, planName: null };
     try {
       const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
