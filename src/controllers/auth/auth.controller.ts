@@ -8,9 +8,7 @@ import { SmsChannelAdapter } from "../../modules/notifications/notification.serv
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
 import { sendEmail } from "../../services/mobile/email.service.js";
 import { sanitizeUserRecord } from "../../routes/index.js";
-import { checkAuthDevice, registerAuthDevice, revokeAuthDevice } from "../../services/auth/device.service";
-import { parsePrismaError } from "../../utils/prisma-errors";
-import { calculateOnboardingProgress } from "../../config/onboarding";
+import { calculateOnboardingProgress } from "../../config/onboarding.js";
 
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 
@@ -279,7 +277,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       hasSubscription: hasActiveSubscription,
       isSubscribed: hasActiveSubscription,
       subscriptionStatus: subscriptionGate.status,
-      subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
       onboarding: {
