@@ -408,7 +408,7 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
 export const getBudgetRanges = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const dbRanges = await (prisma as any).masterOption?.findMany({
-      where: { type: 'budget_range', status: 'active' },
+      where: { type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] }, status: 'active' },
       orderBy: { sortOrder: 'asc' },
       select: { id: true, label: true, value: true, min: true, max: true }
     }).catch(() => []);
@@ -418,11 +418,11 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
     }
 
     const fallbacks = [
-      { id: 'opt_budget_range_1', label: 'Under ₹10,000 ($100)', value: 'Under ₹10,000', min: 0, max: 10000 },
-      { id: 'opt_budget_range_2', label: '₹10,000 - ₹50,000 ($100-$600)', value: '₹10,000 - ₹50,000', min: 10000, max: 50000 },
-      { id: 'opt_budget_range_3', label: '₹50,000 - ₹2,00,000 ($600-$2,500)', value: '₹50,00,000', min: 50000, max: 200000 },
-      { id: 'opt_budget_range_4', label: '₹2,00,000 - ₹10,00,000 ($2,500-$12,500)', value: '₹2,00,000 - ₹10,00,000', min: 200000, max: 1000000 },
-      { id: 'opt_budget_range_5', label: '₹10,00,000+ ($12,500+)', value: '₹10,00,000+', min: 1000000, max: 99999999 }
+      { id: 'opt_budget_range_1', label: 'Less than $1,000 / Under ₹80,000', value: 'Under $1,000', min: 0, max: 1000 },
+      { id: 'opt_budget_range_2', label: '$1,000 - $5,000 / ₹80k - ₹4L', value: '$1,000 - $5,000', min: 1000, max: 5000 },
+      { id: 'opt_budget_range_3', label: '$5,000 - $10,000 / ₹4L - ₹8L', value: '$5,000 - $10,000', min: 5000, max: 10000 },
+      { id: 'opt_budget_range_4', label: '$10,000 - $25,000 / ₹8L - ₹20L', value: '$10,000 - $25,000', min: 10000, max: 25000 },
+      { id: 'opt_budget_range_5', label: '$25,000+ / ₹20L+', value: '$25,000+', min: 25000, max: 99999999 }
     ];
 
     return res.json(successResponse('Budget ranges retrieved', fallbacks));
