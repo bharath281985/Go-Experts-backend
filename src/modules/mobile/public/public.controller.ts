@@ -330,7 +330,19 @@ export const getHiringGoals = async (req: Request, res: Response, next: NextFunc
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Hiring goals retrieved', options || []));
+    if (options && options.length > 0) {
+      return res.json(successResponse('Hiring goals retrieved', options));
+    }
+
+    const fallbacks = [
+      { id: 'opt_hiring_goal_freelancers', label: 'Hire Freelance Experts', value: 'Hire Freelance Experts' },
+      { id: 'opt_hiring_goal_fulltime', label: 'Full-Time Dedicated Hiring', value: 'Full-Time Dedicated Hiring' },
+      { id: 'opt_hiring_goal_contract', label: 'Build Contract Team', value: 'Build Contract Team' },
+      { id: 'opt_hiring_goal_consulting', label: 'Advisory & Consulting', value: 'Advisory & Consulting' },
+      { id: 'opt_hiring_goal_outsource', label: 'Project Outsource', value: 'Project Outsource' }
+    ];
+
+    return res.json(successResponse('Hiring goals retrieved', fallbacks));
   } catch (error) { next(error); }
 };
 
@@ -401,7 +413,19 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true, min: true, max: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Budget ranges retrieved', deduplicateMasterOptions(dbRanges || [])));
+    if (dbRanges && dbRanges.length > 0) {
+      return res.json(successResponse('Budget ranges retrieved', deduplicateMasterOptions(dbRanges)));
+    }
+
+    const fallbacks = [
+      { id: 'opt_budget_range_1', label: 'Under ₹10,000 ($100)', value: 'Under ₹10,000', min: 0, max: 10000 },
+      { id: 'opt_budget_range_2', label: '₹10,000 - ₹50,000 ($100-$600)', value: '₹10,000 - ₹50,000', min: 10000, max: 50000 },
+      { id: 'opt_budget_range_3', label: '₹50,000 - ₹2,00,000 ($600-$2,500)', value: '₹50,00,000', min: 50000, max: 200000 },
+      { id: 'opt_budget_range_4', label: '₹2,00,000 - ₹10,00,000 ($2,500-$12,500)', value: '₹2,00,000 - ₹10,00,000', min: 200000, max: 1000000 },
+      { id: 'opt_budget_range_5', label: '₹10,00,000+ ($12,500+)', value: '₹10,00,000+', min: 1000000, max: 99999999 }
+    ];
+
+    return res.json(successResponse('Budget ranges retrieved', fallbacks));
   } catch (error) { next(error); }
 };
 
@@ -527,7 +551,19 @@ export const getTeamSizes = async (req: Request, res: Response, next: NextFuncti
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Team sizes retrieved', deduplicateMasterOptions(sizes || [])));
+    if (sizes && sizes.length > 0) {
+      return res.json(successResponse('Team sizes retrieved', deduplicateMasterOptions(sizes)));
+    }
+
+    const fallbacks = [
+      { id: 'opt_team_size_1_10', label: '1-10 Employees', value: '1-10' },
+      { id: 'opt_team_size_11_50', label: '11-50 Employees', value: '11-50' },
+      { id: 'opt_team_size_51_200', label: '51-200 Employees', value: '51-200' },
+      { id: 'opt_team_size_201_500', label: '201-500 Employees', value: '201-500' },
+      { id: 'opt_team_size_500_plus', label: '500+ Employees', value: '500+' }
+    ];
+
+    return res.json(successResponse('Team sizes retrieved', fallbacks));
   } catch (error) { next(error); }
 };
 

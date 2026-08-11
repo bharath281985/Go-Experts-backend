@@ -36393,6 +36393,27 @@ for (const r of EXTRA_ROLES) {
 
 // prisma/seed/master-options.seed.ts
 var RAW_MASTER_OPTIONS = [
+  // Team Size
+  { type: "team_size", label: "1-10 Employees", value: "1-10", min: 1, max: 10, sortOrder: 1 },
+  { type: "team_size", label: "11-50 Employees", value: "11-50", min: 11, max: 50, sortOrder: 2 },
+  { type: "team_size", label: "51-200 Employees", value: "51-200", min: 51, max: 200, sortOrder: 3 },
+  { type: "team_size", label: "201-500 Employees", value: "201-500", min: 201, max: 500, sortOrder: 4 },
+  { type: "team_size", label: "500+ Employees", value: "500+", min: 501, max: 999999, sortOrder: 5 },
+
+  // Budget Range
+  { type: "budget_range", label: "Under ₹10,000 ($100)", value: "Under ₹10,000", min: 0, max: 10000, sortOrder: 1 },
+  { type: "budget_range", label: "₹10,000 - ₹50,000 ($100-$600)", value: "₹10,000 - ₹50,000", min: 10000, max: 50000, sortOrder: 2 },
+  { type: "budget_range", label: "₹50,000 - ₹2,00,000 ($600-$2,500)", value: "₹50,00,000", min: 50000, max: 200000, sortOrder: 3 },
+  { type: "budget_range", label: "₹2,00,000 - ₹10,00,000 ($2,500-$12,500)", value: "₹2,00,000 - ₹10,00,000", min: 200000, max: 1000000, sortOrder: 4 },
+  { type: "budget_range", label: "₹10,00,000+ ($12,500+)", value: "₹10,00,000+", min: 1000000, max: 99999999, sortOrder: 5 },
+
+  // Hiring Goal
+  { type: "hiring_goal", label: "Hire Freelance Experts", value: "Hire Freelance Experts", sortOrder: 1 },
+  { type: "hiring_goal", label: "Full-Time Dedicated Hiring", value: "Full-Time Dedicated Hiring", sortOrder: 2 },
+  { type: "hiring_goal", label: "Build Contract Team", value: "Build Contract Team", sortOrder: 3 },
+  { type: "hiring_goal", label: "Advisory & Consulting", value: "Advisory & Consulting", sortOrder: 4 },
+  { type: "hiring_goal", label: "Project Outsource", value: "Project Outsource", sortOrder: 5 },
+
   // Company Size
   { type: "company_size", label: "Self-employed / Just Me", value: "1", min: 1, max: 1, sortOrder: 1 },
   { type: "company_size", label: "2\u201310 employees", value: "2-10", min: 2, max: 10, sortOrder: 2 },
