@@ -876,7 +876,21 @@ export const getFreelancerProfile = async (
     }
 
     const profile = user.freelancerProfile;
-    const skills = parseSkills(profile?.skills);
+    let skills = parseSkills(profile?.skills);
+
+    if (skills.length > 0) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const uuidSkills = skills.filter((s) => uuidRegex.test(s));
+      if (uuidSkills.length > 0) {
+        const dbSkills = await prisma.skill.findMany({
+          where: { id: { in: uuidSkills } },
+          select: { id: true, name: true },
+        });
+        const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
+        skills = skills.map((s) => skillMap.get(s) || s);
+      }
+    }
+
     const completion = profileCompletion(user, profile);
     const location = [user.city, user.country].filter(Boolean).join(", ");
     const headline =
