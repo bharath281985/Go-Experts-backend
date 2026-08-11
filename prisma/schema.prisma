@@ -144,6 +144,11 @@ model User {
   wallet                  Wallet?
   trialEndsAt             DateTime?               @map("trial_ends_at")
   registrationData        Json?                   @map("registration_data")
+  onboardingStatus        String                  @default("NOT_STARTED") @map("onboarding_status")
+  completedSteps          Json?                   @map("completed_steps")
+  currentStep             String?                 @map("current_step")
+  nextStepKey             String?                 @map("next_step_key")
+  completionPercentage    Int                     @default(0) @map("completion_percentage")
   freelancerEducations    FreelancerEducation[]
   freelancerCertificates  FreelancerCertificate[]
 

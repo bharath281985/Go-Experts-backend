@@ -8,6 +8,9 @@ import { SmsChannelAdapter } from "../../modules/notifications/notification.serv
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
 import { sendEmail } from "../../services/mobile/email.service.js";
 import { sanitizeUserRecord } from "../../routes/index.js";
+import { checkAuthDevice, registerAuthDevice, revokeAuthDevice } from "../../services/auth/device.service";
+import { parsePrismaError } from "../../utils/prisma-errors";
+import { calculateOnboardingProgress } from "../../config/onboarding";
 
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 
@@ -277,7 +280,15 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       isSubscribed: hasActiveSubscription,
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
+      subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+      onboarding: {
+        status: user.onboardingStatus,
+        completionPercentage: user.completionPercentage,
+        completedSteps: user.completedSteps,
+        currentStepKey: user.currentStep,
+        nextStepKey: user.nextStepKey,
+      }
     };
 
     return res.json({
@@ -824,7 +835,16 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
       }
       return res.json({
         success: true,
-        user: sanitizeUserRecord(user),
+        user: {
+          ...sanitizeUserRecord(user),
+          onboarding: {
+            status: user.onboardingStatus,
+            completionPercentage: user.completionPercentage,
+            completedSteps: user.completedSteps,
+            currentStepKey: user.currentStep,
+            nextStepKey: user.nextStepKey,
+          }
+        },
       });
     }
 
@@ -1373,6 +1393,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
           success: true,
           id: otpId,
           otpId,
+          otp,
           message: "Verification link sent to your email. Please check your inbox or Spam folder.",
         });
       } catch (emailErr) {
@@ -1384,6 +1405,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
         success: true,
         id: otpId,
         otpId,
+        otp,
         message: "Verification link sent to your email. Please check your inbox or Spam folder.",
       });
     }
@@ -1745,9 +1767,17 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       lastStep: step !== undefined ? step : (currentRegData as any).lastStep,
     };
 
+    const isCompleted = req.body.completed === true;
+    const progress = calculateOnboardingProgress(user.role, step || 0, isCompleted);
+
     // Update User model basic fields
     const userUpdate: any = {
       registrationData: mergedRegData,
+      onboardingStatus: progress.status,
+      completedSteps: progress.completedSteps,
+      currentStep: progress.currentStep,
+      nextStepKey: progress.nextStepKey,
+      completionPercentage: progress.percentage
     };
     if (bio !== undefined) userUpdate.bio = String(bio);
     if (phone !== undefined) userUpdate.phone = String(phone);
