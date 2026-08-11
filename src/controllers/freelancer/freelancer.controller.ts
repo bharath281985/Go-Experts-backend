@@ -1017,10 +1017,24 @@ export const updateFreelancerProfile = async (
         ? String(body.experience).trim() || null
         : existing.freelancerProfile?.experience ?? null;
 
-    const skillsArr =
+    let skillsArr =
       body.skills != null || body.skillsText != null
         ? parseSkills(body.skills ?? body.skillsText)
         : parseSkills(existing.freelancerProfile?.skills);
+
+    // Resolve any skill UUIDs to their actual names before saving
+    if (skillsArr.length > 0) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const uuidSkills = skillsArr.filter((s) => uuidRegex.test(s));
+      if (uuidSkills.length > 0) {
+        const dbSkills = await prisma.skill.findMany({
+          where: { id: { in: uuidSkills } },
+          select: { id: true, name: true },
+        });
+        const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
+        skillsArr = skillsArr.map((s) => skillMap.get(s) || s);
+      }
+    }
 
     const hourlyRateRaw = body.hourlyRate;
     let hourlyRate = existing.freelancerProfile?.hourlyRate ?? null;
