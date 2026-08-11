@@ -3,13 +3,13 @@ import nodemailer from "nodemailer";
 // 1. Email Channel Adapter (SMTP Ready)
 export class EmailChannelAdapter {
     async send(payload, config) {
+        const host = config?.host || process.env.SMTP_HOST || "mail.goexperts.in";
+        const port = Number(config?.port || process.env.SMTP_PORT || 587);
+        const user = config?.auth?.user || config?.user || config?.username || process.env.SMTP_USER || "support@goexperts.in";
+        const pass = config?.auth?.pass || config?.pass || config?.password || process.env.SMTP_PASS || "Goexperts@2025";
+        const secure = config?.secure !== undefined ? Boolean(config.secure) : (port === 465);
+        const from = config?.from || config?.fromEmail || process.env.SMTP_FROM || "support@goexperts.in";
         try {
-            const host = config?.host || process.env.SMTP_HOST || "mail.goexperts.in";
-            const port = Number(config?.port || process.env.SMTP_PORT || 587);
-            const user = config?.auth?.user || config?.user || config?.username || process.env.SMTP_USER || "support@goexperts.in";
-            const pass = config?.auth?.pass || config?.pass || config?.password || process.env.SMTP_PASS || "Goexperts@2025";
-            const secure = config?.secure !== undefined ? Boolean(config.secure) : (port === 465);
-            const from = config?.from || config?.fromEmail || process.env.SMTP_FROM || "support@goexperts.in";
             console.log(`[EMAIL ADAPTER] Attempting SMTP send (${host}:${port}) to ${payload.to}`);
             if (host && user && pass) {
                 const transporter = nodemailer.createTransport({
@@ -90,7 +90,9 @@ export class EmailChannelAdapter {
             }
         }
         catch (e) {
-            console.error("[EMAIL ADAPTER PRIMARY ERROR]", e.message);
+            console.warn(`\n⚠️ [SMTP DELIVERY FAILED] Could not send email via ${host}:${port} to ${payload.to}`);
+            console.warn(`⚠️ Reason: ${e.message}`);
+            console.warn(`👉 Verify SMTP_USER & SMTP_PASS in .env or Admin Settings (communicationChannel table).\n`);
             try {
                 console.log(`[EMAIL ADAPTER FALLBACK] Creating Ethereal SMTP fallback for ${payload.to}...`);
                 const testAccount = await nodemailer.createTestAccount();
@@ -120,7 +122,11 @@ export class EmailChannelAdapter {
           `,
                 });
                 const previewUrl = nodemailer.getTestMessageUrl(info);
-                console.log(`[EMAIL ADAPTER FALLBACK SUCCESS] Sent to ${payload.to}. Preview URL: ${previewUrl}`);
+                console.log(`\n======================================================================`);
+                console.log(`📬 [EMAIL PREVIEW URL (ETHEREAL TEST MAILBOX)]`);
+                console.log(`   Recipient: ${payload.to}`);
+                console.log(`   View Mail: ${previewUrl}`);
+                console.log(`======================================================================\n`);
                 return { status: "delivered", providerResponse: `ETHEREAL: ${previewUrl}` };
             }
             catch (fallbackErr) {

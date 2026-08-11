@@ -1163,10 +1163,15 @@ export const sendOtp = async (req, res, next) => {
                 });
             }
         }
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const crypto = await import("crypto");
+        const otp = crypto.randomInt(100000, 1000000).toString();
         const key = (email || mobile).toLowerCase();
         otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
-        console.log(`[OTP DISPATCH] Email: ${email || mobile} | OTP Code: ${otp}`);
+        console.log(`\n======================================================================`);
+        console.log(`🔑 [OTP DISPATCH]`);
+        console.log(`   Recipient: ${email || mobile}`);
+        console.log(`   OTP Code:  ${otp}`);
+        console.log(`======================================================================\n`);
         if (email) {
             try {
                 const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
@@ -1210,22 +1215,33 @@ export const sendOtp = async (req, res, next) => {
             </div>
           `,
                 });
-                await emailAdapter.send({
+                let emailRes = null;
+                emailRes = await emailAdapter.send({
                     to: email,
                     subject: rendered.subject,
                     body: `Hello,\n\nPlease click the following link to verify your email address:\n\n${verificationLink}\n\nCode: ${otp}`,
                     html: rendered.html,
                 }, parsedConfig).catch((sendErr) => {
                     console.warn("[SEND OTP EMAIL WARN]", sendErr);
+                    return null;
+                });
+                const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                return res.json({
+                    success: true,
+                    id: otpId,
+                    otpId,
+                    message: "Verification link sent to your email. Please check your inbox or Spam folder.",
                 });
             }
             catch (emailErr) {
                 console.warn("[SEND OTP DISPATCH WARN]", emailErr);
             }
+            const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
             return res.json({
                 success: true,
+                id: otpId,
+                otpId,
                 message: "Verification link sent to your email. Please check your inbox or Spam folder.",
-                otp,
             });
         }
         const chanConfig = await prisma.communicationChannel.findUnique({
