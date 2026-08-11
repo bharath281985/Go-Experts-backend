@@ -280,11 +280,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
       onboarding: {
-        status: user.onboardingStatus,
-        completionPercentage: user.completionPercentage,
-        completedSteps: user.completedSteps,
-        currentStepKey: user.currentStep,
-        nextStepKey: user.nextStepKey,
+        status: completion.isProfileComplete ? "COMPLETED" : "IN_PROGRESS",
+        completionPercentage: completion.profileCompletion,
+        completedSteps: completion.completedSteps,
+        currentStepKey: completion.pendingSteps[0] || null,
+        nextStepKey: completion.pendingSteps[1] || null,
       }
     };
 
@@ -830,16 +830,22 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
       if (!user) {
         return res.status(404).json({ success: false, message: "User not found" });
       }
+      let completion: any = { profileCompletion: 0, isProfileComplete: false, completedSteps: [], pendingSteps: [] };
+      try {
+        const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+        completion = await resolveProfileCompletion(user.id);
+      } catch (err) {}
+
       return res.json({
         success: true,
         user: {
           ...sanitizeUserRecord(user),
           onboarding: {
-            status: user.onboardingStatus,
-            completionPercentage: user.completionPercentage,
-            completedSteps: user.completedSteps,
-            currentStepKey: user.currentStep,
-            nextStepKey: user.nextStepKey,
+            status: completion.isProfileComplete ? "COMPLETED" : "IN_PROGRESS",
+            completionPercentage: completion.profileCompletion,
+            completedSteps: completion.completedSteps,
+            currentStepKey: completion.pendingSteps[0] || null,
+            nextStepKey: completion.pendingSteps[1] || null,
           }
         },
       });
@@ -862,9 +868,24 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         },
       });
       if (user) {
+        let completion: any = { profileCompletion: 0, isProfileComplete: false, completedSteps: [], pendingSteps: [] };
+        try {
+          const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+          completion = await resolveProfileCompletion(user.id);
+        } catch (err) {}
+
         return res.json({
           success: true,
-          user: sanitizeUserRecord(user),
+          user: {
+            ...sanitizeUserRecord(user),
+            onboarding: {
+              status: completion.isProfileComplete ? "COMPLETED" : "IN_PROGRESS",
+              completionPercentage: completion.profileCompletion,
+              completedSteps: completion.completedSteps,
+              currentStepKey: completion.pendingSteps[0] || null,
+              nextStepKey: completion.pendingSteps[1] || null,
+            }
+          },
         });
       }
       return res.status(404).json({ success: false, message: "User not found" });
