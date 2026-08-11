@@ -51,3 +51,17 @@ export const sendVerificationEmail = (to: string, token: string) => {
   const html = `<p>Please verify your email using this token: <strong>${token}</strong></p>`;
   return sendEmail(to, 'Email Verification', html);
 };
+
+export const sendAccountDeletedEmail = (to: string, name: string) => {
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+      <h2 style="color: #333;">Account Deletion Notice</h2>
+      <p>Hello ${name || 'User'},</p>
+      <p>This is to confirm that your account on Go Experts has been successfully deleted. We are sorry to see you go!</p>
+      <p>If this was a mistake, or if you would like to restore your account, please contact our support team immediately.</p>
+      <br />
+      <p>Best regards,<br/><strong>The Go Experts Team</strong></p>
+    </div>
+  `;
+  return sendEmail(to, 'Your Go Experts account has been deleted', html);
+};
