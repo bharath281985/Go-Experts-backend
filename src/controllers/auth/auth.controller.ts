@@ -1158,15 +1158,23 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
         where: { name: "email", status: "active" },
       });
       const config = channel?.config ? JSON.parse(channel.config) : null;
-      if (config?.host && config?.user) {
+      
+      const smtpHost = config?.host || env.SMTP_HOST;
+      const smtpPort = Number(config?.port || env.SMTP_PORT) || 587;
+      const smtpUser = config?.user || env.SMTP_USER;
+      const smtpPass = config?.pass || config?.password || env.SMTP_PASS;
+      const smtpFrom = config?.from || config?.user || env.SMTP_FROM || env.SMTP_USER;
+      const smtpSecure = config?.secure ?? (smtpPort === 465);
+
+      if (smtpHost && smtpUser) {
         const transporter = nodemailer.createTransport({
-          host: config.host,
-          port: Number(config.port) || 587,
-          secure: Boolean(config.secure),
-          auth: { user: config.user, pass: config.pass || config.password },
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpSecure,
+          auth: { user: smtpUser, pass: smtpPass },
         });
         await transporter.sendMail({
-          from: config.from || config.user,
+          from: smtpFrom,
           to: subject.email,
           subject: "Go Experts — Password Reset",
           text: `Reset your password using this link (valid 1 hour):\n\n${resetUrl}\n`,
