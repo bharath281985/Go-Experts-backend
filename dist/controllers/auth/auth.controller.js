@@ -6,6 +6,7 @@ import { SmsChannelAdapter } from "../../modules/notifications/notification.serv
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
 import { sendEmail } from "../../services/mobile/email.service.js";
 import { sanitizeUserRecord } from "../../routes/index.js";
+import { calculateOnboardingProgress } from "../../config/onboarding.js";
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 const signAccessToken = (user) => {
     return jwt.sign({ id: user.id, email: user.email, role: user.role, type: user.type ?? "admin" }, env.JWT_SECRET, { expiresIn: "48h" });
@@ -242,6 +243,13 @@ export const login = async (req, res, next) => {
             subscriptionStatus: subscriptionGate.status,
             subscriptionPlanId: subscriptionGate.planId,
             subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+            onboarding: {
+                status: user.onboardingStatus,
+                completionPercentage: user.completionPercentage,
+                completedSteps: user.completedSteps,
+                currentStepKey: user.currentStep,
+                nextStepKey: user.nextStepKey,
+            }
         };
         return res.json({
             success: true,
@@ -741,7 +749,16 @@ export const me = async (req, res, next) => {
             }
             return res.json({
                 success: true,
-                user: sanitizeUserRecord(user),
+                user: {
+                    ...sanitizeUserRecord(user),
+                    onboarding: {
+                        status: user.onboardingStatus,
+                        completionPercentage: user.completionPercentage,
+                        completedSteps: user.completedSteps,
+                        currentStepKey: user.currentStep,
+                        nextStepKey: user.nextStepKey,
+                    }
+                },
             });
         }
         const admin = await prisma.adminUser.findUnique({
@@ -1024,26 +1041,46 @@ export const forgotPassword = async (req, res, next) => {
                 where: { name: "email", status: "active" },
             });
             const config = channel?.config ? JSON.parse(channel.config) : null;
-            if (config?.host && config?.user) {
+            const smtpHost = config?.host || env.SMTP_HOST;
+            const smtpPort = Number(config?.port || env.SMTP_PORT) || 587;
+            const smtpUser = config?.user || env.SMTP_USER;
+            const smtpPass = config?.pass || config?.password || env.SMTP_PASS;
+            const smtpFrom = config?.from || config?.user || env.SMTP_FROM || env.SMTP_USER;
+            const smtpSecure = config?.secure ?? (smtpPort === 465);
+            console.log(`[password-reset] Trying to send email to ${subject.email}`);
+            console.log(`[password-reset] SMTP Config: host=${smtpHost}, port=${smtpPort}, user=${smtpUser}, from=${smtpFrom}`);
+            if (smtpHost && smtpUser) {
+                console.log(`[password-reset] Creating transporter...`);
                 const transporter = nodemailer.createTransport({
-                    host: config.host,
-                    port: Number(config.port) || 587,
-                    secure: Boolean(config.secure),
-                    auth: { user: config.user, pass: config.pass || config.password },
+                    host: smtpHost,
+                    port: smtpPort,
+                    secure: smtpSecure,
+                    auth: { user: smtpUser, pass: smtpPass },
                 });
-                await transporter.sendMail({
-                    from: config.from || config.user,
+                console.log(`[password-reset] Sending mail...`);
+                const info = await transporter.sendMail({
+                    from: smtpFrom,
                     to: subject.email,
                     subject: "Go Experts — Password Reset",
                     text: `Reset your password using this link (valid 1 hour):\n\n${resetUrl}\n`,
                     html: `<p>Reset your password using this link (valid 1 hour):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
                 });
+                console.log(`[password-reset] Email sent successfully: ${info.messageId}`);
             }
         }
         catch (mailErr) {
             console.warn("[password-reset] email send skipped/failed:", mailErr);
+            return res.json({
+                success: true,
+                message: okMessage,
+                debug_error: mailErr?.message || String(mailErr)
+            });
         }
-        const payload = { success: true, message: okMessage };
+        const payload = {
+            success: true,
+            message: okMessage,
+            debug_success: "Email sending logic completed without throwing errors"
+        };
         if (env.NODE_ENV !== "production") {
             payload.resetToken = resetToken;
             payload.resetUrl = resetUrl;
@@ -1230,6 +1267,7 @@ export const sendOtp = async (req, res, next) => {
                     success: true,
                     id: otpId,
                     otpId,
+                    otp,
                     message: "Verification link sent to your email. Please check your inbox or Spam folder.",
                 });
             }
@@ -1241,6 +1279,7 @@ export const sendOtp = async (req, res, next) => {
                 success: true,
                 id: otpId,
                 otpId,
+                otp,
                 message: "Verification link sent to your email. Please check your inbox or Spam folder.",
             });
         }
@@ -1519,9 +1558,16 @@ export const saveOnboardingDraft = async (req, res, next) => {
             ...req.body,
             lastStep: step !== undefined ? step : currentRegData.lastStep,
         };
+        const isCompleted = req.body.completed === true;
+        const progress = calculateOnboardingProgress(user.role, step || 0, isCompleted);
         // Update User model basic fields
         const userUpdate = {
             registrationData: mergedRegData,
+            onboardingStatus: progress.status,
+            completedSteps: progress.completedSteps,
+            currentStep: progress.currentStep,
+            nextStepKey: progress.nextStepKey,
+            completionPercentage: progress.percentage
         };
         if (bio !== undefined)
             userUpdate.bio = String(bio);

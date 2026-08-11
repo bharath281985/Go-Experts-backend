@@ -1159,11 +1159,11 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       });
       const config = channel?.config ? JSON.parse(channel.config) : null;
       
-      const smtpHost = config?.host || env.SMTP_HOST;
-      const smtpPort = Number(config?.port || env.SMTP_PORT) || 587;
-      const smtpUser = config?.user || env.SMTP_USER;
-      const smtpPass = config?.pass || config?.password || env.SMTP_PASS;
-      const smtpFrom = config?.from || config?.user || env.SMTP_FROM || env.SMTP_USER;
+      const smtpHost = config?.host || process.env.SMTP_HOST;
+      const smtpPort = Number(config?.port || process.env.SMTP_PORT) || 587;
+      const smtpUser = config?.user || process.env.SMTP_USER;
+      const smtpPass = config?.pass || config?.password || process.env.SMTP_PASS;
+      const smtpFrom = config?.from || config?.user || process.env.SMTP_FROM || process.env.SMTP_USER;
       const smtpSecure = config?.secure ?? (smtpPort === 465);
 
       console.log(`[password-reset] Trying to send email to ${subject.email}`);
