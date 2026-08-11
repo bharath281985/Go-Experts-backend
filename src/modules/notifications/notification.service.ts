@@ -115,7 +115,9 @@ export class EmailChannelAdapter implements NotificationChannelAdapter {
         return { status: "delivered", providerResponse: "SMTP_SANDBOX: Deliver Success" };
       }
     } catch (e: any) {
-      console.error("[EMAIL ADAPTER PRIMARY ERROR]", e.message);
+      console.warn(`\n⚠️ [SMTP DELIVERY FAILED] Could not send email via ${host}:${port} to ${payload.to}`);
+      console.warn(`⚠️ Reason: ${e.message}`);
+      console.warn(`👉 Verify SMTP_USER & SMTP_PASS in .env or Admin Settings (communicationChannel table).\n`);
       try {
         console.log(`[EMAIL ADAPTER FALLBACK] Creating Ethereal SMTP fallback for ${payload.to}...`);
         const testAccount = await nodemailer.createTestAccount();
@@ -145,7 +147,11 @@ export class EmailChannelAdapter implements NotificationChannelAdapter {
           `,
         });
         const previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log(`[EMAIL ADAPTER FALLBACK SUCCESS] Sent to ${payload.to}. Preview URL: ${previewUrl}`);
+        console.log(`\n======================================================================`);
+        console.log(`📬 [EMAIL PREVIEW URL (ETHEREAL TEST MAILBOX)]`);
+        console.log(`   Recipient: ${payload.to}`);
+        console.log(`   View Mail: ${previewUrl}`);
+        console.log(`======================================================================\n`);
         return { status: "delivered", providerResponse: `ETHEREAL: ${previewUrl}` };
       } catch (fallbackErr: any) {
         console.error("[EMAIL ADAPTER FALLBACK ERROR]", fallbackErr);

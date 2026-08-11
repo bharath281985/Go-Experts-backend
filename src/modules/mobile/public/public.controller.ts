@@ -305,7 +305,20 @@ export const getWorkModes = async (req: Request, res: Response, next: NextFuncti
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Work modes retrieved', options || []));
+    if (options && options.length > 0) {
+      return res.json(successResponse('Work modes retrieved', options));
+    }
+
+    const fallbackModes = [
+      { id: 'wm_remote', label: 'Remote', value: 'Remote' },
+      { id: 'wm_hybrid', label: 'Hybrid', value: 'Hybrid' },
+      { id: 'wm_onsite', label: 'On-site', value: 'On-site' },
+      { id: 'wm_fulltime', label: 'Full-time', value: 'Full-time' },
+      { id: 'wm_parttime', label: 'Part-time', value: 'Part-time' },
+      { id: 'wm_contract', label: 'Contract', value: 'Contract' },
+    ];
+
+    return res.json(successResponse('Work modes retrieved', fallbackModes));
   } catch (error) { next(error); }
 };
 

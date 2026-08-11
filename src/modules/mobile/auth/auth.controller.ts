@@ -830,8 +830,10 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       
       const { code } = await issueEmailOtp(email);
       await sendVerificationEmail(email, code);
+      const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       return res.json(
         successResponse('OTP sent successfully', {
+          id: otpId,
           email,
           expiresInSeconds: 600,
         })
@@ -840,8 +842,10 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
 
     if (phone && countryCode) {
       const { phoneNumber } = await issuePhoneOtp(phone, countryCode);
+      const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       return res.json(
         successResponse('OTP sent successfully', {
+          id: otpId,
           phone: phoneNumber,
           expiresInSeconds: 300,
         })
@@ -866,8 +870,10 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
 
       const { code } = await issueEmailOtp(email);
       await sendVerificationEmail(email, code);
+      const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       return res.json(
         successResponse('OTP resent successfully', {
+          id: otpId,
           email,
           expiresInSeconds: 600,
         })

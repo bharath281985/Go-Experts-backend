@@ -23,8 +23,10 @@ const cleanupExpired = (key: string, record: OtpRecord) => {
   return false;
 };
 
+import crypto from 'crypto';
+
 const generateCode = (): string =>
-  `${Math.floor(100000 + Math.random() * 900000)}`;
+  crypto.randomInt(100000, 1000000).toString();
 
 const dispatchOtp = async (phoneNumber: string, code: string): Promise<boolean> => {
   // Plug SMS provider here (Twilio, MSG91, etc.).

@@ -11,9 +11,18 @@ const initFirebaseAdmin = () => {
         initializeApp({
           credential: cert(serviceAccount)
         });
-        console.log('Firebase Admin initialized successfully');
+        console.log('Firebase Admin initialized successfully from service account key');
+      } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+        initializeApp({
+          credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          })
+        });
+        console.log('Firebase Admin initialized successfully from env vars');
       } else {
-        console.warn('Firebase Admin NOT initialized: Missing FIREBASE_SERVICE_ACCOUNT_KEY');
+        console.info('Firebase Admin NOT initialized (Missing FIREBASE_SERVICE_ACCOUNT_KEY or credentials). Push notifications running in dev mock mode.');
       }
     }
   } catch (error) {

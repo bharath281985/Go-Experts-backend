@@ -43,6 +43,11 @@ export const sendPasswordResetEmail = (to: string, token: string) => {
 };
 
 export const sendVerificationEmail = (to: string, token: string) => {
+  console.log(`\n======================================================================`);
+  console.log(`🔑 [MOBILE OTP DISPATCH]`);
+  console.log(`   Recipient: ${to}`);
+  console.log(`   OTP Code:  ${token}`);
+  console.log(`======================================================================\n`);
   const html = `<p>Please verify your email using this token: <strong>${token}</strong></p>`;
   return sendEmail(to, 'Email Verification', html);
 };
