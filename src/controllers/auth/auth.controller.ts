@@ -1166,20 +1166,27 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       const smtpFrom = config?.from || config?.user || env.SMTP_FROM || env.SMTP_USER;
       const smtpSecure = config?.secure ?? (smtpPort === 465);
 
+      console.log(`[password-reset] Trying to send email to ${subject.email}`);
+      console.log(`[password-reset] SMTP Config: host=${smtpHost}, port=${smtpPort}, user=${smtpUser}, from=${smtpFrom}`);
+
       if (smtpHost && smtpUser) {
+        console.log(`[password-reset] Creating transporter...`);
         const transporter = nodemailer.createTransport({
           host: smtpHost,
           port: smtpPort,
           secure: smtpSecure,
           auth: { user: smtpUser, pass: smtpPass },
         });
-        await transporter.sendMail({
+        
+        console.log(`[password-reset] Sending mail...`);
+        const info = await transporter.sendMail({
           from: smtpFrom,
           to: subject.email,
           subject: "Go Experts — Password Reset",
           text: `Reset your password using this link (valid 1 hour):\n\n${resetUrl}\n`,
           html: `<p>Reset your password using this link (valid 1 hour):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
         });
+        console.log(`[password-reset] Email sent successfully: ${info.messageId}`);
       }
     } catch (mailErr) {
       console.warn("[password-reset] email send skipped/failed:", mailErr);
