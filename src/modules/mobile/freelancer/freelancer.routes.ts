@@ -38,6 +38,26 @@ import {
   updatePreferences,
 } from '../notifications/controllers/notifications.controller.js';
 
+import {
+  getFreelancerExperience,
+  putFreelancerExperience,
+  getFreelancerEducation,
+  putFreelancerEducation,
+  postFreelancerEducation,
+  deleteFreelancerEducation,
+  putFreelancerEducationById,
+  getFreelancerCertificates,
+  putFreelancerCertificates,
+  postFreelancerCertificates,
+  deleteFreelancerCertificates,
+  putFreelancerCertificateById,
+} from '../../../controllers/freelancer/freelancer-extra.controller.js';
+
+import {
+  getFreelancerVerification,
+  updateFreelancerVerification,
+} from '../../../controllers/freelancer/freelancer.controller.js';
+
 const router = Router();
 
 // Apply auth + role guard to all freelancer routes
@@ -56,6 +76,28 @@ router.post('/profile/avatar', upload.single('file'), handleUploadError, uploadA
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCoverImage);
 router.post('/profile/resume', upload.single('file'), handleUploadError, uploadResume);
 router.post('/profile/kyc', upload.single('file'), handleUploadError, uploadKyc);
+
+// ─── Professional Details ───
+router.get('/professional-details', getFreelancerExperience as any);
+router.put('/professional-details', putFreelancerExperience as any);
+
+// ─── Education ───
+router.get('/education', getFreelancerEducation as any);
+router.put('/education', putFreelancerEducation as any);
+router.post('/education', postFreelancerEducation as any);
+router.delete('/education/:id', deleteFreelancerEducation as any);
+router.put('/education/:id', putFreelancerEducationById as any);
+
+// ─── Certificates ───
+router.get('/certificates', getFreelancerCertificates as any);
+router.put('/certificates', putFreelancerCertificates as any);
+router.post('/certificates', postFreelancerCertificates as any);
+router.delete('/certificates/:id', deleteFreelancerCertificates as any);
+router.put('/certificates/:id', putFreelancerCertificateById as any);
+
+// ─── Verification ───
+router.get('/verification', getFreelancerVerification as any);
+router.patch('/verification', updateFreelancerVerification as any);
 
 // ─── Projects ───
 router.get('/projects', listProjects);

@@ -757,10 +757,48 @@ export const me = async (req, res, next) => {
                 completion = await resolveProfileCompletion(user.id);
             }
             catch (err) { }
+            const sanitized = sanitizeUserRecord(user);
+            try {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                const uuids = new Set();
+                if (typeof sanitized.title === 'string' && uuidRegex.test(sanitized.title))
+                    uuids.add(sanitized.title);
+                if (Array.isArray(sanitized.industry)) {
+                    sanitized.industry.forEach((i) => {
+                        if (i.industryName && uuidRegex.test(i.industryName))
+                            uuids.add(i.industryId);
+                    });
+                }
+                if (uuids.size > 0) {
+                    const ids = Array.from(uuids);
+                    const [dbIndustries, moSkills] = await Promise.all([
+                        prisma.industry.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+                        prisma.masterOption.findMany({ where: { id: { in: ids } }, select: { id: true, label: true, value: true } })
+                    ]);
+                    const resolvedMap = new Map();
+                    dbIndustries.forEach(s => resolvedMap.set(s.id, s.name));
+                    moSkills.forEach((s) => resolvedMap.set(s.id, s.label || s.value));
+                    if (resolvedMap.has(sanitized.title)) {
+                        const mapped = resolvedMap.get(sanitized.title);
+                        sanitized.title = mapped;
+                        sanitized.titleHeadline = mapped;
+                        sanitized.professionalTitle = mapped;
+                    }
+                    if (Array.isArray(sanitized.industry)) {
+                        sanitized.industry.forEach((i) => {
+                            if (resolvedMap.has(i.industryId)) {
+                                const mapped = resolvedMap.get(i.industryId);
+                                i.industryName = mapped;
+                            }
+                        });
+                    }
+                }
+            }
+            catch (e) { }
             return res.json({
                 success: true,
                 user: {
-                    ...sanitizeUserRecord(user),
+                    ...sanitized,
                     profileReadiness: {
                         role: (user.role || "").toUpperCase(),
                         profileCompletion: completion.profileCompletion,
@@ -798,10 +836,48 @@ export const me = async (req, res, next) => {
                     completion = await resolveProfileCompletion(user.id);
                 }
                 catch (err) { }
+                const sanitizedFallback = sanitizeUserRecord(user);
+                try {
+                    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    const uuids = new Set();
+                    if (typeof sanitizedFallback.title === 'string' && uuidRegex.test(sanitizedFallback.title))
+                        uuids.add(sanitizedFallback.title);
+                    if (Array.isArray(sanitizedFallback.industry)) {
+                        sanitizedFallback.industry.forEach((i) => {
+                            if (i.industryName && uuidRegex.test(i.industryName))
+                                uuids.add(i.industryId);
+                        });
+                    }
+                    if (uuids.size > 0) {
+                        const ids = Array.from(uuids);
+                        const [dbIndustries, moSkills] = await Promise.all([
+                            prisma.industry.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }),
+                            prisma.masterOption.findMany({ where: { id: { in: ids } }, select: { id: true, label: true, value: true } })
+                        ]);
+                        const resolvedMap = new Map();
+                        dbIndustries.forEach(s => resolvedMap.set(s.id, s.name));
+                        moSkills.forEach((s) => resolvedMap.set(s.id, s.label || s.value));
+                        if (resolvedMap.has(sanitizedFallback.title)) {
+                            const mapped = resolvedMap.get(sanitizedFallback.title);
+                            sanitizedFallback.title = mapped;
+                            sanitizedFallback.titleHeadline = mapped;
+                            sanitizedFallback.professionalTitle = mapped;
+                        }
+                        if (Array.isArray(sanitizedFallback.industry)) {
+                            sanitizedFallback.industry.forEach((i) => {
+                                if (resolvedMap.has(i.industryId)) {
+                                    const mapped = resolvedMap.get(i.industryId);
+                                    i.industryName = mapped;
+                                }
+                            });
+                        }
+                    }
+                }
+                catch (e) { }
                 return res.json({
                     success: true,
                     user: {
-                        ...sanitizeUserRecord(user),
+                        ...sanitizedFallback,
                         profileReadiness: {
                             role: (user.role || "").toUpperCase(),
                             profileCompletion: completion.profileCompletion,

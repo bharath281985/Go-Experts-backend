@@ -440,7 +440,7 @@ export function sanitizeUserRecord(row) {
         "family_office": "Family Office"
     };
     const invTypeVal = investorProfile.investorType ?? regData.investorType ?? null;
-    return {
+    const sanitized = {
         ...rest,
         hasPassword: Boolean(password && String(password).length > 0),
         userId: rest.id,
@@ -565,6 +565,8 @@ export function sanitizeUserRecord(row) {
         wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
         wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
     };
+    delete sanitized.registrationData;
+    return sanitized;
 }
 function sanitizeUserRows(rows) {
     return rows.map((row) => sanitizeUserRecord(row));
@@ -1152,9 +1154,11 @@ adminFreelancersRouter.post("/", async (req, res, next) => {
         WHERE user_id = ${created.id}
         LIMIT 1
       `;
+            const { password, ...rest } = created;
             row = {
-                ...created,
+                ...rest,
                 freelancerProfile: profile[0] ?? null,
+                clientProfile: null,
                 wallet: null,
                 freelancerContracts: [],
                 proposals: [],

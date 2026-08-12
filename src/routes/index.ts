@@ -504,7 +504,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   };
   const invTypeVal = investorProfile.investorType ?? regData.investorType ?? null;
 
-  return {
+  const sanitized = {
     ...rest,
     hasPassword: Boolean(password && String(password).length > 0),
     userId: rest.id,
@@ -638,7 +638,11 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
 
     wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
     wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
-  } as unknown as T;
+  };
+  
+  delete (sanitized as any).registrationData;
+  
+  return sanitized as unknown as T;
 }
 
 function sanitizeUserRows(rows: Array<Record<string, any>>) {
@@ -1245,9 +1249,11 @@ adminFreelancersRouter.post("/", async (req: Request, res: Response, next: NextF
         LIMIT 1
       `;
 
+      const { password, ...rest } = created;
       row = {
-        ...created,
+        ...rest,
         freelancerProfile: profile[0] ?? null,
+        clientProfile: null,
         wallet: null,
         freelancerContracts: [],
         proposals: [],
