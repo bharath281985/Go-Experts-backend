@@ -564,8 +564,16 @@ export const getFreelancerDashboard = async (
           where: { id: { in: uuidSkills } },
           select: { id: true, name: true },
         });
+        let regData: any = {};
+        try {
+          regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
+        } catch (e) {}
+        const regSkillMap = new Map();
+        if (Array.isArray(regData.skillsList)) {
+          regData.skillsList.forEach((s: any) => regSkillMap.set(s.id, s.name));
+        }
         const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
-        skillsRaw = skillsRaw.map((s) => skillMap.get(s) || s);
+        skillsRaw = skillsRaw.map((s) => skillMap.get(s) || regSkillMap.get(s) || s);
       }
     }
     const skillDist =
@@ -903,8 +911,16 @@ export const getFreelancerProfile = async (
           where: { id: { in: uuidSkills } },
           select: { id: true, name: true },
         });
+        let regData: any = {};
+        try {
+          regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
+        } catch (e) {}
+        const regSkillMap = new Map();
+        if (Array.isArray(regData.skillsList)) {
+          regData.skillsList.forEach((s: any) => regSkillMap.set(s.id, s.name));
+        }
         const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
-        skills = skills.map((s) => skillMap.get(s) || s);
+        skills = skills.map((s) => skillMap.get(s) || regSkillMap.get(s) || s);
       }
     }
 
