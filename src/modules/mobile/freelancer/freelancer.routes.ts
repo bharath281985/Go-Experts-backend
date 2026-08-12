@@ -51,7 +51,19 @@ import {
   postFreelancerCertificates,
   deleteFreelancerCertificates,
   putFreelancerCertificateById,
+  getFreelancerResume,
+  putFreelancerResume,
+  exportFreelancerResumePdf,
 } from '../../../controllers/freelancer/freelancer-extra.controller.js';
+
+import {
+  getFreelancerResumeShare,
+  createFreelancerResumeShare,
+  updateFreelancerResumeShare,
+  regenerateFreelancerResumeShare,
+  updateFreelancerResumeShareSnapshot,
+  deleteFreelancerResumeShare
+} from '../../../controllers/freelancer/freelancer-resume-share.controller.js';
 
 import {
   getFreelancerVerification,
@@ -98,6 +110,18 @@ router.put('/certificates/:id', putFreelancerCertificateById as any);
 // ─── Verification ───
 router.get('/verification', getFreelancerVerification as any);
 router.patch('/verification', updateFreelancerVerification as any);
+
+// ─── Resume Builder ───
+router.get('/resume', getFreelancerResume as any);
+router.put('/resume', putFreelancerResume as any);
+router.post('/resume/export/pdf', exportFreelancerResumePdf as any);
+
+router.get('/resume/share', getFreelancerResumeShare as any);
+router.post('/resume/share', createFreelancerResumeShare as any);
+router.put('/resume/share', updateFreelancerResumeShare as any);
+router.post('/resume/share/regenerate', regenerateFreelancerResumeShare as any);
+router.post('/resume/share/update-snapshot', updateFreelancerResumeShareSnapshot as any);
+router.delete('/resume/share', deleteFreelancerResumeShare as any);
 
 // ─── Projects ───
 router.get('/projects', listProjects);
