@@ -33,6 +33,8 @@ import {
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { auditMiddleware } from "../middlewares/audit.middleware.js";
 import publicRoutes from "./public/public.routes.js";
+import publicResumeTemplateRouter from "./public/resume-template.routes.js";
+import publicResumeShareRouter from "./public/public-resume-share.routes.js";
 import freelancerRoutes from "./freelancer/freelancer.routes.js";
 import clientRoutes from "./client/client.routes.js";
 import investorRoutes from "./investor/investor.routes.js";
@@ -40,6 +42,7 @@ import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
 import aboutRouter from "./admin/about.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
+import resumeTemplateRouter from "./admin/resume-template.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 
 import mobileRoutes from "../modules/mobile/index.js";
@@ -88,6 +91,8 @@ router.get("/docs/postman.json", (req, res) => {
 // 2. Admin operations
 // 2.1 Public operations (used by the public frontend)
 router.use("/public", publicRoutes);
+router.use("/public/resume-templates", publicResumeTemplateRouter);
+router.use("/public/resume-share", publicResumeShareRouter);
 router.use("/v1/public", publicRoutes);
 
 // 2.2 Admin operations
@@ -113,6 +118,7 @@ router.use("/admin/system",           systemRouter);
 router.use("/admin/settings",         settingsRouter);
 router.use("/admin/developer",        developerRouter);
 router.use("/admin",                 workflowsRoutes);
+router.use("/admin/resume-templates", authMiddleware as any, resumeTemplateRouter);
 
 
 

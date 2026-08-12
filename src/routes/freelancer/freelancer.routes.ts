@@ -60,11 +60,21 @@ import {
   listFreelancerClients,
   getFreelancerResume,
   putFreelancerResume,
+  exportFreelancerResumePdf,
   getFreelancerReferrals,
   getFreelancerEarnings,
   listFreelancerActivity,
   createFreelancerActivity,
 } from "../../controllers/freelancer/freelancer-extra.controller.js";
+
+import {
+  getFreelancerResumeShare,
+  createFreelancerResumeShare,
+  updateFreelancerResumeShare,
+  regenerateFreelancerResumeShare,
+  updateFreelancerResumeShareSnapshot,
+  deleteFreelancerResumeShare
+} from "../../controllers/freelancer/freelancer-resume-share.controller.js";
 
 const router = Router();
 
@@ -153,6 +163,15 @@ router.get("/analytics", getFreelancerAnalytics as any);
 router.get("/clients", listFreelancerClients as any);
 router.get("/resume", getFreelancerResume as any);
 router.put("/resume", putFreelancerResume as any);
+router.post("/resume/export/pdf", exportFreelancerResumePdf as any);
+
+router.get("/resume/share", getFreelancerResumeShare as any);
+router.post("/resume/share", createFreelancerResumeShare as any);
+router.put("/resume/share", updateFreelancerResumeShare as any);
+router.post("/resume/share/regenerate", regenerateFreelancerResumeShare as any);
+router.post("/resume/share/update-snapshot", updateFreelancerResumeShareSnapshot as any);
+router.delete("/resume/share", deleteFreelancerResumeShare as any);
+
 router.get("/referrals", getFreelancerReferrals as any);
 router.get("/earnings", getFreelancerEarnings as any);
 router.get("/activity", listFreelancerActivity as any);

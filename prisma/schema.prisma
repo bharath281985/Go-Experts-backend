@@ -151,6 +151,8 @@ model User {
   completionPercentage    Int                     @default(0) @map("completion_percentage")
   freelancerEducations    FreelancerEducation[]
   freelancerCertificates  FreelancerCertificate[]
+  resumeConfig            UserResumeConfig?
+  resumeShares            ResumeShare[]
 
   @@index([role])
   @@index([status])
@@ -159,52 +161,52 @@ model User {
 }
 
 model FreelancerProfile {
-  id               String   @id @default(uuid())
-  userId           String   @unique @map("user_id")
-  titleHeadline    String?  @map("title_headline")
-  skills           String?
-  hourlyRate       Float?   @map("hourly_rate")
-  rating           Float?   @default(5)
-  experience       String?  @map("experience_level")
-  yearsOfExperience String? @map("years_of_experience")
-  portfolioUrl     String?  @map("portfolio_url")
-  linkedInUrl      String?  @map("linkedin_url")
-  githubUrl        String?  @map("github_url")
-  dribbbleUrl      String?  @map("dribbble_url")
-  industry         String?
-  workMode         String?  @map("work_mode")
-  currency         String?
-  monthlyRetainer  Float?   @map("monthly_retainer")
-  availability     String?
-  workingHours     String?  @map("working_hours")
-  responseTime     String?  @map("response_time")
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  titleHeadline      String?  @map("title_headline")
+  skills             String?
+  hourlyRate         Float?   @map("hourly_rate")
+  rating             Float?   @default(5)
+  experience         String?  @map("experience_level")
+  yearsOfExperience  String?  @map("years_of_experience")
+  portfolioUrl       String?  @map("portfolio_url")
+  linkedInUrl        String?  @map("linkedin_url")
+  githubUrl          String?  @map("github_url")
+  dribbbleUrl        String?  @map("dribbble_url")
+  industry           String?
+  workMode           String?  @map("work_mode")
+  currency           String?
+  monthlyRetainer    Float?   @map("monthly_retainer")
+  availability       String?
+  workingHours       String?  @map("working_hours")
+  responseTime       String?  @map("response_time")
   remoteAvailability Boolean? @default(true) @map("remote_availability")
-  openToTravel     Boolean? @default(false) @map("open_to_travel")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  verificationJson String?  @map("verification_json") @db.Text
-  portfolioJson    String?  @map("portfolio_json") @db.Text
+  openToTravel       Boolean? @default(false) @map("open_to_travel")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson   String?  @map("verification_json") @db.Text
+  portfolioJson      String?  @map("portfolio_json") @db.Text
 
   @@map("freelancer_profiles")
 }
 
 model ClientProfile {
-  id             String   @id @default(uuid())
-  userId         String   @unique @map("user_id")
-  company        String?
-  industry       String?
-  companySize    String?  @map("company_size")
-  currentTeam    String?  @map("current_team")
-  projectHireBudget String? @map("project_hire_budget")
-  websiteUrl     String?  @map("website_url")
-  jobTitle       String?  @map("job_title")
-  hiringGoal     String?  @map("hiring_goal")
-  totalSpend     Float?   @default(0) @map("total_spend")
-  projectsPosted Int      @default(0) @map("projects_posted")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(uuid())
+  userId            String   @unique @map("user_id")
+  company           String?
+  industry          String?
+  companySize       String?  @map("company_size")
+  currentTeam       String?  @map("current_team")
+  projectHireBudget String?  @map("project_hire_budget")
+  websiteUrl        String?  @map("website_url")
+  jobTitle          String?  @map("job_title")
+  hiringGoal        String?  @map("hiring_goal")
+  totalSpend        Float?   @default(0) @map("total_spend")
+  projectsPosted    Int      @default(0) @map("projects_posted")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("client_profiles")
 }
@@ -262,7 +264,7 @@ model Project {
   workMode        String?     @map("work_mode")
   experienceLevel String?     @map("experience_level")
   attachments     String?     @db.Text
-  shareCount      Int?         @default(0) @map("share_count")
+  shareCount      Int?        @default(0) @map("share_count")
   status          String      @default("open")
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
@@ -590,7 +592,7 @@ model WalletTransaction {
   direction    String
   description  String?
   balanceAfter Float    @map("balance_after")
-  status       String?   @default("completed")
+  status       String?  @default("completed")
   createdAt    DateTime @default(now()) @map("created_at")
   wallet       Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
@@ -796,43 +798,43 @@ model Skill {
   createdAt  DateTime       @default(now()) @map("created_at")
   updatedAt  DateTime       @updatedAt @map("updated_at")
   category   SkillCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  industry  String?
+  industry   String?
 
   @@index([categoryId], map: "skills_category_id_fkey")
   @@map("skills")
 }
 
 model Country {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  status    String   @default("active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  code              String?   @default("") // ISO 2-letter code e.g. IN, US, GB, AE
-  phoneCode         String?   @default("") @map("phone_code") // e.g. +91, +1, +44
-  currencyCode      String?   @default("INR") @map("currency_code") // Default currency ISO code e.g. INR, USD
-  currencySymbol    String?   @default("₹") @map("currency_symbol") // e.g. ₹, $, £
-  flag              String?   @default("") // Flag emoji or image URL e.g. 🇮🇳, 🇺🇸
-  region            String?   @default("Asia") // Continent / Region
-  isDefault         Boolean?  @default(false) @map("is_default") // Is default platform country
-  allowRegistration Boolean?  @default(true) @map("allow_registration") // Allow registration from country
-  taxRate           Float?    @default(0.0) @map("tax_rate") // Country VAT/GST %
+  id                String   @id @default(uuid())
+  name              String   @unique
+  status            String   @default("active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  code              String?  @default("") // ISO 2-letter code e.g. IN, US, GB, AE
+  phoneCode         String?  @default("") @map("phone_code") // e.g. +91, +1, +44
+  currencyCode      String?  @default("INR") @map("currency_code") // Default currency ISO code e.g. INR, USD
+  currencySymbol    String?  @default("₹") @map("currency_symbol") // e.g. ₹, $, £
+  flag              String?  @default("") // Flag emoji or image URL e.g. 🇮🇳, 🇺🇸
+  region            String?  @default("Asia") // Continent / Region
+  isDefault         Boolean? @default(false) @map("is_default") // Is default platform country
+  allowRegistration Boolean? @default(true) @map("allow_registration") // Allow registration from country
+  taxRate           Float?   @default(0.0) @map("tax_rate") // Country VAT/GST %
 
   @@map("countries")
 }
 
 model Currency {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  code      String   @unique
-  symbol    String
-  status    String   @default("active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  exchangeRate  Float?    @default(1.0) @map("exchange_rate") // Rate relative to Base Currency
-  isBase        Boolean?  @default(false) @map("is_base") // Is Base Currency (e.g. INR or USD)
-  isDefault     Boolean?  @default(false) @map("is_default") // Default display currency
-  decimalPlaces Int?      @default(2) @map("decimal_places") // Precision
+  id            String   @id @default(uuid())
+  name          String   @unique
+  code          String   @unique
+  symbol        String
+  status        String   @default("active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  exchangeRate  Float?   @default(1.0) @map("exchange_rate") // Rate relative to Base Currency
+  isBase        Boolean? @default(false) @map("is_base") // Is Base Currency (e.g. INR or USD)
+  isDefault     Boolean? @default(false) @map("is_default") // Default display currency
+  decimalPlaces Int?     @default(2) @map("decimal_places") // Precision
 
   @@map("currencies")
 }
@@ -888,25 +890,25 @@ model ExperienceLevel {
 }
 
 model SubscriptionPlan {
-  id            String                @id @default(uuid())
-  name          String                @unique
-  role          String                @default("freelancer")
-  amount        Float
-  currency      String                @default("INR")
-  duration      String
-  features      String?
-  limits        String?
-  popular       Boolean               @default(false)
-  recommended   Boolean               @default(false)
-  visibility    String                @default("public")
-  status        String                @default("active")
-  createdAt     DateTime              @default(now()) @map("created_at")
-  updatedAt     DateTime              @updatedAt @map("updated_at")
-  featureList   SubscriptionFeature[]
-  history       SubscriptionHistory[]
-  subscriptions Subscription[]
-  originalAmount Float?             @map("original_amount")
-  savedBadge  String?               @map("saved_badge")
+  id             String                @id @default(uuid())
+  name           String                @unique
+  role           String                @default("freelancer")
+  amount         Float
+  currency       String                @default("INR")
+  duration       String
+  features       String?
+  limits         String?
+  popular        Boolean               @default(false)
+  recommended    Boolean               @default(false)
+  visibility     String                @default("public")
+  status         String                @default("active")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+  featureList    SubscriptionFeature[]
+  history        SubscriptionHistory[]
+  subscriptions  Subscription[]
+  originalAmount Float?                @map("original_amount")
+  savedBadge     String?               @map("saved_badge")
 
   @@map("subscription_plans")
 }
@@ -963,23 +965,23 @@ model Blog {
 }
 
 model Faq {
-  id             String        @id @default(uuid())
-  question       String        @db.Text
-  answer         String        @db.Text
-  category       String?
-  categoryId     String?       @map("help_category_id")
-  status         String        @default("PUBLISHED")
-  featured       Boolean       @default(false)
-  popular        Boolean       @default(false)
-  sortOrder      Int           @default(0) @map("sort_order")
-  views          Int           @default(0)
-  helpfulYes     Int           @default(0) @map("helpful_yes")
-  helpfulNo      Int           @default(0) @map("helpful_no")
-  publishedAt    DateTime?     @map("published_at")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  deletedAt      DateTime?     @map("deleted_at")
-  helpCategory   HelpCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  id           String        @id @default(uuid())
+  question     String        @db.Text
+  answer       String        @db.Text
+  category     String?
+  categoryId   String?       @map("help_category_id")
+  status       String        @default("PUBLISHED")
+  featured     Boolean       @default(false)
+  popular      Boolean       @default(false)
+  sortOrder    Int           @default(0) @map("sort_order")
+  views        Int           @default(0)
+  helpfulYes   Int           @default(0) @map("helpful_yes")
+  helpfulNo    Int           @default(0) @map("helpful_no")
+  publishedAt  DateTime?     @map("published_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+  helpCategory HelpCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([categoryId], map: "faqs_help_category_id_fkey")
   @@index([status])
@@ -1006,23 +1008,23 @@ model HelpCategory {
 }
 
 model HelpArticle {
-  id             String        @id @default(uuid())
-  categoryId     String        @map("category_id")
+  id             String       @id @default(uuid())
+  categoryId     String       @map("category_id")
   title          String
-  slug           String        @unique
-  excerpt        String?       @db.Text
-  content        String        @db.Text
-  articleType    String        @default("Article") @map("article_type")
-  featured       Boolean       @default(false)
-  popular        Boolean       @default(false)
-  status         String        @default("draft")
-  order          Int           @default(0) @map("sort_order")
-  seoTitle       String?       @map("seo_title")
-  seoDescription String?       @map("seo_description")
-  publishedAt    DateTime?     @map("published_at")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  category       HelpCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  slug           String       @unique
+  excerpt        String?      @db.Text
+  content        String       @db.Text
+  articleType    String       @default("Article") @map("article_type")
+  featured       Boolean      @default(false)
+  popular        Boolean      @default(false)
+  status         String       @default("draft")
+  order          Int          @default(0) @map("sort_order")
+  seoTitle       String?      @map("seo_title")
+  seoDescription String?      @map("seo_description")
+  publishedAt    DateTime?    @map("published_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  category       HelpCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@index([categoryId], map: "help_articles_category_id_fkey")
   @@map("help_articles")
@@ -1063,7 +1065,7 @@ model Testimonial {
 
 model MasterOption {
   id        String   @id @default(uuid())
-  type      String   // company_size, ticket_size, investor_type, founder_type, business_type, team_size, service_taxonomy, experience_level, startup_stage
+  type      String // company_size, ticket_size, investor_type, founder_type, business_type, team_size, service_taxonomy, experience_level, startup_stage
   label     String
   value     String
   min       Float?
@@ -1486,8 +1488,8 @@ model NotificationCampaign {
 }
 
 model FreelancerEducation {
-  id             String    @id @default(uuid())
-  userId         String    @map("user_id")
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
   institution    String
   qualification  String
   specialization String
@@ -1495,10 +1497,10 @@ model FreelancerEducation {
   percentage     String
   cert           String
   category       String
-  fileUrl        String?   @map("file_url")
-  fileType       String?   @map("file_type")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  fileUrl        String?  @map("file_url")
+  fileType       String?  @map("file_type")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1507,18 +1509,18 @@ model FreelancerEducation {
 }
 
 model FreelancerCertificate {
-  id        String    @id @default(uuid())
-  userId    String    @map("user_id")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
   name      String
   issuer    String
   number    String
   issued    String
   url       String?
-  verified  Boolean   @default(false)
-  fileUrl   String?   @map("file_url")
-  fileType  String?   @map("file_type")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  verified  Boolean  @default(false)
+  fileUrl   String?  @map("file_url")
+  fileType  String?  @map("file_type")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1743,16 +1745,16 @@ model SystemAlert {
 }
 
 model InsightReport {
-  id          String    @id @default(uuid())
-  name        String
-  category    String
-  format      String    @default("PDF")
-  createdBy   String    @default("Admin") @map("created_by")
-  schedule    String?
-  status      String    @default("active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  id        String    @id @default(uuid())
+  name      String
+  category  String
+  format    String    @default("PDF")
+  createdBy String    @default("Admin") @map("created_by")
+  schedule  String?
+  status    String    @default("active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   @@map("insight_reports")
 }
@@ -1886,4 +1888,99 @@ model CareerApplication {
   @@map("career_applications")
 }
 
+model ResumeTemplate {
+  id                String    @id @default(uuid())
+  key               String    @unique
+  name              String
+  category          String
+  description       String?   @db.Text
+  thumbnail         String?
+  status            String    @default("draft") // draft, published, archived
+  currentVersion    Int       @default(1) @map("current_version")
+  sortOrder         Int       @default(0) @map("sort_order")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
+  versions ResumeTemplateVersion[]
+
+  @@index([key])
+  @@index([status])
+  @@map("resume_templates")
+}
+
+model ResumeTemplateVersion {
+  id                String         @id @default(uuid())
+  templateId        String         @map("template_id")
+  template          ResumeTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version           Int
+  description       String?        @db.Text
+  thumbnail         String?
+  rendererKey       String         @map("renderer_key")
+  atsFriendly       Boolean        @default(false) @map("ats_friendly")
+  supportedSections Json           @default("[]") @map("supported_sections")
+  requiredSections  Json           @default("[]") @map("required_sections")
+  defaultSections   Json           @default("[]") @map("default_sections")
+  themeConfig       Json?          @map("theme_config")
+  atsConfig         Json?          @map("ats_config")
+  layoutConfig      Json?          @map("layout_config")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  publishedAt       DateTime?      @map("published_at")
+
+  @@unique([templateId, version])
+  @@map("resume_template_versions")
+}
+
+model UserResumeConfig {
+  id               String    @id @default(uuid())
+  userId           String    @unique @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId       String    @map("template_id")
+  templateVersion  Int       @default(1) @map("template_version")
+  enabledSections  Json      @default("{}") @map("enabled_sections")
+  sectionOrder     Json      @default("[]") @map("section_order")
+  headlineMode     String    @default("PROFILE") @map("headline_mode") // PROFILE or CUSTOM
+  headlineOverride String?   @map("headline_override")
+  summaryMode      String    @default("PROFILE") @map("summary_mode") // PROFILE or CUSTOM
+  summaryOverride  String?   @map("summary_override") @db.Text
+  themeConfig      Json?     @map("theme_config")
+  configVersion    Int       @default(1) @map("config_version")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([templateId])
+  @@map("user_resume_configs")
+}
+
+model ResumeShare {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  resumeConfigId   String?   @map("resume_config_id")
+  tokenHash        String    @unique @map("token_hash")
+  status           String    @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  visibility       String    @default("LINK_ONLY")
+  
+  templateId       String    @map("template_id")
+  templateVersion  Int       @map("template_version")
+  configVersion    Int       @map("config_version")
+  snapshotData     Json      @map("snapshot_data")
+  
+  expiresAt        DateTime? @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  
+  allowPdfDownload Boolean   @default(true) @map("allow_pdf_download")
+  allowPrint       Boolean   @default(true) @map("allow_print")
+  
+  viewCount        Int       @default(0) @map("view_count")
+  downloadCount    Int       @default(0) @map("download_count")
+  lastViewedAt     DateTime? @map("last_viewed_at")
+  
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@map("resume_shares")
+}
