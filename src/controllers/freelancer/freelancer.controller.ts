@@ -497,11 +497,18 @@ export const getFreelancerDashboard = async (
             ? Math.round((avgRating / 5) * 100)
             : 0;
 
-    const completion = profileCompletion(user, user.freelancerProfile);
+    const completion: any = profileCompletion(user, user.freelancerProfile);
     try {
       const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
       const realCompletion = await resolveProfileCompletion(user.id);
       completion.overall = realCompletion.profileCompletion;
+      completion.readinessEngine = {
+        profileLevel: realCompletion.profileLevel,
+        operationalReady: realCompletion.operationalReady,
+        requirements: realCompletion.requirements,
+        verification: realCompletion.verification,
+        capabilities: realCompletion.capabilities
+      };
     } catch (e) {}
     const balance = Number(user.wallet?.balance ?? 0);
     const currency = user.wallet?.currency || "USD";
@@ -962,11 +969,18 @@ export const getFreelancerProfile = async (
       }
     }
 
-    const completion = profileCompletion(user, profile);
+    const completion: any = profileCompletion(user, profile);
     try {
       const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
       const realCompletion = await resolveProfileCompletion(user.id);
       completion.overall = realCompletion.profileCompletion;
+      completion.readinessEngine = {
+        profileLevel: realCompletion.profileLevel,
+        operationalReady: realCompletion.operationalReady,
+        requirements: realCompletion.requirements,
+        verification: realCompletion.verification,
+        capabilities: realCompletion.capabilities
+      };
     } catch (e) {}
     const location = [user.city, user.country].filter(Boolean).join(", ");
     const headline =

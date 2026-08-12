@@ -1,6 +1,7 @@
 import { Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
+import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import {
   HttpError,
   getUserWalletPayload,
@@ -302,6 +303,23 @@ export const createInvestorInvestment = async (req: AuthenticatedRequest, res: R
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
+
+    // Enforce capabilities
+    try {
+      await requireCapability({ userId, action: "expressInterest" });
+    } catch (err: any) {
+      if (err instanceof ActionRequirementsError) {
+        return res.status(403).json({
+          success: false,
+          code: err.code,
+          action: err.action,
+          message: err.message,
+          missing: err.missing,
+        });
+      }
+      throw err;
+    }
+
     const user = await loadInvestorUser(userId);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 

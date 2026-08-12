@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
 import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
+import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 
 function toAuditString(val: any, maxLen = 3000): string | null {
   if (val == null) return null;
@@ -160,6 +161,23 @@ export const rejectProject = async (req: AuthenticatedRequest, res: Response, ne
 export const publishProject = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    
+    // Ensure capability is met before publishing
+    try {
+      await requireCapability({ userId: req.user!.id, action: "publishProject" });
+    } catch (err: any) {
+      if (err instanceof ActionRequirementsError) {
+        return res.status(403).json({
+          success: false,
+          code: err.code,
+          action: err.action,
+          message: err.message,
+          missing: err.missing,
+        });
+      }
+      throw err;
+    }
+
     const project = await prisma.project.findUnique({ where: { id } });
     if (!project) return res.status(404).json({ success: false, message: "Project not found" });
 
@@ -187,6 +205,22 @@ export const publishProject = async (req: AuthenticatedRequest, res: Response, n
 // ─── 2. PROPOSAL ENGINE ────────────────────────────────────────────────────
 export const submitProposal = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
+    // Ensure capability is met before submitting proposal
+    try {
+      await requireCapability({ userId: req.user!.id, action: "submitProposal" });
+    } catch (err: any) {
+      if (err instanceof ActionRequirementsError) {
+        return res.status(403).json({
+          success: false,
+          code: err.code,
+          action: err.action,
+          message: err.message,
+          missing: err.missing,
+        });
+      }
+      throw err;
+    }
+
     const { projectId, freelancerId, bidAmount, coverLetter } = req.body;
     if (!projectId || !freelancerId || !bidAmount) {
       return res.status(400).json({ success: false, message: "Missing required fields" });

@@ -273,18 +273,22 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       isVerified: Boolean(user.isVerified || user.verified),
       profileCompletion: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
+      completedSteps: completion.completedSteps,
+      pendingSteps: completion.pendingSteps,
       subscriptionPlan: hasActiveSubscription,
       hasSubscription: hasActiveSubscription,
       isSubscribed: hasActiveSubscription,
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
-      onboarding: {
-        status: completion.isProfileComplete ? "COMPLETED" : "IN_PROGRESS",
-        completionPercentage: completion.profileCompletion,
-        completedSteps: completion.completedSteps,
-        currentStepKey: completion.pendingSteps[0] || null,
-        nextStepKey: completion.pendingSteps[1] || null,
+      profileReadiness: {
+        role: (user.role || "").toUpperCase(),
+        profileCompletion: completion.profileCompletion,
+        profileLevel: completion.profileLevel || 'INCOMPLETE',
+        operationalReady: completion.operationalReady || false,
+        requirements: completion.requirements || { core: { complete: false, missing: [] }, recommended: { missing: [] } },
+        verification: completion.verification || { email: 'PENDING', phone: 'PENDING', identity: 'PENDING' },
+        capabilities: completion.capabilities || {}
       }
     };
 
@@ -840,13 +844,18 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         success: true,
         user: {
           ...sanitizeUserRecord(user),
-          onboarding: {
-            status: completion.isProfileComplete ? "COMPLETED" : "IN_PROGRESS",
-            completionPercentage: completion.profileCompletion,
-            completedSteps: completion.completedSteps,
-            currentStepKey: completion.pendingSteps[0] || null,
-            nextStepKey: completion.pendingSteps[1] || null,
-          }
+          profileReadiness: {
+            role: (created.role || "").toUpperCase(),
+            profileCompletion: completion.profileCompletion,
+            profileLevel: completion.profileLevel || 'INCOMPLETE',
+            operationalReady: completion.operationalReady || false,
+            requirements: completion.requirements || { core: { complete: false, missing: [] }, recommended: { missing: [] } },
+            verification: completion.verification || { email: 'PENDING', phone: 'PENDING', identity: 'PENDING' },
+            capabilities: completion.capabilities || {}
+          },
+          isProfileComplete: completion.isProfileComplete || false,
+          completedSteps: completion.completedSteps || [],
+          pendingSteps: completion.pendingSteps || [],
         },
       });
     }
@@ -878,13 +887,18 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           success: true,
           user: {
             ...sanitizeUserRecord(user),
-            onboarding: {
-              status: completion.isProfileComplete ? "COMPLETED" : "IN_PROGRESS",
-              completionPercentage: completion.profileCompletion,
-              completedSteps: completion.completedSteps,
-              currentStepKey: completion.pendingSteps[0] || null,
-              nextStepKey: completion.pendingSteps[1] || null,
-            }
+              profileReadiness: {
+                role: (user.role || "").toUpperCase(),
+                profileCompletion: completion.profileCompletion,
+                profileLevel: completion.profileLevel || 'INCOMPLETE',
+                operationalReady: completion.operationalReady || false,
+                requirements: completion.requirements || { core: { complete: false, missing: [] }, recommended: { missing: [] } },
+                verification: completion.verification || { email: 'PENDING', phone: 'PENDING', identity: 'PENDING' },
+                capabilities: completion.capabilities || {}
+              },
+              isProfileComplete: completion.isProfileComplete || false,
+              completedSteps: completion.completedSteps || [],
+              pendingSteps: completion.pendingSteps || [],
           },
         });
       }

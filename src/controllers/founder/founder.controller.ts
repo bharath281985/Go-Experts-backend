@@ -1,6 +1,7 @@
 import { Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
+import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import {
   HttpError,
   getUserWalletPayload,
@@ -737,6 +738,24 @@ export const createFounderMessage = async (req: AuthenticatedRequest, res: Respo
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
+
+    // A founder messaging someone is generally a 'contactInvestor' intent if we don't have a more specific role target
+    // We enforce the capability here
+    try {
+      await requireCapability({ userId, action: "contactInvestor" });
+    } catch (err: any) {
+      if (err instanceof ActionRequirementsError) {
+        return res.status(403).json({
+          success: false,
+          code: err.code,
+          action: err.action,
+          message: err.message,
+          missing: err.missing,
+        });
+      }
+      throw err;
+    }
+
     const user = await loadFounderUser(userId);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
