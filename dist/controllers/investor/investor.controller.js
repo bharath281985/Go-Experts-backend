@@ -1,4 +1,5 @@
 import { prisma } from "../../config/database.js";
+import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
 async function loadInvestorUser(userId) {
     return prisma.user.findFirst({
@@ -271,6 +272,22 @@ export const createInvestorInvestment = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
+        // Enforce capabilities
+        try {
+            await requireCapability({ userId, action: "expressInterest" });
+        }
+        catch (err) {
+            if (err instanceof ActionRequirementsError) {
+                return res.status(403).json({
+                    success: false,
+                    code: err.code,
+                    action: err.action,
+                    message: err.message,
+                    missing: err.missing,
+                });
+            }
+            throw err;
+        }
         const user = await loadInvestorUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });

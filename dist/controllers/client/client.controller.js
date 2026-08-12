@@ -1,4 +1,5 @@
 import { prisma } from "../../config/database.js";
+import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
 async function loadClientUser(userId) {
     const user = await prisma.user.findFirst({
@@ -318,6 +319,24 @@ export const createClientProject = async (req, res, next) => {
         const budget = Number.isFinite(Number(body.budget)) ? Number(body.budget) : 0;
         const category = String(body.category || "").trim() || "Engineering";
         const technology = String(body.technology || "").trim() || "Various";
+        const requestedStatus = body.status ? String(body.status) : "open";
+        if (requestedStatus.toLowerCase() === "published" || requestedStatus.toLowerCase() === "open") {
+            try {
+                await requireCapability({ userId, action: "publishProject" });
+            }
+            catch (err) {
+                if (err instanceof ActionRequirementsError) {
+                    return res.status(403).json({
+                        success: false,
+                        code: err.code,
+                        action: err.action,
+                        message: err.message,
+                        missing: err.missing,
+                    });
+                }
+                throw err;
+            }
+        }
         const project = await prisma.project.create({
             data: {
                 title,
@@ -326,7 +345,7 @@ export const createClientProject = async (req, res, next) => {
                 category,
                 technology,
                 timeline: body.timeline ? String(body.timeline) : null,
-                status: body.status ? String(body.status) : "open",
+                status: requestedStatus,
             },
         });
         await prisma.clientProfile.upsert({
@@ -395,6 +414,23 @@ export const updateClientProject = async (req, res, next) => {
             data.status = String(body.status).trim();
         if (body.freelancer != null)
             data.freelancer = String(body.freelancer).trim() || null;
+        if (data.status && (data.status.toLowerCase() === "published" || data.status.toLowerCase() === "open")) {
+            try {
+                await requireCapability({ userId, action: "publishProject" });
+            }
+            catch (err) {
+                if (err instanceof ActionRequirementsError) {
+                    return res.status(403).json({
+                        success: false,
+                        code: err.code,
+                        action: err.action,
+                        message: err.message,
+                        missing: err.missing,
+                    });
+                }
+                throw err;
+            }
+        }
         const updated = await prisma.project.update({ where: { id: project.id }, data });
         res.json({ success: true, message: "Project updated", data: updated });
     }

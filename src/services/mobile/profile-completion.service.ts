@@ -66,21 +66,21 @@ function evaluateFreelancer(user: any, fp: any) {
   };
 
   const core = [
-    { key: 'fullName', label: 'Full Name', valid: fields.fullName },
-    { key: 'email', label: 'Email Address', valid: fields.email },
-    { key: 'title', label: 'Professional Title', valid: fields.title },
-    { key: 'bio', label: 'Professional Bio', valid: fields.bio },
-    { key: 'skills', label: 'Required Skills', valid: fields.skills },
-    { key: 'experience', label: 'Experience Level', valid: fields.experience },
-    { key: 'country', label: 'Country', valid: fields.country },
-    { key: 'city', label: 'City', valid: fields.city },
-    { key: 'avatar', label: 'Profile Picture', valid: fields.avatar },
+    { key: 'fullName', label: 'Full Name', valid: fields.fullName, sectionKey: 'personal' },
+    { key: 'email', label: 'Email Address', valid: fields.email, sectionKey: 'personal' },
+    { key: 'title', label: 'Professional Title', valid: fields.title, sectionKey: 'professional' },
+    { key: 'bio', label: 'Professional Bio', valid: fields.bio, sectionKey: 'professional' },
+    { key: 'skills', label: 'Required Skills', valid: fields.skills, sectionKey: 'skills' },
+    { key: 'experience', label: 'Experience Level', valid: fields.experience, sectionKey: 'professional' },
+    { key: 'country', label: 'Country', valid: fields.country, sectionKey: 'location' },
+    { key: 'city', label: 'City', valid: fields.city, sectionKey: 'location' },
+    { key: 'avatar', label: 'Profile Picture', valid: fields.avatar, sectionKey: 'personal' },
   ];
 
   const recommended = [
-    { key: 'portfolio', label: 'Portfolio / Work Samples', valid: fields.portfolio },
-    { key: 'resume', label: 'Resume', valid: fields.resume },
-    { key: 'linkedin', label: 'LinkedIn Profile', valid: fields.linkedin },
+    { key: 'portfolio', label: 'Portfolio / Work Samples', valid: fields.portfolio, sectionKey: 'portfolio' },
+    { key: 'resume', label: 'Resume', valid: fields.resume, sectionKey: 'resume' },
+    { key: 'linkedin', label: 'LinkedIn Profile', valid: fields.linkedin, sectionKey: 'social' },
   ];
 
   const weights = {
@@ -213,7 +213,7 @@ function evaluateInvestor(user: any, ip: any) {
     avatar: hasText(user.avatarUrl),
   };
 
-  const isIndividual = fields.investorType === 'Angel Investor' || fields.investorType === 'Individual';
+  const isIndividual = ip?.investorType === 'Angel Investor' || ip?.investorType === 'Individual';
 
   const core = [
     { key: 'fullName', label: 'Full Name', valid: fields.fullName },
@@ -422,7 +422,7 @@ export const resolveProfileCompletion = async (
       }
     },
     verification: {
-      email: user.emailVerified ? 'VERIFIED' : 'PENDING',
+      email: user.isVerified ? 'VERIFIED' : 'PENDING',
       phone: user.phone ? 'VERIFIED' : 'PENDING',
       identity: 'PENDING'
     },

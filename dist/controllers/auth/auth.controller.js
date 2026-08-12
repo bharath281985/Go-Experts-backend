@@ -208,7 +208,7 @@ export const login = async (req, res, next) => {
         prisma.loginAttempt
             .create({ data: { email, ipAddress, userAgent, success: true } })
             .catch(() => { });
-        let completion = { profileCompletion: 100, isProfileComplete: true };
+        let completion = { profileCompletion: 100, isProfileComplete: true, completedSteps: [], pendingSteps: [] };
         let subscriptionGate = { status: 'none', planId: null, planName: null };
         try {
             const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
@@ -237,18 +237,22 @@ export const login = async (req, res, next) => {
             isVerified: Boolean(user.isVerified || user.verified),
             profileCompletion: completion.profileCompletion,
             isProfileComplete: completion.isProfileComplete,
+            completedSteps: completion.completedSteps,
+            pendingSteps: completion.pendingSteps,
             subscriptionPlan: hasActiveSubscription,
             hasSubscription: hasActiveSubscription,
             isSubscribed: hasActiveSubscription,
             subscriptionStatus: subscriptionGate.status,
             subscriptionPlanId: subscriptionGate.planId,
             subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
-            onboarding: {
-                status: user.onboardingStatus,
-                completionPercentage: user.completionPercentage,
-                completedSteps: user.completedSteps,
-                currentStepKey: user.currentStep,
-                nextStepKey: user.nextStepKey,
+            profileReadiness: {
+                role: (user.role || "").toUpperCase(),
+                profileCompletion: completion.profileCompletion,
+                profileLevel: completion.profileLevel || 'INCOMPLETE',
+                operationalReady: completion.operationalReady || false,
+                requirements: completion.requirements || { core: { complete: false, missing: [] }, recommended: { missing: [] } },
+                verification: completion.verification || { email: 'PENDING', phone: 'PENDING', identity: 'PENDING' },
+                capabilities: completion.capabilities || {}
             }
         };
         return res.json({
@@ -747,17 +751,28 @@ export const me = async (req, res, next) => {
             if (!user) {
                 return res.status(404).json({ success: false, message: "User not found" });
             }
+            let completion = { profileCompletion: 0, isProfileComplete: false, completedSteps: [], pendingSteps: [] };
+            try {
+                const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+                completion = await resolveProfileCompletion(user.id);
+            }
+            catch (err) { }
             return res.json({
                 success: true,
                 user: {
                     ...sanitizeUserRecord(user),
-                    onboarding: {
-                        status: user.onboardingStatus,
-                        completionPercentage: user.completionPercentage,
-                        completedSteps: user.completedSteps,
-                        currentStepKey: user.currentStep,
-                        nextStepKey: user.nextStepKey,
-                    }
+                    profileReadiness: {
+                        role: (user.role || "").toUpperCase(),
+                        profileCompletion: completion.profileCompletion,
+                        profileLevel: completion.profileLevel || 'INCOMPLETE',
+                        operationalReady: completion.operationalReady || false,
+                        requirements: completion.requirements || { core: { complete: false, missing: [] }, recommended: { missing: [] } },
+                        verification: completion.verification || { email: 'PENDING', phone: 'PENDING', identity: 'PENDING' },
+                        capabilities: completion.capabilities || {}
+                    },
+                    isProfileComplete: completion.isProfileComplete || false,
+                    completedSteps: completion.completedSteps || [],
+                    pendingSteps: completion.pendingSteps || [],
                 },
             });
         }
@@ -777,9 +792,29 @@ export const me = async (req, res, next) => {
                 },
             });
             if (user) {
+                let completion = { profileCompletion: 0, isProfileComplete: false, completedSteps: [], pendingSteps: [] };
+                try {
+                    const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+                    completion = await resolveProfileCompletion(user.id);
+                }
+                catch (err) { }
                 return res.json({
                     success: true,
-                    user: sanitizeUserRecord(user),
+                    user: {
+                        ...sanitizeUserRecord(user),
+                        profileReadiness: {
+                            role: (user.role || "").toUpperCase(),
+                            profileCompletion: completion.profileCompletion,
+                            profileLevel: completion.profileLevel || 'INCOMPLETE',
+                            operationalReady: completion.operationalReady || false,
+                            requirements: completion.requirements || { core: { complete: false, missing: [] }, recommended: { missing: [] } },
+                            verification: completion.verification || { email: 'PENDING', phone: 'PENDING', identity: 'PENDING' },
+                            capabilities: completion.capabilities || {}
+                        },
+                        isProfileComplete: completion.isProfileComplete || false,
+                        completedSteps: completion.completedSteps || [],
+                        pendingSteps: completion.pendingSteps || [],
+                    },
                 });
             }
             return res.status(404).json({ success: false, message: "User not found" });
@@ -1041,11 +1076,11 @@ export const forgotPassword = async (req, res, next) => {
                 where: { name: "email", status: "active" },
             });
             const config = channel?.config ? JSON.parse(channel.config) : null;
-            const smtpHost = config?.host || env.SMTP_HOST;
-            const smtpPort = Number(config?.port || env.SMTP_PORT) || 587;
-            const smtpUser = config?.user || env.SMTP_USER;
-            const smtpPass = config?.pass || config?.password || env.SMTP_PASS;
-            const smtpFrom = config?.from || config?.user || env.SMTP_FROM || env.SMTP_USER;
+            const smtpHost = config?.host || process.env.SMTP_HOST;
+            const smtpPort = Number(config?.port || process.env.SMTP_PORT) || 587;
+            const smtpUser = config?.user || process.env.SMTP_USER;
+            const smtpPass = config?.pass || config?.password || process.env.SMTP_PASS;
+            const smtpFrom = config?.from || config?.user || process.env.SMTP_FROM || process.env.SMTP_USER;
             const smtpSecure = config?.secure ?? (smtpPort === 465);
             console.log(`[password-reset] Trying to send email to ${subject.email}`);
             console.log(`[password-reset] SMTP Config: host=${smtpHost}, port=${smtpPort}, user=${smtpUser}, from=${smtpFrom}`);

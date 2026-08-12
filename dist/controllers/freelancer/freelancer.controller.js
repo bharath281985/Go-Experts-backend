@@ -149,21 +149,33 @@ async function savePortfolioItems(userId, items) {
     });
 }
 function profileCompletion(user, profile) {
-    const personalScore = pct(filled(user.fullName, user.email, user.phone, user.avatarUrl, user.city || user.country, user.bio), 6);
-    const professionalScore = pct(filled(profile?.industry, profile?.skills, profile?.hourlyRate, profile?.experience, user.bio), 5);
-    const portfolioItems = parsePortfolioJson(profile?.portfolioJson);
-    const publishedLike = portfolioItems.filter((p) => ["Published", "Featured", "Case Study"].includes(p.status)).length;
-    const portfolioScore = portfolioItems.length === 0
-        ? 0
-        : Math.min(100, Math.round((publishedLike / Math.max(portfolioItems.length, 1)) * 70 + Math.min(portfolioItems.length, 5) * 6));
-    const resumeScore = user.bio && String(user.bio).length > 40 ? 100 : user.bio ? 60 : 20;
+    const hasText = (v) => typeof v === 'string' && v.trim().length > 0;
+    const hasNumber = (v) => typeof v === 'number' && !isNaN(v);
+    const fp = profile;
+    const steps = {
+        personal_info: hasText(user.fullName) && hasText(user.email),
+        professional_info: hasText(user.bio) && (hasText(fp?.titleHeadline) || hasText(user.bio)),
+        skills: hasText(fp?.skills),
+        experience: hasText(fp?.experience) || hasNumber(fp?.hourlyRate),
+        portfolio: hasText(fp?.portfolioUrl) || hasText(fp?.linkedInUrl) || hasText(fp?.githubUrl) || hasText(fp?.dribbbleUrl),
+        avatar: hasText(user.avatarUrl),
+        location: hasText(user.city) || hasText(user.country),
+        resume: hasText(fp?.resumeUrl),
+    };
+    const p1 = (steps.personal_info ? 1 : 0) + (steps.avatar ? 1 : 0) + (steps.location ? 1 : 0);
+    const personalScore = Math.round((p1 / 3) * 100);
+    const p2 = (steps.professional_info ? 1 : 0) + (steps.skills ? 1 : 0) + (steps.experience ? 1 : 0);
+    const professionalScore = Math.round((p2 / 3) * 100);
+    const portfolioScore = steps.portfolio ? 100 : 0;
+    const resumeScore = steps.resume ? 100 : 0;
     const items = [
         { label: "Personal Info", pct: personalScore },
         { label: "Professional Info", pct: professionalScore },
         { label: "Portfolio", pct: portfolioScore },
         { label: "Resume", pct: resumeScore },
     ];
-    const overall = Math.round(items.reduce((s, i) => s + i.pct, 0) / items.length);
+    const completedCount = Object.values(steps).filter(Boolean).length;
+    const overall = Math.round((completedCount / 8) * 100);
     return { overall, items };
 }
 function relativeTime(date) {
@@ -266,6 +278,7 @@ const safeFreelancerProfileSelect = {
     select: {
         id: true,
         userId: true,
+        titleHeadline: true,
         industry: true,
         skills: true,
         hourlyRate: true,
@@ -406,6 +419,19 @@ export const getFreelancerDashboard = async (req, res, next) => {
                     ? Math.round((avgRating / 5) * 100)
                     : 0;
         const completion = profileCompletion(user, user.freelancerProfile);
+        try {
+            const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+            const realCompletion = await resolveProfileCompletion(user.id);
+            completion.overall = realCompletion.profileCompletion;
+            completion.readinessEngine = {
+                profileLevel: realCompletion.profileLevel,
+                operationalReady: realCompletion.operationalReady,
+                requirements: realCompletion.requirements,
+                verification: realCompletion.verification,
+                capabilities: realCompletion.capabilities
+            };
+        }
+        catch (e) { }
         const balance = Number(user.wallet?.balance ?? 0);
         const currency = user.wallet?.currency || "USD";
         const totalEarnings = Number(walletCredits._sum.amount ?? 0);
@@ -453,10 +479,43 @@ export const getFreelancerDashboard = async (req, res, next) => {
             proposals,
         }));
         // Skill distribution from comma-separated skills
-        const skillsRaw = String(user.freelancerProfile?.skills || "")
-            .split(/[,|]/)
-            .map((s) => s.trim())
-            .filter(Boolean);
+        let skillsRaw = parseSkills(user.freelancerProfile?.skills);
+        if (skillsRaw.length > 0) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const uuidSkills = skillsRaw.filter((s) => uuidRegex.test(s));
+            if (uuidSkills.length > 0) {
+                const dbSkills = await prisma.skill.findMany({
+                    where: { id: { in: uuidSkills } },
+                    select: { id: true, name: true },
+                });
+                let moSkills = [];
+                try {
+                    moSkills = await prisma.masterOption.findMany({
+                        where: { id: { in: uuidSkills } },
+                        select: { id: true, label: true, value: true },
+                    });
+                }
+                catch (e) { }
+                let regData = {};
+                try {
+                    regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
+                }
+                catch (e) { }
+                const regSkillMap = new Map();
+                if (Array.isArray(regData.skillsList)) {
+                    regData.skillsList.forEach((s) => regSkillMap.set(s.id, s.name));
+                }
+                const SKILL_NAME_MAP = {
+                    "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+                    "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+                    "sk_1": "React",
+                    "sk_2": "TypeScript"
+                };
+                const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
+                const moMap = new Map(moSkills.map((s) => [s.id, s.label || s.value]));
+                skillsRaw = skillsRaw.map((s) => skillMap.get(s) || moMap.get(s) || regSkillMap.get(s) || SKILL_NAME_MAP[s] || s);
+            }
+        }
         const skillDist = skillsRaw.length > 0
             ? skillsRaw.slice(0, 5).map((name, i, arr) => ({
                 name,
@@ -768,8 +827,74 @@ export const getFreelancerProfile = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "User not found" });
         }
         const profile = user.freelancerProfile;
-        const skills = parseSkills(profile?.skills);
+        let skills = parseSkills(profile?.skills);
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let title = profile?.titleHeadline || profile?.industry || "";
+        let industry = profile?.industry || "";
+        const allUuids = [...skills];
+        if (uuidRegex.test(title))
+            allUuids.push(title);
+        if (uuidRegex.test(industry))
+            allUuids.push(industry);
+        if (allUuids.length > 0) {
+            const uniqueUuids = Array.from(new Set(allUuids));
+            const [dbSkills, dbIndustries] = await Promise.all([
+                prisma.skill.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } }),
+                prisma.industry.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } })
+            ]);
+            let moSkills = [];
+            try {
+                moSkills = await prisma.masterOption.findMany({
+                    where: { id: { in: uniqueUuids } },
+                    select: { id: true, label: true, value: true },
+                });
+            }
+            catch (e) { }
+            let regData = {};
+            try {
+                regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
+            }
+            catch (e) { }
+            const regMap = new Map();
+            if (Array.isArray(regData.skillsList)) {
+                regData.skillsList.forEach((s) => regMap.set(s.id, s.name));
+            }
+            if (regData.industry && typeof regData.industry === 'object') {
+                regMap.set(regData.industry.id, regData.industry.name || regData.industry.label);
+            }
+            if (regData.title && typeof regData.title === 'object') {
+                regMap.set(regData.title.id, regData.title.name || regData.title.label);
+            }
+            const SKILL_NAME_MAP = {
+                "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+                "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+                "sk_1": "React",
+                "sk_2": "TypeScript"
+            };
+            const resolvedMap = new Map();
+            dbSkills.forEach(s => resolvedMap.set(s.id, s.name));
+            dbIndustries.forEach(s => resolvedMap.set(s.id, s.name));
+            moSkills.forEach(s => resolvedMap.set(s.id, s.label || s.value));
+            regMap.forEach((v, k) => resolvedMap.set(k, v));
+            Object.entries(SKILL_NAME_MAP).forEach(([k, v]) => resolvedMap.set(k, v));
+            skills = skills.map((s) => resolvedMap.get(s) || s);
+            title = resolvedMap.get(title) || title;
+            industry = resolvedMap.get(industry) || industry;
+        }
         const completion = profileCompletion(user, profile);
+        try {
+            const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+            const realCompletion = await resolveProfileCompletion(user.id);
+            completion.overall = realCompletion.profileCompletion;
+            completion.readinessEngine = {
+                profileLevel: realCompletion.profileLevel,
+                operationalReady: realCompletion.operationalReady,
+                requirements: realCompletion.requirements,
+                verification: realCompletion.verification,
+                capabilities: realCompletion.capabilities
+            };
+        }
+        catch (e) { }
         const location = [user.city, user.country].filter(Boolean).join(", ");
         const headline = (user.bio && user.bio.trim()) ||
             (profile?.industry
@@ -785,8 +910,8 @@ export const getFreelancerProfile = async (req, res, next) => {
                 avatarUrl: user.avatarUrl || "",
                 bio: user.bio || "",
                 headline,
-                title: profile?.industry || "",
-                industry: profile?.industry || "",
+                title,
+                industry,
                 experience: profile?.experience || "",
                 skills,
                 skillsText: skills.join(", "),
@@ -881,9 +1006,37 @@ export const updateFreelancerProfile = async (req, res, next) => {
         const experience = body.experience != null
             ? String(body.experience).trim() || null
             : existing.freelancerProfile?.experience ?? null;
-        const skillsArr = body.skills != null || body.skillsText != null
+        let skillsArr = body.skills != null || body.skillsText != null
             ? parseSkills(body.skills ?? body.skillsText)
             : parseSkills(existing.freelancerProfile?.skills);
+        // Resolve any skill UUIDs to their actual names before saving
+        if (skillsArr.length > 0) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const uuidSkills = skillsArr.filter((s) => uuidRegex.test(s));
+            if (uuidSkills.length > 0) {
+                const dbSkills = await prisma.skill.findMany({
+                    where: { id: { in: uuidSkills } },
+                    select: { id: true, name: true },
+                });
+                let moSkills = [];
+                try {
+                    moSkills = await prisma.masterOption.findMany({
+                        where: { id: { in: uuidSkills } },
+                        select: { id: true, label: true, value: true },
+                    });
+                }
+                catch (e) { }
+                const SKILL_NAME_MAP = {
+                    "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+                    "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+                    "sk_1": "React",
+                    "sk_2": "TypeScript"
+                };
+                const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
+                const moMap = new Map(moSkills.map((s) => [s.id, s.label || s.value]));
+                skillsArr = skillsArr.map((s) => skillMap.get(s) || moMap.get(s) || SKILL_NAME_MAP[s] || s);
+            }
+        }
         const hourlyRateRaw = body.hourlyRate;
         let hourlyRate = existing.freelancerProfile?.hourlyRate ?? null;
         if (hourlyRateRaw != null && hourlyRateRaw !== "") {

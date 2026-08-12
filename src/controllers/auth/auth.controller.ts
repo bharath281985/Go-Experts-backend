@@ -845,7 +845,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         user: {
           ...sanitizeUserRecord(user),
           profileReadiness: {
-            role: (created.role || "").toUpperCase(),
+            role: (user.role || "").toUpperCase(),
             profileCompletion: completion.profileCompletion,
             profileLevel: completion.profileLevel || 'INCOMPLETE',
             operationalReady: completion.operationalReady || false,

@@ -33,6 +33,7 @@ import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
 import aboutRouter from "./admin/about.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
+import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import mobileRoutes from "../modules/mobile/index.js";
 const router = Router();
 // 1. Auth & Payment routes (Public/Unprotected - mounted on all version prefixes)
@@ -1203,10 +1204,16 @@ adminFreelancersRouter.put("/:id", async (req, res, next) => {
 });
 adminFreelancersRouter.delete("/:id", async (req, res, next) => {
     try {
+        const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+        if (!user)
+            return res.status(404).json({ success: false, message: "Freelancer not found" });
         await prisma.user.update({
             where: { id: req.params.id },
             data: { deletedAt: new Date() },
         });
+        if (user.email) {
+            sendAccountDeletedEmail(user.email, user.fullName).catch(console.error);
+        }
         res.json({ success: true, ok: true });
     }
     catch (err) {
@@ -1389,10 +1396,16 @@ adminClientsRouter.put("/:id", async (req, res, next) => {
 });
 adminClientsRouter.delete("/:id", async (req, res, next) => {
     try {
+        const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+        if (!user)
+            return res.status(404).json({ success: false, message: "Client not found" });
         await prisma.user.update({
             where: { id: req.params.id },
             data: { deletedAt: new Date() },
         });
+        if (user.email) {
+            sendAccountDeletedEmail(user.email, user.fullName).catch(console.error);
+        }
         res.json({ success: true, ok: true });
     }
     catch (err) {
@@ -1544,10 +1557,16 @@ adminInvestorsRouter.put("/:id", async (req, res, next) => {
 });
 adminInvestorsRouter.delete("/:id", async (req, res, next) => {
     try {
+        const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+        if (!user)
+            return res.status(404).json({ success: false, message: "Investor not found" });
         await prisma.user.update({
             where: { id: req.params.id },
             data: { deletedAt: new Date() },
         });
+        if (user.email) {
+            sendAccountDeletedEmail(user.email, user.fullName).catch(console.error);
+        }
         res.json({ success: true, ok: true });
     }
     catch (err) {
@@ -1700,10 +1719,16 @@ adminFoundersRouter.put("/:id", async (req, res, next) => {
 });
 adminFoundersRouter.delete("/:id", async (req, res, next) => {
     try {
+        const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+        if (!user)
+            return res.status(404).json({ success: false, message: "Founder not found" });
         await prisma.user.update({
             where: { id: req.params.id },
             data: { deletedAt: new Date() },
         });
+        if (user.email) {
+            sendAccountDeletedEmail(user.email, user.fullName).catch(console.error);
+        }
         res.json({ success: true, ok: true });
     }
     catch (err) {

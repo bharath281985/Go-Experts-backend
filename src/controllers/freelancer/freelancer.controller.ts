@@ -326,6 +326,7 @@ const safeFreelancerProfileSelect = {
   select: {
     id: true,
     userId: true,
+    titleHeadline: true,
     industry: true,
     skills: true,
     hourlyRate: true,
@@ -926,47 +927,66 @@ export const getFreelancerProfile = async (
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const profile = user.freelancerProfile;
+    const profile = user.freelancerProfile as any;
     let skills = parseSkills(profile?.skills);
 
-    if (skills.length > 0) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const uuidSkills = skills.filter((s) => uuidRegex.test(s));
-      if (uuidSkills.length > 0) {
-        const dbSkills = await prisma.skill.findMany({
-          where: { id: { in: uuidSkills } },
-          select: { id: true, name: true },
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let title = profile?.titleHeadline || profile?.industry || "";
+    let industry = profile?.industry || "";
+
+    const allUuids = [...skills];
+    if (uuidRegex.test(title)) allUuids.push(title);
+    if (uuidRegex.test(industry)) allUuids.push(industry);
+
+    if (allUuids.length > 0) {
+      const uniqueUuids = Array.from(new Set(allUuids));
+      
+      const [dbSkills, dbIndustries] = await Promise.all([
+        prisma.skill.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } }),
+        prisma.industry.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } })
+      ]);
+      
+      let moSkills: any[] = [];
+      try {
+        moSkills = await (prisma as any).masterOption.findMany({
+          where: { id: { in: uniqueUuids } },
+          select: { id: true, label: true, value: true },
         });
-        
-        let moSkills: any[] = [];
-        try {
-          moSkills = await (prisma as any).masterOption.findMany({
-            where: { id: { in: uuidSkills } },
-            select: { id: true, label: true, value: true },
-          });
-        } catch (e) {}
+      } catch (e) {}
 
-        let regData: any = {};
-        try {
-          regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
-        } catch (e) {}
-        const regSkillMap = new Map();
-        if (Array.isArray(regData.skillsList)) {
-          regData.skillsList.forEach((s: any) => regSkillMap.set(s.id, s.name));
-        }
-
-        const SKILL_NAME_MAP: Record<string, string> = {
-          "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
-          "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
-          "sk_1": "React",
-          "sk_2": "TypeScript"
-        };
-        
-        const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
-        const moMap = new Map(moSkills.map((s) => [s.id, s.label || s.value]));
-        
-        skills = skills.map((s) => skillMap.get(s) || moMap.get(s) || regSkillMap.get(s) || SKILL_NAME_MAP[s] || s);
+      let regData: any = {};
+      try {
+        regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
+      } catch (e) {}
+      
+      const regMap = new Map();
+      if (Array.isArray(regData.skillsList)) {
+        regData.skillsList.forEach((s: any) => regMap.set(s.id, s.name));
       }
+      if (regData.industry && typeof regData.industry === 'object') {
+        regMap.set(regData.industry.id, regData.industry.name || regData.industry.label);
+      }
+      if (regData.title && typeof regData.title === 'object') {
+        regMap.set(regData.title.id, regData.title.name || regData.title.label);
+      }
+
+      const SKILL_NAME_MAP: Record<string, string> = {
+        "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+        "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+        "sk_1": "React",
+        "sk_2": "TypeScript"
+      };
+      
+      const resolvedMap = new Map();
+      dbSkills.forEach(s => resolvedMap.set(s.id, s.name));
+      dbIndustries.forEach(s => resolvedMap.set(s.id, s.name));
+      moSkills.forEach(s => resolvedMap.set(s.id, s.label || s.value));
+      regMap.forEach((v, k) => resolvedMap.set(k, v));
+      Object.entries(SKILL_NAME_MAP).forEach(([k, v]) => resolvedMap.set(k, v));
+
+      skills = skills.map((s) => resolvedMap.get(s) || s);
+      title = resolvedMap.get(title) || title;
+      industry = resolvedMap.get(industry) || industry;
     }
 
     const completion: any = profileCompletion(user, profile);
@@ -999,8 +1019,8 @@ export const getFreelancerProfile = async (
         avatarUrl: user.avatarUrl || "",
         bio: user.bio || "",
         headline,
-        title: profile?.industry || "",
-        industry: profile?.industry || "",
+        title,
+        industry,
         experience: profile?.experience || "",
         skills,
         skillsText: skills.join(", "),

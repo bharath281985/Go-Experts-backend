@@ -6,6 +6,7 @@ import { corsConfig } from "./config/cors.js";
 import { UPLOADS_DIR, ensureUploadsDir } from "./config/uploads.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import { apiLoggerMiddleware } from "./middlewares/api-logger.middleware.js";
+import { rejectLocalFilePaths } from "./middlewares/reject-local-file-paths.middleware.js";
 import apiRoutes from "./routes/index.js";
 const app = express();
 ensureUploadsDir();
@@ -45,6 +46,7 @@ app.use(express.json({
     },
 }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use("/api", rejectLocalFilePaths);
 // ==========================================
 // Static Uploads
 // ==========================================

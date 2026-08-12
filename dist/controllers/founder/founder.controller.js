@@ -1,4 +1,5 @@
 import { prisma } from "../../config/database.js";
+import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
 async function loadFounderUser(userId) {
     return prisma.user.findFirst({
@@ -713,6 +714,23 @@ export const createFounderMessage = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
+        // A founder messaging someone is generally a 'contactInvestor' intent if we don't have a more specific role target
+        // We enforce the capability here
+        try {
+            await requireCapability({ userId, action: "contactInvestor" });
+        }
+        catch (err) {
+            if (err instanceof ActionRequirementsError) {
+                return res.status(403).json({
+                    success: false,
+                    code: err.code,
+                    action: err.action,
+                    message: err.message,
+                    missing: err.missing,
+                });
+            }
+            throw err;
+        }
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
