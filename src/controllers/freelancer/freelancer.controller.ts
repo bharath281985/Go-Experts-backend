@@ -193,28 +193,28 @@ async function savePortfolioItems(userId: string, items: PortfolioItem[]) {
 }
 
 function profileCompletion(user: any, profile: any) {
-  const personalScore = pct(
-    filled(user.fullName, user.email, user.phone, user.avatarUrl, user.city || user.country, user.bio),
-    6,
-  );
-  const professionalScore = pct(
-    filled(profile?.industry, profile?.skills, profile?.hourlyRate, profile?.experience, user.bio),
-    5,
-  );
-  const portfolioItems = parsePortfolioJson((profile as any)?.portfolioJson);
-  const publishedLike = portfolioItems.filter((p) =>
-    ["Published", "Featured", "Case Study"].includes(p.status),
-  ).length;
-  const portfolioScore =
-    portfolioItems.length === 0
-      ? 0
-      : Math.min(
-          100,
-          Math.round(
-            (publishedLike / Math.max(portfolioItems.length, 1)) * 70 + Math.min(portfolioItems.length, 5) * 6,
-          ),
-        );
-  const resumeScore = user.bio && String(user.bio).length > 40 ? 100 : user.bio ? 60 : 20;
+  const hasText = (v: any) => typeof v === 'string' && v.trim().length > 0;
+  const hasNumber = (v: any) => typeof v === 'number' && !isNaN(v);
+  const fp = profile;
+  const steps = {
+    personal_info:       hasText(user.fullName) && hasText(user.email),
+    professional_info:   hasText(user.bio) && (hasText(fp?.titleHeadline) || hasText(user.bio)),
+    skills:              hasText(fp?.skills),
+    experience:          hasText(fp?.experience) || hasNumber(fp?.hourlyRate),
+    portfolio:           hasText(fp?.portfolioUrl) || hasText(fp?.linkedInUrl) || hasText(fp?.githubUrl) || hasText(fp?.dribbbleUrl),
+    avatar:              hasText(user.avatarUrl),
+    location:            hasText(user.city) || hasText(user.country),
+    resume:              hasText(fp?.resumeUrl),
+  };
+
+  const p1 = (steps.personal_info ? 1 : 0) + (steps.avatar ? 1 : 0) + (steps.location ? 1 : 0);
+  const personalScore = Math.round((p1 / 3) * 100);
+  
+  const p2 = (steps.professional_info ? 1 : 0) + (steps.skills ? 1 : 0) + (steps.experience ? 1 : 0);
+  const professionalScore = Math.round((p2 / 3) * 100);
+  
+  const portfolioScore = steps.portfolio ? 100 : 0;
+  const resumeScore = steps.resume ? 100 : 0;
 
   const items = [
     { label: "Personal Info", pct: personalScore },
@@ -222,7 +222,10 @@ function profileCompletion(user: any, profile: any) {
     { label: "Portfolio", pct: portfolioScore },
     { label: "Resume", pct: resumeScore },
   ];
-  const overall = Math.round(items.reduce((s, i) => s + i.pct, 0) / items.length);
+  
+  const completedCount = Object.values(steps).filter(Boolean).length;
+  const overall = Math.round((completedCount / 8) * 100);
+  
   return { overall, items };
 }
 
@@ -552,10 +555,19 @@ export const getFreelancerDashboard = async (
     }));
 
     // Skill distribution from comma-separated skills
-    const skillsRaw = String(user.freelancerProfile?.skills || "")
-      .split(/[,|]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    let skillsRaw = parseSkills(user.freelancerProfile?.skills);
+    if (skillsRaw.length > 0) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const uuidSkills = skillsRaw.filter((s) => uuidRegex.test(s));
+      if (uuidSkills.length > 0) {
+        const dbSkills = await prisma.skill.findMany({
+          where: { id: { in: uuidSkills } },
+          select: { id: true, name: true },
+        });
+        const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
+        skillsRaw = skillsRaw.map((s) => skillMap.get(s) || s);
+      }
+    }
     const skillDist =
       skillsRaw.length > 0
         ? skillsRaw.slice(0, 5).map((name, i, arr) => ({
