@@ -127,7 +127,8 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
 export const getSkills = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit, skip } = parsePagination(req);
-    const categoryId = readCatalogParam(req, 'categoryId', 'category_id', 'industryId', 'industry_id', 'industry');
+    const reqCategoryId = readCatalogParam(req, 'categoryId', 'category_id');
+    const reqIndustryId = readCatalogParam(req, 'industryId', 'industry_id', 'industry');
     const search = readCatalogParam(req, 'search', 'q') || '';
 
     const respond = (
@@ -145,35 +146,39 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
 
     const nameFilter = search ? { name: { contains: search } } : {};
 
-    let targetIndustry: any = null;
-    if (categoryId) {
-      targetIndustry = await prisma.industry.findFirst({
-        where: {
-          OR: [
-            { id: categoryId },
-            { name: categoryId },
-            { name: { contains: categoryId } }
-          ]
-        }
-      }).catch(() => null);
-    }
-
-    const indId = targetIndustry?.id || categoryId;
-    const indName = targetIndustry?.name || categoryId;
-
-    const where: Record<string, unknown> = {
+    const where: any = {
       status: 'active',
       ...nameFilter,
     };
 
-    if (indId || indName) {
-      where.OR = [
-        { industry: indId },
-        { industry: indName },
-        { categoryId: indId },
-        { category: { is: { industryId: indId } } },
-        { category: { is: { name: { contains: indName } } } }
-      ];
+    let indId: string | undefined = undefined;
+    let indName: string | undefined = undefined;
+
+    if (reqCategoryId) {
+      where.categoryId = reqCategoryId;
+    } else if (reqIndustryId) {
+      const targetIndustry = await prisma.industry.findFirst({
+        where: {
+          OR: [
+            { id: reqIndustryId },
+            { name: reqIndustryId },
+            { name: { contains: reqIndustryId } }
+          ]
+        }
+      }).catch(() => null);
+
+      indId = targetIndustry?.id || reqIndustryId;
+      indName = targetIndustry?.name || reqIndustryId;
+
+      if (indId || indName) {
+        where.OR = [
+          { industry: indId },
+          { industry: indName },
+          { categoryId: indId },
+          { category: { is: { industryId: indId } } },
+          { category: { is: { name: { contains: indName } } } }
+        ];
+      }
     }
 
     let [skills, total]: [any[], number] = await Promise.all([
@@ -219,7 +224,7 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
       id: s.id,
       name: s.name,
       categoryId: s.categoryId || null,
-      industryId: indId || null
+      industryId: reqIndustryId ? (indId || null) : (s.industry || null)
     }));
 
     return respond(result, total);
