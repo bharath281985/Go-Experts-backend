@@ -173,6 +173,13 @@ model FreelancerProfile {
   dribbbleUrl      String?  @map("dribbble_url")
   industry         String?
   workMode         String?  @map("work_mode")
+  currency         String?
+  monthlyRetainer  Float?   @map("monthly_retainer")
+  availability     String?
+  workingHours     String?  @map("working_hours")
+  responseTime     String?  @map("response_time")
+  remoteAvailability Boolean? @default(true) @map("remote_availability")
+  openToTravel     Boolean? @default(false) @map("open_to_travel")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)

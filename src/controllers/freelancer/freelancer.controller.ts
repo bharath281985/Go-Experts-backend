@@ -332,6 +332,13 @@ const safeFreelancerProfileSelect = {
     hourlyRate: true,
     rating: true,
     experience: true,
+    currency: true,
+    monthlyRetainer: true,
+    availability: true,
+    workingHours: true,
+    responseTime: true,
+    remoteAvailability: true,
+    openToTravel: true,
     createdAt: true,
     updatedAt: true,
   },
@@ -941,9 +948,10 @@ export const getFreelancerProfile = async (
     if (allUuids.length > 0) {
       const uniqueUuids = Array.from(new Set(allUuids));
       
-      const [dbSkills, dbIndustries] = await Promise.all([
+      const [dbSkills, dbIndustries, dbCategories] = await Promise.all([
         prisma.skill.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } }),
-        prisma.industry.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } })
+        prisma.industry.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } }),
+        prisma.skillCategory.findMany({ where: { id: { in: uniqueUuids } }, select: { id: true, name: true } })
       ]);
       
       let moSkills: any[] = [];
@@ -980,6 +988,7 @@ export const getFreelancerProfile = async (
       const resolvedMap = new Map();
       dbSkills.forEach(s => resolvedMap.set(s.id, s.name));
       dbIndustries.forEach(s => resolvedMap.set(s.id, s.name));
+      dbCategories.forEach(s => resolvedMap.set(s.id, s.name));
       moSkills.forEach(s => resolvedMap.set(s.id, s.label || s.value));
       regMap.forEach((v, k) => resolvedMap.set(k, v));
       Object.entries(SKILL_NAME_MAP).forEach(([k, v]) => resolvedMap.set(k, v));
@@ -1028,7 +1037,13 @@ export const getFreelancerProfile = async (
         city: user.city || "",
         country: user.country || "",
         location,
-        availability: user.status === "active" ? "Available for work" : "Unavailable",
+        availability: profile?.availability || (user.status === "active" ? "Available for work" : "Unavailable"),
+        currency: profile?.currency || "USD",
+        monthlyRate: profile?.monthlyRetainer ?? null,
+        workingHours: profile?.workingHours || "",
+        responseTime: profile?.responseTime || "",
+        remote: profile?.remoteAvailability ?? true,
+        travel: profile?.openToTravel ?? false,
         status: user.status,
         verified: Boolean(user.isVerified || user.verified),
         role: user.role,
@@ -1171,6 +1186,21 @@ export const updateFreelancerProfile = async (
       hourlyRate = Number.isFinite(n) ? n : null;
     }
 
+    const currency = body.currency != null ? String(body.currency).trim() : existing.freelancerProfile?.currency ?? null;
+    
+    const monthlyRateRaw = body.monthlyRate;
+    let monthlyRetainer = existing.freelancerProfile?.monthlyRetainer ?? null;
+    if (monthlyRateRaw != null && monthlyRateRaw !== "") {
+      const n = Number(String(monthlyRateRaw).replace(/[^0-9.]/g, ""));
+      monthlyRetainer = Number.isFinite(n) ? n : null;
+    }
+
+    const availability = body.availability != null ? String(body.availability).trim() : existing.freelancerProfile?.availability ?? null;
+    const workingHours = body.workingHours != null ? String(body.workingHours).trim() : existing.freelancerProfile?.workingHours ?? null;
+    const responseTime = body.responseTime != null ? String(body.responseTime).trim() : existing.freelancerProfile?.responseTime ?? null;
+    const remoteAvailability = body.remoteAvailability != null ? Boolean(body.remoteAvailability) : existing.freelancerProfile?.remoteAvailability ?? true;
+    const openToTravel = body.openToTravel != null ? Boolean(body.openToTravel) : existing.freelancerProfile?.openToTravel ?? false;
+
     await prisma.freelancerProfile.upsert({
       where: { userId },
       update: {
@@ -1178,6 +1208,13 @@ export const updateFreelancerProfile = async (
         experience,
         skills: skillsArr.join(", "),
         hourlyRate,
+        currency,
+        monthlyRetainer,
+        availability,
+        workingHours,
+        responseTime,
+        remoteAvailability,
+        openToTravel,
       },
       create: {
         userId,
@@ -1185,6 +1222,13 @@ export const updateFreelancerProfile = async (
         experience,
         skills: skillsArr.join(", "),
         hourlyRate,
+        currency,
+        monthlyRetainer,
+        availability,
+        workingHours,
+        responseTime,
+        remoteAvailability,
+        openToTravel,
       },
     });
 
