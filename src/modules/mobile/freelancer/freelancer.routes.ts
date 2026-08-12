@@ -17,6 +17,7 @@ import { getReceivedReviews, getAverageRating, getRatingBreakdown, replyToReview
 import { getCurrentPlan, getAvailablePlans, upgradePlan, renewPlan, cancelPlan, getUsage, getBenefits } from './controllers/subscriptions.controller.js';
 import { listDocuments, uploadDocument, deleteDocument, downloadDocument, previewDocument } from './controllers/documents.controller.js';
 import { upload, handleUploadError } from '../../../middleware/upload.js';
+import { rejectLocalFilePaths } from '../../../middlewares/reject-local-file-paths.middleware.js';
 import { getSettings, updateSettings } from './controllers/settings.controller.js';
 import { getAnalytics, getReports, getEarningsReport, getProjectsReport, getClientsReport, exportReport } from './controllers/analytics.controller.js';
 import { globalSearch, searchProjects as searchProjectsGlobal, searchClients, searchBySkill } from './controllers/search.controller.js';
@@ -48,9 +49,9 @@ router.get('/dashboard', getDashboard);
 
 // ─── Profile ───
 router.get('/profile', getProfile);
-router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
-router.patch('/profile', upload.single('file'), handleUploadError, updateProfile);
-router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
+router.put('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
+router.patch('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
+router.post('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
 router.post('/profile/avatar', upload.single('file'), handleUploadError, uploadAvatar);
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCoverImage);
 router.post('/profile/resume', upload.single('file'), handleUploadError, uploadResume);

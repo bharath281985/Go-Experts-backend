@@ -119,31 +119,23 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       });
     });
 
-    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas([...ideas, ...trendingStartups]);
+    // Get startup details for industry/stage distribution early to resolve industry/stage names
+    const startupUserIds = Array.from(new Set(allInvestments.map(i => i.startup)));
+    const investedStartups = startupUserIds.length > 0 ? await prisma.startupIdea.findMany({
+      where: { id: { in: startupUserIds } },
+    }) : [];
+
+    const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas([...ideas, ...trendingStartups, ...investedStartups]);
     const watchlist = await readList(userId);
     const savedIds = new Set<string>(watchlist.map((w: any) => w.startupId));
     const investedIds = new Set<string>(allInvestments.map(i => i.startup));
 
     const recommendedStartups = ideas.map(idea => {
-      const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap);
-      return {
-        ...idea,
-        industry: formatted?.industry || idea.industry,
-        category: formatted?.category || idea.category,
-        stage: formatted?.stage || idea.stage,
-        founder: formatted?.user || null
-      };
+      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap);
     });
 
     const trendingStartupsList = trendingStartups.map(idea => {
-      const formatted = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap);
-      return {
-        ...idea,
-        industry: formatted?.industry || idea.industry,
-        category: formatted?.category || idea.category,
-        stage: formatted?.stage || idea.stage,
-        founder: formatted?.user || null
-      };
+      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap);
     });
 
     // Populate founder details for meetings
@@ -192,11 +184,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     const industryDistributionMap = new Map<string, number>();
     const stageMap = new Map<string, number>();
 
-    // Get startup details for industry/stage distribution
-    const startupUserIds = Array.from(new Set(allInvestments.map(i => i.startup)));
-    const investedStartups = startupUserIds.length > 0 ? await prisma.startupIdea.findMany({
-      where: { id: { in: startupUserIds } },
-    }) : [];
+    // Startup details for industry/stage distribution are now fetched earlier
     const startupByFounder = new Map<string, any>();
     investedStartups.forEach(s => startupByFounder.set(s.id, s));
 
@@ -204,8 +192,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       // Industry & stage distribution
       const startup = startupByFounder.get(inv.startup);
       if (startup) {
-        industryDistributionMap.set(startup.industry, (industryDistributionMap.get(startup.industry) || 0) + inv.offer);
-        stageMap.set(startup.stage, (stageMap.get(startup.stage) || 0) + inv.offer);
+        const resolvedIndustry = industryMap.get(startup.industry) || startup.industry;
+        const resolvedStage = optionMap.get(startup.stage) || startup.stage;
+        industryDistributionMap.set(resolvedIndustry, (industryDistributionMap.get(resolvedIndustry) || 0) + inv.offer);
+        stageMap.set(resolvedStage, (stageMap.get(resolvedStage) || 0) + inv.offer);
       }
     });
 
@@ -248,8 +238,6 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         upcomingMeetings: upcomingMeetingsCount,
         watchlistCount,
         supportTickets: supportTicketsCount,
-        recommendedStartups,
-        trendingStartups: trendingStartupsList,
         charts: {
           portfolioGrowth,
           investmentAllocation,
@@ -258,8 +246,12 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           monthlyInvestments,
           roiTrend,
         },
-        recentActivities,
-        upcomingMeetingsList,
+        widgets: {
+          recommendedStartups,
+          trendingStartups: trendingStartupsList,
+          recentActivities,
+          upcomingMeetingsList,
+        },
       })
     );
   } catch (error) {

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { upload, chatUpload, handleUploadError } from '../../../middleware/upload.js';
 import { authenticate, authorizeRole, AuthRequest } from '../../../middlewares/auth.js';
+import { rejectLocalFilePaths } from '../../../middlewares/reject-local-file-paths.middleware.js';
 
 // Controllers
 import { getDashboard } from './controllers/dashboard.controller.js';
@@ -55,9 +56,9 @@ router.use(authorizeRole('investor'));
 router.get('/dashboard', getDashboard);
 
 router.get('/profile', getProfile);
-router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
-router.patch('/profile', upload.single('file'), handleUploadError, updateProfile);
-router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
+router.put('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
+router.patch('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
+router.post('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
 router.post('/profile/avatar', upload.single('file'), handleUploadError, uploadAvatar);
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCover);
 router.post('/profile/documents', upload.single('file'), handleUploadError, uploadDocuments);

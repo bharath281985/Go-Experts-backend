@@ -5,8 +5,12 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { getMimeCategory } from '../../../../middleware/upload.js';
+import { UPLOADS_DIR } from '../../../../config/uploads.js';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
+
+const storedUploadPath = (filepath: string) =>
+  filepath.replace(/\\/g, '/').replace(/^\/?uploads\//i, '');
 
 const mapFile = (record: any) => ({
   id: record.id,
@@ -17,7 +21,7 @@ const mapFile = (record: any) => ({
   size: record.filesize,
   category: record.filetype,
   path: record.filepath,
-  url: `${BASE_URL}/${record.filepath.replace(/\\/g, '/')}`,
+  url: `${BASE_URL}/uploads/${storedUploadPath(record.filepath)}`,
   createdAt: record.createdAt,
   updatedAt: record.updatedAt
 });
@@ -42,7 +46,7 @@ export const uploadFile = async (req: AuthRequest, res: Response, next: NextFunc
       );
     }
 
-    const relativePath = file.path.replace(/\\/g, '/');
+    const relativePath = path.relative(UPLOADS_DIR, file.path).replace(/\\/g, '/');
 
     const record = await prisma.mediaFile.create({
       data: {
@@ -81,7 +85,7 @@ export const uploadMultiple = async (req: AuthRequest, res: Response, next: Next
           mimeType: file.mimetype,
           filesize: file.size,
           filetype: detectedCategory,
-          filepath: file.path.replace(/\\/g, '/'),
+          filepath: path.relative(UPLOADS_DIR, file.path).replace(/\\/g, '/'),
           status: 'active'
         }
       });
@@ -149,8 +153,8 @@ export const downloadFile = async (req: AuthRequest, res: Response, next: NextFu
     });
     if (!file) return res.status(404).json(errorResponse('File not found', 'NOT_FOUND'));
 
-    const basePath = path.resolve('uploads');
-    const absolutePath = path.resolve(basePath, file.filepath);
+    const basePath = path.resolve(UPLOADS_DIR);
+    const absolutePath = path.resolve(basePath, storedUploadPath(file.filepath));
 
     if (!absolutePath.startsWith(basePath)) {
       return res.status(403).json(errorResponse('Access denied', 'FORBIDDEN'));

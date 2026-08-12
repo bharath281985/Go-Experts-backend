@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { errorResponse, successResponse } from '../../core/response.js';
 import { AuthRequest } from '../../middlewares/auth.middleware.js';
+import path from 'path';
+import { UPLOADS_DIR } from '../../config/uploads.js';
 
 const getBaseUrl = (req?: any) => {
   const envUrl = process.env.BASE_URL || process.env.APP_URL || process.env.PUBLIC_URL;
@@ -15,8 +17,8 @@ const getBaseUrl = (req?: any) => {
 
 /** Build public URL for a multer-uploaded file. */
 export const uploadedFileUrl = (file: Express.Multer.File, req?: any) => {
-  const relativePath = file.path.replace(/\\/g, '/');
-  return `${getBaseUrl(req)}/${relativePath}`;
+  const relativePath = path.relative(UPLOADS_DIR, file.path).replace(/\\/g, '/');
+  return `${getBaseUrl(req)}/uploads/${relativePath}`;
 };
 
 /** Standard attachment/profile upload response from req.file. */

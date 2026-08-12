@@ -13,6 +13,7 @@ import { listMilestones, getMilestone, approveMilestone, rejectMilestone, releas
 import { listMeetings, scheduleMeeting, getMeeting, rescheduleMeeting, cancelMeeting, addMeetingNotes } from './controllers/meetings.controller.js';
 import { listConversations, getConversation, sendMessage, markMessageRead, markConversationRead, markConversationUnread, deleteMessage, deleteConversation, uploadAttachment } from './controllers/messages.controller.js';
 import { upload, chatUpload, handleUploadError } from '../../../middleware/upload.js';
+import { rejectLocalFilePaths } from '../../../middlewares/reject-local-file-paths.middleware.js';
 import { listPayments, getPayment, initiatePayment, verifyPayment, getPaymentHistory } from './controllers/payments.controller.js';
 import { listInvoices, getInvoice, downloadInvoice } from './controllers/invoices.controller.js';
 import { getWallet, getTransactions } from './controllers/wallet.controller.js';
@@ -34,9 +35,9 @@ router.get('/dashboard', getDashboard);
 
 // ─── Profile ───
 router.get('/profile', getProfile);
-router.put('/profile', upload.single('file'), handleUploadError, updateProfile);
-router.patch('/profile', upload.single('file'), handleUploadError, updateProfile);
-router.post('/profile', upload.single('file'), handleUploadError, updateProfile);
+router.put('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
+router.patch('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
+router.post('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
 router.post('/profile/logo', upload.single('file'), handleUploadError, uploadLogo);
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCover);
 router.post('/profile/documents', upload.single('file'), handleUploadError, uploadDocuments);

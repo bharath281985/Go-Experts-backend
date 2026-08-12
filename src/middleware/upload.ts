@@ -4,6 +4,7 @@ import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.js';
+import { UPLOADS_DIR } from '../config/uploads.js';
 
 // Allowed MIME types and their category mappings
 const ALLOWED_TYPES: Record<string, string> = {
@@ -59,7 +60,7 @@ const storage = multer.diskStorage({
     const authReq = req as AuthRequest;
     const role = authReq.user?.role || 'general';
     const userId = authReq.user?.id || 'unknown';
-    const uploadDir = `uploads/${role}/${userId}`;
+    const uploadDir = path.join(UPLOADS_DIR, role, userId);
     fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
