@@ -564,6 +564,15 @@ export const getFreelancerDashboard = async (
           where: { id: { in: uuidSkills } },
           select: { id: true, name: true },
         });
+        
+        let moSkills: any[] = [];
+        try {
+          moSkills = await (prisma as any).masterOption.findMany({
+            where: { id: { in: uuidSkills } },
+            select: { id: true, label: true, value: true },
+          });
+        } catch (e) {}
+
         let regData: any = {};
         try {
           regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
@@ -572,8 +581,18 @@ export const getFreelancerDashboard = async (
         if (Array.isArray(regData.skillsList)) {
           regData.skillsList.forEach((s: any) => regSkillMap.set(s.id, s.name));
         }
+
+        const SKILL_NAME_MAP: Record<string, string> = {
+          "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+          "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+          "sk_1": "React",
+          "sk_2": "TypeScript"
+        };
+        
         const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
-        skillsRaw = skillsRaw.map((s) => skillMap.get(s) || regSkillMap.get(s) || s);
+        const moMap = new Map(moSkills.map((s) => [s.id, s.label || s.value]));
+        
+        skillsRaw = skillsRaw.map((s) => skillMap.get(s) || moMap.get(s) || regSkillMap.get(s) || SKILL_NAME_MAP[s] || s);
       }
     }
     const skillDist =
@@ -911,6 +930,15 @@ export const getFreelancerProfile = async (
           where: { id: { in: uuidSkills } },
           select: { id: true, name: true },
         });
+        
+        let moSkills: any[] = [];
+        try {
+          moSkills = await (prisma as any).masterOption.findMany({
+            where: { id: { in: uuidSkills } },
+            select: { id: true, label: true, value: true },
+          });
+        } catch (e) {}
+
         let regData: any = {};
         try {
           regData = typeof user.registrationData === "string" ? JSON.parse(user.registrationData) : (user.registrationData || {});
@@ -919,8 +947,18 @@ export const getFreelancerProfile = async (
         if (Array.isArray(regData.skillsList)) {
           regData.skillsList.forEach((s: any) => regSkillMap.set(s.id, s.name));
         }
+
+        const SKILL_NAME_MAP: Record<string, string> = {
+          "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+          "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+          "sk_1": "React",
+          "sk_2": "TypeScript"
+        };
+        
         const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
-        skills = skills.map((s) => skillMap.get(s) || regSkillMap.get(s) || s);
+        const moMap = new Map(moSkills.map((s) => [s.id, s.label || s.value]));
+        
+        skills = skills.map((s) => skillMap.get(s) || moMap.get(s) || regSkillMap.get(s) || SKILL_NAME_MAP[s] || s);
       }
     }
 
@@ -1069,8 +1107,26 @@ export const updateFreelancerProfile = async (
           where: { id: { in: uuidSkills } },
           select: { id: true, name: true },
         });
+        
+        let moSkills: any[] = [];
+        try {
+          moSkills = await (prisma as any).masterOption.findMany({
+            where: { id: { in: uuidSkills } },
+            select: { id: true, label: true, value: true },
+          });
+        } catch (e) {}
+        
+        const SKILL_NAME_MAP: Record<string, string> = {
+          "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
+          "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
+          "sk_1": "React",
+          "sk_2": "TypeScript"
+        };
+        
         const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
-        skillsArr = skillsArr.map((s) => skillMap.get(s) || s);
+        const moMap = new Map(moSkills.map((s) => [s.id, s.label || s.value]));
+        
+        skillsArr = skillsArr.map((s) => skillMap.get(s) || moMap.get(s) || SKILL_NAME_MAP[s] || s);
       }
     }
 
