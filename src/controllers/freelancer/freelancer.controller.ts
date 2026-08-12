@@ -495,6 +495,11 @@ export const getFreelancerDashboard = async (
             : 0;
 
     const completion = profileCompletion(user, user.freelancerProfile);
+    try {
+      const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+      const realCompletion = await resolveProfileCompletion(user.id);
+      completion.overall = realCompletion.profileCompletion;
+    } catch (e) {}
     const balance = Number(user.wallet?.balance ?? 0);
     const currency = user.wallet?.currency || "USD";
     const totalEarnings = Number(walletCredits._sum.amount ?? 0);
@@ -892,6 +897,11 @@ export const getFreelancerProfile = async (
     }
 
     const completion = profileCompletion(user, profile);
+    try {
+      const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+      const realCompletion = await resolveProfileCompletion(user.id);
+      completion.overall = realCompletion.profileCompletion;
+    } catch (e) {}
     const location = [user.city, user.country].filter(Boolean).join(", ");
     const headline =
       (user.bio && user.bio.trim()) ||
