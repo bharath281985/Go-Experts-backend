@@ -194,7 +194,7 @@ export class ResumeExportService {
       await page.goto(renderUrl, { waitUntil: "networkidle", timeout: EXPORT_TIMEOUT_MS });
 
       // Wait for deterministic readiness signal
-      await page.waitForFunction(() => (window as any).__RESUME_READY__ === true, {
+      await page.waitForFunction("window.__RESUME_READY__ === true", {
         timeout: 10000
       });
 

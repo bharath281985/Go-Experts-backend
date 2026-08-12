@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { RESUME_RENDERERS } from "../constants/resume-renderers";
+import { RESUME_RENDERERS } from "../constants/resume-renderers.js";
 
 const prisma = new PrismaClient();
 

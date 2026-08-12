@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getPublicResumeTemplates, getResumeRenderData } from "../../controllers/public/resume-template.controller";
+import { getPublicResumeTemplates, getResumeRenderData } from "../../controllers/public/resume-template.controller.js";
 
 const publicResumeTemplateRouter = Router();
 

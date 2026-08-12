@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { AdminResumeTemplateService } from "../../services/admin/resume-template.service";
+import { AdminResumeTemplateService } from "../../services/admin/resume-template.service.js";
 
 const service = new AdminResumeTemplateService();
 

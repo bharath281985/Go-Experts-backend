@@ -7,7 +7,7 @@ import {
   publishTemplate, 
   archiveTemplate, 
   duplicateTemplate 
-} from "../../controllers/admin/resume-template.controller";
+} from "../../controllers/admin/resume-template.controller.js";
 
 const resumeTemplateRouter = Router();
 

@@ -21,7 +21,7 @@ export const getSharedResume = async (req: Request, res: Response, next: NextFun
       return;
     }
 
-    if ((share as any).expired) {
+    if ('expired' in share) {
       res.status(410).json({ success: false, message: "This resume link has expired.", expired: true });
       return;
     }
@@ -43,7 +43,7 @@ export const exportSharedResumePdf = async (req: Request, res: Response, next: N
 
     const share = await ResumeShareService.resolveShareByToken(token);
     
-    if (!share || (share as any).expired) {
+    if (!share || 'expired' in share) {
       res.status(404).json({ success: false, message: "This resume is no longer available." });
       return;
     }
@@ -110,7 +110,7 @@ export const exportSharedResumePdf = async (req: Request, res: Response, next: N
 
       await page.goto(renderUrl, { waitUntil: "networkidle", timeout: EXPORT_TIMEOUT_MS });
 
-      await page.waitForFunction(() => (window as any).__RESUME_READY__ === true, {
+      await page.waitForFunction("window.__RESUME_READY__ === true", {
         timeout: 10000
       });
 
