@@ -641,7 +641,15 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   };
   
   delete (sanitized as any).registrationData;
-  
+
+  if ((sanitized as any).freelancerProfile) {
+    delete (sanitized as any).freelancerProfile.verificationJson;
+    delete (sanitized as any).freelancerProfile.portfolioJson;
+    delete (sanitized as any).freelancerProfile.educationJson;
+    delete (sanitized as any).freelancerProfile.experienceJson;
+  }
+  delete (sanitized as any).verificationData;
+
   return sanitized as unknown as T;
 }
 

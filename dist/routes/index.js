@@ -566,6 +566,13 @@ export function sanitizeUserRecord(row) {
         wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
     };
     delete sanitized.registrationData;
+    if (sanitized.freelancerProfile) {
+        delete sanitized.freelancerProfile.verificationJson;
+        delete sanitized.freelancerProfile.portfolioJson;
+        delete sanitized.freelancerProfile.educationJson;
+        delete sanitized.freelancerProfile.experienceJson;
+    }
+    delete sanitized.verificationData;
     return sanitized;
 }
 function sanitizeUserRows(rows) {
