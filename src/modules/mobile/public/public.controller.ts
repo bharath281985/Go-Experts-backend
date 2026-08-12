@@ -192,33 +192,7 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
       prisma.skill.count({ where }),
     ]).catch(() => [[], 0] as [any[], number]);
 
-    if (skills.length === 0 && (indId || indName)) {
-      const allActiveSkills = await prisma.skill.findMany({
-        where: { status: 'active', ...nameFilter },
-        orderBy: { name: 'asc' },
-        select: { id: true, name: true, categoryId: true, industry: true }
-      }).catch(() => []);
 
-      const lowerName = (indName || "").toLowerCase();
-
-      skills = allActiveSkills.filter((s: any) => {
-        const sName = s.name.toLowerCase();
-        if (lowerName.includes('data') || lowerName.includes('ai')) {
-          return ['data science', 'machine learning', 'python', 'ai', 'big data', 'nlp', 'tensorflow', 'pytorch', 'graphql', 'mongodb', 'postgresql'].some(k => sName.includes(k));
-        } else if (lowerName.includes('fintech') || lowerName.includes('finance')) {
-          return ['blockchain', 'python', 'postgresql', 'redis', 'security', 'quant', 'golang', 'financial'].some(k => sName.includes(k));
-        } else if (lowerName.includes('design') || lowerName.includes('media')) {
-          return ['ui/ux', 'design', 'figma', 'motion', 'graphic', '3d', 'creative'].some(k => sName.includes(k));
-        } else if (lowerName.includes('agri')) {
-          return ['agri', 'iot', 'drone', 'gis', 'sensor', 'python'].some(k => sName.includes(k));
-        } else {
-          return true;
-        }
-      });
-
-      total = skills.length;
-      skills = skills.slice(skip, skip + limit);
-    }
 
     const result = skills.map((s: any) => ({
       id: s.id,
@@ -314,16 +288,7 @@ export const getWorkModes = async (req: Request, res: Response, next: NextFuncti
       return res.json(successResponse('Work modes retrieved', options));
     }
 
-    const fallbackModes = [
-      { id: 'wm_remote', label: 'Remote', value: 'Remote' },
-      { id: 'wm_hybrid', label: 'Hybrid', value: 'Hybrid' },
-      { id: 'wm_onsite', label: 'On-site', value: 'On-site' },
-      { id: 'wm_fulltime', label: 'Full-time', value: 'Full-time' },
-      { id: 'wm_parttime', label: 'Part-time', value: 'Part-time' },
-      { id: 'wm_contract', label: 'Contract', value: 'Contract' },
-    ];
-
-    return res.json(successResponse('Work modes retrieved', fallbackModes));
+    return res.json(successResponse('Work modes retrieved', options || []));
   } catch (error) { next(error); }
 };
 
@@ -339,15 +304,7 @@ export const getHiringGoals = async (req: Request, res: Response, next: NextFunc
       return res.json(successResponse('Hiring goals retrieved', options));
     }
 
-    const fallbacks = [
-      { id: 'opt_hiring_goal_freelancers', label: 'Hire Freelance Experts', value: 'Hire Freelance Experts' },
-      { id: 'opt_hiring_goal_fulltime', label: 'Full-Time Dedicated Hiring', value: 'Full-Time Dedicated Hiring' },
-      { id: 'opt_hiring_goal_contract', label: 'Build Contract Team', value: 'Build Contract Team' },
-      { id: 'opt_hiring_goal_consulting', label: 'Advisory & Consulting', value: 'Advisory & Consulting' },
-      { id: 'opt_hiring_goal_outsource', label: 'Project Outsource', value: 'Project Outsource' }
-    ];
-
-    return res.json(successResponse('Hiring goals retrieved', fallbacks));
+    return res.json(successResponse('Hiring goals retrieved', options || []));
   } catch (error) { next(error); }
 };
 
@@ -422,15 +379,7 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
       return res.json(successResponse('Budget ranges retrieved', deduplicateMasterOptions(dbRanges)));
     }
 
-    const fallbacks = [
-      { id: 'opt_budget_range_1', label: 'Less than $1,000 / Under ₹80,000', value: 'Under $1,000', min: 0, max: 1000 },
-      { id: 'opt_budget_range_2', label: '$1,000 - $5,000 / ₹80k - ₹4L', value: '$1,000 - $5,000', min: 1000, max: 5000 },
-      { id: 'opt_budget_range_3', label: '$5,000 - $10,000 / ₹4L - ₹8L', value: '$5,000 - $10,000', min: 5000, max: 10000 },
-      { id: 'opt_budget_range_4', label: '$10,000 - $25,000 / ₹8L - ₹20L', value: '$10,000 - $25,000', min: 10000, max: 25000 },
-      { id: 'opt_budget_range_5', label: '$25,000+ / ₹20L+', value: '$25,000+', min: 25000, max: 99999999 }
-    ];
-
-    return res.json(successResponse('Budget ranges retrieved', fallbacks));
+    return res.json(successResponse('Budget ranges retrieved', []));
   } catch (error) { next(error); }
 };
 
@@ -446,22 +395,7 @@ export const getDesignations = async (req: Request, res: Response, next: NextFun
       return res.json(successResponse('Designations retrieved', deduplicateMasterOptions(dbDesignations)));
     }
 
-    const fallbacks = [
-      { id: 'des_founder', label: 'Founder / Co-Founder', value: 'Founder / Co-Founder' },
-      { id: 'des_ceo', label: 'Chief Executive Officer (CEO)', value: 'CEO' },
-      { id: 'des_cto', label: 'Chief Technology Officer (CTO)', value: 'CTO' },
-      { id: 'des_cpo', label: 'Chief Product Officer (CPO)', value: 'CPO' },
-      { id: 'des_cmo', label: 'Chief Marketing Officer (CMO)', value: 'CMO' },
-      { id: 'des_coo', label: 'Chief Operating Officer (COO)', value: 'COO' },
-      { id: 'des_vp_eng', label: 'VP of Engineering', value: 'VP of Engineering' },
-      { id: 'des_product_manager', label: 'Product Manager', value: 'Product Manager' },
-      { id: 'des_lead_dev', label: 'Lead Developer / Architect', value: 'Lead Developer' },
-      { id: 'des_ui_ux', label: 'UI/UX Design Lead', value: 'UI/UX Design Lead' },
-      { id: 'des_marketing_lead', label: 'Growth / Marketing Lead', value: 'Growth Lead' },
-      { id: 'des_business_dev', label: 'Business Development Lead', value: 'Business Development Lead' }
-    ];
-
-    return res.json(successResponse('Designations retrieved', fallbacks));
+    return res.json(successResponse('Designations retrieved', []));
   } catch (error) { next(error); }
 };
 
@@ -477,18 +411,7 @@ export const getFounderGoals = async (req: Request, res: Response, next: NextFun
       return res.json(successResponse('Founder goals retrieved', deduplicateMasterOptions(dbGoals)));
     }
 
-    const fallbacks = [
-      { id: 'opt_founder_goal_funding', label: 'Funding / Seed Investment', value: 'Funding / Investment' },
-      { id: 'opt_founder_goal_tech_cofounder', label: 'Find Technical Co-Founder', value: 'Technical Co-Founder' },
-      { id: 'opt_founder_goal_business_cofounder', label: 'Find Business Co-Founder', value: 'Business Co-Founder' },
-      { id: 'opt_founder_goal_mvp', label: 'MVP Development & Architecture', value: 'MVP Development' },
-      { id: 'opt_founder_goal_team', label: 'Build Core Engineering Team', value: 'Team Building' },
-      { id: 'opt_founder_goal_mentorship', label: 'Mentorship & Advisory', value: 'Mentorship' },
-      { id: 'opt_founder_goal_market_connect', label: 'B2B Market Connect & Customers', value: 'Market Connect' },
-      { id: 'opt_founder_goal_growth', label: 'Customer Acquisition & Growth', value: 'Customer Acquisition' }
-    ];
-
-    return res.json(successResponse('Founder goals retrieved', fallbacks));
+    return res.json(successResponse('Founder goals retrieved', []));
   } catch (error) { next(error); }
 };
 
@@ -618,15 +541,7 @@ export const getTeamSizes = async (req: Request, res: Response, next: NextFuncti
       return res.json(successResponse('Team sizes retrieved', deduplicateMasterOptions(sizes)));
     }
 
-    const fallbacks = [
-      { id: 'opt_team_size_1_10', label: '1-10 Employees', value: '1-10' },
-      { id: 'opt_team_size_11_50', label: '11-50 Employees', value: '11-50' },
-      { id: 'opt_team_size_51_200', label: '51-200 Employees', value: '51-200' },
-      { id: 'opt_team_size_201_500', label: '201-500 Employees', value: '201-500' },
-      { id: 'opt_team_size_500_plus', label: '500+ Employees', value: '500+' }
-    ];
-
-    return res.json(successResponse('Team sizes retrieved', fallbacks));
+    return res.json(successResponse('Team sizes retrieved', []));
   } catch (error) { next(error); }
 };
 
@@ -700,12 +615,7 @@ export const getCountries = async (req: Request, res: Response, next: NextFuncti
       return res.json(successResponse('Countries retrieved', all));
     }
 
-    const fallbackList = Object.keys(COUNTRY_INFO_MAP).map((k) => ({
-      id: COUNTRY_INFO_MAP[k].code,
-      name: k.toUpperCase(),
-      ...COUNTRY_INFO_MAP[k]
-    }));
-    return res.json(successResponse('Countries retrieved', fallbackList));
+    return res.json(successResponse('Countries retrieved', []));
   } catch (error) { next(error); }
 };
 
@@ -766,41 +676,9 @@ export const getStates = async (req: Request, res: Response, next: NextFunction)
       }));
     }
 
-    if (states.length === 0 && (isoCode === "IN" || lowerParam.includes("india"))) {
-      states = [
-        { id: "KA", code: "KA", name: "Karnataka", countryCode: "IN" },
-        { id: "MH", code: "MH", name: "Maharashtra", countryCode: "IN" },
-        { id: "DL", code: "DL", name: "Delhi", countryCode: "IN" },
-        { id: "TN", code: "TN", name: "Tamil Nadu", countryCode: "IN" },
-        { id: "TG", code: "TG", name: "Telangana", countryCode: "IN" },
-        { id: "GJ", code: "GJ", name: "Gujarat", countryCode: "IN" },
-        { id: "UP", code: "UP", name: "Uttar Pradesh", countryCode: "IN" },
-        { id: "WB", code: "WB", name: "West Bengal", countryCode: "IN" },
-        { id: "KL", code: "KL", name: "Kerala", countryCode: "IN" },
-        { id: "HR", code: "HR", name: "Haryana", countryCode: "IN" }
-      ];
-    } else if (states.length === 0 && (isoCode === "US" || lowerParam.includes("united states") || lowerParam.includes("usa"))) {
-      states = [
-        { id: "CA", code: "CA", name: "California", countryCode: "US" },
-        { id: "NY", code: "NY", name: "New York", countryCode: "US" },
-        { id: "TX", code: "TX", name: "Texas", countryCode: "US" },
-        { id: "FL", code: "FL", name: "Florida", countryCode: "US" },
-        { id: "WA", code: "WA", name: "Washington", countryCode: "US" },
-        { id: "IL", code: "IL", name: "Illinois", countryCode: "US" }
-      ];
-    }
-
     return res.json(successResponse('States retrieved', states));
   } catch (error) {
-    const fallbackStates = [
-      { id: "KA", code: "KA", name: "Karnataka", countryCode: "IN" },
-      { id: "MH", code: "MH", name: "Maharashtra", countryCode: "IN" },
-      { id: "DL", code: "DL", name: "Delhi", countryCode: "IN" },
-      { id: "TN", code: "TN", name: "Tamil Nadu", countryCode: "IN" },
-      { id: "TG", code: "TG", name: "Telangana", countryCode: "IN" },
-      { id: "GJ", code: "GJ", name: "Gujarat", countryCode: "IN" }
-    ];
-    return res.json(successResponse('States retrieved', fallbackStates));
+    return res.json(successResponse('States retrieved', []));
   }
 };
 

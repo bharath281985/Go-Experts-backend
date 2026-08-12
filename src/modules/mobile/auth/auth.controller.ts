@@ -451,7 +451,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       if (b.subscription && typeof b.subscription === 'object' && (b.subscription.planId || b.subscription.isFreePlan !== undefined)) {
         const sub = b.subscription;
         const planId = String(sub.planId || (sub.isFreePlan ? 'Free_Trial' : 'Pro_Plan'));
-        
+
         await tx.subscriptionPlan.upsert({
           where: { id: planId },
           update: {
@@ -512,10 +512,10 @@ export const logout = async (req: AuthRequest, res: Response, next: NextFunction
   try {
     await bumpAuthEpoch(req.user.id);
     const fcmToken = req.body?.fcmToken || req.body?.deviceToken;
-    if (fcmToken) {
-      await removeDeviceToken(String(fcmToken));
-    } else {
-      await prisma.deviceToken.deleteMany({ where: { userId: req.user.id } });
+    const deviceId = req.body?.deviceId;
+
+    if (fcmToken || deviceId) {
+      await removeDeviceToken(fcmToken ? String(fcmToken) : undefined, deviceId ? String(deviceId) : undefined, req.user.id);
     }
     await AuditEngine.track(req.user.id, 'logout', 'user', req.user.id, null, null, req);
     return res.json(successResponse('Logged out successfully'));
@@ -675,7 +675,7 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
 
     if (!user || !user.password) return res.status(400).json(errorResponse('Invalid request'));
-    
+
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) return res.status(401).json(errorResponse('Incorrect old password'));
 
@@ -817,7 +817,7 @@ export const deleteAccount = async (req: AuthRequest, res: Response, next: NextF
 export const sendOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, phone, countryCode } = req.body;
-    
+
     if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
@@ -827,7 +827,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       if (!isDomainValid) {
         return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
       }
-      
+
       const { code } = await issueEmailOtp(email);
       await sendVerificationEmail(email, code);
       const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -861,7 +861,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
 export const resendOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, phone, countryCode } = req.body;
-    
+
     if (email) {
       const isDomainValid = await validateEmailDomain(email);
       if (!isDomainValid) {
