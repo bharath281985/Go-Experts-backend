@@ -151,7 +151,6 @@ model User {
   completionPercentage    Int                     @default(0) @map("completion_percentage")
   freelancerEducations    FreelancerEducation[]
   freelancerCertificates  FreelancerCertificate[]
-  freelancerPortfolios    FreelancerPortfolio[]
 
   @@index([role])
   @@index([status])
