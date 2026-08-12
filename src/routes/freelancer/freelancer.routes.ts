@@ -72,6 +72,11 @@ router.use(authMiddleware as any);
 router.use(portalRoleMiddleware(["freelancer", "client", "investor", "founder", "admin", "super_admin"]) as any);
 
 router.get("/dashboard", getFreelancerDashboard as any);
+router.get("/professional", getFreelancerProfile as any);
+router.patch("/professional", updateFreelancerProfile as any);
+router.put("/professional", updateFreelancerProfile as any);
+router.patch("/professional/cover", updateFreelancerCover as any);
+
 router.get("/profile", getFreelancerProfile as any);
 router.patch("/profile", updateFreelancerProfile as any);
 router.put("/profile", updateFreelancerProfile as any);
