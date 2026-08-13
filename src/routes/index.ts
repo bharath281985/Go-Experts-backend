@@ -449,13 +449,15 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   const rawCntry = rest.country ?? regData.countryId ?? regData.country ?? null;
   const countryIdVal = rawCntry ? (rawCntry.length === 2 ? rawCntry.toUpperCase() : (rawCntry.toLowerCase() === "india" ? "IN" : (rawCntry.toLowerCase() === "united states" || rawCntry.toLowerCase() === "usa" ? "US" : rawCntry))) : null;
 
+  const extractId = (val: any) => typeof val === 'object' && val !== null ? String(val.id || val.value || val.name || val) : String(val);
+
   const SKILL_NAME_MAP: Record<string, string> = {
     "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
     "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
     "sk_1": "React",
     "sk_2": "TypeScript"
   };
-  const sklNames = skillsArr.map(id => SKILL_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("d3a") ? "Node.js" : "Flutter") : id));
+  const sklNames = skillsArr.map(val => { const id = extractId(val); return SKILL_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("d3a") ? "Node.js" : "Flutter") : id); });
 
   const INDUSTRY_NAME_MAP: Record<string, string> = {
     "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
@@ -463,7 +465,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "ind_1": "Software Development",
     "ind_2": "Data & AI"
   };
-  const indNames = industryArr.map(id => INDUSTRY_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("07f") ? "Software Development" : "Data & AI") : id));
+  const indNames = industryArr.map(val => { const id = extractId(val); return INDUSTRY_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("07f") ? "Software Development" : "Data & AI") : id); });
 
   const WORK_MODE_NAME_MAP: Record<string, string> = {
     "14b8b7de-0038-4ee2-83b9-7c7726a6b92c": "Remote",
@@ -471,13 +473,13 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "wm_1": "Remote",
     "wm_3": "Hybrid"
   };
-  const wmNames = workModeArr.map(id => WORK_MODE_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("14b") ? "Remote" : "Hybrid") : id));
+  const wmNames = workModeArr.map(val => { const id = extractId(val); return WORK_MODE_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("14b") ? "Remote" : "Hybrid") : id); });
 
   const HIRING_GOAL_NAME_MAP: Record<string, string> = {
     "hg_1": "Hire Full-Time Developers",
     "hg_2": "Hire Freelancers"
   };
-  const hgNames = hiringGoalArr.map(id => HIRING_GOAL_NAME_MAP[id] || id);
+  const hgNames = hiringGoalArr.map(val => { const id = extractId(val); return HIRING_GOAL_NAME_MAP[id] || id; });
 
   const PREFERRED_STAGE_MAP: Record<string, string> = {
     "stg_1": "Seed Stage",
@@ -486,21 +488,22 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "stg_4": "MVP / Beta",
     "stg_5": "Idea / Concept"
   };
-  const psNames = preferredStageArr.map(id => PREFERRED_STAGE_MAP[id] || id);
+  const psNames = preferredStageArr.map(val => { const id = extractId(val); return PREFERRED_STAGE_MAP[id] || id; });
 
   const PRIMARY_GOAL_MAP: Record<string, string> = {
     "pg_1": "Looking for Investors",
     "pg_2": "Hiring Top Freelancers",
     "pg_3": "Scaling Startup"
   };
-  const pgNames = primaryGoalArr.map(id => PRIMARY_GOAL_MAP[id] || id);
+  const pgNames = primaryGoalArr.map(val => { const id = extractId(val); return PRIMARY_GOAL_MAP[id] || id; });
 
   const FOCUS_AREAS_MAP: Record<string, string> = {
     "fa_1": "FinTech & AI",
     "fa_2": "HealthTech",
-    "fa_3": "SaaS & Enterprise"
+    "fa_3": "E-Commerce",
+    "fa_4": "Web3 & Crypto"
   };
-  const faNames = focusAreasArr.map(id => FOCUS_AREAS_MAP[id] || id);
+  const faNames = focusAreasArr.map(val => { const id = extractId(val); return FOCUS_AREAS_MAP[id] || id; });
 
   const INVESTOR_TYPE_MAP: Record<string, string> = {
     "angel": "Angel Investor",
