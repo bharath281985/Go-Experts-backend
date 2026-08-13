@@ -18,6 +18,12 @@ import {
   updateVerificationData,
   saveOnboardingDraft,
 } from "../../controllers/auth/auth.controller.js";
+import {
+  googleAuthStart,
+  googleAuthCallback,
+  appleAuthStart,
+  appleAuthCallback,
+} from "../../controllers/auth/social-auth.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 
@@ -44,5 +50,11 @@ router.post("/send-verification-link", sendVerificationLink);
 router.patch("/verification", authMiddleware as any, updateVerificationData as any);
 router.patch("/onboarding/draft", authMiddleware as any, saveOnboardingDraft as any);
 router.put("/onboarding/draft", authMiddleware as any, saveOnboardingDraft as any);
+
+// Social Auth Routes
+router.get("/google", googleAuthStart);
+router.get("/google/callback", googleAuthCallback as any);
+router.get("/apple", appleAuthStart as any);
+router.post("/apple/callback", appleAuthCallback as any);
 
 export default router;
