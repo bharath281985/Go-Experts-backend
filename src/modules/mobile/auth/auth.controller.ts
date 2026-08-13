@@ -239,7 +239,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     if (!user || !user.password) {
       await safeTrackLoginAttempt(rawEmail, false, req, 'USER_NOT_FOUND');
       return res.status(404).json(
-        errorResponse('User is not registered with us', 'USER_NOT_FOUND')
+        errorResponse('This account is not registered. Please register', 'USER_NOT_FOUND')
       );
     }
 
@@ -417,7 +417,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               technology: skillsVal,
               timeline: proj.timeline || null,
               description: proj.description || null,
-              workMode: proj.remoteType || 'Remote',
+             
               status: 'open',
             }
           }).catch(() => null);
@@ -829,27 +829,38 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       }
 
       const { code } = await issueEmailOtp(email);
-      await sendVerificationEmail(email, code);
+      const emailSent = await sendVerificationEmail(email, code);
+
+      if (!emailSent) {
+        return res.status(500).json(errorResponse('Failed to send OTP email. Please try again later.', 'OTP_SEND_FAILED'));
+      }
+
       const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       return res.json(
         successResponse('OTP sent successfully', {
           id: otpId,
           email,
           expiresInSeconds: 600,
+          devOtpCode: code // Displaying explicitly for testing
         })
       );
     }
 
     if (phone && countryCode) {
-      const { phoneNumber } = await issuePhoneOtp(phone, countryCode);
-      const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      return res.json(
-        successResponse('OTP sent successfully', {
-          id: otpId,
-          phone: phoneNumber,
-          expiresInSeconds: 300,
-        })
-      );
+      try {
+        const { phoneNumber, code } = await issuePhoneOtp(phone, countryCode);
+        const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        return res.json(
+          successResponse('OTP sent successfully', {
+            id: otpId,
+            phone: phoneNumber,
+            expiresInSeconds: 300,
+            devOtpCode: code // Displaying explicitly for testing
+          })
+        );
+      } catch (err: any) {
+        return res.status(500).json(errorResponse('Failed to send SMS OTP. Please try again later.', 'OTP_SEND_FAILED'));
+      }
     }
 
     return res.status(400).json(errorResponse('Either email or phone is required', 'VALIDATION_ERROR'));
@@ -869,25 +880,36 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
       }
 
       const { code } = await issueEmailOtp(email);
-      await sendVerificationEmail(email, code);
+      const emailSent = await sendVerificationEmail(email, code);
+
+      if (!emailSent) {
+        return res.status(500).json(errorResponse('Failed to resend OTP email. Please try again later.', 'OTP_SEND_FAILED'));
+      }
+
       const otpId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       return res.json(
         successResponse('OTP resent successfully', {
           id: otpId,
           email,
           expiresInSeconds: 600,
+          devOtpCode: code
         })
       );
     }
 
     if (phone && countryCode) {
-      const { phoneNumber } = await issuePhoneOtp(phone, countryCode);
-      return res.json(
-        successResponse('OTP resent successfully', {
-          phone: phoneNumber,
-          expiresInSeconds: 300,
-        })
-      );
+      try {
+        const { phoneNumber, code } = await issuePhoneOtp(phone, countryCode);
+        return res.json(
+          successResponse('OTP resent successfully', {
+            phone: phoneNumber,
+            expiresInSeconds: 300,
+            devOtpCode: code
+          })
+        );
+      } catch (err: any) {
+        return res.status(500).json(errorResponse('Failed to resend SMS OTP. Please try again later.', 'OTP_SEND_FAILED'));
+      }
     }
 
     return res.status(400).json(errorResponse('Either email or phone is required', 'VALIDATION_ERROR'));

@@ -287,7 +287,7 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
           },
         }).catch(() => null);
       }
-    } catch {}
+    } catch { }
 
     try {
       const portalUser = { id: user.id, fullName: user.fullName, email: user.email, role: user.role };
@@ -299,7 +299,7 @@ export const createFreelancerMeeting = async (req: AuthenticatedRequest, res: Re
           { conversationId: targetConv.id, content: `📅 Scheduled Meeting: "${title}" on ${date} @ ${time} (${mode}). ${notes ? `Agenda: ${notes}` : ""}` }
         );
       }
-    } catch {}
+    } catch { }
 
     res.status(201).json({ success: true, message: "Meeting scheduled successfully", data: meeting });
   } catch (err) {
@@ -479,12 +479,37 @@ export const purchaseFreelancerSubscription = async (req: AuthenticatedRequest, 
 // EXPERIENCE / EDUCATION / CERTIFICATES / SKILLS
 // ==========================================
 
+const populateSkillsUsed = async (items: any | any[]) => {
+  const isArray = Array.isArray(items);
+  const rows = isArray ? items : [items];
+
+  const populated = await Promise.all(rows.map(async (row: any) => {
+    let skillsDetails = [];
+    if (row.skillsUsed) {
+      const skillIds = row.skillsUsed.split(',').map((s: string) => s.trim()).filter(Boolean);
+      if (skillIds.length > 0) {
+        skillsDetails = await prisma.skill.findMany({
+          where: { id: { in: skillIds } },
+          select: { id: true, name: true }
+        });
+      }
+    }
+    return { ...row, skillsDetails };
+  }));
+
+  return isArray ? populated : populated[0];
+};
+
 export const getFreelancerExperience = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
-    const rows = await getJsonSetting(userId, "experience", [] as any[]);
-    res.json({ success: true, rows, total: rows.length });
+    const rows = await prisma.freelancerExperience.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+    const populatedRows = await populateSkillsUsed(rows);
+    res.json({ success: true, data: populatedRows, total: populatedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -494,10 +519,118 @@ export const putFreelancerExperience = async (req: AuthenticatedRequest, res: Re
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
-    const items = Array.isArray(req.body) ? req.body : req.body?.items;
-    if (!Array.isArray(items)) return res.status(400).json({ success: false, message: "items array is required" });
-    await setJsonSetting(userId, "experience", items);
-    res.json({ success: true, message: "Experience updated", rows: items });
+    let items = Array.isArray(req.body) ? req.body : (req.body?.items || null);
+    if (!items) {
+      if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) items = [req.body];
+      else return res.status(400).json({ success: false, message: "items array is required" });
+    }
+
+    await prisma.$transaction([
+      prisma.freelancerExperience.deleteMany({ where: { userId } }),
+      prisma.freelancerExperience.createMany({
+        data: items.map((item: any) => ({
+          userId,
+          title: String(item.title || item.designation || ""),
+          company: String(item.company || ""),
+          location: item.location ? String(item.location) : null,
+          industryId: item.industryId ? String(item.industryId) : null,
+          startDate: item.startDate ? String(item.startDate) : null,
+          endDate: item.endDate ? String(item.endDate) : null,
+          isCurrent: Boolean(item.isCurrent),
+          description: item.description ? String(item.description) : null,
+          skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
+        })),
+      }),
+    ]);
+
+    const newRows = await prisma.freelancerExperience.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const populatedRows = await populateSkillsUsed(newRows);
+    res.json({ success: true, message: "Experience updated", data: populatedRows });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const postFreelancerExperience = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const item = req.body;
+
+    const created = await prisma.freelancerExperience.create({
+      data: {
+        userId,
+        title: String(item.title || item.designation || ""),
+        company: String(item.company || ""),
+        location: item.location ? String(item.location) : null,
+        industryId: item.industryId ? String(item.industryId) : null,
+        startDate: item.startDate ? String(item.startDate) : null,
+        endDate: item.endDate ? String(item.endDate) : null,
+        isCurrent: Boolean(item.isCurrent),
+        description: item.description ? String(item.description) : null,
+        skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
+      }
+    });
+
+    const populated = await populateSkillsUsed(created);
+    res.status(201).json({ success: true, message: "Experience created", data: populated });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const deleteFreelancerExperience = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const { id } = req.params;
+
+    await prisma.freelancerExperience.deleteMany({
+      where: { id, userId }
+    });
+
+    res.json({ success: true, message: "Experience deleted" });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const putFreelancerExperienceById = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const { id } = req.params;
+    const item = req.body;
+
+    const existing = await prisma.freelancerExperience.findFirst({
+      where: { id, userId }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Experience not found" });
+    }
+
+    const updated = await prisma.freelancerExperience.update({
+      where: { id },
+      data: {
+        title: item.title !== undefined ? String(item.title) : (item.designation !== undefined ? String(item.designation) : undefined),
+        company: item.company !== undefined ? String(item.company) : undefined,
+        location: item.location !== undefined ? (item.location ? String(item.location) : null) : undefined,
+        industryId: item.industryId !== undefined ? (item.industryId ? String(item.industryId) : null) : undefined,
+        startDate: item.startDate !== undefined ? (item.startDate ? String(item.startDate) : null) : undefined,
+        endDate: item.endDate !== undefined ? (item.endDate ? String(item.endDate) : null) : undefined,
+        isCurrent: item.isCurrent !== undefined ? Boolean(item.isCurrent) : undefined,
+        description: item.description !== undefined ? (item.description ? String(item.description) : null) : undefined,
+        skillsUsed: item.skillsUsed !== undefined ? (Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null)) : undefined,
+      }
+    });
+
+    const populated = await populateSkillsUsed(updated);
+    res.json({ success: true, message: "Experience updated", data: populated });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -511,15 +644,16 @@ export const getFreelancerEducation = async (req: AuthenticatedRequest, res: Res
       where: { userId },
       orderBy: { createdAt: "asc" },
     });
-    
+
     // Map the fields for the frontend and response
     const mappedRows = rows.map((r) => ({
       ...r,
       educationFile: r.fileUrl,
       document: r.fileUrl
     }));
+    const populatedRows = await populateSkillsUsed(mappedRows);
 
-    res.json({ success: true, data: mappedRows, total: mappedRows.length });
+    res.json({ success: true, data: populatedRows, total: populatedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -537,7 +671,7 @@ export const putFreelancerEducation = async (req: AuthenticatedRequest, res: Res
         return res.status(400).json({ success: false, message: "items array is required" });
       }
     }
-    
+
     await prisma.$transaction([
       prisma.freelancerEducation.deleteMany({ where: { userId } }),
       prisma.freelancerEducation.createMany({
@@ -552,6 +686,7 @@ export const putFreelancerEducation = async (req: AuthenticatedRequest, res: Res
           category: String(item.category || ""),
           fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
           fileType: item.fileType ? String(item.fileType) : null,
+          skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
         })),
       }),
     ]);
@@ -560,8 +695,8 @@ export const putFreelancerEducation = async (req: AuthenticatedRequest, res: Res
       where: { userId },
       orderBy: { createdAt: "asc" },
     });
-
-    res.json({ success: true, message: "Education updated", data: newRows });
+    const populatedRows = await populateSkillsUsed(newRows);
+    res.json({ success: true, message: "Education updated", data: populatedRows });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -572,7 +707,7 @@ export const postFreelancerEducation = async (req: AuthenticatedRequest, res: Re
     const userId = requireUser(req, res);
     if (!userId) return;
     const item = req.body;
-    
+
     const created = await prisma.freelancerEducation.create({
       data: {
         userId,
@@ -585,10 +720,12 @@ export const postFreelancerEducation = async (req: AuthenticatedRequest, res: Re
         category: String(item.category || ""),
         fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
         fileType: item.fileType ? String(item.fileType) : null,
+        skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
       }
     });
 
-    res.status(201).json({ success: true, message: "Education created", data: created });
+    const populated = await populateSkillsUsed(created);
+    res.status(201).json({ success: true, message: "Education created", data: populated });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -599,7 +736,7 @@ export const deleteFreelancerEducation = async (req: AuthenticatedRequest, res: 
     const userId = requireUser(req, res);
     if (!userId) return;
     const { id } = req.params;
-    
+
     await prisma.freelancerEducation.deleteMany({
       where: { id, userId }
     });
@@ -616,12 +753,12 @@ export const putFreelancerEducationById = async (req: AuthenticatedRequest, res:
     if (!userId) return;
     const { id } = req.params;
     const item = req.body;
-    
+
     // Check if the record belongs to the user
     const existing = await prisma.freelancerEducation.findFirst({
       where: { id, userId }
     });
-    
+
     if (!existing) {
       return res.status(404).json({ success: false, message: "Education not found" });
     }
@@ -638,10 +775,12 @@ export const putFreelancerEducationById = async (req: AuthenticatedRequest, res:
         category: item.category !== undefined ? String(item.category) : undefined,
         fileUrl: item.document !== undefined ? String(item.document) : (item.educationFile !== undefined ? String(item.educationFile) : (item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined)),
         fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
+        skillsUsed: item.skillsUsed !== undefined ? (Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null)) : undefined,
       }
     });
 
-    res.json({ success: true, message: "Education updated", data: updated });
+    const populated = await populateSkillsUsed(updated);
+    res.json({ success: true, message: "Education updated", data: populated });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -655,15 +794,16 @@ export const getFreelancerCertificates = async (req: AuthenticatedRequest, res: 
       where: { userId },
       orderBy: { createdAt: "asc" },
     });
-    
+
     // Map the fields for the frontend and response
     const mappedRows = rows.map((r) => ({
       ...r,
       certificateUrl: r.url,
       certificateFile: r.fileUrl
     }));
+    const populatedRows = await populateSkillsUsed(mappedRows);
 
-    res.json({ success: true, data: mappedRows, total: mappedRows.length });
+    res.json({ success: true, data: populatedRows, total: populatedRows.length });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -681,7 +821,7 @@ export const putFreelancerCertificates = async (req: AuthenticatedRequest, res: 
         return res.status(400).json({ success: false, message: "items array is required" });
       }
     }
-    
+
     await prisma.$transaction([
       prisma.freelancerCertificate.deleteMany({ where: { userId } }),
       prisma.freelancerCertificate.createMany({
@@ -695,6 +835,7 @@ export const putFreelancerCertificates = async (req: AuthenticatedRequest, res: 
           verified: Boolean(item.verified),
           fileUrl: item.certificateFile ? String(item.certificateFile) : (item.fileUrl ? String(item.fileUrl) : null),
           fileType: item.fileType ? String(item.fileType) : null,
+          skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
         })),
       }),
     ]);
@@ -704,7 +845,8 @@ export const putFreelancerCertificates = async (req: AuthenticatedRequest, res: 
       orderBy: { createdAt: "asc" },
     });
 
-    res.json({ success: true, message: "Certificates updated", data: newRows });
+    const populatedRows = await populateSkillsUsed(newRows);
+    res.json({ success: true, message: "Certificates updated", data: populatedRows });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -715,7 +857,7 @@ export const postFreelancerCertificates = async (req: AuthenticatedRequest, res:
     const userId = requireUser(req, res);
     if (!userId) return;
     const item = req.body;
-    
+
     const created = await prisma.freelancerCertificate.create({
       data: {
         userId,
@@ -727,10 +869,12 @@ export const postFreelancerCertificates = async (req: AuthenticatedRequest, res:
         verified: Boolean(item.verified),
         fileUrl: item.certificateFile ? String(item.certificateFile) : (item.fileUrl ? String(item.fileUrl) : null),
         fileType: item.fileType ? String(item.fileType) : null,
+        skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
       }
     });
 
-    res.status(201).json({ success: true, message: "Certificate created", data: created });
+    const populated = await populateSkillsUsed(created);
+    res.status(201).json({ success: true, message: "Certificate created", data: populated });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -741,7 +885,7 @@ export const deleteFreelancerCertificates = async (req: AuthenticatedRequest, re
     const userId = requireUser(req, res);
     if (!userId) return;
     const { id } = req.params;
-    
+
     await prisma.freelancerCertificate.deleteMany({
       where: { id, userId }
     });
@@ -758,12 +902,12 @@ export const putFreelancerCertificateById = async (req: AuthenticatedRequest, re
     if (!userId) return;
     const { id } = req.params;
     const item = req.body;
-    
+
     // Check if the record belongs to the user
     const existing = await prisma.freelancerCertificate.findFirst({
       where: { id, userId }
     });
-    
+
     if (!existing) {
       return res.status(404).json({ success: false, message: "Certificate not found" });
     }
@@ -779,10 +923,12 @@ export const putFreelancerCertificateById = async (req: AuthenticatedRequest, re
         verified: item.verified !== undefined ? Boolean(item.verified) : undefined,
         fileUrl: item.certificateFile !== undefined ? String(item.certificateFile) : (item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined),
         fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
+        skillsUsed: item.skillsUsed !== undefined ? (Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null)) : undefined,
       }
     });
 
-    res.json({ success: true, message: "Certificate updated", data: updated });
+    const populated = await populateSkillsUsed(updated);
+    res.json({ success: true, message: "Certificate updated", data: populated });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -1036,7 +1182,7 @@ export const exportFreelancerResumePdf = async (req: AuthenticatedRequest, res: 
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
-    
+
     const pdfBuffer = await ResumeExportService.generatePdf(userId);
     const ctx = await ResumeExportService.loadExportContext(userId); // Getting context again just for filename... wait, we can just fetch user
     const profile = ctx.profile;
@@ -1092,13 +1238,13 @@ export const getFreelancerReferrals = async (req: AuthenticatedRequest, res: Res
         code: (stored as any).code,
         history: referrals.length
           ? referrals.map((r: any) => ({
-              id: r.id,
-              name: r.referee?.fullName || r.refereeId,
-              email: r.referee?.email || "",
-              status: r.status,
-              date: r.createdAt,
-              reward: r.rewards?.[0]?.amount ?? 0,
-            }))
+            id: r.id,
+            name: r.referee?.fullName || r.refereeId,
+            email: r.referee?.email || "",
+            status: r.status,
+            date: r.createdAt,
+            reward: r.rewards?.[0]?.amount ?? 0,
+          }))
           : (stored as any).history || [],
         leaderboard: (stored as any).leaderboard || [],
       },

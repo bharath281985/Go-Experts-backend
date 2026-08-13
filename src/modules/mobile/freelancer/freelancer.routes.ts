@@ -41,6 +41,9 @@ import {
 import {
   getFreelancerExperience,
   putFreelancerExperience,
+  postFreelancerExperience,
+  deleteFreelancerExperience,
+  putFreelancerExperienceById,
   getFreelancerEducation,
   putFreelancerEducation,
   postFreelancerEducation,
@@ -89,9 +92,12 @@ router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCo
 router.post('/profile/resume', upload.single('file'), handleUploadError, uploadResume);
 router.post('/profile/kyc', upload.single('file'), handleUploadError, uploadKyc);
 
-// ─── Professional Details ───
-router.get('/professional-details', getFreelancerExperience as any);
-router.put('/professional-details', putFreelancerExperience as any);
+// ─── Professional Details (Experience) ───
+router.get('/experience', getFreelancerExperience as any);
+router.post('/experience', postFreelancerExperience as any);
+router.put('/experience', putFreelancerExperience as any);
+router.put('/experience/:id', putFreelancerExperienceById as any);
+router.delete('/experience/:id', deleteFreelancerExperience as any);
 
 // ─── Education ───
 router.get('/education', getFreelancerEducation as any);

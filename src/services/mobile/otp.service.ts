@@ -31,6 +31,7 @@ const generateCode = (): string =>
 const dispatchOtp = async (phoneNumber: string, code: string): Promise<boolean> => {
   // Plug SMS provider here (Twilio, MSG91, etc.).
   if (!process.env.SMS_PROVIDER_ENABLED || process.env.SMS_PROVIDER_ENABLED !== 'true') {
+    // SMS provider is not configured. 
     console.log(`[DEV MODE] OTP for ${phoneNumber}: ${code}`);
     return true;
   }
@@ -42,7 +43,7 @@ const dispatchOtp = async (phoneNumber: string, code: string): Promise<boolean> 
 export const issuePhoneOtp = async (
   phone: string,
   countryCode: string
-): Promise<{ phoneNumber: string }> => {
+): Promise<{ phoneNumber: string; code: string }> => {
   const phoneNumber = normalizePhoneNumber(phone, countryCode);
   const code = generateCode();
 
@@ -52,8 +53,14 @@ export const issuePhoneOtp = async (
     attempts: 0,
   });
 
-  await dispatchOtp(phoneNumber, code);
-  return { phoneNumber };
+  const sent = await dispatchOtp(phoneNumber, code);
+
+  if (!sent) {
+    otpStore.delete(phoneNumber);
+    throw new Error('FAILED_TO_SEND_SMS');
+  }
+
+  return { phoneNumber, code };
 };
 
 export const verifyPhoneOtp = (
@@ -84,16 +91,16 @@ export const verifyPhoneOtp = (
 };
 
 export const issueEmailOtp = async (email: string) => {
-    const key = `email:${email.toLowerCase().trim()}`;
-    const code = generateCode();
-    otpStore.set(key, { code, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
-    return { email, code };
+  const key = `email:${email.toLowerCase().trim()}`;
+  const code = generateCode();
+  otpStore.set(key, { code, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
+  return { email, code };
 };
 export const verifyEmailOtp = (email: string, code: string): any => {
-    const key = `email:${email.toLowerCase().trim()}`;
-    const record = otpStore.get(key);
-    if (!record || record.expiresAt <= Date.now()) return { valid: false, reason: 'EXPIRED' };
-    if (record.code !== code.trim()) return { valid: false, reason: 'INVALID' };
-    otpStore.delete(key);
-    return { valid: true };
+  const key = `email:${email.toLowerCase().trim()}`;
+  const record = otpStore.get(key);
+  if (!record || record.expiresAt <= Date.now()) return { valid: false, reason: 'EXPIRED' };
+  if (record.code !== code.trim()) return { valid: false, reason: 'INVALID' };
+  otpStore.delete(key);
+  return { valid: true };
 };
