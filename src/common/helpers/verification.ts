@@ -54,7 +54,6 @@ export function buildVerificationItems(user: any, stored: Record<string, Partial
         } else if (key === "address") {
             if (!value && location) {
                 value = location;
-                status = status === "missing" ? "pending" : status;
             }
             if (!value) value = "Not submitted";
         } else if (!value) {
