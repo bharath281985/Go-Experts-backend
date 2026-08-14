@@ -43,6 +43,7 @@ export const updateMyVerification = async (req: AuthenticatedRequest, res: Respo
 
         res.json({
             success: true,
+            message: "Verification updated successfully",
             data: stats
         });
     } catch (error) {
@@ -66,7 +67,7 @@ export const deleteMyVerification = async (req: AuthenticatedRequest, res: Respo
                 documentUrl: ""
             };
             const stats = await applyVerificationUpdate(req.user.id, payload);
-            return res.json({ success: true, data: stats });
+            return res.json({ success: true, message: "Verification document deleted successfully", data: stats });
         }
 
         // Otherwise, completely wipe it
@@ -97,7 +98,7 @@ export const deleteMyVerification = async (req: AuthenticatedRequest, res: Respo
             }
         });
 
-        res.json({ success: true, data: getVerificationStats(freshUser) });
+        res.json({ success: true, message: "Verification reset successfully", data: getVerificationStats(freshUser) });
     } catch (error) {
         next(error);
     }

@@ -1164,13 +1164,58 @@ export const getFreelancerResume = async (req: AuthenticatedRequest, res: Respon
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
-    const data = await getJsonSetting(userId, "resume", {
+
+    const config = await getJsonSetting(userId, "resume", {
       template: "modern",
       sections: {},
       headline: "",
       summary: "",
     });
-    res.json({ success: true, data });
+
+    const pdfUrl = `${req.protocol}://${req.get("host")}/api/v1/mobile/freelancer/resume/export`;
+
+    // Fetch all user profile details
+    const user = await prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      include: {
+        freelancerProfile: true
+      }
+    });
+
+    const rawExperiences = await prisma.freelancerExperience.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+    const experiences = await populateSkillsUsed(rawExperiences);
+
+    const rawEducation = await prisma.freelancerEducation.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
+    const education = await populateSkillsUsed(rawEducation);
+
+    const rawCertificates = await prisma.freelancerCertificate.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
+    const certificates = await populateSkillsUsed(rawCertificates);
+
+    res.json({
+      success: true,
+      data: {
+        config,
+        fileUrl: pdfUrl,
+        downloadUrl: pdfUrl,
+        profile: {
+          fullName: user?.fullName,
+          email: user?.email,
+          phone: user?.phone,
+          avatarUrl: user?.avatarUrl,
+          title: user?.freelancerProfile?.titleHeadline,
+          bio: (user?.freelancerProfile as any)?.overview,
+          hourlyRate: user?.freelancerProfile?.hourlyRate,
+          location: (user as any)?.location,
+          website: user?.freelancerProfile?.portfolioUrl,
+          linkedin: user?.freelancerProfile?.linkedInUrl,
+          github: user?.freelancerProfile?.githubUrl,
+          skills: user?.freelancerProfile?.skills
+        },
+        experiences: Array.isArray(experiences) ? experiences : (experiences ? [experiences] : []),
+        education: Array.isArray(education) ? education : (education ? [education] : []),
+        certificates: Array.isArray(certificates) ? certificates : (certificates ? [certificates] : [])
+      }
+    });
   } catch (err) {
     handleError(err, res, next);
   }

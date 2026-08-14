@@ -11,13 +11,15 @@ export type VerificationItem = {
 
 export const VERIFICATION_KEYS: Array<{ key: string; label: string; required?: boolean }> = [
     { key: "email", label: "Email address", required: true },
-    { key: "phone", label: "Phone number", required: true },
+    { key: "phone", label: "Phone number", required: false },
     { key: "identity", label: "Identity (Government ID)", required: true },
     { key: "passport", label: "Passport", required: false },
     { key: "driving", label: "Driving License", required: false },
-    { key: "gst", label: "GST (Optional)", required: false },
+    { key: "pancard", label: "PAN Card", required: true },
+    { key: "gst", label: "GST Details (Optional)", required: false },
     { key: "address", label: "Address proof", required: false },
     { key: "selfie", label: "Selfie verification", required: false },
+    { key: "company", label: "Company Incorporation", required: false },
 ];
 
 export function parseVerificationJson(raw: string | null | undefined): Record<string, Partial<VerificationItem>> {

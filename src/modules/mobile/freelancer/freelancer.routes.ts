@@ -38,6 +38,8 @@ import {
   updatePreferences,
 } from '../notifications/controllers/notifications.controller.js';
 
+import { getMyVerification, updateMyVerification, deleteMyVerification } from '../../../controllers/verification/verification.controller.js';
+
 import {
   getFreelancerExperience,
   putFreelancerExperience,
@@ -68,10 +70,8 @@ import {
   deleteFreelancerResumeShare
 } from '../../../controllers/freelancer/freelancer-resume-share.controller.js';
 
-import {
-  getFreelancerVerification,
-  updateFreelancerVerification,
-} from '../../../controllers/freelancer/freelancer.controller.js';
+// removed obsolete verification imports
+// imports from freelancer.controller.js were here
 
 const router = Router();
 
@@ -114,8 +114,9 @@ router.delete('/certificates/:id', deleteFreelancerCertificates as any);
 router.put('/certificates/:id', putFreelancerCertificateById as any);
 
 // ─── Verification ───
-router.get('/verification', getFreelancerVerification as any);
-router.patch('/verification', updateFreelancerVerification as any);
+router.get('/verification', getMyVerification as any);
+router.patch('/verification', updateMyVerification as any);
+router.delete('/verification', deleteMyVerification as any);
 
 // ─── Resume Builder ───
 router.get('/resume', getFreelancerResume as any);
