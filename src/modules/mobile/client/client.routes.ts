@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getMyVerification, updateMyVerification, deleteMyVerification } from '../../../controllers/verification/verification.controller.js';
 import { authenticate, authorizeRole } from '../../../middlewares/auth.js';
 
 // Controllers
@@ -186,5 +187,10 @@ router.get('/reports/spend', getSpendReport);
 router.get('/reports/projects', getProjectsReport);
 router.get('/reports/freelancers', getFreelancersReport);
 router.get('/reports/export', exportReport);
+
+// ─── Verification ───
+router.get('/verification', getMyVerification as any);
+router.patch('/verification', updateMyVerification as any);
+router.delete('/verification', deleteMyVerification as any);
 
 export default router;
