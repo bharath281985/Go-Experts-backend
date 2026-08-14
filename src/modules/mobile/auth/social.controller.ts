@@ -248,7 +248,7 @@ export const appleSignInCallback = (req: Request, res: Response) => {
   if (user) params.append('user', String(user));
 
   // Change this if the package name is different in your AndroidManifest.xml
-  const packageName = "com.doorstep.goexperts";
+  const packageName = "com.doorstephub.goexperts";
 
   const intentUrl = `intent://callback?${params.toString()}#Intent;package=${packageName};scheme=signinwithapple;end`;
 
