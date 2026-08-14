@@ -171,6 +171,9 @@ const buildAuthPayload = async (user: AuthUser) => {
     subscriptionPlan: hasActiveSubscription,
     hasSubscription: hasActiveSubscription,
     isSubscribed: hasActiveSubscription,
+    profileCompletedPer: completion.profileCompletion,
+    profileCompletedPercentage: completion.profileCompletion,
+    profileCompletion: completion.profileCompletion,
     user: {
       id: user.id,
       email: user.email,
@@ -180,6 +183,8 @@ const buildAuthPayload = async (user: AuthUser) => {
       status: user.status,
       isVerified: user.isVerified,
       profileCompletion: completion.profileCompletion,
+      profileCompletedPer: completion.profileCompletion,
+      profileCompletedPercentage: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
       subscriptionPlan: hasActiveSubscription,
       hasSubscription: hasActiveSubscription,
@@ -417,7 +422,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               technology: skillsVal,
               timeline: proj.timeline || null,
               description: proj.description || null,
-             
+
               status: 'open',
             }
           }).catch(() => null);
