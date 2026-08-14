@@ -31,7 +31,7 @@ export class ResumeExportService {
     // 1. Get user profile
     const profile = await prisma.freelancerProfile.findUnique({ where: { userId } });
     if (!profile) throw new Error("Freelancer profile not found");
-    
+
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     const mergedProfile = { ...user, ...profile };
@@ -42,27 +42,54 @@ export class ResumeExportService {
     if (setting?.value) {
       try {
         config = JSON.parse(setting.value);
-      } catch {}
+      } catch { }
     }
-    
+
     // Support legacy "template" vs "templateId"
     const selectedTpl = (config as any).templateId || (config as any).template;
-    
-    // 3. Get exact template version (using public mock logic for now since we seed them)
-    // In a real system, you'd fetch from ResumeTemplate/ResumeTemplateVersion based on version number.
-    const templates = [
-      { id: 'pro-1', key: 'professional', name: 'Professional', rendererKey: 'professional', atsFriendly: true, supportedSections: ['experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'awards', 'references'] },
-      { id: 'modern-1', key: 'modern', name: 'Modern', rendererKey: 'modern', atsFriendly: false, supportedSections: ['experience', 'education', 'skills', 'projects', 'languages'] },
-      { id: 'ats-1', key: 'ats', name: 'ATS Optimized', rendererKey: 'ats', atsFriendly: true, supportedSections: ['experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'awards'] },
-      { id: 'creative-1', key: 'creative', name: 'Creative', rendererKey: 'creative', atsFriendly: false, supportedSections: ['experience', 'education', 'skills', 'projects', 'languages', 'portfolioLinks'] },
-      { id: 'dev-1', key: 'developer', name: 'Developer', rendererKey: 'developer', atsFriendly: true, supportedSections: ['experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'portfolioLinks', 'githubUrl'] }
-    ];
 
-    const templateInfo = templates.find(t => t.id === selectedTpl || t.key === selectedTpl) || templates[0];
+    // 3. Get exact template from database based on user's selection
+    let templateInfo = null;
+    if (selectedTpl) {
+      const liveTemplate = await prisma.resumeTemplate.findFirst({
+        where: {
+          OR: [
+            { id: selectedTpl },
+            { key: selectedTpl }
+          ]
+        },
+        include: {
+          versions: {
+            orderBy: {
+              version: "desc"
+            },
+            take: 1
+          }
+        }
+      });
+      if (liveTemplate) {
+        const currentVersion = liveTemplate.versions[0];
+        templateInfo = {
+          id: liveTemplate.id,
+          key: liveTemplate.key,
+          name: liveTemplate.name,
+          rendererKey: currentVersion?.rendererKey || 'professional',
+          atsFriendly: currentVersion?.atsFriendly || true,
+          supportedSections: currentVersion?.supportedSections || ['experience', 'education', 'skills', 'projects', 'languages']
+        };
+      }
+    }
+
+    if (!templateInfo) {
+      templateInfo = {
+        id: 'pro-1', key: 'professional', name: 'Professional', rendererKey: 'professional', atsFriendly: true,
+        supportedSections: ['experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'awards', 'references']
+      };
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     const ctx: ExportContext = { userId, config, profile: mergedProfile, templateInfo, token };
-    
+
     // Store token for 1 minute max
     exportTokens.set(token, ctx);
     setTimeout(() => exportTokens.delete(token), 60000);
@@ -82,7 +109,7 @@ export class ResumeExportService {
     // Exactly matches the frontend buildResumeDocumentData implementation.
     // This is the single source of truth for the export.
     const { profile, config, templateInfo } = ctx;
-    
+
     const defaults = {
       headlineMode: 'PROFILE',
       summaryMode: 'PROFILE',
@@ -114,7 +141,7 @@ export class ResumeExportService {
 
     const visibleSections: Record<string, boolean> = {};
     const supported = templateInfo?.supportedSections || [];
-    
+
     const ALL_SECTIONS = [
       'experience', 'education', 'skills', 'projects',
       'certifications', 'languages', 'awards', 'references'
@@ -158,7 +185,7 @@ export class ResumeExportService {
       references: safeParse(safeProfile.references),
       portfolioLinks: safeParse(safeProfile.portfolioLinks),
       socialLinks: safeParse(safeProfile.socialLinks),
-      
+
       sectionOrder: safeConfig.sectionOrder,
       visibleSections,
 
@@ -176,11 +203,11 @@ export class ResumeExportService {
     if (activeExports >= CONCURRENCY_LIMIT) {
       throw new Error("SERVER_BUSY");
     }
-    
+
     activeExports++;
     let context: any = null;
     let page: Page | null = null;
-    
+
     try {
       const exportCtx = await this.loadExportContext(userId);
       const browser = await this.getBrowser();
@@ -209,8 +236,8 @@ export class ResumeExportService {
       return pdfBuffer;
     } finally {
       activeExports--;
-      if (page) await page.close().catch(() => {});
-      if (context) await context.close().catch(() => {});
+      if (page) await page.close().catch(() => { });
+      if (context) await context.close().catch(() => { });
     }
   }
 }

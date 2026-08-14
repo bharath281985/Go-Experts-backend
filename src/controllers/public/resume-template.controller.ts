@@ -24,13 +24,19 @@ export const getPublicResumeTemplates = async (req: Request, res: Response, next
 
     const mappedTemplates = templates.map((t) => {
       const currentVersion = t.versions[0];
+
+      let thumbnailUrl = currentVersion?.thumbnail || t.thumbnail || "";
+      if (thumbnailUrl && !thumbnailUrl.startsWith("http")) {
+        thumbnailUrl = `${req.protocol}://${req.get("host")}${thumbnailUrl.startsWith('/') ? '' : '/'}${thumbnailUrl}`;
+      }
+
       return {
         id: t.id,
         key: t.key,
         name: t.name,
         category: t.category,
         description: currentVersion?.description || t.description,
-        thumbnail: currentVersion?.thumbnail || t.thumbnail,
+        thumbnail: thumbnailUrl,
         atsFriendly: currentVersion?.atsFriendly || false,
         version: currentVersion?.version || t.currentVersion,
         rendererKey: currentVersion?.rendererKey,
