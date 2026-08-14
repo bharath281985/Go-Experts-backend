@@ -38,13 +38,13 @@ export const updateMyVerification = async (req: AuthenticatedRequest, res: Respo
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
 
-        // Applying the verification change for the requesting user
         const stats = await applyVerificationUpdate(req.user.id, req.body);
+        const targetItem = stats.items.find(i => i.key === req.body.key);
 
         res.json({
             success: true,
             message: "Verification updated successfully",
-            data: stats
+            data: targetItem || { key: req.body.key }
         });
     } catch (error) {
         next(error);
