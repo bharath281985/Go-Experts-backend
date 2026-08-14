@@ -77,10 +77,11 @@ export function buildVerificationItems(user: any, stored: Record<string, Partial
 // Extract verification details from a user based on role
 export function getVerificationJsonForUser(user: any) {
     let rawJson = "{}";
-    if (user.role === 'freelancer' && user.freelancerProfile) rawJson = user.freelancerProfile.verificationJson;
-    if (user.role === 'client' && user.clientProfile) rawJson = user.clientProfile.verificationJson;
-    if (user.role === 'founder' && user.founderProfile) rawJson = user.founderProfile.verificationJson;
-    if (user.role === 'investor' && user.investorProfile) rawJson = user.investorProfile.verificationJson;
+    const role = String(user.role || "").toLowerCase().trim();
+    if ((role === 'freelancer' || role === 'talent') && user.freelancerProfile) rawJson = user.freelancerProfile.verificationJson || "{}";
+    if (role === 'client' && user.clientProfile) rawJson = user.clientProfile.verificationJson || "{}";
+    if ((role === 'founder' || role === 'startup founder') && user.founderProfile) rawJson = user.founderProfile.verificationJson || "{}";
+    if (role === 'investor' && user.investorProfile) rawJson = user.investorProfile.verificationJson || "{}";
     return parseVerificationJson(rawJson);
 }
 
