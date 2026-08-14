@@ -263,16 +263,26 @@ export const appleSignInCallback = (req: Request, res: Response) => {
          body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9f9f9;}
          .loader { border: 4px solid #f3f3f3; border-top: 4px solid #333; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+         .btn { display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
       </style>
     </head>
     <body>
-      <h2>Redirecting back to Go Experts...</h2>
-      <div class="loader"></div>
+      <h2>Authentication Successful!</h2>
+      <div class="loader" id="loader"></div>
+      
+      <p style="margin-top: 20px;">If you are not redirected automatically...</p>
+      
+      <a href="${intentUrl}" class="btn">
+        Click here to return to Go Experts
+      </a>
+      
       <script>
+        // Attempt the automatic redirect first
         window.location.href = "${intentUrl}";
+        
         setTimeout(function() {
-          document.body.innerHTML += "<br><p style='color: red;'>If you are not redirected automatically, please close this window and return to the app.</p>";
-        }, 3000);
+          document.getElementById('loader').style.display = 'none';
+        }, 1500);
       </script>
     </body>
     </html>
