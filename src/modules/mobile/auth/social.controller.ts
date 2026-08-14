@@ -247,10 +247,10 @@ export const appleSignInCallback = (req: Request, res: Response) => {
   if (state) params.append('state', String(state));
   if (user) params.append('user', String(user));
 
-  // Change this if the package name is different in your AndroidManifest.xml
-  const packageName = "com.doorstephub.goexperts";
-
-  const intentUrl = `intent://callback?${params.toString()}#Intent;package=${packageName};scheme=signinwithapple;end`;
+  // We are removing the strictly enforced package= parameter 
+  // because if the Android app's build.gradle ID differs even slightly, it breaks.
+  // Android will now aggressively fallback to ANY app answering to signinwithapple://callback
+  const intentUrl = `intent://callback?${params.toString()}#Intent;scheme=signinwithapple;end`;
 
   res.send(`
     <!DOCTYPE html>
