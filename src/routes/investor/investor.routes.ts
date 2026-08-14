@@ -3,6 +3,7 @@ import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
+import { getMyVerification, updateMyVerification, deleteMyVerification } from "../../controllers/verification/verification.controller.js";
 import {
   getInvestorDashboard,
   getInvestorProfile,
@@ -45,6 +46,10 @@ router.get("/dashboard", getInvestorDashboard as any);
 router.get("/profile", getInvestorProfile as any);
 router.patch("/profile", updateInvestorProfile as any);
 router.put("/profile", updateInvestorProfile as any);
+
+router.get("/verification", getMyVerification as any);
+router.patch("/verification", updateMyVerification as any);
+router.delete("/verification", deleteMyVerification as any);
 
 router.get("/watchlist", listWatchlist as any);
 router.post("/watchlist", addToWatchlist as any);

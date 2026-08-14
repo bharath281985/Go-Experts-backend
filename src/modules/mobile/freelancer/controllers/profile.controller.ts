@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
-import { uploadedFileUrl } from '../../../../utils/uploaded-file.js';
+import { uploadedFileUrl, respondWithUploadedFile } from '../../../../utils/uploaded-file.js';
 import { resolveSkillsInput } from '../../../../utils/array-option-resolver.js';
 
 function parseRegData(regData: any): Record<string, any> {
@@ -180,5 +180,10 @@ export const uploadResume = async (req: AuthRequest, res: Response, next: NextFu
 };
 
 export const uploadKyc = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try { return res.json(successResponse('KYC uploaded', { url: '/uploads/mock-kyc.pdf' })); } catch (error) { next(error); }
+  try {
+    if (!req.file) {
+      return res.status(400).json(errorResponse('No file provided', 'VALIDATION_ERROR'));
+    }
+    return respondWithUploadedFile(req, res, 'KYC document uploaded successfully');
+  } catch (error) { next(error); }
 };

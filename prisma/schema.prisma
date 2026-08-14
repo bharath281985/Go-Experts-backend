@@ -226,6 +226,7 @@ model ClientProfile {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson  String?  @map("verification_json") @db.Text
 
   @@map("client_profiles")
 }
@@ -244,6 +245,7 @@ model InvestorProfile {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson  String?  @map("verification_json") @db.Text
 
   @@map("investor_profiles")
 }
@@ -264,6 +266,7 @@ model FounderProfile {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson  String?  @map("verification_json") @db.Text
 
   @@map("founder_profiles")
 }

@@ -3,6 +3,7 @@ import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
+import { getMyVerification, updateMyVerification, deleteMyVerification } from "../../controllers/verification/verification.controller.js";
 import {
   getFounderDashboard,
   getFounderProfile,
@@ -56,6 +57,10 @@ router.get("/dashboard", getFounderDashboard as any);
 router.get("/profile", getFounderProfile as any);
 router.patch("/profile", updateFounderProfile as any);
 router.put("/profile", updateFounderProfile as any);
+
+router.get("/verification", getMyVerification as any);
+router.patch("/verification", updateMyVerification as any);
+router.delete("/verification", deleteMyVerification as any);
 
 router.get("/startup", getFounderStartup as any);
 router.patch("/startup", updateFounderStartup as any);

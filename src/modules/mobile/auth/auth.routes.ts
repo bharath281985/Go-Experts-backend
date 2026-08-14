@@ -29,6 +29,7 @@ router.post('/signup', authLimiter, register);
 router.post('/social/google', authLimiter, googleSocialLogin);
 router.post('/social/apple', authLimiter, appleSocialLogin);
 router.post('/social/apple/callback', appleSignInCallback);
+router.post('/apple/callback', appleSignInCallback);
 router.post('/logout', authenticate, logout);
 router.post('/refresh', refresh);
 router.get('/me', authenticate, getMe);
