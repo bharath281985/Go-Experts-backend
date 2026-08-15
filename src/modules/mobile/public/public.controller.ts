@@ -281,19 +281,12 @@ export const getAvailabilityOptions = async (req: Request, res: Response, next: 
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    if (dbOptions && dbOptions.length > 0) {
-      return res.json(successResponse('Availabilities retrieved', dbOptions));
-    }
+    const mapped = (dbOptions || []).map((o: any) => ({
+      id: o.id,
+      name: o.label || o.value
+    }));
 
-    const fallbackOptions = [
-      { id: 'full_time', label: 'Full-Time (40 hrs/wk)', value: 'Full-Time' },
-      { id: 'part_time', label: 'Part-Time (20 hrs/wk)', value: 'Part-Time' },
-      { id: 'hourly', label: 'Hourly / As Needed', value: 'Hourly' },
-      { id: 'contract', label: 'Contractual', value: 'Contract' },
-      { id: 'not_available', label: 'Not Available', value: 'Not Available' }
-    ];
-
-    return res.json(successResponse('Availabilities retrieved', fallbackOptions));
+    return res.json(successResponse('Availabilities retrieved', mapped));
   } catch (error) { next(error); }
 };
 
