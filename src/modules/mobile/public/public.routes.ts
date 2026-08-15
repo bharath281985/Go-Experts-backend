@@ -8,7 +8,7 @@ import {
   getInvestorTypes, getFounderTypes, getTeamSizes, getCountries, getStates,
   getBusinessTypes, getServicesTaxonomy, getProjectCategories,
   getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getBudgetRanges,
-  getDesignations, getFounderGoals
+  getDesignations, getFounderGoals, getAvailabilityOptions
 } from './public.controller.js';
 import { authenticateOptional } from '../../../middlewares/auth.js';
 import { cacheControl } from '../../../middleware/cache.js';
@@ -37,6 +37,9 @@ router.get('/team-sizes', masterCache, getTeamSizes);
 router.get('/countries', masterCache, getCountries);
 router.get('/states', masterCache, getStates);
 router.get('/work-modes', masterCache, getWorkModes);
+router.get('/availabilities', masterCache, getAvailabilityOptions);
+router.get('/availability', masterCache, getAvailabilityOptions);
+router.get('/freelancer-availabilities', masterCache, getAvailabilityOptions);
 router.get('/hiring-goals', masterCache, getHiringGoals);
 router.get('/investor-stages', masterCache, getInvestorStages);
 router.get('/platform-goals', masterCache, getPlatformGoals);

@@ -83,7 +83,18 @@ const formatStartupResponse = (
       avatarUrl: user.avatarUrl || dicebearUrl,
       city: user.city || reg.city || "",
       countryId: user.country || reg.country || "",
-      role: user.role,
+      role: user.role || 'founder',
+    };
+  } else {
+    const fallbackName = idea.founder || idea.startup || "Founder";
+    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fallbackName)}`;
+    userObj = {
+      id: idea.founder || idea.id,
+      fullName: fallbackName,
+      avatarUrl: idea.logo || dicebearUrl,
+      city: "",
+      countryId: "",
+      role: "founder",
     };
   }
 
@@ -121,7 +132,13 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
   let founders: any[] = [];
   if (founderIds.length > 0) {
     founders = await prisma.user.findMany({
-      where: { id: { in: founderIds } },
+      where: {
+        OR: [
+          { id: { in: founderIds } },
+          { email: { in: founderIds } },
+          { fullName: { in: founderIds } }
+        ]
+      },
       select: {
         id: true, email: true, fullName: true, avatarUrl: true, bio: true, phone: true,
         country: true, city: true, role: true, registrationData: true,
@@ -134,7 +151,13 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
   const fpMap = new Map();
   for (const f of founders) {
     userMap.set(f.id, f);
-    if (f.founderProfile) fpMap.set(f.id, f.founderProfile);
+    userMap.set(f.email, f);
+    userMap.set(f.fullName, f);
+    if (f.founderProfile) {
+      fpMap.set(f.id, f.founderProfile);
+      fpMap.set(f.email, f.founderProfile);
+      fpMap.set(f.fullName, f.founderProfile);
+    }
   }
 
   const industryIds = [...new Set(ideas.map(i => i.industry).filter(isUUID))];
