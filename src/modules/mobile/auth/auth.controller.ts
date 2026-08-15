@@ -1067,14 +1067,6 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       avatarUrl = req.body.avatarUrl;
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { id: req.user.id } });
-    let regData: any = {};
-    if (typeof existingUser?.registrationData === 'object' && existingUser?.registrationData !== null) {
-      regData = existingUser.registrationData;
-    }
-    if (websiteUrl !== undefined) regData.websiteUrl = websiteUrl;
-    if (resumeUrl !== undefined) regData.resumeUrl = resumeUrl;
-
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: {
@@ -1085,7 +1077,6 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         city: cityInput || undefined,
         bio: bio !== undefined ? bio : undefined,
         avatarUrl: avatarUrl || undefined,
-        registrationData: Object.keys(regData).length > 0 ? regData : undefined,
         isVerified: true,
       },
     });
@@ -1108,6 +1099,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           yearsOfExperience: yearsOfExperience ? String(yearsOfExperience).trim() : undefined,
           portfolioUrl: portfolioUrl ? String(portfolioUrl).trim() : undefined,
           linkedInUrl: linkedInUrl ? String(linkedInUrl).trim() : undefined,
+          websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
+          resumeUrl: resumeUrl ? String(resumeUrl).trim() : undefined,
           githubUrl: githubUrl ? String(githubUrl).trim() : undefined,
           dribbbleUrl: dribbbleUrl ? String(dribbbleUrl).trim() : undefined,
           industry: industryInput ? String(industryInput).trim() : undefined,
@@ -1129,6 +1122,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           yearsOfExperience: yearsOfExperience ? String(yearsOfExperience).trim() : null,
           portfolioUrl: portfolioUrl ? String(portfolioUrl).trim() : null,
           linkedInUrl: linkedInUrl ? String(linkedInUrl).trim() : null,
+          websiteUrl: websiteUrl ? String(websiteUrl).trim() : null,
+          resumeUrl: resumeUrl ? String(resumeUrl).trim() : null,
           githubUrl: githubUrl ? String(githubUrl).trim() : null,
           dribbbleUrl: dribbbleUrl ? String(dribbbleUrl).trim() : null,
           industry: industryInput ? String(industryInput).trim() : null,
@@ -1329,9 +1324,6 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         formattedProfile.availability = toSingleOption(roleProfile.availability);
         formattedProfile.workMode = toSingleOption(roleProfile.workMode);
         formattedProfile.skills = toMultiOptions(roleProfile.skills);
-        const reg = typeof activeUser.registrationData === 'object' && activeUser.registrationData !== null ? activeUser.registrationData : {};
-        formattedProfile.websiteUrl = reg.websiteUrl || reg.website || null;
-        formattedProfile.resumeUrl = reg.resumeUrl || reg.resume || null;
       } else if (activeUser.role === 'client') {
         formattedProfile.industry = toSingleOption(roleProfile.industry);
         formattedProfile.companySize = toSingleOption(roleProfile.companySize);
