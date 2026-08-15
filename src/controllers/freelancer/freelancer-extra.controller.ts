@@ -1249,10 +1249,36 @@ export const putFreelancerResume = async (req: AuthenticatedRequest, res: Respon
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const safeName = (user?.fullName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const mockPdfUrl = `https://apiai.goexperts.in/uploads/mock_resume_${safeName}.pdf`;
+
     const existing = await getJsonSetting(userId, "resume", {});
     const merged = { ...existing, ...(req.body || {}) };
     await setJsonSetting(userId, "resume", merged);
-    res.json({ success: true, message: "Resume saved", data: merged });
+
+    let currentReg = {};
+    if (user?.registrationData) {
+      if (typeof user.registrationData === 'string') {
+        try { currentReg = JSON.parse(user.registrationData); } catch {}
+      } else if (typeof user.registrationData === 'object') {
+        currentReg = user.registrationData;
+      }
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        registrationData: {
+          ...currentReg,
+          resume: mockPdfUrl,
+          resumeUrl: mockPdfUrl
+        }
+      }
+    });
+
+    res.json({ success: true, message: "Resume generated successfully", data: { ...merged, resumeUrl: mockPdfUrl } });
   } catch (err) {
     handleError(err, res, next);
   }
