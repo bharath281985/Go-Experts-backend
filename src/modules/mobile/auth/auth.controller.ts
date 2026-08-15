@@ -744,37 +744,55 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
     const optionMap = await resolveOptionMap(idsToResolve);
 
-    const toOptionResult = (val?: string | null) => {
+    const toSingleOption = (val?: string | null): OptionObj | null => {
       if (!val || !val.trim()) return null;
       const parts = val.split(',').map(s => s.trim()).filter(Boolean);
-      if (parts.length > 1) {
-        return parts.map(p => optionMap.get(p) || { id: p, name: p });
-      }
-      const single = parts[0];
-      return optionMap.get(single) || { id: single, name: single };
+      if (parts.length === 0) return null;
+      const first = parts[0];
+      return optionMap.get(first) || { id: first, name: first };
     };
 
-    const resolvedSkillsObjects = rawSkills.map(s => toOptionResult(s)!);
+    const toMultiOptions = (val?: string | Array<any> | null): OptionObj[] => {
+      if (!val) return [];
+      let parts: string[] = [];
+      if (Array.isArray(val)) {
+        parts = val.map(v => (typeof v === 'object' ? v?.id || v?.name : String(v))).filter(Boolean);
+      } else if (typeof val === 'string') {
+        parts = val.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      const uniqueParts = [...new Set(parts)];
+      const result: OptionObj[] = [];
+      const seenIds = new Set<string>();
+
+      for (const p of uniqueParts) {
+        const obj = optionMap.get(p) || { id: p, name: p };
+        if (!seenIds.has(obj.id)) {
+          seenIds.add(obj.id);
+          result.push(obj);
+        }
+      }
+      return result;
+    };
 
     let formattedProfile: any = null;
     if (roleProfile) {
       formattedProfile = { ...roleProfile };
 
       if (activeUser.role === 'freelancer') {
-        formattedProfile.experienceLevel = toOptionResult(roleProfile.experience);
-        formattedProfile.industry = toOptionResult(roleProfile.industry);
-        formattedProfile.skills = resolvedSkillsObjects;
+        formattedProfile.experienceLevel = toSingleOption(roleProfile.experience);
+        formattedProfile.industry = toSingleOption(roleProfile.industry);
+        formattedProfile.skills = toMultiOptions(roleProfile.skills);
       } else if (activeUser.role === 'client') {
-        formattedProfile.industry = toOptionResult(roleProfile.industry);
-        formattedProfile.companySize = toOptionResult(roleProfile.companySize);
-        formattedProfile.hiringGoal = toOptionResult(roleProfile.hiringGoal);
+        formattedProfile.industry = toSingleOption(roleProfile.industry);
+        formattedProfile.companySize = toSingleOption(roleProfile.companySize);
+        formattedProfile.hiringGoal = toSingleOption(roleProfile.hiringGoal);
       } else if (activeUser.role === 'investor') {
-        formattedProfile.focusAreas = toOptionResult(roleProfile.focusAreas);
-        formattedProfile.preferredStage = toOptionResult(roleProfile.preferredStage);
+        formattedProfile.focusAreas = toMultiOptions(roleProfile.focusAreas);
+        formattedProfile.preferredStage = toSingleOption(roleProfile.preferredStage);
       } else if (activeUser.role === 'founder') {
-        formattedProfile.industry = toOptionResult(roleProfile.industry);
-        formattedProfile.stage = toOptionResult(roleProfile.stage);
-        formattedProfile.primaryGoal = toOptionResult(roleProfile.primaryGoal);
+        formattedProfile.industry = toSingleOption(roleProfile.industry);
+        formattedProfile.stage = toSingleOption(roleProfile.stage);
+        formattedProfile.primaryGoal = toSingleOption(roleProfile.primaryGoal);
       }
     }
 
@@ -788,9 +806,9 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       isVerified: activeUser.isVerified,
       phone: activeUser.phone,
 
-      // User Location (Clean { id, name } object)
-      country: toOptionResult(activeUser.country),
-      city: toOptionResult(activeUser.city),
+      // User Location (Clean single { id, name } object)
+      country: toSingleOption(activeUser.country),
+      city: toSingleOption(activeUser.city),
       bio: activeUser.bio,
 
       // Role specific profile details
