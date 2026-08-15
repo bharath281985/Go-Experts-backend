@@ -744,15 +744,19 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
     const optionMap = await resolveOptionMap(idsToResolve);
 
-    const toSingleOption = (val?: string | null): OptionObj | null => {
+    const toSingleOption = (val?: string | null): OptionObj | string | null => {
       if (!val || !val.trim()) return null;
       const parts = val.split(',').map(s => s.trim()).filter(Boolean);
       if (parts.length === 0) return null;
       const first = parts[0];
-      return optionMap.get(first) || { id: first, name: first };
+      const found = optionMap.get(first);
+      if (found) return found;
+
+      const clean = first.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
+      return clean;
     };
 
-    const toMultiOptions = (val?: string | Array<any> | null): OptionObj[] => {
+    const toMultiOptions = (val?: string | Array<any> | null): Array<OptionObj | string> => {
       if (!val) return [];
       let parts: string[] = [];
       if (Array.isArray(val)) {
@@ -761,14 +765,16 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         parts = val.split(',').map(s => s.trim()).filter(Boolean);
       }
       const uniqueParts = [...new Set(parts)];
-      const result: OptionObj[] = [];
-      const seenIds = new Set<string>();
+      const result: Array<OptionObj | string> = [];
+      const seen = new Set<string>();
 
       for (const p of uniqueParts) {
-        const obj = optionMap.get(p) || { id: p, name: p };
-        if (!seenIds.has(obj.id)) {
-          seenIds.add(obj.id);
-          result.push(obj);
+        const found = optionMap.get(p);
+        const item = found || p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
+        const key = typeof item === 'object' ? item.id : item;
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push(item);
         }
       }
       return result;
