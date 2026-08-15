@@ -599,7 +599,7 @@ const resolveOptionMap = async (values: (string | null | undefined)[]) => {
   try {
     const escapedIn = cleanValues.map(v => `'${v.replace(/'/g, "''")}'`).join(',');
 
-    const [industries, stages, skills, skillCategories, expLevels, masterOptions, countries] = await Promise.all([
+    const [industries, stages, skills, skillCategories, expLevels, masterOptions, countries, workModes] = await Promise.all([
       prisma.industry.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
@@ -649,6 +649,13 @@ const resolveOptionMap = async (values: (string | null | undefined)[]) => {
         if (!escapedIn) return [];
         return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name, code FROM countries WHERE id IN (${escapedIn}) OR name IN (${escapedIn}) OR code IN (${escapedIn})`).catch(() => [])) || [];
       }) || [],
+      (prisma as any).workMode?.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
+        select: { id: true, name: true }
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name FROM work_modes WHERE id IN (${escapedIn}) OR name IN (${escapedIn})`).catch(() => [])) || [];
+      }) || [],
     ]);
 
     industries.forEach((i: any) => {
@@ -695,9 +702,37 @@ const resolveOptionMap = async (values: (string | null | undefined)[]) => {
       if (c.name) optionMap.set(c.name, obj);
       if (c.code) optionMap.set(c.code, obj);
     });
+
+    workModes.forEach((wm: any) => {
+      const obj = { id: wm.id, name: wm.name };
+      optionMap.set(wm.id, obj);
+      optionMap.set(wm.name, obj);
+    });
   } catch {}
 
   return optionMap;
+};
+
+const parsePhoneNumber = (phoneStr?: string | null) => {
+  if (!phoneStr || !phoneStr.trim()) {
+    return { phone: null, phoneCode: null, phoneNumber: null };
+  }
+  const clean = phoneStr.trim();
+  const match = clean.match(/^(\+\d{1,4})(.*)$/);
+  if (match) {
+    const code = match[1];
+    const num = match[2].trim();
+    return {
+      phone: clean,
+      phoneCode: code,
+      phoneNumber: num
+    };
+  }
+  return {
+    phone: clean,
+    phoneCode: null,
+    phoneNumber: clean
+  };
 };
 
 export const getMe = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -733,6 +768,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       activeUser.city,
       roleProfile?.industry,
       roleProfile?.experience,
+      roleProfile?.availability,
+      roleProfile?.workMode,
       roleProfile?.companySize,
       roleProfile?.hiringGoal,
       roleProfile?.focusAreas,
@@ -787,6 +824,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       if (activeUser.role === 'freelancer') {
         formattedProfile.experienceLevel = toSingleOption(roleProfile.experience);
         formattedProfile.industry = toSingleOption(roleProfile.industry);
+        formattedProfile.availability = toSingleOption(roleProfile.availability);
+        formattedProfile.workMode = toSingleOption(roleProfile.workMode);
         formattedProfile.skills = toMultiOptions(roleProfile.skills);
       } else if (activeUser.role === 'client') {
         formattedProfile.industry = toSingleOption(roleProfile.industry);
@@ -802,6 +841,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       }
     }
 
+    const phoneParsed = parsePhoneNumber(activeUser.phone);
+
     const userData = {
       id: activeUser.id,
       email: activeUser.email,
@@ -810,11 +851,13 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       avatarUrl: activeUser.avatarUrl,
       status: activeUser.status,
       isVerified: activeUser.isVerified,
-      phone: activeUser.phone,
+      phone: phoneParsed.phone,
+      phoneCode: phoneParsed.phoneCode,
+      phoneNumber: phoneParsed.phoneNumber,
 
       // User Location (Clean single { id, name } object)
       country: toSingleOption(activeUser.country),
-      city: toSingleOption(activeUser.city),
+      city: activeUser.city ? String(activeUser.city).replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ') : null,
       bio: activeUser.bio,
 
       // Role specific profile details
@@ -969,6 +1012,22 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       teamSize,
     } = req.body;
 
+    const rawPhone = req.body.phone;
+    const phoneCodeInput = req.body.phoneCode || req.body.dialCode || req.body.countryPhoneCode;
+
+    let finalPhone: string | undefined = undefined;
+    if (rawPhone) {
+      const cleanRaw = String(rawPhone).trim();
+      if (cleanRaw.startsWith('+')) {
+        finalPhone = cleanRaw;
+      } else if (phoneCodeInput) {
+        const cleanCode = String(phoneCodeInput).trim().startsWith('+') ? String(phoneCodeInput).trim() : `+${String(phoneCodeInput).trim()}`;
+        finalPhone = `${cleanCode}${cleanRaw}`;
+      } else {
+        finalPhone = cleanRaw;
+      }
+    }
+
     const countryInput = extractVal(req.body.countryId ?? req.body.country);
     const cityInput = extractVal(req.body.stateId ?? req.body.city ?? location);
     const skillsInput = extractVal(req.body.skillIds ?? req.body.skills);
@@ -996,7 +1055,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       where: { id: req.user.id },
       data: {
         fullName: fullName || undefined,
-        phone: phone || undefined,
+        phone: finalPhone || undefined,
         country: countryInput || undefined,
         city: cityInput || undefined,
         bio: composedBio || undefined,
@@ -1174,6 +1233,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       activeUser.city,
       roleProfile?.industry,
       roleProfile?.experience,
+      roleProfile?.availability,
+      roleProfile?.workMode,
       roleProfile?.companySize,
       roleProfile?.hiringGoal,
       roleProfile?.focusAreas,
@@ -1228,6 +1289,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       if (activeUser.role === 'freelancer') {
         formattedProfile.experienceLevel = toSingleOption(roleProfile.experience);
         formattedProfile.industry = toSingleOption(roleProfile.industry);
+        formattedProfile.availability = toSingleOption(roleProfile.availability);
+        formattedProfile.workMode = toSingleOption(roleProfile.workMode);
         formattedProfile.skills = toMultiOptions(roleProfile.skills);
       } else if (activeUser.role === 'client') {
         formattedProfile.industry = toSingleOption(roleProfile.industry);
@@ -1243,6 +1306,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       }
     }
 
+    const phoneParsed = parsePhoneNumber(activeUser.phone);
+
     const userData = {
       id: activeUser.id,
       email: activeUser.email,
@@ -1251,10 +1316,12 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       avatarUrl: activeUser.avatarUrl,
       status: activeUser.status,
       isVerified: activeUser.isVerified,
-      phone: activeUser.phone,
+      phone: phoneParsed.phone,
+      phoneCode: phoneParsed.phoneCode,
+      phoneNumber: phoneParsed.phoneNumber,
 
       country: toSingleOption(activeUser.country),
-      city: toSingleOption(activeUser.city),
+      city: activeUser.city ? String(activeUser.city).replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ') : null,
       bio: activeUser.bio,
 
       profile: formattedProfile,
