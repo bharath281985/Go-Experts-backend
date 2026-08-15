@@ -27,11 +27,11 @@ const COMPANY_SIZES = [
 ];
 
 const TICKET_SIZES = [
-  { label: "₹1 Lakh - ₹5 Lakhs", value: "1L-5L", min: 100000, max: 500000, sortOrder: 1 },
-  { label: "₹5 Lakhs - ₹25 Lakhs", value: "5L-25L", min: 500000, max: 2500000, sortOrder: 2 },
-  { label: "₹25 Lakhs - ₹1 Crore", value: "25L-1Cr", min: 2500000, max: 10000000, sortOrder: 3 },
-  { label: "₹1 Crore - ₹5 Crores", value: "1Cr-5Cr", min: 10000000, max: 50000000, sortOrder: 4 },
-  { label: "₹5 Crores+", value: "5Cr+", min: 50000000, max: 250000000, sortOrder: 5 },
+  { label: "â‚¹1 Lakh - â‚¹5 Lakhs", value: "1L-5L", min: 100000, max: 500000, sortOrder: 1 },
+  { label: "â‚¹5 Lakhs - â‚¹25 Lakhs", value: "5L-25L", min: 500000, max: 2500000, sortOrder: 2 },
+  { label: "â‚¹25 Lakhs - â‚¹1 Crore", value: "25L-1Cr", min: 2500000, max: 10000000, sortOrder: 3 },
+  { label: "â‚¹1 Crore - â‚¹5 Crores", value: "1Cr-5Cr", min: 10000000, max: 50000000, sortOrder: 4 },
+  { label: "â‚¹5 Crores+", value: "5Cr+", min: 50000000, max: 250000000, sortOrder: 5 },
 ];
 
 const INVESTOR_TYPES = [
@@ -79,6 +79,13 @@ const TEAM_SIZES = [
   { label: "25+ members", value: "50", min: 25, max: 100, sortOrder: 5 },
 ];
 
+const BUDGET_RANGES = [
+  { label: "Under INR 10,000 ($100)", value: "Under INR 10,000", min: 0, max: 10000, sortOrder: 1 },
+  { label: "INR 10,000 - INR 50,000 ($100-$600)", value: "INR 10,000 - INR 50,000", min: 10000, max: 50000, sortOrder: 2 },
+  { label: "INR 50,000 - INR 2,00,000 ($600-$2,500)", value: "INR 50,000 - INR 2,00,000", min: 50000, max: 200000, sortOrder: 3 },
+  { label: "INR 2,00,000 - INR 10,00,000 ($2,500-$12,500)", value: "INR 2,00,000 - INR 10,00,000", min: 200000, max: 1000000, sortOrder: 4 },
+  { label: "INR 10,00,000+ ($12,500+)", value: "INR 10,00,000+", min: 1000000, max: 99999999, sortOrder: 5 },
+];
 const CLIENT_GOALS = [
   { label: "Hire Freelancer", value: "Hire Freelancer", sortOrder: 1 },
   { label: "Post a Project", value: "Post a Project", sortOrder: 2 },
@@ -153,7 +160,7 @@ const SUBSCRIPTION_PLANS = [
 ];
 
 async function seedMasterData() {
-  console.log("🌱 Starting Master Data Database Seeding...\n");
+  console.log("ðŸŒ± Starting Master Data Database Seeding...\n");
 
   // 1. Seed ExperienceLevels in DB
   for (const exp of EXPERIENCE_LEVELS) {
@@ -163,7 +170,7 @@ async function seedMasterData() {
       create: { name: exp.value, status: "active" },
     }).catch(() => null);
   }
-  console.log("✅ Seeded Experience Levels in Database");
+  console.log("âœ… Seeded Experience Levels in Database");
 
   // 2. Seed StartupStages in DB
   for (const stage of STARTUP_STAGES) {
@@ -173,7 +180,7 @@ async function seedMasterData() {
       create: { name: stage.value, status: "active" },
     }).catch(() => null);
   }
-  console.log("✅ Seeded Startup Stages in Database");
+  console.log("âœ… Seeded Startup Stages in Database");
 
   // Ensure table exists via raw SQL if needed
   try {
@@ -242,37 +249,40 @@ async function seedMasterData() {
   };
 
   await upsertOptions("company_size", COMPANY_SIZES);
-  console.log("✅ Seeded Company Sizes in Database");
+  console.log("âœ… Seeded Company Sizes in Database");
 
   await upsertOptions("ticket_size", TICKET_SIZES);
-  console.log("✅ Seeded Ticket Sizes in Database");
+  console.log("âœ… Seeded Ticket Sizes in Database");
 
   await upsertOptions("investor_type", INVESTOR_TYPES);
-  console.log("✅ Seeded Investor Types in Database");
+  console.log("âœ… Seeded Investor Types in Database");
 
   await upsertOptions("founder_type", FOUNDER_TYPES);
-  console.log("✅ Seeded Founder Types in Database");
+  console.log("âœ… Seeded Founder Types in Database");
 
   await upsertOptions("business_type", BUSINESS_TYPES);
-  console.log("✅ Seeded Business Types in Database");
+  console.log("âœ… Seeded Business Types in Database");
 
   await upsertOptions("team_size", TEAM_SIZES);
-  console.log("✅ Seeded Team Sizes in Database");
+  console.log("âœ… Seeded Team Sizes in Database");
+
+  await upsertOptions("budget_range", BUDGET_RANGES);
+  console.log("Budget ranges seeded in Database");
 
   await upsertOptions("client_goal", CLIENT_GOALS);
-  console.log("✅ Seeded Client Goals in Database");
+  console.log("âœ… Seeded Client Goals in Database");
 
   await upsertOptions("expansion_goal", EXPANSION_GOALS);
-  console.log("✅ Seeded Expansion Goals in Database");
+  console.log("âœ… Seeded Expansion Goals in Database");
 
   await upsertOptions("founder_goal", FOUNDER_GOALS);
-  console.log("✅ Seeded Founder Goals in Database");
+  console.log("âœ… Seeded Founder Goals in Database");
 
   await upsertOptions("investment_mode", INVESTMENT_MODES);
-  console.log("✅ Seeded Investment Modes in Database");
+  console.log("âœ… Seeded Investment Modes in Database");
 
   await upsertOptions("investor_goal", INVESTOR_GOALS);
-  console.log("✅ Seeded Investor Goals in Database");
+  console.log("âœ… Seeded Investor Goals in Database");
 
   // Seed Services Taxonomy
   const taxonomyItems: any[] = [];
@@ -295,7 +305,7 @@ async function seedMasterData() {
     }
   }
   await upsertOptions("service_taxonomy", taxonomyItems);
-  console.log("✅ Seeded Services Taxonomy & Project Categories in Database");
+  console.log("âœ… Seeded Services Taxonomy & Project Categories in Database");
 
   // Seed Subscription Plans in DB
   for (const plan of SUBSCRIPTION_PLANS) {
@@ -304,8 +314,8 @@ async function seedMasterData() {
       update: {
         name: plan.name,
         role: plan.role,
-        price: plan.price,
-        billingCycle: plan.billingCycle,
+        amount: plan.amount,
+        duration: plan.duration,
         status: plan.status,
         visibility: plan.visibility,
       },
@@ -313,23 +323,24 @@ async function seedMasterData() {
         id: plan.id,
         name: plan.name,
         role: plan.role,
-        price: plan.price,
-        billingCycle: plan.billingCycle,
+        amount: plan.amount,
+        duration: plan.duration,
         status: plan.status,
         visibility: plan.visibility,
       },
     }).catch(() => null);
   }
-  console.log("✅ Seeded Subscription Plans in Database");
+  console.log("âœ… Seeded Subscription Plans in Database");
 
-  console.log("\n🎉 All Master Data Successfully Seeded into Database!");
+  console.log("\nðŸŽ‰ All Master Data Successfully Seeded into Database!");
 }
 
 seedMasterData()
   .catch((e) => {
-    console.error("❌ Master Data Seed Error:", e);
+    console.error("âŒ Master Data Seed Error:", e);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
+

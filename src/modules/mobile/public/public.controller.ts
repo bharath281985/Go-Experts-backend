@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../../../config/database.js';
-import { successResponse } from '../../../core/response.js';
+import { successResponse, errorResponse } from '../../../core/response.js';
 import { shapeProjects, shapeProject } from '../../../services/mobile/project-shape.service.js';
 import {
   parsePagination,
@@ -396,14 +396,21 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
     const dbRanges = await (prisma as any).masterOption?.findMany({
       where: { type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] }, status: 'active' },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, label: true, value: true, min: true, max: true }
+      select: { id: true, label: true, value: true, min: true, max: true, sortOrder: true }
     }).catch(() => []);
 
-    if (dbRanges && dbRanges.length > 0) {
-      return res.json(successResponse('Budget ranges retrieved', deduplicateMasterOptions(dbRanges)));
-    }
+    const ranges = deduplicateMasterOptions(dbRanges || []).map((item: any) => ({
+      id: item.id,
+      label: item.label,
+      value: item.value,
+      min: item.min,
+      max: item.max,
+      sortOrder: item.sortOrder ?? 0,
+      projectHireBudgetId: item.id,
+      projectHireBudgetLabel: item.label,
+    }));
 
-    return res.json(successResponse('Budget ranges retrieved', []));
+    return res.json(successResponse('Budget ranges retrieved', ranges));
   } catch (error) { next(error); }
 };
 
@@ -570,20 +577,20 @@ export const getTeamSizes = async (req: Request, res: Response, next: NextFuncti
 };
 
 const COUNTRY_INFO_MAP: Record<string, { code: string; phoneCode: string; flag: string; currencyCode: string }> = {
-  "india": { code: "IN", phoneCode: "+91", flag: "🇮🇳", currencyCode: "INR" },
-  "usa": { code: "US", phoneCode: "+1", flag: "🇺🇸", currencyCode: "USD" },
-  "us": { code: "US", phoneCode: "+1", flag: "🇺🇸", currencyCode: "USD" },
-  "united states": { code: "US", phoneCode: "+1", flag: "🇺🇸", currencyCode: "USD" },
-  "uk": { code: "GB", phoneCode: "+44", flag: "🇬🇧", currencyCode: "GBP" },
-  "united kingdom": { code: "GB", phoneCode: "+44", flag: "🇬🇧", currencyCode: "GBP" },
-  "uae": { code: "AE", phoneCode: "+971", flag: "🇦🇪", currencyCode: "AED" },
-  "united arab emirates": { code: "AE", phoneCode: "+971", flag: "🇦🇪", currencyCode: "AED" },
-  "australia": { code: "AU", phoneCode: "+61", flag: "🇦🇺", currencyCode: "AUD" },
-  "canada": { code: "CA", phoneCode: "+1", flag: "🇨🇦", currencyCode: "CAD" },
-  "germany": { code: "DE", phoneCode: "+49", flag: "🇩🇪", currencyCode: "EUR" },
-  "france": { code: "FR", phoneCode: "+33", flag: "🇫🇷", currencyCode: "EUR" },
-  "singapore": { code: "SG", phoneCode: "+65", flag: "🇸🇬", currencyCode: "SGD" },
-  "japan": { code: "JP", phoneCode: "+81", flag: "🇯🇵", currencyCode: "JPY" },
+  "india": { code: "IN", phoneCode: "+91", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â®ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â³", currencyCode: "INR" },
+  "usa": { code: "US", phoneCode: "+1", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¸", currencyCode: "USD" },
+  "us": { code: "US", phoneCode: "+1", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¸", currencyCode: "USD" },
+  "united states": { code: "US", phoneCode: "+1", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¸", currencyCode: "USD" },
+  "uk": { code: "GB", phoneCode: "+44", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â§", currencyCode: "GBP" },
+  "united kingdom": { code: "GB", phoneCode: "+44", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â§", currencyCode: "GBP" },
+  "uae": { code: "AE", phoneCode: "+971", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Âª", currencyCode: "AED" },
+  "united arab emirates": { code: "AE", phoneCode: "+971", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Âª", currencyCode: "AED" },
+  "australia": { code: "AU", phoneCode: "+61", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Âº", currencyCode: "AUD" },
+  "canada": { code: "CA", phoneCode: "+1", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¦", currencyCode: "CAD" },
+  "germany": { code: "DE", phoneCode: "+49", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â©ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Âª", currencyCode: "EUR" },
+  "france": { code: "FR", phoneCode: "+33", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â«ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â·", currencyCode: "EUR" },
+  "singapore": { code: "SG", phoneCode: "+65", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¬", currencyCode: "SGD" },
+  "japan": { code: "JP", phoneCode: "+81", flag: "ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Âµ", currencyCode: "JPY" },
 };
 
 const getCSC = async () => {
@@ -613,7 +620,7 @@ export const getCountries = async (req: Request, res: Response, next: NextFuncti
         const code = row.code || info?.code || cscInfo?.isoCode || 'IN';
         const rawPhone = row.phoneCode || info?.phoneCode || cscInfo?.phonecode || '';
         const phoneCode = rawPhone ? (rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`) : '+91';
-        const flag = row.flag || info?.flag || cscInfo?.flag || '🇮🇳';
+        const flag = row.flag || info?.flag || cscInfo?.flag || 'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â®ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡Ãƒâ€šÃ‚Â³';
         const currencyCode = row.currencyCode || info?.currencyCode || cscInfo?.currency || 'INR';
 
         return {
@@ -1197,52 +1204,30 @@ export const getById = (modelName: string) => async (req: Request, res: Response
           name: user.fullName || reg.fullName || `Investor ${id}`,
           email: user.email,
           phone: user.phone || reg.phone || reg.mobile || "",
-          avatarUrl: user.avatarUrl || reg.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          avatarUrl: user.avatarUrl || reg.avatarUrl || null,
           role: user.role || 'investor',
           status: user.status || 'active',
-          bio: user.bio || reg.bio || reg.thesis || 'Venture partner & active angel investor backing early-stage tech startups.',
+          bio: user.bio || reg.bio || reg.thesis || null,
           thesis: user.bio || reg.thesis || reg.bio || "",
-          company: prof?.firm || reg.firm || reg.firmName || 'Venture Capital',
-          firm: prof?.firm || reg.firm || reg.firmName || 'Venture Capital',
-          firmName: prof?.firm || reg.firm || reg.firmName || 'Venture Capital',
-          ticketMin: prof?.ticketMin ?? reg.ticketMin ?? 25000,
-          ticketMax: prof?.ticketMax ?? reg.ticketMax ?? 500000,
-          focusAreas: prof?.focusAreas || reg.focusAreas || 'AI, SaaS, FinTech',
-          deals: prof?.deals ?? reg.deals ?? 5,
-          investmentsCount: prof?.deals ?? reg.deals ?? 5,
+          company: prof?.firm || reg.firm || reg.firmName || null,
+          firm: prof?.firm || reg.firm || reg.firmName || null,
+          firmName: prof?.firm || reg.firm || reg.firmName || null,
+          ticketMin: prof?.ticketMin ?? reg.ticketMin ?? null,
+          ticketMax: prof?.ticketMax ?? reg.ticketMax ?? null,
+          focusAreas: prof?.focusAreas || reg.focusAreas || null,
+          deals: prof?.deals ?? reg.deals ?? 0,
+          investmentsCount: prof?.deals ?? reg.deals ?? 0,
           location: `${user.city || reg.city || 'Bengaluru'}, ${user.country || reg.country || 'India'}`,
-          city: user.city || reg.city || 'Bengaluru',
-          country: user.country || reg.country || 'India',
-          verified: Boolean(user.isVerified || user.verified || true),
+          city: user.city || reg.city || null,
+          country: user.country || reg.country || null,
+          verified: Boolean(user.isVerified || user.verified),
           registrationData: reg,
           savedData: true,
           isSaved: true
         }));
       }
 
-      return res.json(successResponse('Details retrieved for investor', {
-        id,
-        fullName: `Investor ${id}`,
-        name: `Investor ${id}`,
-        email: `investor_${id}@example.com`,
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        role: 'investor',
-        status: 'active',
-        savedData: false,
-        isSaved: false,
-        bio: 'Venture partner & active angel investor backing early-stage tech startups.',
-        company: 'Global VC Firm',
-        firm: 'Global VC Firm',
-        ticketMin: 50000,
-        ticketMax: 1000000,
-        focusAreas: 'AI, SaaS, FinTech, DeepTech',
-        deals: 10,
-        investmentsCount: 10,
-        location: 'Bengaluru, India',
-        city: 'Bengaluru',
-        country: 'India',
-        verified: true
-      }));
+      return res.status(404).json(errorResponse('Investor not found', 'NOT_FOUND'));
     }
 
     if (modelName === 'startup') {
@@ -1527,8 +1512,20 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const csId = reg.companySizeId || user.clientProfile?.companySize || reg.companySize || "1-10";
       const teamVal = user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || reg.companySize || "1-10";
       const teamId = reg.currentTeamId || reg.currentTeamSizeId || user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || "1-10";
-      const rawB = user.clientProfile?.projectHireBudget || reg.projectHireBudgetId || reg.projectHireBudget || reg.budget || "bgt_3";
-      const bgtId = rawB === "34000" || rawB === "34000.0" || rawB === "34000.00" ? "bgt_3" : (rawB.startsWith("bgt_") ? rawB : (rawB ? rawB : "bgt_3"));
+      const rawB = user.clientProfile?.projectHireBudget || reg.projectHireBudgetId || reg.projectHireBudget || reg.budget || "";
+      const budgetRaw = rawB == null ? "" : String(rawB).trim();
+      const budgetOption = budgetRaw
+        ? await (prisma as any).masterOption?.findFirst({
+            where: {
+              type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] },
+              status: 'active',
+              OR: [{ id: budgetRaw }, { value: budgetRaw }, { label: budgetRaw }]
+            },
+            select: { id: true, label: true, value: true }
+          }).catch(() => null)
+        : null;
+      const budgetId = reg.projectHireBudgetId || budgetOption?.id || budgetRaw || null;
+      const budgetLabel = budgetOption?.label || reg.projectHireBudget || budgetRaw || null;
       const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
       const hgArr = user.clientProfile?.hiringGoal ? String(user.clientProfile.hiringGoal).split(",").map(s => s.trim()) : (reg.hiringGoal || []);
@@ -1556,9 +1553,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         currentTeamId: teamId,
         currentTeamSize: teamVal,
         currentTeamSizeId: teamId,
-        projectHireBudget: bgtId,
-        projectHireBudgetId: bgtId,
-        projectHireBudgetLabel: bgtId === "bgt_3" ? "$10,000 - $50,000" : bgtId,
+        projectHireBudget: budgetId,
+        projectHireBudgetId: budgetId,
+        projectHireBudgetLabel: budgetLabel,
         industry: user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : (reg.industry || []),
         industryIds: reg.industryIds || (user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : []),
         HiringGoal: hgArr.map((id: string, idx: number) => ({
@@ -1672,3 +1669,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
     return res.json(successResponse(`Details retrieved for ${modelName}`, { id: req.params.id, status: 'active' }));
   } catch (error) { next(error); }
 };
+
+
+
+

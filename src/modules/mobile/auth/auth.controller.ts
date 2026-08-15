@@ -1029,6 +1029,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       company,
       businessName,
       projectHireBudget,
+      projectHireBudgetId,
       jobTitle,
       currentTeam,
       investorType,
@@ -1165,7 +1166,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           company: companyVal ? String(companyVal).trim() : undefined,
           industry: industryInput ? String(industryInput).trim() : undefined,
           hiringGoal: hiringGoalInput ? String(hiringGoalInput).trim() : undefined,
-          projectHireBudget: projectHireBudget ? String(projectHireBudget).trim() : undefined,
+          projectHireBudget: (projectHireBudgetId ?? projectHireBudget) ? String(projectHireBudgetId ?? projectHireBudget).trim() : undefined,
           companySize: companySizeInput ? String(companySizeInput).trim() : undefined,
           currentTeam: currentTeam ? String(currentTeam).trim() : undefined,
           websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
@@ -1176,7 +1177,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           company: companyVal ? String(companyVal).trim() : null,
           industry: industryInput ? String(industryInput).trim() : null,
           hiringGoal: hiringGoalInput ? String(hiringGoalInput).trim() : null,
-          projectHireBudget: projectHireBudget ? String(projectHireBudget).trim() : null,
+          projectHireBudget: (projectHireBudgetId ?? projectHireBudget) ? String(projectHireBudgetId ?? projectHireBudget).trim() : null,
           companySize: companySizeInput ? String(companySizeInput).trim() : null,
           currentTeam: currentTeam ? String(currentTeam).trim() : null,
           websiteUrl: websiteUrl ? String(websiteUrl).trim() : null,
@@ -1440,8 +1441,22 @@ export const updateAvatar = async (req: AuthRequest, res: Response, next: NextFu
 
 export const sendEmailVerification = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    sendVerificationEmail(req.user.email, 'mock-verify-token');
-    return res.json(successResponse('Verification email sent'));
+    if (!req.user?.email) {
+      return res.status(400).json(errorResponse('Email is required', 'VALIDATION_ERROR'));
+    }
+
+    const { code } = await issueEmailOtp(req.user.email);
+    const emailSent = await sendVerificationEmail(req.user.email, code);
+
+    if (!emailSent) {
+      return res.status(500).json(errorResponse('Failed to send verification email', 'EMAIL_SEND_FAILED'));
+    }
+
+    return res.json(successResponse('Verification email sent', {
+      email: req.user.email,
+      expiresInSeconds: 600,
+      devOtpCode: code,
+    }));
   } catch (error) { next(error); }
 };
 
@@ -1620,4 +1635,5 @@ export const checkEmail = async (req: Request, res: Response, next: NextFunction
     return res.json(successResponse('Email is available', { available: true }));
   } catch (error) { next(error); }
 };
+
 

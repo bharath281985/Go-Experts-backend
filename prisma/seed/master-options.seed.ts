@@ -21,6 +21,12 @@ export const RAW_MASTER_OPTIONS: RawMasterOption[] = [
   { type: "company_size", label: "5,001–10,000 employees", value: "5001-10000", min: 5001, max: 10000, sortOrder: 8 },
   { type: "company_size", label: "10,001+ employees", value: "10001+", min: 10001, max: 999999, sortOrder: 9 },
 
+  // Budget Range
+  { type: "budget_range", label: "Under INR 10,000 ($100)", value: "Under INR 10,000", min: 0, max: 10000, sortOrder: 1 },
+  { type: "budget_range", label: "INR 10,000 - INR 50,000 ($100-$600)", value: "INR 10,000 - INR 50,000", min: 10000, max: 50000, sortOrder: 2 },
+  { type: "budget_range", label: "INR 50,000 - INR 2,00,000 ($600-$2,500)", value: "INR 50,000 - INR 2,00,000", min: 50000, max: 200000, sortOrder: 3 },
+  { type: "budget_range", label: "INR 2,00,000 - INR 10,00,000 ($2,500-$12,500)", value: "INR 2,00,000 - INR 10,00,000", min: 200000, max: 1000000, sortOrder: 4 },
+  { type: "budget_range", label: "INR 10,00,000+ ($12,500+)", value: "INR 10,00,000+", min: 1000000, max: 99999999, sortOrder: 5 },
   // Experience Level
   { type: "experience_level", label: "Fresher / Trainee", value: "Fresher", sortOrder: 1 },
   { type: "experience_level", label: "Entry Level (0-2 yrs)", value: "Entry Level", sortOrder: 2 },
@@ -291,3 +297,4 @@ for (const cityName of INDIA_CITIES) {
     groupKey: "India",
   });
 }
+

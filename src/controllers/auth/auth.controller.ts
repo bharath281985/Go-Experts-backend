@@ -1894,6 +1894,11 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       ...extraData
     } = req.body || {};
 
+    const projectHireBudgetInput = req.body?.projectHireBudgetId ?? req.body?.projectHireBudget ?? req.body?.budget;
+    const investorTypeInput = req.body?.investorTypeId ?? investorType;
+    const focusAreasInput = req.body?.focusAreasId ?? focusAreas;
+    const preferredStageInput = req.body?.preferredStageId ?? preferredStage;
+
     const currentRegData = typeof user.registrationData === "object" && user.registrationData !== null ? (user.registrationData as object) : {};
     const mergedRegData = {
       ...currentRegData,
@@ -1979,7 +1984,7 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       } else if (userRole === "client") {
         const compName = req.body?.companyName || req.body?.company;
         const currTeam = req.body?.currentTeam || req.body?.teamSize || req.body?.companySize;
-        const projBudget = req.body?.projectHireBudget || req.body?.budget;
+        const projBudget = projectHireBudgetInput;
 
         await prisma.clientProfile.upsert({
           where: { userId },
@@ -2010,22 +2015,22 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
           where: { userId },
           create: {
             userId,
-            investorType: investorType ? String(investorType) : undefined,
+            investorType: investorTypeInput ? String(investorTypeInput) : undefined,
             firm: firm ? String(firm) : undefined,
             isAccredited: isAccredited ? String(isAccredited) : undefined,
             ticketMin: ticketMin !== undefined ? parseFloat(ticketMin) || null : undefined,
             ticketMax: ticketMax !== undefined ? parseFloat(ticketMax) || null : undefined,
-            focusAreas: joinArray(focusAreas),
-            preferredStage: joinArray(preferredStage),
+            focusAreas: joinArray(focusAreasInput),
+            preferredStage: joinArray(preferredStageInput),
           },
           update: {
-            ...(investorType !== undefined && { investorType: String(investorType) }),
+            ...(investorTypeInput !== undefined && { investorType: String(investorTypeInput) }),
             ...(firm !== undefined && { firm: String(firm) }),
             ...(isAccredited !== undefined && { isAccredited: String(isAccredited) }),
             ...(ticketMin !== undefined && { ticketMin: parseFloat(ticketMin) || null }),
             ...(ticketMax !== undefined && { ticketMax: parseFloat(ticketMax) || null }),
-            ...(focusAreas !== undefined && { focusAreas: joinArray(focusAreas) }),
-            ...(preferredStage !== undefined && { preferredStage: joinArray(preferredStage) }),
+            ...(focusAreasInput !== undefined && { focusAreas: joinArray(focusAreasInput) }),
+            ...(preferredStageInput !== undefined && { preferredStage: joinArray(preferredStageInput) }),
           },
         });
       } else if (userRole === "founder") {
@@ -2085,3 +2090,4 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
     next(err);
   }
 };
+

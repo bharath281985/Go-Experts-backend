@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
-import { successResponse } from '../../../../core/response.js';
+import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
@@ -12,34 +12,58 @@ const generateMeetingLink = (meetingId: string) => {
   return `https://meet.goexperts.in/${part1}-${part2}-${part3}`;
 };
 
-const shapeMeeting = (m: any, userMap: Record<string, any>, viewerRole: string) => {
-  const founderUser = userMap[m.founder] || null;
-  const investorUser = userMap[m.investor] || null;
-  const hostUser = userMap[m.createdBy] || null;
+const shapeUser = (user: any, role: string) => {
+  if (!user) return null;
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    avatarUrl: user.avatarUrl,
+    role,
+  };
+};
 
+const shapeMeeting = (meeting: any, userMap: Record<string, any>, viewerRole: string) => {
+  const founderUser = shapeUser(userMap[meeting.founder], 'founder');
+  const investorUser = shapeUser(userMap[meeting.investor], 'investor');
+  const hostUser = shapeUser(userMap[meeting.createdBy], userMap[meeting.createdBy]?.role || viewerRole) || (viewerRole === 'founder' ? founderUser : investorUser);
   const withProfile = viewerRole === 'founder' ? investorUser : founderUser;
-  const hostProfile = hostUser || withProfile;
+  const participants = [founderUser, investorUser].filter(Boolean).map((participant) => ({
+    ...participant,
+    role: participant?.id === hostUser?.id ? 'Host' : 'Participant',
+  }));
 
   return {
-    id: m.id,
-    founder: m.founder,
-    investor: m.investor,
-    date: m.date,
-    time: m.time,
-    duration: m.duration || 45,
-    mode: m.mode || 'Google Meet',
-    status: m.status || 'Scheduled',
-    meetingLink: m.meetingLink || generateMeetingLink(m.id),
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt,
-    withProfile: withProfile || { id: m.investor || 'inv-0', fullName: 'Anand Mahindra', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=INV0' },
-    hostName: hostProfile?.fullName || 'Anand Mahindra',
-    hostProfile: hostProfile || { id: m.investor || 'inv-0', fullName: 'Anand Mahindra', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=INV0' },
-    participants: [
-      { id: m.founder, fullName: 'Founder', role: 'Participant' },
-      { id: m.investor || 'inv-0', fullName: 'Anand Mahindra', avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=INV0', role: 'Host' }
-    ]
+    id: meeting.id,
+    founder: meeting.founder,
+    investor: meeting.investor,
+    date: meeting.date,
+    time: meeting.time,
+    duration: meeting.duration || 45,
+    mode: meeting.mode || 'Online',
+    status: meeting.status || 'Scheduled',
+    meetingLink: meeting.meetingLink || generateMeetingLink(meeting.id),
+    createdAt: meeting.createdAt,
+    updatedAt: meeting.updatedAt,
+    withProfile,
+    hostName: hostUser?.fullName || null,
+    hostProfile: hostUser,
+    participants,
   };
+};
+
+const getUserMap = async (ids: string[]) => {
+  if (!ids.length) return {} as Record<string, any>;
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, fullName: true, avatarUrl: true, email: true, role: true },
+  });
+
+  return users.reduce<Record<string, any>>((acc, user) => {
+    acc[user.id] = user;
+    return acc;
+  }, {});
 };
 
 export const listMeetings = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -48,79 +72,56 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
-    let meetings: any[] = [];
-    let total = 0;
+    const [meetings, total] = await Promise.all([
+      prisma.meeting.findMany({
+        where: { founder: req.user.id, deletedAt: null },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.meeting.count({ where: { founder: req.user.id, deletedAt: null } }),
+    ]);
 
-    try {
-      [meetings, total] = await Promise.all([
-        prisma.meeting.findMany({ where: { founder: req.user.id }, skip, take: limit, orderBy: { createdAt: 'desc' } }),
-        prisma.meeting.count({ where: { founder: req.user.id } })
-      ]);
-    } catch {
-      meetings = [];
-      total = 0;
-    }
+    const userIds = [...new Set(meetings.flatMap((meeting) => [meeting.founder, meeting.investor, meeting.createdBy].filter(Boolean) as string[]))];
+    const userMap = await getUserMap(userIds);
+    const shaped = meetings.map((meeting) => shapeMeeting(meeting, userMap, 'founder'));
 
-    if (meetings.length === 0 && req.user.id === 'fd-0') {
-      try {
-        const sampleMeeting = await prisma.meeting.create({
-          data: {
-            id: 'mtg_fd0_sample',
-            founder: 'fd-0',
-            investor: 'inv-0',
-            date: '2026-08-05',
-            time: '14:00',
-            duration: 45,
-            mode: 'Google Meet',
-            status: 'Scheduled',
-            meetingLink: 'https://meet.goexperts.in/abcd-efgh-ijkl'
-          }
-        });
-        meetings = [sampleMeeting];
-        total = 1;
-      } catch {
-        meetings = [{
-          id: 'mtg_fd0_demo',
-          founder: 'fd-0',
-          investor: 'inv-0',
-          date: '2026-08-05',
-          time: '14:00',
-          duration: 45,
-          mode: 'Google Meet',
-          status: 'Scheduled',
-          meetingLink: 'https://meet.goexperts.in/abcd-efgh-ijkl',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }];
-        total = 1;
-      }
-    }
-
-    const userIds = [...new Set(meetings.flatMap((m: any) => [m.founder, m.investor, m.createdBy].filter(Boolean)))];
-    let userMap: Record<string, any> = {};
-    if (userIds.length > 0) {
-      try {
-        const users = await prisma.user.findMany({
-          where: { id: { in: userIds } },
-          select: { id: true, fullName: true, avatarUrl: true, email: true }
-        });
-        users.forEach(u => { userMap[u.id] = u; });
-      } catch {
-        userMap = {};
-      }
-    }
-
-    const shaped = meetings.map((m: any) => shapeMeeting(m, userMap, 'founder'));
-
-    return res.json(successResponse('Meetings retrieved', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }));
-  } catch (error) { next(error); }
+    return res.json(successResponse('Meetings retrieved', shaped, {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    }));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { investorId, date, time, mode } = req.body;
+    const { investorId, date, time, mode, duration } = req.body;
+    const investor = await prisma.user.findFirst({ where: { id: investorId, role: 'investor', deletedAt: null } });
+
+    if (!investor) {
+      return res.status(404).json(errorResponse('Investor not found', 'NOT_FOUND'));
+    }
+
     const meeting = await prisma.meeting.create({
-      data: { founder: req.user.id, investor: investorId, date, time, mode: mode || 'Google Meet', status: 'Scheduled' }
+      data: {
+        founder: req.user.id,
+        investor: investorId,
+        date,
+        time,
+        duration: duration ? Number(duration) : 45,
+        mode: mode || 'Google Meet',
+        status: 'Scheduled',
+        createdBy: req.user.id,
+      },
+    });
+
+    const meetingWithLink = await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { meetingLink: generateMeetingLink(meeting.id) },
     });
 
     await NotificationEngine.queueNotification({
@@ -128,59 +129,100 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
       type: 'meeting_scheduled',
       title: 'New Meeting Scheduled',
       message: `${req.user.fullName || 'A founder'} has scheduled a meeting with you for ${date} at ${time}.`,
-      channel: 'all'
+      channel: 'all',
     });
 
-    return res.status(201).json(successResponse('Meeting scheduled', meeting));
-  } catch (error) { next(error); }
+    const userMap = await getUserMap([req.user.id, investorId]);
+    return res.status(201).json(successResponse('Meeting scheduled', shapeMeeting(meetingWithLink, userMap, 'founder')));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id } });
-    return res.json(successResponse('Meeting details', meeting));
-  } catch (error) { next(error); }
+    const meeting = await prisma.meeting.findFirst({
+      where: { id: req.params.id, founder: req.user.id, deletedAt: null },
+    });
+
+    if (!meeting) {
+      return res.status(404).json(errorResponse('Meeting not found', 'NOT_FOUND'));
+    }
+
+    const userMap = await getUserMap([meeting.founder, meeting.investor, meeting.createdBy].filter(Boolean) as string[]);
+    return res.json(successResponse('Meeting details', shapeMeeting(meeting, userMap, 'founder')));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const rescheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { date, time } = req.body;
-    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id } });
-    if (!meeting) return res.status(404).json(successResponse('Meeting not found'));
+    const { date, time, duration } = req.body;
+    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id, deletedAt: null } });
 
-    await prisma.meeting.update({ where: { id: meeting.id }, data: { date, time } });
+    if (!meeting) {
+      return res.status(404).json(errorResponse('Meeting not found', 'NOT_FOUND'));
+    }
+
+    const updated = await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: {
+        ...(date !== undefined ? { date } : {}),
+        ...(time !== undefined ? { time } : {}),
+        ...(duration !== undefined ? { duration: Number(duration) } : {}),
+      },
+    });
 
     await NotificationEngine.queueNotification({
       userId: meeting.investor,
       type: 'meeting_rescheduled',
       title: 'Meeting Rescheduled',
-      message: `${req.user.fullName || 'The founder'} has rescheduled your meeting to ${date} at ${time}.`,
-      channel: 'all'
+      message: `${req.user.fullName || 'The founder'} has rescheduled your meeting to ${updated.date} at ${updated.time}.`,
+      channel: 'all',
     });
 
-    return res.json(successResponse('Meeting rescheduled'));
-  } catch (error) { next(error); }
+    const userMap = await getUserMap([updated.founder, updated.investor, updated.createdBy].filter(Boolean) as string[]);
+    return res.json(successResponse('Meeting rescheduled', shapeMeeting(updated, userMap, 'founder')));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const cancelMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id } });
-    if (!meeting) return res.status(404).json(successResponse('Meeting not found'));
+    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id, deletedAt: null } });
 
-    await prisma.meeting.update({ where: { id: meeting.id }, data: { status: 'Cancelled' } });
+    if (!meeting) {
+      return res.status(404).json(errorResponse('Meeting not found', 'NOT_FOUND'));
+    }
+
+    const updated = await prisma.meeting.update({ where: { id: meeting.id }, data: { status: 'Cancelled' } });
 
     await NotificationEngine.queueNotification({
       userId: meeting.investor,
       type: 'meeting_cancelled',
       title: 'Meeting Cancelled',
       message: `${req.user.fullName || 'The founder'} has cancelled the upcoming meeting.`,
-      channel: 'all'
+      channel: 'all',
     });
 
-    return res.json(successResponse('Meeting cancelled'));
-  } catch (error) { next(error); }
+    const userMap = await getUserMap([updated.founder, updated.investor, updated.createdBy].filter(Boolean) as string[]);
+    return res.json(successResponse('Meeting cancelled', shapeMeeting(updated, userMap, 'founder')));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const addMeetingNotes = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try { return res.json(successResponse('Meeting notes added')); } catch (error) { next(error); }
+  try {
+    const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, founder: req.user.id, deletedAt: null } });
+    if (!meeting) {
+      return res.status(404).json(errorResponse('Meeting not found', 'NOT_FOUND'));
+    }
+
+    return res.status(501).json(errorResponse('Meeting notes storage is not configured yet', 'NOT_IMPLEMENTED'));
+  } catch (error) {
+    next(error);
+  }
 };

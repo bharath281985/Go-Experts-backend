@@ -1,53 +1,115 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
-import { successResponse } from '../../../../core/response.js';
+import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 
-const mapInvestorAsync = async (investor: any) => {
-  const prof = investor?.investorProfile;
-  const { investorProfile, ...rest } = investor;
+const parseOptionValues = (value: string | null | undefined) => {
+  if (!value) return [] as string[];
 
-  let focusAreas = prof?.focusAreas || 'AI, SaaS, FinTech, HealthTech';
-  if (prof?.focusAreas && prof.focusAreas.includes('-')) {
-    try {
-      const parsed = prof.focusAreas.startsWith('[')
-        ? JSON.parse(prof.focusAreas)
-        : prof.focusAreas.split(',').map((s: string) => s.trim());
+  const raw = String(value).trim();
+  if (!raw) return [] as string[];
 
-      const names: string[] = [];
-      for (const id of parsed) {
-        let record = await prisma.industry.findUnique({ where: { id } });
-        if (!record) {
-          record = await prisma.skillCategory.findUnique({ where: { id } }) as any;
-        }
-        names.push(record ? record.name : id);
-      }
-      if (names.length > 0) focusAreas = names.join(', ');
-    } catch { }
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch {
+    // fall through
   }
 
+  return raw.split(',').map((item) => item.trim()).filter(Boolean);
+};
+
+const resolveLabels = async (values: string[], type?: string) => {
+  if (!values.length) return [] as string[];
+
+  const [masterOptions, industries, categories] = await Promise.all([
+    (prisma as any).masterOption?.findMany({
+      where: {
+        OR: [
+          { id: { in: values } },
+          { value: { in: values } },
+          { label: { in: values } },
+        ],
+        ...(type ? { type } : {}),
+      },
+      select: { id: true, label: true, value: true },
+    }).catch(() => []),
+    prisma.industry.findMany({ where: { id: { in: values } }, select: { id: true, name: true } }).catch(() => []),
+    prisma.skillCategory.findMany({ where: { id: { in: values } }, select: { id: true, name: true } }).catch(() => []),
+  ]);
+
+  const labelMap = new Map<string, string>();
+  for (const row of masterOptions || []) {
+    labelMap.set(String(row.id), row.label || row.value || String(row.id));
+    if (row.value) labelMap.set(String(row.value), row.label || String(row.value));
+    if (row.label) labelMap.set(String(row.label), row.label);
+  }
+  for (const row of industries || []) labelMap.set(row.id, row.name);
+  for (const row of categories || []) labelMap.set(row.id, row.name);
+
+  return values.map((value) => labelMap.get(value) || value).filter(Boolean);
+};
+
+const mapInvestorAsync = async (investor: any) => {
+  const profile = investor?.investorProfile;
+  const focusAreaValues = parseOptionValues(profile?.focusAreas);
+  const preferredStageValues = parseOptionValues(profile?.preferredStage);
+  const investorTypeValues = parseOptionValues(profile?.investorType);
+
+  const [focusAreas, preferredStages, investorTypes] = await Promise.all([
+    resolveLabels(focusAreaValues),
+    resolveLabels(preferredStageValues, 'preferred_stage'),
+    resolveLabels(investorTypeValues, 'investor_type'),
+  ]);
+
   return {
-    ...rest,
-    id: investor?.id,
-    fullName: investor?.fullName || `Investor ${investor?.id}`,
-    name: investor?.fullName || `Investor ${investor?.id}`,
-    email: investor?.email || `investor_${investor?.id}@example.com`,
-    avatarUrl: investor?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    role: investor?.role || 'investor',
-    bio: investor?.bio || 'Venture partner & active angel investor backing early-stage tech startups.',
-    company: prof?.firm || 'Global VC Firm',
-    firm: prof?.firm || 'Global VC Firm',
-    ticketMin: prof?.ticketMin ?? 25000,
-    ticketMax: prof?.ticketMax ?? 500000,
-    focusAreas,
-    deals: prof?.deals ?? 12,
-    investmentsCount: prof?.deals ?? 12,
-    preferredStage: 'Seed / Series A',
-    location: investor ? `${investor.city || 'Bengaluru'}, ${investor.country || 'India'}` : 'Bengaluru, India',
-    city: investor?.city || 'Bengaluru',
-    country: investor?.country || 'India',
-    verified: investor?.isVerified ?? true
+    id: investor.id,
+    fullName: investor.fullName || null,
+    name: investor.fullName || null,
+    email: investor.email || null,
+    avatarUrl: investor.avatarUrl || null,
+    role: investor.role || 'investor',
+    bio: investor.bio || null,
+    company: profile?.firm || null,
+    firm: profile?.firm || null,
+    ticketMin: profile?.ticketMin ?? null,
+    ticketMax: profile?.ticketMax ?? null,
+    focusAreas: focusAreas.length ? focusAreas.join(', ') : null,
+    focusAreaIds: focusAreaValues,
+    deals: profile?.deals ?? 0,
+    investmentsCount: profile?.deals ?? 0,
+    preferredStage: preferredStages.length ? preferredStages.join(', ') : null,
+    preferredStageIds: preferredStageValues,
+    investorType: investorTypes.length ? investorTypes.join(', ') : null,
+    investorTypeIds: investorTypeValues,
+    location: [investor.city, investor.country].filter(Boolean).join(', ') || null,
+    city: investor.city || null,
+    country: investor.country || null,
+    verified: Boolean(investor.isVerified || investor.verified),
+    createdAt: investor.createdAt,
+    updatedAt: investor.updatedAt,
   };
+};
+
+const enrichInvestments = async (investments: any[]) => {
+  const investorIds = [...new Set(investments.map((investment) => investment.investor).filter(Boolean))];
+  const users = investorIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: investorIds }, role: 'investor', deletedAt: null },
+        include: { investorProfile: true },
+      })
+    : [];
+
+  const userMap = new Map(users.map((user) => [user.id, user]));
+
+  return Promise.all(investments.map(async (investment) => ({
+    ...investment,
+    investorProfile: userMap.get(investment.investor)
+      ? await mapInvestorAsync(userMap.get(investment.investor))
+      : null,
+  })));
 };
 
 export const listInvestors = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -55,62 +117,89 @@ export const listInvestors = async (req: AuthRequest, res: Response, next: NextF
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
-
     const orderDirection = req.query.order === 'asc' ? 'asc' : 'desc';
 
     const [investors, total] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'investor', status: 'active' },
+        where: { role: 'investor', status: 'active', deletedAt: null },
         include: { investorProfile: true },
         skip,
         take: limit,
-        orderBy: { createdAt: orderDirection }
+        orderBy: { createdAt: orderDirection },
       }),
-      prisma.user.count({ where: { role: 'investor', status: 'active' } })
+      prisma.user.count({ where: { role: 'investor', status: 'active', deletedAt: null } }),
     ]);
+
     const mappedInvestors = await Promise.all(investors.map(mapInvestorAsync));
-    return res.json(successResponse('Investors retrieved', mappedInvestors, { page, limit, total, totalPages: Math.ceil(total / limit) }));
-  } catch (error) { next(error); }
+    return res.json(successResponse('Investors retrieved', mappedInvestors, {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    }));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getInvestor = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const id = req.params.id;
-    let investor = await prisma.user.findFirst({ where: { id, role: 'investor' }, include: { investorProfile: true } });
-    if (!investor && id.startsWith('inv-')) {
-      const index = parseInt(id.replace('inv-', '')) || 0;
-      const allInvestors = await prisma.user.findMany({
-        where: { role: 'investor', status: 'active' },
-        include: { investorProfile: true },
-        skip: Math.max(0, index),
-        take: 1
-      });
-      investor = allInvestors[0] || null;
+    const investor = await prisma.user.findFirst({
+      where: { id: req.params.id, role: 'investor', deletedAt: null },
+      include: { investorProfile: true },
+    });
+
+    if (!investor) {
+      return res.status(404).json(errorResponse('Investor not found', 'NOT_FOUND'));
     }
 
     const data = await mapInvestorAsync(investor);
     return res.json(successResponse('Details retrieved for investor', data));
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getRecommendedInvestors = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investors = await prisma.user.findMany({ where: { role: 'investor', status: 'active' }, include: { investorProfile: true }, take: 10 });
+    const investors = await prisma.user.findMany({
+      where: { role: 'investor', status: 'active', deletedAt: null },
+      include: { investorProfile: true },
+      orderBy: [{ investorProfile: { deals: 'desc' } }, { createdAt: 'desc' }],
+      take: 10,
+    });
+
     const mapped = await Promise.all(investors.map(mapInvestorAsync));
     return res.json(successResponse('Recommended investors', mapped));
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getInterestedInvestors = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investors = await prisma.investment.findMany({ where: { startup: req.user.id, status: 'Pending' }, take: 10 });
-    return res.json(successResponse('Interested investors', investors));
-  } catch (error) { next(error); }
+    const investments = await prisma.investment.findMany({
+      where: { startup: req.user.id, status: 'Pending', deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return res.json(successResponse('Interested investors', await enrichInvestments(investments)));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const getActiveInvestors = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investors = await prisma.investment.findMany({ where: { startup: req.user.id, status: 'Active' }, take: 10 });
-    return res.json(successResponse('Active investors', investors));
-  } catch (error) { next(error); }
+    const investments = await prisma.investment.findMany({
+      where: { startup: req.user.id, status: 'Active', deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return res.json(successResponse('Active investors', await enrichInvestments(investments)));
+  } catch (error) {
+    next(error);
+  }
 };

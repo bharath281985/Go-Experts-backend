@@ -630,9 +630,9 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     currentTeamId: regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
     currentTeamSize: clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
     currentTeamSizeId: regData.currentTeamSizeId ?? regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
-    projectHireBudget: regData.projectHireBudgetId ?? (clientProfile.projectHireBudget === "34000" ? "bgt_3" : (clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? "bgt_3")),
-    projectHireBudgetId: regData.projectHireBudgetId ?? (clientProfile.projectHireBudget === "34000" ? "bgt_3" : (clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? "bgt_3")),
-    projectHireBudgetLabel: clientProfile.projectHireBudget ?? regData.projectHireBudget ?? "$10,000 - $50,000",
+    projectHireBudget: regData.projectHireBudgetId ?? clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null,
+    projectHireBudgetId: regData.projectHireBudgetId ?? clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null,
+    projectHireBudgetLabel: regData.projectHireBudget ?? clientProfile.projectHireBudget ?? regData.projectHireBudgetId ?? regData.budget ?? null,
     websiteUrl: clientProfile.websiteUrl ?? regData.websiteUrl ?? null,
     jobTitle: clientProfile.jobTitle ?? regData.jobTitle ?? null,
     // Investor fields
@@ -2042,4 +2042,7 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
 });
 
 export default router;
+
+
+
 
