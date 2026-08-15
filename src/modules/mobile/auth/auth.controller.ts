@@ -591,12 +591,13 @@ interface OptionObj {
 }
 
 const resolveOptionMap = async (values: (string | null | undefined)[]) => {
-  const cleanValues = [...new Set(values.filter((v): v is string => typeof v === 'string' && v.trim().length > 0))];
+  const rawClean = values.flatMap(v => (v ? String(v).split(',').map(s => s.trim()) : [])).filter(Boolean);
+  const cleanValues = [...new Set(rawClean)];
   const optionMap = new Map<string, OptionObj>();
   if (cleanValues.length === 0) return optionMap;
 
   try {
-    const [industries, stages, skills, masterOptions, countries] = await Promise.all([
+    const [industries, stages, skills, skillCategories, expLevels, masterOptions, countries] = await Promise.all([
       prisma.industry.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
@@ -606,6 +607,14 @@ const resolveOptionMap = async (values: (string | null | undefined)[]) => {
         select: { id: true, name: true }
       }).catch(() => []),
       prisma.skill.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
+        select: { id: true, name: true }
+      }).catch(() => []),
+      prisma.skillCategory.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
+        select: { id: true, name: true }
+      }).catch(() => []),
+      prisma.experienceLevel.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
       }).catch(() => []),
@@ -635,6 +644,18 @@ const resolveOptionMap = async (values: (string | null | undefined)[]) => {
       const obj = { id: s.id, name: s.name };
       optionMap.set(s.id, obj);
       optionMap.set(s.name, obj);
+    });
+
+    skillCategories.forEach(sc => {
+      const obj = { id: sc.id, name: sc.name };
+      optionMap.set(sc.id, obj);
+      optionMap.set(sc.name, obj);
+    });
+
+    expLevels.forEach(el => {
+      const obj = { id: el.id, name: el.name };
+      optionMap.set(el.id, obj);
+      optionMap.set(el.name, obj);
     });
 
     masterOptions.forEach((o: any) => {
@@ -699,32 +720,37 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
     const optionMap = await resolveOptionMap(idsToResolve);
 
-    const toOptionObject = (val?: string | null) => {
-      if (!val) return null;
-      return optionMap.get(val) || { id: val, name: val };
+    const toOptionResult = (val?: string | null) => {
+      if (!val || !val.trim()) return null;
+      const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length > 1) {
+        return parts.map(p => optionMap.get(p) || { id: p, name: p });
+      }
+      const single = parts[0];
+      return optionMap.get(single) || { id: single, name: single };
     };
 
-    const resolvedSkillsObjects = rawSkills.map(s => toOptionObject(s)!);
+    const resolvedSkillsObjects = rawSkills.map(s => toOptionResult(s)!);
 
     let formattedProfile: any = null;
     if (roleProfile) {
       formattedProfile = { ...roleProfile };
 
       if (activeUser.role === 'freelancer') {
-        formattedProfile.experienceLevel = toOptionObject(roleProfile.experience);
-        formattedProfile.industry = toOptionObject(roleProfile.industry);
+        formattedProfile.experienceLevel = toOptionResult(roleProfile.experience);
+        formattedProfile.industry = toOptionResult(roleProfile.industry);
         formattedProfile.skills = resolvedSkillsObjects;
       } else if (activeUser.role === 'client') {
-        formattedProfile.industry = toOptionObject(roleProfile.industry);
-        formattedProfile.companySize = toOptionObject(roleProfile.companySize);
-        formattedProfile.hiringGoal = toOptionObject(roleProfile.hiringGoal);
+        formattedProfile.industry = toOptionResult(roleProfile.industry);
+        formattedProfile.companySize = toOptionResult(roleProfile.companySize);
+        formattedProfile.hiringGoal = toOptionResult(roleProfile.hiringGoal);
       } else if (activeUser.role === 'investor') {
-        formattedProfile.focusAreas = toOptionObject(roleProfile.focusAreas);
-        formattedProfile.preferredStage = toOptionObject(roleProfile.preferredStage);
+        formattedProfile.focusAreas = toOptionResult(roleProfile.focusAreas);
+        formattedProfile.preferredStage = toOptionResult(roleProfile.preferredStage);
       } else if (activeUser.role === 'founder') {
-        formattedProfile.industry = toOptionObject(roleProfile.industry);
-        formattedProfile.stage = toOptionObject(roleProfile.stage);
-        formattedProfile.primaryGoal = toOptionObject(roleProfile.primaryGoal);
+        formattedProfile.industry = toOptionResult(roleProfile.industry);
+        formattedProfile.stage = toOptionResult(roleProfile.stage);
+        formattedProfile.primaryGoal = toOptionResult(roleProfile.primaryGoal);
       }
     }
 
@@ -739,8 +765,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       phone: activeUser.phone,
 
       // User Location (Clean { id, name } object)
-      country: toOptionObject(activeUser.country),
-      city: toOptionObject(activeUser.city),
+      country: toOptionResult(activeUser.country),
+      city: toOptionResult(activeUser.city),
       bio: activeUser.bio,
 
       // Role specific profile details
