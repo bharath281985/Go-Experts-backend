@@ -788,7 +788,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       const first = parts[0];
       const found = optionMap.get(first);
       if (found) {
-        return { id: first, name: found.name };
+        return { id: found.id, name: found.name };
       }
 
       const clean = first.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
@@ -810,7 +810,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       for (const p of uniqueParts) {
         const found = optionMap.get(p);
         const clean = p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-        const obj = { id: p, name: found?.name || clean };
+        const obj = { id: found?.id || p, name: found?.name || clean };
         if (!seen.has(obj.id)) {
           seen.add(obj.id);
           result.push(obj);
@@ -1255,7 +1255,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       const first = parts[0];
       const found = optionMap.get(first);
       if (found) {
-        return { id: first, name: found.name };
+        return { id: found.id, name: found.name };
       }
 
       const clean = first.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
@@ -1277,7 +1277,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       for (const p of uniqueParts) {
         const found = optionMap.get(p);
         const clean = p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-        const obj = { id: p, name: found?.name || clean };
+        const obj = { id: found?.id || p, name: found?.name || clean };
         if (!seen.has(obj.id)) {
           seen.add(obj.id);
           result.push(obj);
