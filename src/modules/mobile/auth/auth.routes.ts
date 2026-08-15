@@ -33,7 +33,7 @@ router.post('/apple/callback', appleSignInCallback);
 router.post('/logout', authenticate, logout);
 router.post('/refresh', refresh);
 router.get('/me', authenticate, getMe);
-router.put('/me', authenticate, validate(updateProfileSchema), updateMe);
+router.put('/me', authenticate, upload.single('file'), handleUploadError, validate(updateProfileSchema), updateMe);
 router.post('/me/avatar', authenticate, upload.single('file'), handleUploadError, updateAvatar);
 router.put('/me/avatar', authenticate, upload.single('file'), handleUploadError, updateAvatar);
 router.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);

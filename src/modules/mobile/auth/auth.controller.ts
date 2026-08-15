@@ -704,23 +704,67 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       city,
       bio,
       headline,
+      titleHeadline,
       location,
       skills,
       skillIds,
       categoryId,
+      industry,
+      hourlyRate,
+      availability,
+      experienceLevel,
+      experience,
+      portfolioUrl,
+      resumeUrl,
+      linkedInUrl,
+      githubUrl,
+      dribbbleUrl,
+      company,
+      businessName,
+      hiringGoal,
+      projectHireBudget,
+      companySize,
+      websiteUrl,
+      jobTitle,
+      investorType,
+      firm,
+      firmName,
+      focusAreas,
+      ticketMin,
+      minTicket,
+      ticketMax,
+      maxTicket,
+      preferredStage,
+      startupName,
+      pitch,
+      stage,
+      targetRaise,
+      raised,
+      teamSize,
+      primaryGoal,
     } = req.body;
 
+    let avatarUrl: string | undefined = undefined;
+    if (req.file) {
+      const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
+      const relativePath = req.file.path.replace(/\\/g, '/');
+      avatarUrl = `${BASE_URL}/${relativePath}`;
+    } else if (req.body.avatarUrl) {
+      avatarUrl = req.body.avatarUrl;
+    }
+
     const cityValue = city || location;
-    const composedBio = [headline, bio].filter(Boolean).join('\n\n') || undefined;
+    const composedBio = [headline || titleHeadline, bio].filter(Boolean).join('\n\n') || undefined;
 
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: {
-        fullName,
-        phone,
-        country,
-        city: cityValue,
-        bio: composedBio,
+        fullName: fullName || undefined,
+        phone: phone || undefined,
+        country: country || undefined,
+        city: cityValue || undefined,
+        bio: composedBio || undefined,
+        avatarUrl: avatarUrl || undefined,
         isVerified: true,
       },
     });
@@ -734,34 +778,121 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         : undefined;
 
     if (role === 'freelancer') {
+      const titleHeadlineVal = titleHeadline || headline;
+      const hourlyRateVal = hourlyRate != null && hourlyRate !== '' ? parseFloat(hourlyRate) : undefined;
+      const expVal = experienceLevel || experience;
+
       await prisma.freelancerProfile.upsert({
         where: { userId: req.user.id },
-        update: { skills: skillsValue },
-        create: { userId: req.user.id, skills: skillsValue },
+        update: {
+          skills: skillsValue,
+          titleHeadline: titleHeadlineVal ? String(titleHeadlineVal).trim() : undefined,
+          hourlyRate: hourlyRateVal,
+          availability: availability ? String(availability).trim() : undefined,
+          experience: expVal ? String(expVal).trim() : undefined,
+          portfolioUrl: portfolioUrl ? String(portfolioUrl).trim() : undefined,
+          linkedInUrl: linkedInUrl ? String(linkedInUrl).trim() : undefined,
+          githubUrl: githubUrl ? String(githubUrl).trim() : undefined,
+          dribbbleUrl: dribbbleUrl ? String(dribbbleUrl).trim() : undefined,
+          industry: (industry || categoryId) ? String(industry || categoryId).trim() : undefined,
+        },
+        create: {
+          userId: req.user.id,
+          skills: skillsValue || '',
+          titleHeadline: titleHeadlineVal ? String(titleHeadlineVal).trim() : null,
+          hourlyRate: hourlyRateVal ?? null,
+          availability: availability ? String(availability).trim() : null,
+          experience: expVal ? String(expVal).trim() : null,
+          portfolioUrl: portfolioUrl ? String(portfolioUrl).trim() : null,
+          linkedInUrl: linkedInUrl ? String(linkedInUrl).trim() : null,
+          githubUrl: githubUrl ? String(githubUrl).trim() : null,
+          dribbbleUrl: dribbbleUrl ? String(dribbbleUrl).trim() : null,
+          industry: (industry || categoryId) ? String(industry || categoryId).trim() : null,
+        },
       });
-    } else if (role === 'client' && categoryId) {
+    } else if (role === 'client') {
+      const companyVal = company || businessName;
+      const industryVal = industry || categoryId;
       await prisma.clientProfile.upsert({
         where: { userId: req.user.id },
-        update: { industry: categoryId },
-        create: { userId: req.user.id, industry: categoryId },
+        update: {
+          company: companyVal ? String(companyVal).trim() : undefined,
+          industry: industryVal ? String(industryVal).trim() : undefined,
+          hiringGoal: hiringGoal ? String(hiringGoal).trim() : undefined,
+          projectHireBudget: projectHireBudget ? String(projectHireBudget).trim() : undefined,
+          companySize: companySize ? String(companySize).trim() : undefined,
+          websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
+          jobTitle: jobTitle ? String(jobTitle).trim() : undefined,
+        },
+        create: {
+          userId: req.user.id,
+          company: companyVal ? String(companyVal).trim() : null,
+          industry: industryVal ? String(industryVal).trim() : null,
+          hiringGoal: hiringGoal ? String(hiringGoal).trim() : null,
+          projectHireBudget: projectHireBudget ? String(projectHireBudget).trim() : null,
+          companySize: companySize ? String(companySize).trim() : null,
+          websiteUrl: websiteUrl ? String(websiteUrl).trim() : null,
+          jobTitle: jobTitle ? String(jobTitle).trim() : null,
+        },
       });
-    } else if (role === 'investor' && categoryId) {
+    } else if (role === 'investor') {
+      const firmVal = firm || firmName;
+      const ticketMinVal = ticketMin ?? minTicket;
+      const ticketMaxVal = ticketMax ?? maxTicket;
+      const focusAreasVal = focusAreas || categoryId;
+
       await prisma.investorProfile.upsert({
         where: { userId: req.user.id },
-        update: { focusAreas: categoryId },
-        create: { userId: req.user.id, focusAreas: categoryId },
+        update: {
+          investorType: investorType ? String(investorType).trim() : undefined,
+          firm: firmVal ? String(firmVal).trim() : undefined,
+          focusAreas: focusAreasVal ? String(focusAreasVal).trim() : undefined,
+          ticketMin: ticketMinVal != null && ticketMinVal !== '' ? parseFloat(ticketMinVal) : undefined,
+          ticketMax: ticketMaxVal != null && ticketMaxVal !== '' ? parseFloat(ticketMaxVal) : undefined,
+          preferredStage: preferredStage ? String(preferredStage).trim() : undefined,
+        },
+        create: {
+          userId: req.user.id,
+          investorType: investorType ? String(investorType).trim() : null,
+          firm: firmVal ? String(firmVal).trim() : null,
+          focusAreas: focusAreasVal ? String(focusAreasVal).trim() : null,
+          ticketMin: ticketMinVal != null && ticketMinVal !== '' ? parseFloat(ticketMinVal) : null,
+          ticketMax: ticketMaxVal != null && ticketMaxVal !== '' ? parseFloat(ticketMaxVal) : null,
+          preferredStage: preferredStage ? String(preferredStage).trim() : null,
+        },
       });
-    } else if (role === 'founder' && categoryId) {
+    } else if (role === 'founder') {
+      const industryVal = industry || categoryId;
+      const targetRaiseVal = targetRaise ?? raised;
+      const parsedTeamSize = teamSize != null && teamSize !== '' ? parseInt(String(teamSize)) : undefined;
+
       await prisma.founderProfile.upsert({
         where: { userId: req.user.id },
-        update: { industry: categoryId },
-        create: { userId: req.user.id, industry: categoryId },
+        update: {
+          startupName: startupName ? String(startupName).trim() : undefined,
+          industry: industryVal ? String(industryVal).trim() : undefined,
+          pitch: pitch ? String(pitch).trim() : undefined,
+          stage: stage ? String(stage).trim() : undefined,
+          targetRaise: targetRaiseVal != null && targetRaiseVal !== '' ? parseFloat(targetRaiseVal) : undefined,
+          teamSize: parsedTeamSize,
+          primaryGoal: primaryGoal ? String(primaryGoal).trim() : undefined,
+        },
+        create: {
+          userId: req.user.id,
+          startupName: startupName ? String(startupName).trim() : null,
+          industry: industryVal ? String(industryVal).trim() : null,
+          pitch: pitch ? String(pitch).trim() : null,
+          stage: stage ? String(stage).trim() : null,
+          targetRaise: targetRaiseVal != null && targetRaiseVal !== '' ? parseFloat(targetRaiseVal) : null,
+          teamSize: parsedTeamSize ?? 1,
+          primaryGoal: primaryGoal ? String(primaryGoal).trim() : null,
+        },
       });
     }
 
     const completion = await resolveProfileCompletion(req.user.id);
 
-    return res.json(successResponse('Profile updated successfully'));
+    return res.json(successResponse('Profile updated successfully', { user: updatedUser, completion }));
   } catch (error) { next(error); }
 };
 
