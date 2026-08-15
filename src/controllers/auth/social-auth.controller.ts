@@ -187,9 +187,11 @@ export const appleAuthStart = async (req: Request, res: Response) => {
     maxAge: 10 * 60 * 1000,
   });
 
+  const apiBase = process.env.API_BASE_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/api` : "https://apiai.goexperts.in/api");
+
   const params = new URLSearchParams({
     client_id: process.env.APPLE_CLIENT_ID || "",
-    redirect_uri: `${process.env.API_BASE_URL}/auth/apple/callback`,
+    redirect_uri: `${apiBase}/auth/apple/callback`,
     response_type: "code id_token",
     response_mode: "form_post",
     scope: "name email",
