@@ -17,7 +17,12 @@ export const getCurrentPlan = async (req: AuthRequest, res: Response, next: Next
 export const getPlans = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const plans = await prisma.subscriptionPlan.findMany({
-      where: { status: 'active', role: req.user.role },
+      where: {
+        status: 'active',
+        role: req.user.role,
+        amount: { gt: 0 },
+        duration: { not: '90_days' }
+      },
     });
     return res.json(successResponse('Plans', plans));
   } catch (error) { next(error); }

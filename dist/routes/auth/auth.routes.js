@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { login, register, registerAdmin, logout, refresh, me, forgotPassword, resetPassword, changePassword, updateProfile, uploadAvatar, sendOtp, verifyOtp, getOtpInfo, sendVerificationLink, updateVerificationData, saveOnboardingDraft, } from "../../controllers/auth/auth.controller.js";
+import { googleAuthStart, googleAuthCallback, appleAuthStart, appleAuthCallback, } from "../../controllers/auth/social-auth.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 const router = Router();
@@ -24,4 +25,9 @@ router.post("/send-verification-link", sendVerificationLink);
 router.patch("/verification", authMiddleware, updateVerificationData);
 router.patch("/onboarding/draft", authMiddleware, saveOnboardingDraft);
 router.put("/onboarding/draft", authMiddleware, saveOnboardingDraft);
+// Social Auth Routes
+router.get("/google", googleAuthStart);
+router.get("/google/callback", googleAuthCallback);
+router.get("/apple", appleAuthStart);
+router.post("/apple/callback", appleAuthCallback);
 export default router;

@@ -984,6 +984,28 @@ export const getFreelancerResume = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+import { ResumeExportService } from "../../services/resume/resume-export.service.js";
+export const exportFreelancerResumePdf = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const pdfBuffer = await ResumeExportService.generatePdf(userId);
+        const ctx = await ResumeExportService.loadExportContext(userId); // Getting context again just for filename... wait, we can just fetch user
+        const profile = ctx.profile;
+        const filename = `${(profile.firstName || 'go').toLowerCase()}-${(profile.lastName || 'experts').toLowerCase()}-resume.pdf`;
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.send(pdfBuffer);
+    }
+    catch (err) {
+        if (err.message === "SERVER_BUSY") {
+            res.status(429).json({ success: false, message: "Server is currently busy generating other resumes. Please try again in a few moments." });
+            return;
+        }
+        handleError(err, res, next);
+    }
+};
 export const putFreelancerResume = async (req, res, next) => {
     try {
         const userId = requireUser(req, res);

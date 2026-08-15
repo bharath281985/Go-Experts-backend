@@ -15,7 +15,9 @@ export const getAvailablePlans = async (req: AuthRequest, res: Response, next: N
     const plans = await prisma.subscriptionPlan.findMany({
       where: {
         status: 'active',
-        role: req.user.role
+        role: req.user.role,
+        amount: { gt: 0 },
+        duration: { not: '90_days' }
       }
     });
     return res.json(successResponse('Available plans retrieved', plans));
