@@ -585,28 +585,74 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
-const resolveIdsToNames = async (ids: (string | null | undefined)[]) => {
-  const cleanIds = [...new Set(ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0))];
-  const nameMap = new Map<string, string>();
-  if (cleanIds.length === 0) return nameMap;
+interface OptionObj {
+  id: string;
+  name: string;
+}
+
+const resolveOptionMap = async (values: (string | null | undefined)[]) => {
+  const cleanValues = [...new Set(values.filter((v): v is string => typeof v === 'string' && v.trim().length > 0))];
+  const optionMap = new Map<string, OptionObj>();
+  if (cleanValues.length === 0) return optionMap;
 
   try {
     const [industries, stages, skills, masterOptions, countries] = await Promise.all([
-      prisma.industry.findMany({ where: { id: { in: cleanIds } }, select: { id: true, name: true } }).catch(() => []),
-      prisma.startupStage.findMany({ where: { id: { in: cleanIds } }, select: { id: true, name: true } }).catch(() => []),
-      prisma.skill.findMany({ where: { id: { in: cleanIds } }, select: { id: true, name: true } }).catch(() => []),
-      (prisma as any).masterOption?.findMany({ where: { id: { in: cleanIds } }, select: { id: true, label: true, value: true } }).catch(() => []) || [],
-      (prisma as any).country?.findMany({ where: { id: { in: cleanIds } }, select: { id: true, name: true } }).catch(() => []) || [],
+      prisma.industry.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
+        select: { id: true, name: true }
+      }).catch(() => []),
+      prisma.startupStage.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
+        select: { id: true, name: true }
+      }).catch(() => []),
+      prisma.skill.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
+        select: { id: true, name: true }
+      }).catch(() => []),
+      (prisma as any).masterOption?.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { value: { in: cleanValues } }, { label: { in: cleanValues } }] },
+        select: { id: true, label: true, value: true }
+      }).catch(() => []) || [],
+      (prisma as any).country?.findMany({
+        where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }, { code: { in: cleanValues } }] },
+        select: { id: true, name: true, code: true }
+      }).catch(() => []) || [],
     ]);
 
-    industries.forEach(i => nameMap.set(i.id, i.name));
-    stages.forEach(s => nameMap.set(s.id, s.name));
-    skills.forEach(s => nameMap.set(s.id, s.name));
-    masterOptions.forEach((o: any) => nameMap.set(o.id, o.label || o.value));
-    countries.forEach((c: any) => nameMap.set(c.id, c.name));
+    industries.forEach(i => {
+      const obj = { id: i.id, name: i.name };
+      optionMap.set(i.id, obj);
+      optionMap.set(i.name, obj);
+    });
+
+    stages.forEach(s => {
+      const obj = { id: s.id, name: s.name };
+      optionMap.set(s.id, obj);
+      optionMap.set(s.name, obj);
+    });
+
+    skills.forEach(s => {
+      const obj = { id: s.id, name: s.name };
+      optionMap.set(s.id, obj);
+      optionMap.set(s.name, obj);
+    });
+
+    masterOptions.forEach((o: any) => {
+      const obj = { id: o.id, name: o.label || o.value || o.id };
+      optionMap.set(o.id, obj);
+      if (o.value) optionMap.set(o.value, obj);
+      if (o.label) optionMap.set(o.label, obj);
+    });
+
+    countries.forEach((c: any) => {
+      const obj = { id: c.id, name: c.name };
+      optionMap.set(c.id, obj);
+      if (c.name) optionMap.set(c.name, obj);
+      if (c.code) optionMap.set(c.code, obj);
+    });
   } catch {}
 
-  return nameMap;
+  return optionMap;
 };
 
 export const getMe = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -651,19 +697,14 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       ...rawSkills,
     ];
 
-    const nameMap = await resolveIdsToNames(idsToResolve);
+    const optionMap = await resolveOptionMap(idsToResolve);
 
-    const resolveName = (id?: string | null) => {
-      if (!id) return "";
-      return nameMap.get(id) || id;
+    const toOptionObject = (val?: string | null) => {
+      if (!val) return null;
+      return optionMap.get(val) || { id: val, name: val };
     };
 
-    const toOptionObject = (id?: string | null) => {
-      if (!id) return null;
-      return { id, name: resolveName(id) };
-    };
-
-    const resolvedSkillsObjects = rawSkills.map(s => ({ id: s, name: resolveName(s) }));
+    const resolvedSkillsObjects = rawSkills.map(s => toOptionObject(s)!);
 
     let formattedProfile: any = null;
     if (roleProfile) {
