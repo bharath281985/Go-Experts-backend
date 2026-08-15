@@ -708,7 +708,7 @@ const resolveOptionMap = async (values: (string | null | undefined)[]) => {
       optionMap.set(wm.id, obj);
       optionMap.set(wm.name, obj);
     });
-  } catch {}
+  } catch { }
 
   return optionMap;
 };
@@ -757,9 +757,9 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     const activeUser = dbUser || user;
     const roleProfile: any =
       activeUser.role === 'freelancer' ? activeUser.freelancerProfile :
-      activeUser.role === 'client' ? activeUser.clientProfile :
-      activeUser.role === 'investor' ? activeUser.investorProfile :
-      activeUser.role === 'founder' ? activeUser.founderProfile : null;
+        activeUser.role === 'client' ? activeUser.clientProfile :
+          activeUser.role === 'investor' ? activeUser.investorProfile :
+            activeUser.role === 'founder' ? activeUser.founderProfile : null;
 
     const rawSkills = roleProfile?.skills ? String(roleProfile.skills).split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -845,10 +845,10 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         delete formattedProfile.industry;
         formattedProfile.companySizeId = toSingleOption(roleProfile.companySize);
         delete formattedProfile.companySize;
-        formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal).map((opt) => opt.id || opt.name);
+        formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
         delete formattedProfile.hiringGoal;
       } else if (activeUser.role === 'investor') {
-        formattedProfile.focusAreasId = toMultiOptions(roleProfile.focusAreas).map((opt) => opt.id || opt.name);
+        formattedProfile.focusAreasId = toMultiOptions(roleProfile.focusAreas);
         delete formattedProfile.focusAreas;
         formattedProfile.preferredStageId = toSingleOption(roleProfile.preferredStage);
         delete formattedProfile.preferredStage;
@@ -1259,14 +1259,15 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     const activeUser: any = (dbUser || updatedUser) as any;
     const roleProfile: any =
       activeUser.role === 'freelancer' ? activeUser.freelancerProfile :
-      activeUser.role === 'client' ? activeUser.clientProfile :
-      activeUser.role === 'investor' ? activeUser.investorProfile :
-      activeUser.role === 'founder' ? activeUser.founderProfile : null;
+        activeUser.role === 'client' ? activeUser.clientProfile :
+          activeUser.role === 'investor' ? activeUser.investorProfile :
+            activeUser.role === 'founder' ? activeUser.founderProfile : null;
 
     const rawSkills = roleProfile?.skills ? String(roleProfile.skills).split(',').map(s => s.trim()).filter(Boolean) : [];
 
     const idsToResolve = [
       activeUser.country,
+      activeUser.state,
       activeUser.city,
       roleProfile?.industry,
       roleProfile?.experience,
@@ -1278,6 +1279,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       roleProfile?.preferredStage,
       roleProfile?.stage,
       roleProfile?.primaryGoal,
+      roleProfile?.investorType,
       ...rawSkills,
     ];
 
@@ -1341,16 +1343,28 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         formattedProfile.workMode = toSingleOption(roleProfile.workMode);
         formattedProfile.skills = toMultiOptions(roleProfile.skills);
       } else if (activeUser.role === 'client') {
-        formattedProfile.industry = toSingleOption(roleProfile.industry);
-        formattedProfile.companySize = toSingleOption(roleProfile.companySize);
-        formattedProfile.hiringGoal = toSingleOption(roleProfile.hiringGoal);
+        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        delete formattedProfile.industry;
+        formattedProfile.companySizeId = toSingleOption(roleProfile.companySize);
+        delete formattedProfile.companySize;
+        formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
+        delete formattedProfile.hiringGoal;
       } else if (activeUser.role === 'investor') {
-        formattedProfile.focusAreas = toMultiOptions(roleProfile.focusAreas);
-        formattedProfile.preferredStage = toSingleOption(roleProfile.preferredStage);
+        formattedProfile.focusAreasId = toMultiOptions(roleProfile.focusAreas);
+        delete formattedProfile.focusAreas;
+        formattedProfile.preferredStageId = toSingleOption(roleProfile.preferredStage);
+        delete formattedProfile.preferredStage;
+        if (roleProfile.investorType) {
+          formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
+          delete formattedProfile.investorType;
+        }
       } else if (activeUser.role === 'founder') {
-        formattedProfile.industry = toSingleOption(roleProfile.industry);
-        formattedProfile.stage = toSingleOption(roleProfile.stage);
-        formattedProfile.primaryGoal = toSingleOption(roleProfile.primaryGoal);
+        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        delete formattedProfile.industry;
+        formattedProfile.stageId = toSingleOption(roleProfile.stage);
+        delete formattedProfile.stage;
+        formattedProfile.primaryGoalId = toSingleOption(roleProfile.primaryGoal);
+        delete formattedProfile.primaryGoal;
       }
     }
 
@@ -1369,6 +1383,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       phoneNumber: phoneParsed.phoneNumber,
 
       country: toSingleOption(activeUser.country),
+      state: toSingleOption(activeUser.state),
       city: activeUser.city ? String(activeUser.city).replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ') : null,
       bio: activeUser.bio,
 
