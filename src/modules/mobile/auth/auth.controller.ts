@@ -833,7 +833,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       formattedProfile = { ...roleProfile };
 
       if (activeUser.role === 'freelancer') {
-        formattedProfile.experienceLevel = toSingleOption(roleProfile.experience);
+        formattedProfile.experience = toSingleOption(roleProfile.experience);
         formattedProfile.industry = toSingleOption(roleProfile.industry);
         formattedProfile.availability = toSingleOption(roleProfile.availability);
         formattedProfile.workMode = toSingleOption(roleProfile.workMode);
@@ -862,14 +862,19 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       avatarUrl: activeUser.avatarUrl,
       status: activeUser.status,
       isVerified: activeUser.isVerified,
+      verified: activeUser.verified,
       phone: phoneParsed.phone,
       phoneCode: phoneParsed.phoneCode,
       phoneNumber: phoneParsed.phoneNumber,
 
-      // User Location (Clean single { id, name } object)
+      // User Location
       country: toSingleOption(activeUser.country),
+      state: activeUser.state ? String(activeUser.state).replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ') : null,
       city: activeUser.city ? String(activeUser.city).replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ') : null,
       bio: activeUser.bio,
+      referralCode: activeUser.referralCode,
+      createdAt: activeUser.createdAt,
+      updatedAt: activeUser.updatedAt,
 
       // Role specific profile details
       profile: formattedProfile,
@@ -1309,7 +1314,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       formattedProfile = { ...roleProfile };
 
       if (activeUser.role === 'freelancer') {
-        formattedProfile.experienceLevel = toSingleOption(roleProfile.experience);
+        formattedProfile.experience = toSingleOption(roleProfile.experience);
         formattedProfile.industry = toSingleOption(roleProfile.industry);
         formattedProfile.availability = toSingleOption(roleProfile.availability);
         formattedProfile.workMode = toSingleOption(roleProfile.workMode);
