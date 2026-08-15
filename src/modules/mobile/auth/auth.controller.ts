@@ -765,6 +765,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
     const idsToResolve = [
       activeUser.country,
+      activeUser.state,
       activeUser.city,
       roleProfile?.industry,
       roleProfile?.experience,
@@ -776,6 +777,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       roleProfile?.preferredStage,
       roleProfile?.stage,
       roleProfile?.primaryGoal,
+      roleProfile?.investorType,
       ...rawSkills,
     ];
 
@@ -839,16 +841,28 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         formattedProfile.workMode = toSingleOption(roleProfile.workMode);
         formattedProfile.skills = toMultiOptions(roleProfile.skills);
       } else if (activeUser.role === 'client') {
-        formattedProfile.industry = toSingleOption(roleProfile.industry);
-        formattedProfile.companySize = toSingleOption(roleProfile.companySize);
-        formattedProfile.hiringGoal = toSingleOption(roleProfile.hiringGoal);
+        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        delete formattedProfile.industry;
+        formattedProfile.companySizeId = toSingleOption(roleProfile.companySize);
+        delete formattedProfile.companySize;
+        formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal).map((opt) => opt.id || opt.name);
+        delete formattedProfile.hiringGoal;
       } else if (activeUser.role === 'investor') {
-        formattedProfile.focusAreas = toMultiOptions(roleProfile.focusAreas);
-        formattedProfile.preferredStage = toSingleOption(roleProfile.preferredStage);
+        formattedProfile.focusAreasId = toMultiOptions(roleProfile.focusAreas).map((opt) => opt.id || opt.name);
+        delete formattedProfile.focusAreas;
+        formattedProfile.preferredStageId = toSingleOption(roleProfile.preferredStage);
+        delete formattedProfile.preferredStage;
+        if (roleProfile.investorType) {
+          formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
+          delete formattedProfile.investorType;
+        }
       } else if (activeUser.role === 'founder') {
-        formattedProfile.industry = toSingleOption(roleProfile.industry);
-        formattedProfile.stage = toSingleOption(roleProfile.stage);
-        formattedProfile.primaryGoal = toSingleOption(roleProfile.primaryGoal);
+        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        delete formattedProfile.industry;
+        formattedProfile.stageId = toSingleOption(roleProfile.stage);
+        delete formattedProfile.stage;
+        formattedProfile.primaryGoalId = toSingleOption(roleProfile.primaryGoal);
+        delete formattedProfile.primaryGoal;
       }
     }
 
@@ -869,7 +883,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
       // User Location
       country: toSingleOption(activeUser.country),
-      state: activeUser.state ? String(activeUser.state).replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ') : null,
+      state: toSingleOption(activeUser.state),
       city: activeUser.city ? String(activeUser.city).replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ') : null,
       bio: activeUser.bio,
       referralCode: activeUser.referralCode,
@@ -1047,6 +1061,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 
     const countryInput = extractVal(req.body.countryId ?? req.body.country);
+    const stateInput = extractVal(req.body.stateId ?? req.body.state);
     const cityInput = extractVal(req.body.stateId ?? req.body.city ?? location);
     const skillsInput = extractVal(req.body.skillIds ?? req.body.skills);
     const expInput = extractVal(req.body.experienceLevelId ?? req.body.experienceLevel ?? experience);
@@ -1057,6 +1072,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     const prefStageInput = extractVal(req.body.preferredStageId ?? req.body.preferredStage);
     const stageInput = extractVal(req.body.stageId ?? req.body.stage);
     const primaryGoalInput = extractVal(req.body.primaryGoalId ?? req.body.primaryGoal);
+    const investorTypeInput = extractVal(req.body.investorTypeId ?? req.body.investorType);
 
     let avatarUrl: string | undefined = undefined;
     if (req.file) {
@@ -1073,7 +1089,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         fullName: fullName || undefined,
         phone: finalPhone || undefined,
         country: countryInput || undefined,
-        state: req.body.state || undefined,
+        state: stateInput || undefined,
         city: cityInput || undefined,
         bio: bio !== undefined ? bio : undefined,
         avatarUrl: avatarUrl || undefined,
@@ -1171,7 +1187,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       await prisma.investorProfile.upsert({
         where: { userId: req.user.id },
         update: {
-          investorType: investorType ? String(investorType).trim() : undefined,
+          investorType: investorTypeInput ? String(investorTypeInput).trim() : undefined,
           firm: firmVal ? String(firmVal).trim() : undefined,
           isAccredited: isAccredited ? String(isAccredited).trim() : undefined,
           focusAreas: focusAreasInput ? String(focusAreasInput).trim() : undefined,
@@ -1181,7 +1197,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         },
         create: {
           userId: req.user.id,
-          investorType: investorType ? String(investorType).trim() : null,
+          investorType: investorTypeInput ? String(investorTypeInput).trim() : null,
           firm: firmVal ? String(firmVal).trim() : null,
           isAccredited: isAccredited ? String(isAccredited).trim() : null,
           focusAreas: focusAreasInput ? String(focusAreasInput).trim() : null,
