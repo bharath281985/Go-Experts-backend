@@ -12,14 +12,11 @@ export type VerificationItem = {
 export const VERIFICATION_KEYS: Array<{ key: string; label: string; required?: boolean }> = [
     { key: "email", label: "Email address", required: true },
     { key: "phone", label: "Phone number", required: false },
-    { key: "identity", label: "Identity (Government ID)", required: true },
-    { key: "passport", label: "Passport", required: false },
-    { key: "driving", label: "Driving License", required: false },
-    { key: "pancard", label: "PAN Card", required: true },
-    { key: "gst", label: "GST Details (Optional)", required: false },
+    { key: "personal_id_1", label: "Primary ID Proof", required: true },
+    { key: "personal_id_2", label: "Secondary ID Proof", required: true },
+    { key: "business_proof", label: "Business Proof", required: false },
     { key: "address", label: "Address proof", required: false },
-    { key: "selfie", label: "Selfie verification", required: false },
-    { key: "company", label: "Company Incorporation", required: false },
+    { key: "selfie", label: "Selfie verification", required: false }
 ];
 
 export function parseVerificationJson(raw: string | null | undefined): Record<string, Partial<VerificationItem>> {
@@ -48,7 +45,7 @@ export function buildVerificationItems(user: any, stored: Record<string, Partial
         } else if (key === "phone") {
             value = user.phone || value || "Not submitted";
             status = user.phone ? (fromStore.status as any) || "verified" : "missing";
-        } else if (key === "identity") {
+        } else if (key === "personal_id_1" || key === "personal_id_2") {
             if (!value) value = accountVerified ? "Account verified by admin" : "Not submitted";
             if (accountVerified && status === "missing") status = "verified";
         } else if (key === "address") {

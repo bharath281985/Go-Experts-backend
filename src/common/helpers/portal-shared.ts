@@ -871,68 +871,9 @@ export async function purchaseSubscriptionForSelf(
 }
 
 export async function listSubscriptionsForUser(userId: string) {
-  const subs = await prisma.subscription.findMany({
+  return prisma.subscription.findMany({
     where: { userId },
     include: { plan: true },
     orderBy: { createdAt: "desc" },
   });
-
-  if (subs.length > 0) {
-    return subs;
-  }
-
-  // If no subscription recorded yet, automatically link/return the 90-Day Free Plan
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, role: true, createdAt: true, trialEndsAt: true, isVerified: true, status: true },
-  });
-
-  if (!user) return [];
-
-  const freePlan = await prisma.subscriptionPlan.findFirst({
-    where: {
-      status: "active",
-      OR: [{ role: "all" }, { role: user.role }],
-      AND: [{ OR: [{ duration: "90_days" }, { amount: 0 }] }],
-    },
-    orderBy: { amount: "asc" },
-  });
-
-  if (freePlan) {
-    const now = new Date();
-    const trialEnd = user.trialEndsAt ? new Date(user.trialEndsAt) : new Date(user.createdAt.getTime() + 90 * 24 * 60 * 60 * 1000);
-    const isStillActive = trialEnd.getTime() > now.getTime();
-
-    if (isStillActive) {
-      try {
-        const createdSub = await prisma.subscription.create({
-          data: {
-            userId: user.id,
-            planId: freePlan.id,
-            startDate: user.createdAt,
-            endDate: trialEnd,
-            status: "active",
-            autoRenew: false,
-          },
-          include: { plan: true },
-        });
-        return [createdSub];
-      } catch {
-        return [
-          {
-            id: "free-trial-" + user.id,
-            userId: user.id,
-            planId: freePlan.id,
-            startDate: user.createdAt,
-            endDate: trialEnd,
-            status: "active",
-            autoRenew: false,
-            plan: freePlan,
-          } as any,
-        ];
-      }
-    }
-  }
-
-  return [];
 }

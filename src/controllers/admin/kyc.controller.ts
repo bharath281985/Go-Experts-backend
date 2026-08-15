@@ -43,6 +43,11 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                 where: { id },
                 data: { verified: isVerified, isVerified }
             });
+            
+            if (isVerified) {
+                const { activateFreeTrialOnKycApproval } = await import("../../services/subscription/free-trial.service.js");
+                await activateFreeTrialOnKycApproval(id);
+            }
         }
 
         let stats = null;

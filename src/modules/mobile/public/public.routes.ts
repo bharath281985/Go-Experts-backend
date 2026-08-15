@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   getHomeData, getCategories, getSkills, getIndustries,
   getFreelancers, getClients, getInvestors, getStartups,
-  getProjects, shareProject, getPricing, getBlogs, getFaqs, getTestimonials,
+  getProjects, shareProject, getPricing, getPricingPlans, getBlogs, getFaqs, getTestimonials,
   submitContact, search, getById,
   getExperienceLevels, getStartupStages, getCompanySizes, getTicketSizes,
   getInvestorTypes, getFounderTypes, getTeamSizes, getCountries, getStates,
@@ -67,6 +67,7 @@ router.get('/projects', directoryCache, getProjects);
 router.get('/projects/:id', directoryCache, getById('project'));
 router.post('/projects/:id/share', shareProject);
 router.get('/pricing', masterCache, getPricing);
+router.get('/pricing_plans', masterCache, getPricingPlans);
 router.get('/blogs', directoryCache, getBlogs);
 router.get('/blogs/:id', directoryCache, getById('blog'));
 router.get('/faqs', masterCache, getFaqs);

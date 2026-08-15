@@ -1104,6 +1104,32 @@ export const getPricing = async (req: Request, res: Response, next: NextFunction
   } catch (error) { next(error); }
 };
 
+export const getPricingPlans = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const includeFree = req.query.includeFree === "true";
+    const whereCondition: any = { status: "active" };
+
+    if (!includeFree) {
+      whereCondition.amount = { gt: 0 };
+      whereCondition.duration = { not: "90_days" };
+    }
+
+    const plans = await prisma.subscriptionPlan.findMany({
+      where: whereCondition,
+      orderBy: { amount: "asc" },
+    });
+    
+    // Some endpoints expect `rows` and `total` for list responses.
+    return res.json({
+      success: true,
+      message: 'Pricing plans retrieved',
+      data: plans || [],
+      rows: plans || [],
+      total: plans?.length || 0
+    });
+  } catch (error) { next(error); }
+};
+
 export const getBlogs = async (req: Request, res: Response, next: NextFunction) => {
   try { return res.json(successResponse('Blogs retrieved', [])); } catch (error) { next(error); }
 };

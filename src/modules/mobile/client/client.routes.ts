@@ -145,12 +145,14 @@ router.put('/reviews/:id', updateReview);
 router.delete('/reviews/:id', deleteReview);
 
 // ─── Subscriptions ───
+router.get('/subscription', getCurrentPlan);
 router.get('/subscription/current', getCurrentPlan);
 router.get('/subscription/plans', getPlans);
 router.post('/subscription/purchase', purchasePlan);
 router.post('/subscription/renew', renewPlan);
 router.post('/subscription/upgrade', upgradePlan);
 router.post('/subscription/cancel', cancelPlan);
+router.get('/subscriptions', getCurrentPlan);
 router.get('/subscriptions/current', getCurrentPlan);
 router.get('/subscriptions/plans', getPlans);
 router.post('/subscriptions/purchase', purchasePlan);
