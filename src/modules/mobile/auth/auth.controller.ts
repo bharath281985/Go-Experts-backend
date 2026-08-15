@@ -803,7 +803,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       }
 
       const clean = first.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-      return { id: toSlugId(clean), name: clean };
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
+      return { id: isUuid ? clean : toSlugId(clean), name: isUuid ? "" : clean };
     };
 
     const toMultiOptions = (val?: string | Array<any> | null): OptionObj[] => {
@@ -821,7 +822,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       for (const p of uniqueParts) {
         const found = optionMap.get(p);
         const clean = p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-        const obj = { id: found?.id || toSlugId(clean), name: found?.name || clean };
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
+        const obj = { id: found?.id || (isUuid ? clean : toSlugId(clean)), name: found?.name || (isUuid ? "" : clean) };
         if (!seen.has(obj.id)) {
           seen.add(obj.id);
           result.push(obj);
@@ -1305,7 +1307,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       }
 
       const clean = first.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-      return { id: toSlugId(clean), name: clean };
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
+      return { id: isUuid ? clean : toSlugId(clean), name: isUuid ? "" : clean };
     };
 
     const toMultiOptions = (val?: string | Array<any> | null): OptionObj[] => {
@@ -1323,7 +1326,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       for (const p of uniqueParts) {
         const found = optionMap.get(p);
         const clean = p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-        const obj = { id: found?.id || toSlugId(clean), name: found?.name || clean };
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
+        const obj = { id: found?.id || (isUuid ? clean : toSlugId(clean)), name: found?.name || (isUuid ? "" : clean) };
         if (!seen.has(obj.id)) {
           seen.add(obj.id);
           result.push(obj);
