@@ -3,138 +3,96 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  const freePlans = [
-    {
-      name: "Freelancer 90-Day Free Trial",
-      role: "freelancer",
-      amount: 0,
-      originalAmount: 999,
-      savedBadge: "100% Free for 90 Days",
-      currency: "INR",
-      duration: "90_days",
-      popular: false,
-      recommended: false,
-      visibility: "public",
-      status: "active",
-      features: JSON.stringify([
-        "Full Platform Access for 90 Days",
-        "Apply to unlimited projects",
-        "Direct client messaging & chat"
-      ]),
-      limits: JSON.stringify({ applications: 999 })
-    },
-    {
-      name: "Client 90-Day Free Trial",
-      role: "client",
-      amount: 0,
-      originalAmount: 1499,
-      savedBadge: "100% Free for 90 Days",
-      currency: "INR",
-      duration: "90_days",
-      popular: false,
-      recommended: false,
-      visibility: "public",
-      status: "active",
-      features: JSON.stringify([
-        "Full Platform Access for 90 Days",
-        "Post unlimited jobs & projects",
-        "Direct freelancer contact & chat"
-      ]),
-      limits: JSON.stringify({ jobPosts: 999 })
-    },
-    {
-      name: "Founder 90-Day Free Trial",
-      role: "founder",
-      amount: 0,
-      originalAmount: 1999,
-      savedBadge: "100% Free for 90 Days",
-      currency: "INR",
-      duration: "90_days",
-      popular: false,
-      recommended: false,
-      visibility: "public",
-      status: "active",
-      features: JSON.stringify([
-        "Full Startup OS Access for 90 Days",
-        "Publish profile & connect with investors",
-        "Direct specialist hiring"
-      ]),
-      limits: JSON.stringify({ outreaches: 999 })
-    },
-    {
-      name: "Investor 90-Day Free Trial",
-      role: "investor",
-      amount: 0,
-      originalAmount: 2499,
-      savedBadge: "100% Free for 90 Days",
-      currency: "INR",
-      duration: "90_days",
-      popular: false,
-      recommended: false,
-      visibility: "public",
-      status: "active",
-      features: JSON.stringify([
-        "Full Investor Console for 90 Days",
-        "Curated deal flow & startup access",
-        "Direct founder intros & pitches"
-      ]),
-      limits: JSON.stringify({ reviews: 999 })
-    }
-  ];
+  console.log("Cleaning up old multi-role free trial plans...");
 
-  console.log("Seeding 90-Day Free Plans for all roles...");
-
-  for (const plan of freePlans) {
-    const existing = await prisma.subscriptionPlan.findFirst({
-      where: {
-        OR: [
-          { name: plan.name },
-          { role: plan.role, duration: "90_days" },
-          { role: plan.role, amount: 0 }
+  // Remove the previous 4 separate role plans if they exist
+  await prisma.subscriptionPlan.deleteMany({
+    where: {
+      name: {
+        in: [
+          "Freelancer 90-Day Free Trial",
+          "Client 90-Day Free Trial",
+          "Founder 90-Day Free Trial",
+          "Investor 90-Day Free Trial"
         ]
       }
-    });
-
-    if (existing) {
-      const updated = await prisma.subscriptionPlan.update({
-        where: { id: existing.id },
-        data: {
-          name: plan.name,
-          role: plan.role,
-          amount: plan.amount,
-          originalAmount: plan.originalAmount,
-          savedBadge: plan.savedBadge,
-          currency: plan.currency,
-          duration: plan.duration,
-          status: "active",
-          features: plan.features,
-          limits: plan.limits
-        }
-      });
-      console.log(`Updated 90-Day Free Plan: ${updated.name} (Role: ${updated.role})`);
-    } else {
-      const created = await prisma.subscriptionPlan.create({
-        data: {
-          name: plan.name,
-          role: plan.role,
-          amount: plan.amount,
-          originalAmount: plan.originalAmount,
-          savedBadge: plan.savedBadge,
-          currency: plan.currency,
-          duration: plan.duration,
-          popular: false,
-          recommended: false,
-          visibility: "public",
-          status: "active",
-          features: plan.features,
-          limits: plan.limits
-        }
-      });
-      console.log(`Created 90-Day Free Plan: ${created.name} (Role: ${created.role})`);
     }
+  }).catch(() => {});
+
+  console.log("Creating single unified 90-Day Free Plan for all 4 roles...");
+
+  const singleFreePlan = {
+    name: "90-Day Free Trial",
+    role: "all",
+    amount: 0,
+    originalAmount: 999,
+    savedBadge: "100% Free for 90 Days",
+    currency: "INR",
+    duration: "90_days",
+    popular: false,
+    recommended: false,
+    visibility: "public",
+    status: "active",
+    features: JSON.stringify([
+      "90 Days Full Platform Access",
+      "Unlimited Job & Project Applications",
+      "Direct Messaging & Networking for All Roles"
+    ]),
+    limits: JSON.stringify({
+      allAccess: true,
+      limit: 999
+    })
+  };
+
+  const existing = await prisma.subscriptionPlan.findFirst({
+    where: {
+      OR: [
+        { name: singleFreePlan.name },
+        { role: "all", duration: "90_days" },
+        { role: "all", amount: 0 }
+      ]
+    }
+  });
+
+  if (existing) {
+    const updated = await prisma.subscriptionPlan.update({
+      where: { id: existing.id },
+      data: {
+        name: singleFreePlan.name,
+        role: singleFreePlan.role,
+        amount: singleFreePlan.amount,
+        originalAmount: singleFreePlan.originalAmount,
+        savedBadge: singleFreePlan.savedBadge,
+        currency: singleFreePlan.currency,
+        duration: singleFreePlan.duration,
+        status: "active",
+        features: singleFreePlan.features,
+        limits: singleFreePlan.limits
+      }
+    });
+    console.log(`✅ Updated Single 90-Day Free Plan: ${updated.name} (Role: ${updated.role})`);
+  } else {
+    const created = await prisma.subscriptionPlan.create({
+      data: {
+        name: singleFreePlan.name,
+        role: singleFreePlan.role,
+        amount: singleFreePlan.amount,
+        originalAmount: singleFreePlan.originalAmount,
+        savedBadge: singleFreePlan.savedBadge,
+        currency: singleFreePlan.currency,
+        duration: singleFreePlan.duration,
+        popular: false,
+        recommended: false,
+        visibility: "public",
+        status: "active",
+        features: singleFreePlan.features,
+        limits: singleFreePlan.limits
+      }
+    });
+    console.log(`✅ Created Single 90-Day Free Plan: ${created.name} (Role: ${created.role})`);
   }
 
-  console.log("Successfully seeded 90-Day Free Plans for all 4 roles!");
+  console.log("Successfully configured 1 single Free Plan for all 4 roles!");
 }
 
 main()

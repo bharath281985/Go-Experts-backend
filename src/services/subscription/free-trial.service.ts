@@ -35,32 +35,28 @@ export async function activateFreeTrialOnKycApproval(userId: string) {
       };
     }
 
-    // 3. Find 90-Day Free Plan for this user's role
+    // 3. Find 90-Day Free Plan (universal "all" role or role-specific)
     const userRole = (user.role || "freelancer").toLowerCase();
     let plan = await prisma.subscriptionPlan.findFirst({
       where: {
-        role: userRole,
         status: "active",
         OR: [
-          { duration: "90_days" },
-          { amount: 0 },
+          { role: "all" },
+          { role: userRole },
+        ],
+        AND: [
+          {
+            OR: [
+              { duration: "90_days" },
+              { amount: 0 },
+            ],
+          },
         ],
       },
+      orderBy: {
+        amount: "asc",
+      },
     });
-
-    // Fallback to role "all" if role-specific not found
-    if (!plan) {
-      plan = await prisma.subscriptionPlan.findFirst({
-        where: {
-          role: "all",
-          status: "active",
-          OR: [
-            { duration: "90_days" },
-            { amount: 0 },
-          ],
-        },
-      });
-    }
 
     if (!plan) {
       console.warn(`[FreeTrialService] No 90-day free plan found in database for role: ${userRole}`);
