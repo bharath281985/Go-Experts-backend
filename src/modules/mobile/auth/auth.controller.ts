@@ -597,69 +597,93 @@ const resolveOptionMap = async (values: (string | null | undefined)[]) => {
   if (cleanValues.length === 0) return optionMap;
 
   try {
+    const escapedIn = cleanValues.map(v => `'${v.replace(/'/g, "''")}'`).join(',');
+
     const [industries, stages, skills, skillCategories, expLevels, masterOptions, countries] = await Promise.all([
       prisma.industry.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
-      }).catch(() => []),
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name FROM industries WHERE id IN (${escapedIn}) OR name IN (${escapedIn})`).catch(() => [])) || [];
+      }),
       prisma.startupStage.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
-      }).catch(() => []),
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name FROM startup_stages WHERE id IN (${escapedIn}) OR name IN (${escapedIn})`).catch(() => [])) || [];
+      }),
       prisma.skill.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
-      }).catch(() => []),
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name FROM skills WHERE id IN (${escapedIn}) OR name IN (${escapedIn})`).catch(() => [])) || [];
+      }),
       prisma.skillCategory.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
-      }).catch(() => []),
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name FROM skill_categories WHERE id IN (${escapedIn}) OR name IN (${escapedIn})`).catch(() => [])) || [];
+      }),
       prisma.experienceLevel.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }] },
         select: { id: true, name: true }
-      }).catch(() => []),
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name FROM experience_levels WHERE id IN (${escapedIn}) OR name IN (${escapedIn})`).catch(() => [])) || [];
+      }),
       (prisma as any).masterOption?.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { value: { in: cleanValues } }, { label: { in: cleanValues } }] },
         select: { id: true, label: true, value: true }
-      }).catch(() => []) || [],
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE id IN (${escapedIn}) OR value IN (${escapedIn}) OR label IN (${escapedIn})`).catch(() => [])) || [];
+      }) || [],
       (prisma as any).country?.findMany({
         where: { OR: [{ id: { in: cleanValues } }, { name: { in: cleanValues } }, { code: { in: cleanValues } }] },
         select: { id: true, name: true, code: true }
-      }).catch(() => []) || [],
+      }).catch(async () => {
+        if (!escapedIn) return [];
+        return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, name, code FROM countries WHERE id IN (${escapedIn}) OR name IN (${escapedIn}) OR code IN (${escapedIn})`).catch(() => [])) || [];
+      }) || [],
     ]);
 
-    industries.forEach(i => {
+    industries.forEach((i: any) => {
       const obj = { id: i.id, name: i.name };
       optionMap.set(i.id, obj);
       optionMap.set(i.name, obj);
     });
 
-    stages.forEach(s => {
+    stages.forEach((s: any) => {
       const obj = { id: s.id, name: s.name };
       optionMap.set(s.id, obj);
       optionMap.set(s.name, obj);
     });
 
-    skills.forEach(s => {
+    skills.forEach((s: any) => {
       const obj = { id: s.id, name: s.name };
       optionMap.set(s.id, obj);
       optionMap.set(s.name, obj);
     });
 
-    skillCategories.forEach(sc => {
+    skillCategories.forEach((sc: any) => {
       const obj = { id: sc.id, name: sc.name };
       optionMap.set(sc.id, obj);
       optionMap.set(sc.name, obj);
     });
 
-    expLevels.forEach(el => {
+    expLevels.forEach((el: any) => {
       const obj = { id: el.id, name: el.name };
       optionMap.set(el.id, obj);
       optionMap.set(el.name, obj);
     });
 
     masterOptions.forEach((o: any) => {
-      const obj = { id: o.id, name: o.label || o.value || o.id };
+      const labelOrValue = o.label || o.value || o.name || o.id;
+      const obj = { id: o.id, name: labelOrValue };
       optionMap.set(o.id, obj);
       if (o.value) optionMap.set(o.value, obj);
       if (o.label) optionMap.set(o.label, obj);
