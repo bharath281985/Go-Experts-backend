@@ -781,19 +781,21 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
     const optionMap = await resolveOptionMap(idsToResolve);
 
-    const toSingleOption = (val?: string | null): OptionObj | string | null => {
+    const toSingleOption = (val?: string | null): OptionObj | null => {
       if (!val || !val.trim()) return null;
       const parts = val.split(',').map(s => s.trim()).filter(Boolean);
       if (parts.length === 0) return null;
       const first = parts[0];
       const found = optionMap.get(first);
-      if (found) return found;
+      if (found) {
+        return { id: first, name: found.name };
+      }
 
       const clean = first.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-      return clean;
+      return { id: first, name: clean };
     };
 
-    const toMultiOptions = (val?: string | Array<any> | null): Array<OptionObj | string> => {
+    const toMultiOptions = (val?: string | Array<any> | null): OptionObj[] => {
       if (!val) return [];
       let parts: string[] = [];
       if (Array.isArray(val)) {
@@ -802,16 +804,16 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         parts = val.split(',').map(s => s.trim()).filter(Boolean);
       }
       const uniqueParts = [...new Set(parts)];
-      const result: Array<OptionObj | string> = [];
+      const result: OptionObj[] = [];
       const seen = new Set<string>();
 
       for (const p of uniqueParts) {
         const found = optionMap.get(p);
-        const item = found || p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-        const key = typeof item === 'object' ? item.id : item;
-        if (!seen.has(key)) {
-          seen.add(key);
-          result.push(item);
+        const clean = p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
+        const obj = { id: p, name: found?.name || clean };
+        if (!seen.has(obj.id)) {
+          seen.add(obj.id);
+          result.push(obj);
         }
       }
       return result;
@@ -1246,19 +1248,21 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
 
     const optionMap = await resolveOptionMap(idsToResolve);
 
-    const toSingleOption = (val?: string | null): OptionObj | string | null => {
+    const toSingleOption = (val?: string | null): OptionObj | null => {
       if (!val || !val.trim()) return null;
       const parts = val.split(',').map(s => s.trim()).filter(Boolean);
       if (parts.length === 0) return null;
       const first = parts[0];
       const found = optionMap.get(first);
-      if (found) return found;
+      if (found) {
+        return { id: first, name: found.name };
+      }
 
       const clean = first.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-      return clean;
+      return { id: first, name: clean };
     };
 
-    const toMultiOptions = (val?: string | Array<any> | null): Array<OptionObj | string> => {
+    const toMultiOptions = (val?: string | Array<any> | null): OptionObj[] => {
       if (!val) return [];
       let parts: string[] = [];
       if (Array.isArray(val)) {
@@ -1267,16 +1271,16 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         parts = val.split(',').map(s => s.trim()).filter(Boolean);
       }
       const uniqueParts = [...new Set(parts)];
-      const result: Array<OptionObj | string> = [];
+      const result: OptionObj[] = [];
       const seen = new Set<string>();
 
       for (const p of uniqueParts) {
         const found = optionMap.get(p);
-        const item = found || p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
-        const key = typeof item === 'object' ? item.id : item;
-        if (!seen.has(key)) {
-          seen.add(key);
-          result.push(item);
+        const clean = p.replace(/^opt_(city|state)_/i, '').replace(/_/g, ' ');
+        const obj = { id: p, name: found?.name || clean };
+        if (!seen.has(obj.id)) {
+          seen.add(obj.id);
+          result.push(obj);
         }
       }
       return result;
