@@ -6,12 +6,15 @@ import { prisma } from "../../config/database.js";
 import { env } from "../../config/env.js";
 import jwt from "jsonwebtoken";
 
-// Configure Google OAuth Client
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.API_BASE_URL}/auth/google/callback`
-);
+// Configure Google OAuth Client helper
+const getGoogleClient = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const apiBase = process.env.API_BASE_URL || (process.env.BASE_URL ? `${process.env.BASE_URL}/api` : "https://apiai.goexperts.in/api");
+  const callbackUrl = `${apiBase}/auth/google/callback`;
+
+  return new OAuth2Client(clientId, clientSecret, callbackUrl);
+};
 
 // Helper to generate access token for Go Experts (matching auth.controller.ts logic)
 const generateYourJwt = (user: any) => {
@@ -27,6 +30,16 @@ const generateYourJwt = (user: any) => {
 // ==============================
 
 export const googleAuthStart = (req: Request, res: Response) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const frontendUrl = process.env.FRONTEND_URL || "https://goexperts.in";
+
+  if (!clientId || !clientSecret) {
+    console.error("[GoogleAuth] ❌ GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing in server .env!");
+    return res.redirect(`${frontendUrl}/login?error=google_config_missing`);
+  }
+
+  const googleClient = getGoogleClient();
   const state = crypto.randomBytes(32).toString("hex");
   const role = req.query.role as string || "freelancer";
 
@@ -57,15 +70,17 @@ export const googleAuthStart = (req: Request, res: Response) => {
 export const googleAuthCallback = async (req: Request, res: Response) => {
   try {
     const { code, state, error } = req.query;
+    const frontendUrl = process.env.FRONTEND_URL || "https://goexperts.in";
 
     if (error) {
-      return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_cancelled`);
+      return res.redirect(`${frontendUrl}/login?error=google_cancelled`);
     }
 
     if (!state || state !== req.cookies.google_oauth_state) {
       return res.status(400).json({ message: "Invalid Google authentication state" });
     }
 
+    const googleClient = getGoogleClient();
     const { tokens } = await googleClient.getToken(code as string);
     const ticket = await googleClient.verifyIdToken({
       idToken: tokens.id_token!,
