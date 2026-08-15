@@ -881,6 +881,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
       profileCompletion: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
+      missingRequirements: completion.requirements,
+      pendingSteps: completion.pendingSteps,
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
