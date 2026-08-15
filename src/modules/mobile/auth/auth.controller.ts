@@ -290,6 +290,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const phoneCodeVal = b.phoneCode || b.countryCode;
     const bioVal = b.bio || (typeof b.startup === 'object' && b.startup?.longDescription) || b.businessDescription || b.thesis || b.overview || null;
     const cityVal = b.city || null;
+    const stateVal = b.state || b.stateId || null;
     const countryVal = b.country || b.countryId || null;
     const avatarUrlVal = b.avatarUrl || b.avatar || b.logo || null;
     const isEmailVerified = Boolean(b.verification?.emailVerified ?? b.isVerified ?? b.emailVerified);
@@ -314,6 +315,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           role: targetRole,
           phone: buildPhoneNumber(phoneVal, phoneCodeVal),
           city: cityVal ? String(cityVal).trim() : null,
+          state: stateVal ? String(stateVal).trim() : null,
           country: countryVal ? String(countryVal).trim() : null,
           bio: bioVal ? String(bioVal).trim() : null,
           avatarUrl: avatarUrlVal ? String(avatarUrlVal).trim() : null,
@@ -1064,7 +1066,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
 
     const countryInput = extractVal(req.body.countryId ?? req.body.country);
     const stateInput = extractVal(req.body.stateId ?? req.body.state);
-    const cityInput = extractVal(req.body.stateId ?? req.body.city ?? location);
+    const cityInput = extractVal(req.body.cityId ?? req.body.city ?? location);
     const skillsInput = extractVal(req.body.skillIds ?? req.body.skills);
     const expInput = extractVal(req.body.experienceLevelId ?? req.body.experienceLevel ?? experience);
     const industryInput = extractVal(req.body.industryId ?? req.body.industry ?? req.body.categoryId);
