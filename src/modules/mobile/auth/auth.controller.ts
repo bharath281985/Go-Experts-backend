@@ -1066,7 +1066,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 
     const countryInput = extractVal(req.body.countryId ?? req.body.country);
-    const stateInput = extractVal(req.body.stateId ?? req.body.state);
+    const stateInput = extractVal(req.body.stateId ?? req.body.stateid ?? req.body.state);
     const cityInput = extractVal(req.body.cityId ?? req.body.city ?? location);
     const skillsInput = extractVal(req.body.skillIds ?? req.body.skills);
     const expInput = extractVal(req.body.experienceLevelId ?? req.body.experienceLevel ?? experience);
@@ -1084,8 +1084,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
       const relativePath = req.file.path.replace(/\\/g, '/');
       avatarUrl = `${BASE_URL}/${relativePath}`;
-    } else if (req.body.avatarUrl) {
-      avatarUrl = req.body.avatarUrl;
+    } else if (req.body.avatarUrl || req.body.logo || req.body.avatar || req.body.logoUrl) {
+      avatarUrl = req.body.avatarUrl || req.body.logo || req.body.avatar || req.body.logoUrl;
     }
 
     const updatedUser = await prisma.user.update({
