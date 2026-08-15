@@ -857,8 +857,14 @@ router.post("/projects", async (req, res, next) => {
 });
 router.get("/pricing_plans", async (req, res, next) => {
     try {
+        const includeFree = req.query.includeFree === "true";
+        const whereCondition = { status: "active" };
+        if (!includeFree) {
+            whereCondition.amount = { gt: 0 };
+            whereCondition.duration = { not: "90_days" };
+        }
         const plans = await prisma.subscriptionPlan.findMany({
-            where: { status: "active" },
+            where: whereCondition,
             orderBy: { amount: "asc" },
         });
         return res.json({ success: true, data: plans || [], rows: plans || [], total: plans?.length || 0 });

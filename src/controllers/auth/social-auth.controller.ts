@@ -231,7 +231,11 @@ export const appleAuthCallback = async (req: Request, res: Response) => {
     });
 
     if (!response.ok) throw new Error("APPLE_TOKEN_EXCHANGE_FAILED");
+<<<<<<< Updated upstream
     const tokens = await response.json() as any;
+=======
+    const tokens = (await response.json()) as { id_token: string; access_token?: string };
+>>>>>>> Stashed changes
 
     const appleJWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
     const { payload: appleIdentity } = await jwtVerify(tokens.id_token, appleJWKS, {

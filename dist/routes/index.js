@@ -37,6 +37,7 @@ import aboutRouter from "./admin/about.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
+import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import mobileRoutes from "../modules/mobile/index.js";
 const router = Router();
 // 1. Auth & Payment routes (Public/Unprotected - mounted on all version prefixes)
@@ -1180,6 +1181,9 @@ adminFreelancersRouter.post("/", async (req, res, next) => {
                 reviewsReceived: [],
             };
         }
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(row.id).catch(console.error);
+        }
         res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
     }
     catch (err) {
@@ -1207,6 +1211,9 @@ adminFreelancersRouter.put("/:id", async (req, res, next) => {
         const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
         if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
             await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+        }
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
         }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },
@@ -1365,6 +1372,9 @@ adminClientsRouter.post("/", async (req, res, next) => {
             },
             include: clientInclude,
         });
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(row.id).catch(console.error);
+        }
         res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
     }
     catch (err) {
@@ -1399,6 +1409,9 @@ adminClientsRouter.put("/:id", async (req, res, next) => {
         const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
         if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
             await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+        }
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
         }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },
@@ -1526,6 +1539,9 @@ adminInvestorsRouter.post("/", async (req, res, next) => {
             },
             include: investorInclude,
         });
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(row.id).catch(console.error);
+        }
         res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
     }
     catch (err) {
@@ -1560,6 +1576,9 @@ adminInvestorsRouter.put("/:id", async (req, res, next) => {
         const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
         if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
             await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+        }
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
         }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },
@@ -1688,6 +1707,9 @@ adminFoundersRouter.post("/", async (req, res, next) => {
             },
             include: founderInclude,
         });
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(row.id).catch(console.error);
+        }
         res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
     }
     catch (err) {
@@ -1722,6 +1744,9 @@ adminFoundersRouter.put("/:id", async (req, res, next) => {
         const walletCredit = req.body.wallet_credit ?? req.body.walletCredit ?? req.body.wallet_balance;
         if (walletCredit != null && walletCredit !== "" && Number(walletCredit) > 0) {
             await creditWalletForSelf(req.params.id, Number(walletCredit), "Admin Credit", "Wallet credited by Super Admin");
+        }
+        if (userData.isVerified || userData.verified || userData.status === "active") {
+            activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
         }
         const row = await prisma.user.findUnique({
             where: { id: req.params.id },
