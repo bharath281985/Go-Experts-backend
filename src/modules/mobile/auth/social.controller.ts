@@ -91,15 +91,20 @@ const ensureRoleProfile = async (userId: string, role: string) => {
 const findOrCreateSocialUser = async (
   email: string,
   fullName: string,
-  role: string,
+  role?: string,
   avatarUrl?: string
 ) => {
   const cleanEmail = email ? email.trim().toLowerCase() : '';
   if (!cleanEmail) {
     throw new Error('Valid email is required for social authentication');
   }
+  let isNewUser = false;
   let user = await prisma.user.findUnique({ where: { email: cleanEmail } });
   if (!user) {
+    if (!role || typeof role !== 'string' || !isValidRole(role)) {
+      throw new Error('ROLE_REQUIRED_FOR_NEW_USER');
+    }
+    isNewUser = true;
     user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
@@ -128,13 +133,13 @@ const findOrCreateSocialUser = async (
       });
     }
   }
-  return user;
+  return { user, isNewUser };
 };
 
 const validateSocialBody = (body: Record<string, unknown>) => {
   const { role } = body;
-  if (!role || typeof role !== 'string' || !isValidRole(role)) {
-    return errorResponse('A valid role is required', 'VALIDATION_ERROR');
+  if (role !== undefined && (typeof role !== 'string' || !isValidRole(role))) {
+    return errorResponse('A valid role is required when provided', 'VALIDATION_ERROR');
   }
   return null;
 };
@@ -142,6 +147,8 @@ const validateSocialBody = (body: Record<string, unknown>) => {
 const mapSocialError = (error: unknown, provider: 'google' | 'apple') => {
   if (!(error instanceof Error)) return null;
   switch (error.message) {
+    case 'ROLE_REQUIRED_FOR_NEW_USER':
+      return errorResponse('Role is required for new users.', 'ROLE_REQUIRED');
     case 'INVALID_GOOGLE_TOKEN':
     case 'INVALID_APPLE_TOKEN':
       return errorResponse(
@@ -173,7 +180,7 @@ export const googleSocialLogin = async (req: Request, res: Response, next: NextF
     }
 
     const identity = await verifyGoogleIdToken(idToken);
-    const user = await findOrCreateSocialUser(
+    const { user, isNewUser } = await findOrCreateSocialUser(
       identity.email || email,
       fullName || identity.fullName || identity.email.split('@')[0],
       role,
@@ -182,11 +189,15 @@ export const googleSocialLogin = async (req: Request, res: Response, next: NextF
 
     const tokens = await issueAuthResponse(user, deviceId, fcmToken, platform, deviceName);
     await AuditEngine.track(user.id, 'social_login', 'user', user.id, null, null, req);
-    return res.json(successResponse('Google login successful', tokens));
+    const message = isNewUser ? 'Account created successfully.' : 'Google login successful';
+    return res.json(successResponse(message, { ...tokens, isNewUser }));
   } catch (error: unknown) {
     const mapped = mapSocialError(error, 'google');
     if (mapped) {
-      const status = (error as Error).message === 'ACCOUNT_INACTIVE' ? 403 : 401;
+      let status = 401;
+      const msg = (error as Error).message;
+      if (msg === 'ACCOUNT_INACTIVE') status = 403;
+      if (msg === 'ROLE_REQUIRED_FOR_NEW_USER') status = 400;
       return res.status(status).json(mapped);
     }
     next(error);
@@ -203,7 +214,7 @@ export const appleSocialLogin = async (req: Request, res: Response, next: NextFu
     }
 
     const identity = await verifyAppleIdToken(idToken, fallbackEmail);
-    const user = await findOrCreateSocialUser(
+    const { user, isNewUser } = await findOrCreateSocialUser(
       identity.email,
       fullName || identity.fullName || 'Apple User',
       role
@@ -211,13 +222,69 @@ export const appleSocialLogin = async (req: Request, res: Response, next: NextFu
 
     const tokens = await issueAuthResponse(user, deviceId, fcmToken, platform, deviceName);
     await AuditEngine.track(user.id, 'social_login', 'user', user.id, null, null, req);
-    return res.json(successResponse('Apple login successful', tokens));
+    const message = isNewUser ? 'Account created successfully.' : 'Apple login successful';
+    return res.json(successResponse(message, { ...tokens, isNewUser }));
   } catch (error: unknown) {
     const mapped = mapSocialError(error, 'apple');
     if (mapped) {
-      const status = (error as Error).message === 'ACCOUNT_INACTIVE' ? 403 : 401;
+      let status = 401;
+      const msg = (error as Error).message;
+      if (msg === 'ACCOUNT_INACTIVE') status = 403;
+      if (msg === 'ROLE_REQUIRED_FOR_NEW_USER') status = 400;
       return res.status(status).json(mapped);
     }
     next(error);
   }
+};
+
+export const appleSignInCallback = (req: Request, res: Response) => {
+  // Apple sends the token data via POST (application/x-www-form-urlencoded)
+  const { code, id_token, state, user } = req.body;
+
+  const params = new URLSearchParams();
+  if (code) params.append('code', String(code));
+  if (id_token) params.append('id_token', String(id_token));
+  if (state) params.append('state', String(state));
+  if (user) params.append('user', String(user));
+
+  // We are removing the strictly enforced package= parameter 
+  // because if the Android app's build.gradle ID differs even slightly, it breaks.
+  // Android will now aggressively fallback to ANY app answering to signinwithapple://callback
+  const intentUrl = `intent://callback?${params.toString()}#Intent;scheme=signinwithapple;end`;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Apple Sign In Redirect</title>
+      <style>
+         body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f9f9f9;}
+         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #333; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+         .btn { display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <h2>Authentication Successful!</h2>
+      <div class="loader" id="loader"></div>
+      
+      <p style="margin-top: 20px;">If you are not redirected automatically...</p>
+      
+      <a href="${intentUrl}" class="btn">
+        Click here to return to Go Experts
+      </a>
+      
+      <script>
+        // Attempt the automatic redirect first
+        window.location.href = "${intentUrl}";
+        
+        setTimeout(function() {
+          document.getElementById('loader').style.display = 'none';
+        }, 1500);
+      </script>
+    </body>
+    </html>
+  `);
 };

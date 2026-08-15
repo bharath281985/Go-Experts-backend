@@ -10,14 +10,13 @@ import {
   listFreelancerNotifications,
   markFreelancerNotificationRead,
   markAllFreelancerNotificationsRead,
-  getFreelancerVerification,
-  updateFreelancerVerification,
   getFreelancerPortfolio,
   getFreelancerPortfolioItem,
   createFreelancerPortfolioItem,
   updateFreelancerPortfolioItem,
   deleteFreelancerPortfolioItem,
 } from "../../controllers/freelancer/freelancer.controller.js";
+import { getMyVerification, updateMyVerification, deleteMyVerification } from "../../controllers/verification/verification.controller.js";
 import {
   listFreelancerProposals,
   createFreelancerProposal,
@@ -97,8 +96,9 @@ router.post("/notifications", createFreelancerNotification as any);
 router.patch("/notifications/read-all", markAllFreelancerNotificationsRead as any);
 router.patch("/notifications/:id/read", markFreelancerNotificationRead as any);
 
-router.get("/verification", getFreelancerVerification as any);
-router.patch("/verification", updateFreelancerVerification as any);
+router.get("/verification", getMyVerification as any);
+router.patch("/verification", updateMyVerification as any);
+router.delete("/verification", deleteMyVerification as any);
 
 router.get("/portfolio", getFreelancerPortfolio as any);
 router.get("/portfolio/:id", getFreelancerPortfolioItem as any);

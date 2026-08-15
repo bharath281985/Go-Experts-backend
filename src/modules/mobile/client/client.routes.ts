@@ -1,9 +1,10 @@
 import { Router } from 'express';
+import { getMyVerification, updateMyVerification, deleteMyVerification } from '../../../controllers/verification/verification.controller.js';
 import { authenticate, authorizeRole } from '../../../middlewares/auth.js';
 
 // Controllers
 import { getDashboard } from './controllers/dashboard.controller.js';
-import { getProfile, updateProfile, uploadLogo, uploadCover, uploadDocuments, getProfileCompletion } from './controllers/profile.controller.js';
+import { getProfile, updateProfile, uploadLogo, uploadCover, uploadDocuments, getProfileCompletion, uploadKyc } from './controllers/profile.controller.js';
 import { listProjects, createProject, getProjectDetails, updateProject, deleteProject, updateProjectStatus, addAttachment, getProjectTimeline, shareProject } from './controllers/projects.controller.js';
 import { listProposals, listProjectProposals, getProposal, shortlistProposal, rejectProposal, interviewProposal, acceptProposal, messageFreelancer } from './controllers/proposals.controller.js';
 import { listFreelancers, getFreelancer, getRecommendedFreelancers, saveFreelancer, unsaveFreelancer, getSavedFreelancers } from './controllers/freelancers.controller.js';
@@ -41,6 +42,7 @@ router.post('/profile', upload.single('file'), handleUploadError, rejectLocalFil
 router.post('/profile/logo', upload.single('file'), handleUploadError, uploadLogo);
 router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCover);
 router.post('/profile/documents', upload.single('file'), handleUploadError, uploadDocuments);
+router.post('/profile/kyc', upload.single('file'), handleUploadError, uploadKyc);
 router.get('/profile/completion', getProfileCompletion);
 
 // ─── Projects ───
@@ -185,5 +187,10 @@ router.get('/reports/spend', getSpendReport);
 router.get('/reports/projects', getProjectsReport);
 router.get('/reports/freelancers', getFreelancersReport);
 router.get('/reports/export', exportReport);
+
+// ─── Verification ───
+router.get('/verification', getMyVerification as any);
+router.patch('/verification', updateMyVerification as any);
+router.delete('/verification', deleteMyVerification as any);
 
 export default router;

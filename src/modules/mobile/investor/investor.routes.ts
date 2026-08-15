@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getMyVerification, updateMyVerification, deleteMyVerification } from '../../../controllers/verification/verification.controller.js';
 import { upload, chatUpload, handleUploadError } from '../../../middleware/upload.js';
 import { authenticate, authorizeRole, AuthRequest } from '../../../middlewares/auth.js';
 import { rejectLocalFilePaths } from '../../../middlewares/reject-local-file-paths.middleware.js';
@@ -161,5 +162,10 @@ router.get('/reviews/breakdown', getRatingBreakdown);
 
 // ─── Search ───
 router.get('/search', globalSearch);
+
+// ─── Verification ───
+router.get('/verification', getMyVerification as any);
+router.patch('/verification', updateMyVerification as any);
+router.delete('/verification', deleteMyVerification as any);
 
 export default router;

@@ -38,9 +38,14 @@ import {
   updatePreferences,
 } from '../notifications/controllers/notifications.controller.js';
 
+import { getMyVerification, updateMyVerification, deleteMyVerification } from '../../../controllers/verification/verification.controller.js';
+
 import {
   getFreelancerExperience,
   putFreelancerExperience,
+  postFreelancerExperience,
+  deleteFreelancerExperience,
+  putFreelancerExperienceById,
   getFreelancerEducation,
   putFreelancerEducation,
   postFreelancerEducation,
@@ -65,10 +70,8 @@ import {
   deleteFreelancerResumeShare
 } from '../../../controllers/freelancer/freelancer-resume-share.controller.js';
 
-import {
-  getFreelancerVerification,
-  updateFreelancerVerification,
-} from '../../../controllers/freelancer/freelancer.controller.js';
+// removed obsolete verification imports
+// imports from freelancer.controller.js were here
 
 const router = Router();
 
@@ -89,9 +92,12 @@ router.post('/profile/cover', upload.single('file'), handleUploadError, uploadCo
 router.post('/profile/resume', upload.single('file'), handleUploadError, uploadResume);
 router.post('/profile/kyc', upload.single('file'), handleUploadError, uploadKyc);
 
-// ─── Professional Details ───
-router.get('/professional-details', getFreelancerExperience as any);
-router.put('/professional-details', putFreelancerExperience as any);
+// ─── Professional Details (Experience) ───
+router.get('/experience', getFreelancerExperience as any);
+router.post('/experience', postFreelancerExperience as any);
+router.put('/experience', putFreelancerExperience as any);
+router.put('/experience/:id', putFreelancerExperienceById as any);
+router.delete('/experience/:id', deleteFreelancerExperience as any);
 
 // ─── Education ───
 router.get('/education', getFreelancerEducation as any);
@@ -108,8 +114,9 @@ router.delete('/certificates/:id', deleteFreelancerCertificates as any);
 router.put('/certificates/:id', putFreelancerCertificateById as any);
 
 // ─── Verification ───
-router.get('/verification', getFreelancerVerification as any);
-router.patch('/verification', updateFreelancerVerification as any);
+router.get('/verification', getMyVerification as any);
+router.patch('/verification', updateMyVerification as any);
+router.delete('/verification', deleteMyVerification as any);
 
 // ─── Resume Builder ───
 router.get('/resume', getFreelancerResume as any);

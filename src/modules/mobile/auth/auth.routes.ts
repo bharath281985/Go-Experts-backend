@@ -15,7 +15,11 @@ import {
 
 import { authLimiter } from '../../../middleware/rate-limit.js';
 import { upload, handleUploadError } from '../../../middleware/upload.js';
-import { googleSocialLogin, appleSocialLogin } from './social.controller.js';
+import {
+  googleSocialLogin,
+  appleSocialLogin,
+  appleSignInCallback,
+} from './social.controller.js';
 
 const router = Router();
 
@@ -24,6 +28,8 @@ router.post('/register', authLimiter, validate(registerSchema), register);
 router.post('/signup', authLimiter, register);
 router.post('/social/google', authLimiter, googleSocialLogin);
 router.post('/social/apple', authLimiter, appleSocialLogin);
+router.post('/social/apple/callback', appleSignInCallback);
+router.post('/apple/callback', appleSignInCallback);
 router.post('/logout', authenticate, logout);
 router.post('/refresh', refresh);
 router.get('/me', authenticate, getMe);

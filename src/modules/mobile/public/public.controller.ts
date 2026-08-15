@@ -187,19 +187,26 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
         orderBy: { name: 'asc' },
         skip,
         take: limit,
-        select: { id: true, name: true, categoryId: true, industry: true },
+        select: { id: true, name: true, categoryId: true, industry: true, category: { select: { industryId: true } } },
       }),
       prisma.skill.count({ where }),
     ]).catch(() => [[], 0] as [any[], number]);
 
 
 
-    const result = skills.map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      categoryId: s.categoryId || null,
-      industryId: reqIndustryId ? (indId || null) : (s.industry || null)
-    }));
+    const result = skills.map((s: any) => {
+      let finalIndustryId = null;
+      if (s.category?.industryId) finalIndustryId = s.category.industryId;
+      else if (s.industry && s.industry.length === 36) finalIndustryId = s.industry;
+      else if (reqIndustryId && indId) finalIndustryId = indId;
+
+      return {
+        id: s.id,
+        name: s.name,
+        categoryId: s.categoryId || null,
+        industryId: finalIndustryId
+      };
+    });
 
     return respond(result, total);
   } catch (error) {

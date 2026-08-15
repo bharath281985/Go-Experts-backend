@@ -149,7 +149,8 @@ model User {
   currentStep             String?                 @map("current_step")
   nextStepKey             String?                 @map("next_step_key")
   completionPercentage    Int                     @default(0) @map("completion_percentage")
-  freelancerEducations    FreelancerEducation[]
+  freelancerExperiences FreelancerExperience[]
+  freelancerEducations  FreelancerEducation[]
   freelancerCertificates  FreelancerCertificate[]
   resumeConfig            UserResumeConfig?
   resumeShares            ResumeShare[]
@@ -192,6 +193,7 @@ model FreelancerProfile {
   dribbbleUrl        String?  @map("dribbble_url")
   industry           String?
   workMode           String?  @map("work_mode")
+  industryId       String?   @map("industry_id")
   currency           String?
   monthlyRetainer    Float?   @map("monthly_retainer")
   availability       String?
@@ -224,6 +226,7 @@ model ClientProfile {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson  String?  @map("verification_json") @db.Text
 
   @@map("client_profiles")
 }
@@ -242,6 +245,7 @@ model InvestorProfile {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson  String?  @map("verification_json") @db.Text
 
   @@map("investor_profiles")
 }
@@ -262,6 +266,7 @@ model FounderProfile {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verificationJson  String?  @map("verification_json") @db.Text
 
   @@map("founder_profiles")
 }
@@ -279,6 +284,7 @@ model Project {
   timeline        String?
   description     String?     @db.Text
   workMode        String?     @map("work_mode")
+  industryId       String?   @map("industry_id")
   experienceLevel String?     @map("experience_level")
   attachments     String?     @db.Text
   shareCount      Int?        @default(0) @map("share_count")
@@ -1508,6 +1514,28 @@ model NotificationCampaign {
   @@map("notification_campaigns")
 }
 
+
+model FreelancerExperience {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  title          String
+  company        String
+  location       String?
+  industryId     String?   @map("industry_id")
+  startDate      String?   @map("start_date")
+  endDate        String?   @map("end_date")
+  isCurrent      Boolean   @default(false) @map("is_current")
+  description    String?   @db.Text
+  skillsUsed     String?   @map("skills_used") // Will store as JSON string or comma separated
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("freelancer_experiences")
+}
+
 model FreelancerEducation {
   id             String   @id @default(uuid())
   userId         String   @map("user_id")
@@ -1520,6 +1548,7 @@ model FreelancerEducation {
   category       String
   fileUrl        String?  @map("file_url")
   fileType       String?  @map("file_type")
+  skillsUsed     String?  @map("skills_used")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -1540,6 +1569,7 @@ model FreelancerCertificate {
   verified  Boolean  @default(false)
   fileUrl   String?  @map("file_url")
   fileType  String?  @map("file_type")
+  skillsUsed String? @map("skills_used")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

@@ -1960,7 +1960,7 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
             githubUrl: gitUrl ? String(gitUrl) : undefined,
             dribbbleUrl: dribUrl ? String(dribUrl) : undefined,
             industry: joinArray(industry),
-            workMode: joinArray(workMode),
+           
           },
           update: {
             ...(titleHeadline !== undefined && { titleHeadline: String(titleHeadline) }),

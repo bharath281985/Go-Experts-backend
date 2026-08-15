@@ -97,28 +97,28 @@ router.use("/public/resume-share", publicResumeShareRouter);
 router.use("/v1/public", publicRoutes);
 
 // 2.2 Admin operations
-router.use("/admin/dashboard",       dashboardRoutes);
-router.use("/admin/dashboard",       dashboardInsightsRouter);
-router.use("/admin/notifications",   notificationRoutes);
+router.use("/admin/dashboard", dashboardRoutes);
+router.use("/admin/dashboard", dashboardInsightsRouter);
+router.use("/admin/notifications", notificationRoutes);
 router.use("/admin/notification-queue", queueRouter);
-router.use("/admin/notification-logs",  logsRouter);
-router.use("/admin/media",           mediaRoutes);
-router.use("/admin/financials",      financialsRoutes);
+router.use("/admin/notification-logs", logsRouter);
+router.use("/admin/media", mediaRoutes);
+router.use("/admin/financials", financialsRoutes);
 router.use("/payments", paymentsRoutes);
 router.use("/admin/roles", rolesRoutes);
 router.use("/admin/permissions", permissionsRouter);
-router.use("/admin/jobs",             jobsRouter);
+router.use("/admin/jobs", jobsRouter);
 router.use("/admin/automation-rules", automationRulesRouter);
-router.use("/admin/system-ops",       systemOpsRouter);
-router.use("/admin/analytics",        analyticsRouter);
-router.use("/admin/analytics",        analyticsInsightsRouter);
-router.use("/admin/reports",          reportsRouter);
-router.use("/admin/reports",          reportsInsightsRouter);
-router.use("/admin/marketing",        marketingRouter);
-router.use("/admin/system",           systemRouter);
-router.use("/admin/settings",         settingsRouter);
-router.use("/admin/developer",        developerRouter);
-router.use("/admin",                 workflowsRoutes);
+router.use("/admin/system-ops", systemOpsRouter);
+router.use("/admin/analytics", analyticsRouter);
+router.use("/admin/analytics", analyticsInsightsRouter);
+router.use("/admin/reports", reportsRouter);
+router.use("/admin/reports", reportsInsightsRouter);
+router.use("/admin/marketing", marketingRouter);
+router.use("/admin/system", systemRouter);
+router.use("/admin/settings", settingsRouter);
+router.use("/admin/developer", developerRouter);
+router.use("/admin", workflowsRoutes);
 router.use("/admin/resume-templates", authMiddleware as any, resumeTemplateRouter);
 
 
@@ -649,7 +649,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
     wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
   };
-  
+
   delete (sanitized as any).registrationData;
 
   if ((sanitized as any).freelancerProfile) {
@@ -1114,9 +1114,9 @@ adminCategoriesRouter.delete("/:id", async (req: Request, res: Response, next: N
             { industry: catName }
           ]
         }
-      }).catch(() => {});
+      }).catch(() => { });
     } else {
-      await prisma.skill.deleteMany({ where: { categoryId: id } }).catch(() => {});
+      await prisma.skill.deleteMany({ where: { categoryId: id } }).catch(() => { });
     }
 
     // 2. Delete the category record
@@ -1431,16 +1431,16 @@ adminClientsRouter.get("/:id", async (req: Request, res: Response, next: NextFun
     });
 
     if (!row) return res.status(404).json({ success: false, message: "Client not found" });
-    
+
     const docSetting = await prisma.setting.findUnique({
       where: { key: `portal:${row.id}:documents` },
     });
-    
+
     let documents = [];
     if (docSetting) {
       try {
         documents = JSON.parse(docSetting.value) || [];
-      } catch {}
+      } catch { }
     }
 
     res.json({ success: true, data: { ...sanitizeUserRecord(row), documents } });
@@ -2003,10 +2003,10 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
     modelName === "Task"
       ? { attachments: true, project: { select: { id: true, title: true, category: true } } }
       : modelName === "SkillCategory"
-      ? { _count: { select: { skills: true } } }
-      : modelName === "Skill"
-      ? { category: { select: { id: true, name: true } } }
-      : undefined;
+        ? { _count: { select: { skills: true } } }
+        : modelName === "Skill"
+          ? { category: { select: { id: true, name: true } } }
+          : undefined;
 
   // Create router using factory
   const crudRouter = createCrudRouter(modelName as any, searchCols, include ? { include } : {});
@@ -2027,7 +2027,7 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
       if (tableName === "clients") filters.role = "client";
       if (tableName === "investors") filters.role = "investor";
       if (tableName === "founders") filters.role = "founder";
-      
+
       req.query.filters = JSON.stringify(filters);
     }
     next();

@@ -29,14 +29,14 @@ const generateYourJwt = (user: any) => {
 export const googleAuthStart = (req: Request, res: Response) => {
   const state = crypto.randomBytes(32).toString("hex");
   const role = req.query.role as string || "freelancer";
-  
+
   res.cookie("google_oauth_state", state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 10 * 60 * 1000,
   });
-  
+
   res.cookie("social_oauth_role", role, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -76,7 +76,7 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
     if (!payload) throw new Error("Invalid Google token payload");
 
     const { sub: googleUserId, email, given_name, family_name, picture } = payload;
-    
+
     // Find linked account
     let authIdentity = await prisma.authIdentity.findUnique({
       where: { provider_providerUserId: { provider: "GOOGLE", providerUserId: googleUserId } },
@@ -164,7 +164,7 @@ export const appleAuthStart = async (req: Request, res: Response) => {
     sameSite: "lax",
     maxAge: 10 * 60 * 1000,
   });
-  
+
   res.cookie("social_oauth_role", role, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -231,7 +231,7 @@ export const appleAuthCallback = async (req: Request, res: Response) => {
     });
 
     if (!response.ok) throw new Error("APPLE_TOKEN_EXCHANGE_FAILED");
-    const tokens = await response.json();
+    const tokens = await response.json() as any;
 
     const appleJWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
     const { payload: appleIdentity } = await jwtVerify(tokens.id_token, appleJWKS, {
@@ -252,7 +252,7 @@ export const appleAuthCallback = async (req: Request, res: Response) => {
         const appleUser = JSON.parse(appleUserRaw);
         firstName = appleUser?.name?.firstName?.trim();
         lastName = appleUser?.name?.lastName?.trim();
-      } catch {}
+      } catch { }
     }
 
     let authIdentity = await prisma.authIdentity.findUnique({

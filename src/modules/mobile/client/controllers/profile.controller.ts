@@ -209,3 +209,12 @@ export const getProfileCompletion = async (req: AuthRequest, res: Response, next
     next(error);
   }
 };
+
+export const uploadKyc = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json(errorResponse('No file provided', 'VALIDATION_ERROR'));
+    }
+    return respondWithUploadedFile(req, res, 'KYC document uploaded successfully');
+  } catch (error) { next(error); }
+};
