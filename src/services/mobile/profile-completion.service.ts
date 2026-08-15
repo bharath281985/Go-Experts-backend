@@ -84,12 +84,11 @@ function evaluateFreelancer(user: any, fp: any) {
   ];
 
   const weights = {
-    identity: 15,
-    professional: 20,
+    identity: 20,
+    professional: 30,
     skills: 20,
     rate: 15,
-    location: 10,
-    enhancements: 20,
+    location: 15,
   };
 
   let score = 0;
@@ -98,7 +97,6 @@ function evaluateFreelancer(user: any, fp: any) {
   if (fields.skills) score += weights.skills;
   if (fields.rate || fields.availability) score += weights.rate;
   if (fields.country && fields.city) score += weights.location;
-  if (fields.portfolio || fields.resume || fields.linkedin) score += weights.enhancements;
 
   const missingCore = core.filter(c => !c.valid).map(c => ({ key: c.key, label: c.label, sectionKey: c.sectionKey }));
   const missingRecommended = recommended.filter(c => !c.valid).map(c => ({ key: c.key, label: c.label, sectionKey: c.sectionKey }));
@@ -429,7 +427,7 @@ export const resolveProfileCompletion = async (
     capabilities: evaluation.capabilities,
     
     // Legacy fields mapped exactly as they were
-    isProfileComplete: legacyIsComplete,
+    isProfileComplete: evaluation.score >= 75,
     completedSteps,
     pendingSteps,
     totalSteps,
