@@ -18,17 +18,10 @@ async function main() {
       status: "active",
       features: JSON.stringify([
         "Full Platform Access for 90 Days",
-        "Unlimited Project Applications",
-        "Direct Client Messaging & Proposals",
-        "Portfolio & Skill Showcase",
-        "AI Resume Builder & Export",
-        "Verified Talent Badge"
+        "Apply to unlimited projects",
+        "Direct client messaging & chat"
       ]),
-      limits: JSON.stringify({
-        projectApplications: 999,
-        directMessages: 999,
-        portfolioItems: 50
-      })
+      limits: JSON.stringify({ applications: 999 })
     },
     {
       name: "Client 90-Day Free Trial",
@@ -44,16 +37,10 @@ async function main() {
       status: "active",
       features: JSON.stringify([
         "Full Platform Access for 90 Days",
-        "Post Unlimited Jobs & Projects",
-        "Browse Verified Expert Freelancers",
-        "Direct Candidate Messaging",
-        "Escrow Milestone Protection",
-        "Dedicated Support Assistance"
+        "Post unlimited jobs & projects",
+        "Direct freelancer contact & chat"
       ]),
-      limits: JSON.stringify({
-        jobPosts: 999,
-        candidateContacts: 999
-      })
+      limits: JSON.stringify({ jobPosts: 999 })
     },
     {
       name: "Founder 90-Day Free Trial",
@@ -69,16 +56,10 @@ async function main() {
       status: "active",
       features: JSON.stringify([
         "Full Startup OS Access for 90 Days",
-        "Publish Startup Profile & Pitch Deck",
-        "Connect with Verified Angel Investors & VCs",
-        "Hire Verified Freelancers & Specialists",
-        "Cap Table & Deal Tracking",
-        "Investor Meeting Scheduler"
+        "Publish profile & connect with investors",
+        "Direct specialist hiring"
       ]),
-      limits: JSON.stringify({
-        investorOutreaches: 999,
-        teamMembers: 10
-      })
+      limits: JSON.stringify({ outreaches: 999 })
     },
     {
       name: "Investor 90-Day Free Trial",
@@ -93,17 +74,11 @@ async function main() {
       visibility: "public",
       status: "active",
       features: JSON.stringify([
-        "Full Investor Console Access for 90 Days",
-        "Curated High-Growth Startup Deal Flow",
-        "Direct Founder Introductions & Pitches",
-        "Syndicate & Co-Investment Opportunities",
-        "Due Diligence Data Room Access",
-        "Portfolio Tracking Dashboard"
+        "Full Investor Console for 90 Days",
+        "Curated deal flow & startup access",
+        "Direct founder intros & pitches"
       ]),
-      limits: JSON.stringify({
-        startupReviews: 999,
-        directFounderIntros: 999
-      })
+      limits: JSON.stringify({ reviews: 999 })
     }
   ];
 
