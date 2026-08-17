@@ -76,7 +76,13 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
       return res.redirect(`${frontendUrl}/login?error=google_cancelled`);
     }
 
-    if (!state || state !== req.cookies.google_oauth_state) {
+    if (!state) {
+      console.error("[GoogleAuth] state missing from callback query");
+      return res.status(400).json({ message: "Missing state parameter" });
+    }
+
+    if (state !== req.cookies.google_oauth_state) {
+      console.error("[GoogleAuth] State mismatch:", { received: state, cookie: req.cookies.google_oauth_state });
       return res.status(400).json({ message: "Invalid Google authentication state" });
     }
 
@@ -151,9 +157,10 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
 
     return res.redirect(redirectUrl);
 
-  } catch (error) {
-    console.error("Google auth error:", error);
-    return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed`);
+  } catch (error: any) {
+    console.error("[GoogleAuth] Auth error:", error?.message || error);
+    const reason = encodeURIComponent(error?.message || "unknown");
+    return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed&reason=${reason}`);
   }
 };
 
