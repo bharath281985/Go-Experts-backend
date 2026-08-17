@@ -659,6 +659,29 @@ export const getFreelancerEducation = async (req: AuthenticatedRequest, res: Res
   }
 };
 
+export const getFreelancerEducationByUserId = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ success: false, message: "User ID is required" });
+    
+    const rows = await prisma.freelancerEducation.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const mappedRows = rows.map((r) => ({
+      ...r,
+      educationFile: r.fileUrl,
+      document: r.fileUrl
+    }));
+    const populatedRows = await populateSkillsUsed(mappedRows);
+
+    res.json({ success: true, data: populatedRows, total: populatedRows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
 export const putFreelancerEducation = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = requireUser(req, res);

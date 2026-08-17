@@ -574,30 +574,6 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           trial_ends_at: trialDateStr,
           selected_plan: planSelected,
           app_url: process.env.CLIENT_URL || "https://goexperts.in",
-        },
-        {
-          subject: "Welcome to Go Experts! Your 90-Day Free Trial is Active 🎉",
-          html: `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748; background: #ffffff; border-radius: 12px; border: 1px solid #eaedf1; overflow: hidden;">
-              <div style="padding: 24px; text-align: center; border-bottom: 3px solid #E30613;">
-                <img src="https://goexperts.in/assets/img/logo.png" alt="Go Experts" style="max-height: 44px;" />
-              </div>
-              <div style="padding: 32px 24px;">
-                <h2 style="color: #1a202c; font-size: 22px; font-weight: 800; margin-bottom: 12px;">Welcome to Go Experts! 🎉</h2>
-                <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Hello <strong>${user.fullName}</strong>, thank you for registering with <strong>Go Experts</strong> as a <strong>${user.role.toUpperCase()}</strong>.</p>
-                
-                <div style="background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 24px 0;">
-                  <h3 style="margin: 0 0 10px 0; color: #E30613; font-size: 16px; font-weight: 700;">🎁 90-Day Free Trial Activated!</h3>
-                  <p style="margin: 0 0 8px 0; font-size: 14px; color: #4a5568;">Your account has been granted <strong>90 Days of Full Platform Access</strong> with zero commitment.</p>
-                  <p style="margin: 0; font-size: 13px; color: #718096;"><strong>Trial Expiry Date:</strong> ${trialDateStr}</p>
-                </div>
-
-                <div style="text-align: center; margin-top: 32px;">
-                  <a href="${process.env.CLIENT_URL || 'https://goexperts.in'}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block;">Explore Platform Now &rarr;</a>
-                </div>
-              </div>
-            </div>
-          `,
         }
       );
 

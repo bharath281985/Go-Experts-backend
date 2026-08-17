@@ -51,6 +51,7 @@ import {
   postFreelancerEducation,
   deleteFreelancerEducation,
   putFreelancerEducationById,
+  getFreelancerEducationByUserId,
   getFreelancerCertificates,
   putFreelancerCertificates,
   postFreelancerCertificates,
@@ -105,6 +106,7 @@ router.put('/education', putFreelancerEducation as any);
 router.post('/education', postFreelancerEducation as any);
 router.delete('/education/:id', deleteFreelancerEducation as any);
 router.put('/education/:id', putFreelancerEducationById as any);
+router.get('/education/:userId', getFreelancerEducationByUserId as any);
 
 // ─── Certificates ───
 router.get('/certificates', getFreelancerCertificates as any);

@@ -55,6 +55,7 @@ import {
   listClientApiKeys,
   generateClientApiKey,
   revokeClientApiKey,
+  listClientApplications,
 } from "../../controllers/client/client.controller.js";
 
 const router = Router();
@@ -81,6 +82,8 @@ router.patch("/projects/:id", updateClientProject as any);
 router.put("/projects/:id", updateClientProject as any);
 router.delete("/projects/:id", deleteClientProject as any);
 router.get("/projects/:id/applications", listProjectApplications as any);
+
+router.get("/applications", listClientApplications as any);
 
 router.post("/proposals/:id/accept", acceptProposal as any);
 router.post("/proposals/:id/reject", rejectProposal as any);

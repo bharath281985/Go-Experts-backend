@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
-import { successResponse } from '../../../../core/response.js';
+import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
@@ -42,7 +42,15 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
 
 export const getProposalDetails = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const proposal = await prisma.proposal.findFirst({ where: { id: req.params.id, freelancerId: req.user.id } });
+    const proposal = await prisma.proposal.findFirst({ 
+      where: { id: req.params.id, freelancerId: req.user.id },
+      include: { project: true }
+    });
+    
+    if (!proposal) {
+      return res.status(404).json(errorResponse('Proposal not found', 'NOT_FOUND'));
+    }
+    
     return res.json(successResponse('Proposal details retrieved', proposal));
   } catch (error) { next(error); }
 };

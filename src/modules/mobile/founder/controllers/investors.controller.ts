@@ -65,6 +65,7 @@ const mapInvestorAsync = async (investor: any) => {
   ]);
 
   return {
+<<<<<<< Updated upstream
     id: investor.id,
     fullName: investor.fullName || null,
     name: investor.fullName || null,
@@ -90,6 +91,28 @@ const mapInvestorAsync = async (investor: any) => {
     verified: Boolean(investor.isVerified || investor.verified),
     createdAt: investor.createdAt,
     updatedAt: investor.updatedAt,
+=======
+    ...rest,
+    id: investor.id,
+    fullName: investor.fullName || "",
+    name: investor.fullName || "",
+    email: investor.email,
+    avatarUrl: investor.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${investor.id}`,
+    role: investor.role,
+    bio: investor.bio || 'Active investor.',
+    company: prof?.firm || '',
+    firm: prof?.firm || '',
+    ticketMin: prof?.ticketMin ?? 0,
+    ticketMax: prof?.ticketMax ?? 0,
+    focusAreas,
+    deals: prof?.deals ?? 0,
+    investmentsCount: prof?.deals ?? 0,
+    preferredStage: prof?.preferredStage || '',
+    location: `${investor.city || ''}, ${investor.country || ''}`.replace(/^, | , $/g, '').trim(),
+    city: investor.city || '',
+    country: investor.country || '',
+    verified: investor.isVerified ?? true
+>>>>>>> Stashed changes
   };
 };
 
@@ -144,6 +167,7 @@ export const listInvestors = async (req: AuthRequest, res: Response, next: NextF
 
 export const getInvestor = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+<<<<<<< Updated upstream
     const investor = await prisma.user.findFirst({
       where: { id: req.params.id, role: 'investor', deletedAt: null },
       include: { investorProfile: true },
@@ -151,6 +175,12 @@ export const getInvestor = async (req: AuthRequest, res: Response, next: NextFun
 
     if (!investor) {
       return res.status(404).json(errorResponse('Investor not found', 'NOT_FOUND'));
+=======
+    const id = req.params.id;
+    let investor = await prisma.user.findFirst({ where: { id, role: 'investor' }, include: { investorProfile: true } });
+    if (!investor) {
+      return res.status(404).json({ success: false, message: 'Investor not found' });
+>>>>>>> Stashed changes
     }
 
     const data = await mapInvestorAsync(investor);

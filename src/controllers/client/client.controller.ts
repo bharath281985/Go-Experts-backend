@@ -23,6 +23,22 @@ import {
   money,
 } from "../../common/helpers/portal-shared.js";
 
+/** Resolve an industry string (name or id) to {id, name}, or null if empty */
+async function resolveIndustry(raw: string | null | undefined): Promise<{ id: string; name: string } | null> {
+  if (!raw || !raw.trim()) return null;
+  const val = raw.trim();
+  try {
+    const found = await prisma.industry.findFirst({
+      where: { OR: [{ id: val }, { name: val }] },
+      select: { id: true, name: true },
+    });
+    if (found) return { id: found.id, name: found.name };
+  } catch { /* ignore */ }
+  // fallback: construct a slug id from the name
+  const slugId = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return { id: slugId, name: val };
+}
+
 async function loadClientUser(userId: string) {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null },
@@ -177,6 +193,8 @@ export const getClientProfile = async (req: AuthenticatedRequest, res: Response,
     const user = await loadClientUser(userId);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
+    const resolvedIndustry = await resolveIndustry(user.clientProfile?.industry);
+
     res.json({
       success: true,
       data: {
@@ -189,7 +207,8 @@ export const getClientProfile = async (req: AuthenticatedRequest, res: Response,
         city: user.city || "",
         country: user.country || "",
         company: user.clientProfile?.company || "",
-        industry: user.clientProfile?.industry || "",
+        industry: resolvedIndustry,
+        industryName: resolvedIndustry?.name || null,
         totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
         projectsPosted: user.clientProfile?.projectsPosted ?? 0,
         status: user.status || "active",
@@ -518,6 +537,36 @@ export const listProjectApplications = async (req: AuthenticatedRequest, res: Re
     });
 
     res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const listClientApplications = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+
+    const user = await loadClientUser(userId);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const projWhere = clientProjectWhere(user, user.clientProfile);
+
+    const rows = await prisma.proposal.findMany({
+      where: { project: { is: projWhere }, deletedAt: null },
+      include: { 
+        project: { select: { id: true, title: true } },
+        freelancer: { select: { id: true, fullName: true, email: true, avatarUrl: true, bio: true } } 
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const mappedRows = rows.map((r: any) => ({
+      ...r,
+      projectTitle: r.project?.title || "Project",
+    }));
+
+    res.json({ success: true, rows: mappedRows, total: rows.length });
   } catch (err) {
     handleError(err, res, next);
   }

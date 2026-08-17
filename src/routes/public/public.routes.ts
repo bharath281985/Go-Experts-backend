@@ -959,6 +959,26 @@ router.post("/projects", async (req: Request, res: Response, next: NextFunction)
   }
 });
 
+router.get("/projects/:slug", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { slug } = req.params;
+    const project = await prisma.project.findFirst({
+      where: {
+        id: slug,
+        deletedAt: null,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    res.json({ success: true, data: project });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const includeFree = req.query.includeFree === "true";
