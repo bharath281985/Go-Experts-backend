@@ -809,13 +809,11 @@ const formatStartupResponse = (
 
   if (user) {
     reg = parseRegData(user.registrationData);
-    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-
-    // Minimal user fields for list view
+        // Minimal user fields for list view
     userObj = {
       id: user.id,
       fullName: user.fullName,
-      avatarUrl: user.avatarUrl || dicebearUrl,
+      avatarUrl: user.avatarUrl || null,
       city: user.city || reg.city || "",
       countryId: user.country || reg.country || "",
       role: user.role || 'founder',
@@ -824,25 +822,24 @@ const formatStartupResponse = (
     // Append full fields only for detail view
     if (isDetailed) {
       userObj.email = user.email;
-      userObj.logo = user.avatarUrl || dicebearUrl;
+      userObj.logo = user.avatarUrl || null;
       userObj.bio = user.bio || reg.bio || reg.pitch || "";
       userObj.phone = user.phone || reg.phone || reg.mobile || "";
       userObj.registrationData = reg;
     }
   } else {
     const fallbackName = idea.founder || idea.startup || "Founder";
-    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fallbackName)}`;
-    userObj = {
+        userObj = {
       id: idea.founder || idea.id,
       fullName: fallbackName,
-      avatarUrl: idea.logo || dicebearUrl,
+      avatarUrl: idea.logo || null,
       city: "",
       countryId: "",
       role: "founder",
     };
     if (isDetailed) {
       userObj.email = "";
-      userObj.logo = idea.logo || dicebearUrl;
+      userObj.logo = idea.logo || null;
       userObj.bio = "";
       userObj.phone = "";
     }
@@ -1216,9 +1213,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       const reg = parseRegData(user.registrationData);
       const profile = await prisma.founderProfile.findUnique({ where: { userId: id } }).catch(() => null);
-      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-
-      const rawC = reg.countryId || user.country || reg.country || "";
+            const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
       const pgArr = profile?.primaryGoal ? String(profile.primaryGoal).split(",").map(s => s.trim()) : (reg.primaryGoal || []);
@@ -1243,8 +1238,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         fullName: user.fullName || reg.fullName || "",
         name: user.fullName || reg.fullName || "",
         email: user.email || reg.email || "",
-        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
-        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatarUrl: user.avatarUrl || reg.avatarUrl || null,
+        avatar: user.avatarUrl || reg.avatarUrl || null,
         bio: user.bio || reg.bio || reg.pitch || "",
         phone: user.phone || reg.phone || reg.mobile || "",
         city: user.city || reg.city || "",
@@ -1336,9 +1331,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
 
       const reg = parseRegData(user.registrationData);
-      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-
-      const indArr = Array.isArray(reg.industry) ? reg.industry : (user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : (reg.industryIds || (reg.industry ? [String(reg.industry)] : [])));
+            const indArr = Array.isArray(reg.industry) ? reg.industry : (user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : (reg.industryIds || (reg.industry ? [String(reg.industry)] : [])));
       const sklArr = Array.isArray(reg.skills) ? reg.skills : (user.freelancerProfile?.skills ? String(user.freelancerProfile.skills).split(",").map(s => s.trim()) : (reg.skillsIds || reg.skillIds || (reg.skills ? [String(reg.skills)] : [])));
       const wmArr = Array.isArray(reg.workMode) ? reg.workMode : (user.freelancerProfile?.workMode ? String(user.freelancerProfile.workMode).split(",").map(s => s.trim()) : (reg.workModeIds || (reg.workMode ? [String(reg.workMode)] : [])));
       const stId = reg.stateId || user.state || reg.state || "";
@@ -1361,8 +1354,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         name: user.fullName || reg.fullName || "",
         email: user.email,
         phone: user.phone || reg.phone || reg.mobile || "",
-        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
-        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatarUrl: user.avatarUrl || reg.avatarUrl || null,
+        avatar: user.avatarUrl || reg.avatarUrl || null,
         title: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Freelancer",
         titleHeadline: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Freelancer",
         professionalTitle: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Freelancer",
@@ -1432,9 +1425,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
 
       const reg = parseRegData(user.registrationData);
-      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-
-      const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
+            const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
       const csVal = user.clientProfile?.companySize || reg.companySize || reg.companySizeId || "1-10 Employees";
       const csId = reg.companySizeId || user.clientProfile?.companySize || reg.companySize || "1-10";
       const teamVal = user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || reg.companySize || "1-10";
@@ -1470,8 +1461,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         name: user.fullName || reg.fullName || "",
         email: user.email,
         phone: user.phone || reg.phone || reg.mobile || "",
-        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
-        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatarUrl: user.avatarUrl || reg.avatarUrl || null,
+        avatar: user.avatarUrl || reg.avatarUrl || null,
         company: compVal,
         companyName: compVal,
         companySize: csVal,
@@ -1520,8 +1511,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
 
       const reg = parseRegData(user.registrationData);
-      const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-      const rawC = reg.countryId || user.country || reg.country || "";
+            const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
       const psArr = user.investorProfile?.preferredStage ? String(user.investorProfile.preferredStage).split(",").map(s => s.trim()) : (reg.preferredStage || []);
@@ -1558,8 +1548,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         name: user.fullName || reg.fullName || "",
         email: user.email,
         phone: user.phone || reg.phone || reg.mobile || "",
-        avatarUrl: user.avatarUrl || reg.avatarUrl || dicebearUrl,
-        avatar: user.avatarUrl || reg.avatarUrl || dicebearUrl,
+        avatarUrl: user.avatarUrl || reg.avatarUrl || null,
+        avatar: user.avatarUrl || reg.avatarUrl || null,
         investorType: invType,
         investorTypeId: invType,
         investorTypeName: INVESTOR_TYPE_MAP[invType] || invType,

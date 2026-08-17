@@ -75,23 +75,20 @@ const formatStartupResponse = (
 
   if (user) {
     reg = parseRegData(user.registrationData);
-    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-
-    userObj = {
+        userObj = {
       id: user.id,
       fullName: user.fullName,
-      avatarUrl: user.avatarUrl || dicebearUrl,
+      avatarUrl: user.avatarUrl || null,
       city: user.city || reg.city || "",
       countryId: user.country || reg.country || "",
       role: user.role || 'founder',
     };
   } else {
     const fallbackName = idea.founder || idea.startup || "Founder";
-    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fallbackName)}`;
-    userObj = {
+        userObj = {
       id: idea.founder || idea.id,
       fullName: fallbackName,
-      avatarUrl: idea.logo || dicebearUrl,
+      avatarUrl: idea.logo || null,
       city: "",
       countryId: "",
       role: "founder",
@@ -355,10 +352,9 @@ const populateFounderWatchlist = async (userId: string, items: WatchlistEntry[])
 
       if (user) {
         const reg = parseRegData(user.registrationData);
-        const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-        result.fullName = user.fullName || reg.fullName || "";
+                result.fullName = user.fullName || reg.fullName || "";
         result.email = user.email || reg.email || "";
-        result.avatarUrl = user.avatarUrl || reg.avatarUrl || dicebearUrl;
+        result.avatarUrl = user.avatarUrl || reg.avatarUrl || null;
         result.bio = user.bio || reg.bio || reg.pitch || "";
         result.phone = user.phone || reg.phone || reg.mobile || "";
         result.city = user.city || reg.city || "";

@@ -167,7 +167,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     primaryCtaUrl: "/register",
     secondaryCtaLabel: "Contact Us",
     secondaryCtaUrl: "/contact",
-    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1600&q=80",
+    image: "",
     imageAlt: "Go Experts executive team collaborating in a modern office environment",
     enabled: true,
   },
@@ -176,7 +176,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     heading: "Architecting the Future of High-Trust Digital Work",
     summary: "Go Experts is an enterprise ecosystem connecting verified global talent with visionary founders, corporate clients, and strategic investors.",
     description: "Founded in 2016, Go Experts has grown from a specialized talent marketplace into an end-to-end operational platform. We combine AI-powered skill matching, transparent milestone payments, and rigorous background verification to eliminate friction in international contracts.",
-    image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     imageAlt: "Strategic planning workshop at Go Experts headquarters",
     videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     layout: "image_right",
@@ -203,7 +203,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     badge: "Our Heritage",
     heading: "From a Single Office to a Global Talent Network",
     content: "In 2016, our founders recognized a critical flaw in global hiring: traditional agency models were too slow, while existing gig portals lacked trust and compliance. Go Experts was built to bridge that gap with verified identity credentials, enterprise escrow protections, and transparent project milestones.",
-    image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     imageAlt: "Early days of Go Experts product innovation team",
     enabled: true,
   },
@@ -320,7 +320,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   teamMembers: [
     {
       id: "team_1",
-      photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
+      photo: "",
       name: "Dr. Sarah Jenkins",
       designation: "Chief Executive Officer & Founder",
       department: "Executive Leadership",
@@ -335,7 +335,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     },
     {
       id: "team_2",
-      photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80",
+      photo: "",
       name: "Rajesh V. Kumar",
       designation: "Chief Technology Officer",
       department: "Engineering & AI",
@@ -350,7 +350,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     },
     {
       id: "team_3",
-      photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80",
+      photo: "",
       name: "Elena Rostova",
       designation: "Head of Product & Design",
       department: "Product UX",
@@ -365,7 +365,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     },
     {
       id: "team_4",
-      photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80",
+      photo: "",
       name: "Marcus Vance",
       designation: "VP of Global Growth & Strategic Partnerships",
       department: "Business Operations",
@@ -457,7 +457,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
   certifications: [
     {
       id: "cert_1",
-      logo: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=200&q=80",
+      logo: "",
       name: "ISO/IEC 27001:2022 Certified",
       description: "International standard for Information Security Management Systems (ISMS).",
       verificationUrl: "https://iso.org",
@@ -467,7 +467,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     },
     {
       id: "cert_2",
-      logo: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=200&q=80",
+      logo: "",
       name: "SOC 2 Type II Compliant",
       description: "Audited for operational security, availability, and data confidentiality controls.",
       verificationUrl: "https://aicpa.org",
@@ -477,7 +477,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     },
     {
       id: "cert_3",
-      logo: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=200&q=80",
+      logo: "",
       name: "GDPR & CCPA Compliant",
       description: "Full compliance with European Union and California privacy data rights.",
       verificationUrl: "https://gdpr.eu",
@@ -505,7 +505,7 @@ export const DEFAULT_ABOUT_PAGE: AboutPageContent = {
     canonicalUrl: "https://goexperts.in/about",
     ogTitle: "About Go Experts — Building the Future of Borderless Work",
     ogDescription: "Discover how Go Experts powers enterprise hiring, project escrow, and startup venture execution.",
-    ogImage: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+    ogImage: "",
     robots: "index, follow",
   },
   publishing: {

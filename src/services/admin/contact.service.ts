@@ -117,7 +117,7 @@ export class ContactCmsService {
           heading: "Need Help or Want to Discuss a Project?",
           highlightText: "Discuss a Project?",
           description: "Our dedicated team is available 24/7 to assist with platform questions, enterprise partnerships, or technical support.",
-          image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80",
+          image: "",
           imageAlt: "Customer Support Representative",
           primaryCtaLabel: "Send Message",
           primaryCtaUrl: "#contact-form",

@@ -52,12 +52,14 @@ export async function saveSettingsSection<T extends SettingsSection>(
 
   return { section, data };
 }
-
 export async function renderEmailTemplate(
   templateId: string,
   variables: Record<string, string>,
-  fallback: { subject: string; html: string }
+  fallback?: { subject: string; html: string }
 ) {
+  if (!fallback) {
+    fallback = (SETTINGS_DEFAULTS.email_templates as unknown as any[]).find(t => t.id === templateId) || { subject: "Go Experts", html: "Hello" };
+  }
   try {
     const section = await getSettingsSection("email_templates");
     const templates: any[] = Array.isArray(section?.data) ? section.data : [];

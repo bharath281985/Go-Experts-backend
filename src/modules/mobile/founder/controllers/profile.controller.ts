@@ -93,14 +93,13 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       ...founderDetails
     };
 
-    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user.id}`;
-    const countryId = await resolveId(user?.country || reg.country || "", "Country");
+        const countryId = await resolveId(user?.country || reg.country || "", "Country");
     const userObj = {
       id: user?.id,
       email: user?.email,
       fullName: user?.fullName,
-      avatarUrl: user?.avatarUrl || dicebearUrl,
-      logo: user?.avatarUrl || dicebearUrl,
+      avatarUrl: user?.avatarUrl || null,
+      logo: user?.avatarUrl || null,
       bio: user?.bio || reg.bio || reg.pitch || "",
       phone: user?.phone || reg.phone || reg.mobile || "",
       countryId: countryId,

@@ -100,7 +100,7 @@ export class CareersCmsService {
           heading: "Join a Team Solving Meaningful Problems Worldwide",
           highlightText: "Meaningful Problems Worldwide",
           description: "We are architecting the future of global borderless work. Discover fast-paced, high-ownership career opportunities across engineering, product, trust & safety, and growth.",
-          image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+          image: "",
           imageAlt: "Go Experts Careers Team",
           primaryCtaLabel: "View Open Roles",
           primaryCtaUrl: "#open-positions",

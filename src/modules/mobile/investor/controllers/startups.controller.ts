@@ -49,13 +49,11 @@ export const formatStartupResponse = (
 
   if (user) {
     reg = parseRegData(user.registrationData);
-    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`;
-
-    // Minimal user fields for list view
+        // Minimal user fields for list view
     userObj = {
       id: user.id,
       fullName: user.fullName,
-      avatarUrl: user.avatarUrl || dicebearUrl,
+      avatarUrl: user.avatarUrl || null,
       city: user.city || reg.city || "",
       countryId: user.country || reg.country || "",
       role: user.role || 'founder',
@@ -64,25 +62,24 @@ export const formatStartupResponse = (
     // Append full fields only for detail view
     if (isDetailed) {
       userObj.email = user.email;
-      userObj.logo = user.avatarUrl || dicebearUrl;
+      userObj.logo = user.avatarUrl || null;
       userObj.bio = user.bio || reg.bio || reg.pitch || "";
       userObj.phone = user.phone || reg.phone || reg.mobile || "";
       userObj.registrationData = reg;
     }
   } else {
     const fallbackName = idea.founder || idea.startup || "Founder";
-    const dicebearUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fallbackName)}`;
-    userObj = {
+        userObj = {
       id: idea.founder || idea.id,
       fullName: fallbackName,
-      avatarUrl: idea.logo || dicebearUrl,
+      avatarUrl: idea.logo || null,
       city: "",
       countryId: "",
       role: "founder",
     };
     if (isDetailed) {
       userObj.email = "";
-      userObj.logo = idea.logo || dicebearUrl;
+      userObj.logo = idea.logo || null;
       userObj.bio = "";
       userObj.phone = "";
     }

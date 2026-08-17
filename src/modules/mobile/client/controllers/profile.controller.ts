@@ -32,6 +32,14 @@ function parseRegData(regData: any): Record<string, any> {
 
 import { getMe, updateMe as authUpdateMe } from '../../auth/auth.controller.js';
 
+export const getProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: { clientProfile: true },
+    });
+    if (!user) return res.status(404).json(errorResponse('User not found', 'NOT_FOUND'));
+
     const reg = parseRegData(user.registrationData);
     const rawGoals = reg.clientGoals || reg.goals || reg.goalIds;
     const resolvedGoals = await resolveMasterOptionsInput(rawGoals, 'client_goal');

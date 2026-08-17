@@ -258,24 +258,6 @@ export async function getPublicSkills(options: {
   }
 }
 
-export function getHomePageFallbackPayload() {
-  return {
-    cms: {
-      ...DEFAULT_HOME_CONTENT,
-      stats: DEFAULT_HOME_CONTENT.stats,
-    },
-    stats: {
-      freelancers: 0,
-      clients: 0,
-      investors: 0,
-      startup_ideas: 0,
-      projects: 0,
-    },
-    categories: [],
-    featuredSkills: ["React", "AI/ML", "Design", "Marketing", "Mobile"],
-    degraded: true,
-  };
-}
 
 export async function getHomePagePayload() {
   try {
@@ -305,7 +287,5 @@ export async function getHomePagePayload() {
       featuredSkills: skillsResult.rows.map((skill: any) => skill.name).filter(Boolean),
       degraded: Boolean(categoriesResult.rows.length === 0 && skillsResult.degraded),
     };
-  } catch {
-    return getHomePageFallbackPayload();
-  }
+  } catch (err) { throw err; }
 }

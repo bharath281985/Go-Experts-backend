@@ -4,8 +4,7 @@ import { listFreelancersCompat } from "../../common/helpers/prisma-compat.js";
 import {
   getHomeCmsContent,
   getHomePagePayload,
-  getHomePageFallbackPayload,
-  getPublicCategories,
+    getPublicCategories,
   getPublicPlatformStats,
   getPublicSkills,
 } from "../../services/public/home.service.js";
@@ -422,8 +421,7 @@ router.get("/home", async (_req: Request, res: Response, next: NextFunction) => 
     const data = await getHomePagePayload();
     res.json({ success: true, data });
   } catch (err) {
-    console.error("Public home payload failed, returning fallback:", err);
-    res.json({ success: true, data: getHomePageFallbackPayload() });
+    next(err);
   }
 });
 
