@@ -879,8 +879,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         delete formattedProfile.stage;
         formattedProfile.founderRoleId = toSingleOption(roleProfile.founderRole);
         delete formattedProfile.founderRole;
-        formattedProfile.teamSizeId = toSingleOption(roleProfile.teamSize ? 'opt_company_size_10_50' : null);
-        delete formattedProfile.teamSize;
+
         formattedProfile.primaryGoalId = toMultiOptions(roleProfile.primaryGoal);
         delete formattedProfile.primaryGoal;
       }
@@ -1405,7 +1404,10 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);
         delete formattedProfile.stage;
-        formattedProfile.primaryGoalId = toSingleOption(roleProfile.primaryGoal);
+        formattedProfile.founderRoleId = toSingleOption(roleProfile.founderRole);
+        delete formattedProfile.founderRole;
+
+        formattedProfile.primaryGoalId = toMultiOptions(roleProfile.primaryGoal);
         delete formattedProfile.primaryGoal;
       }
     }
