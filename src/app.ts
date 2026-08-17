@@ -1,6 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
 import { corsConfig } from "./config/cors.js";
 import { UPLOADS_DIR, ensureUploadsDir } from "./config/uploads.js";
@@ -61,6 +62,7 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(cookieParser());
 app.use("/api", rejectLocalFilePaths);
 
 // ==========================================
