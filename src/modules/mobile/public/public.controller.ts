@@ -1171,67 +1171,6 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       return res.json(successResponse('Project details', shaped));
     }
 
-<<<<<<< Updated upstream
-    if (modelName === 'investor') {
-      const id = req.params.id;
-      let user: any = null;
-      try {
-        user = await prisma.user.findFirst({
-          where: { id, role: 'investor' },
-          include: { investorProfile: true }
-        });
-
-        if (!user && id.startsWith('inv-')) {
-          const index = parseInt(id.replace('inv-', '')) || 0;
-          const allInvestors = await prisma.user.findMany({
-            where: { role: 'investor', status: 'active' },
-            include: { investorProfile: true },
-            skip: Math.max(0, index),
-            take: 1
-          });
-          user = allInvestors[0] || null;
-        }
-      } catch {
-        user = null;
-      }
-
-      if (user) {
-        const prof = user.investorProfile;
-        const reg = parseRegData(user.registrationData);
-        return res.json(successResponse('Details retrieved for investor', {
-          id,
-          userId: user.id,
-          fullName: user.fullName || reg.fullName || `Investor ${id}`,
-          name: user.fullName || reg.fullName || `Investor ${id}`,
-          email: user.email,
-          phone: user.phone || reg.phone || reg.mobile || "",
-          avatarUrl: user.avatarUrl || reg.avatarUrl || null,
-          role: user.role || 'investor',
-          status: user.status || 'active',
-          bio: user.bio || reg.bio || reg.thesis || null,
-          thesis: user.bio || reg.thesis || reg.bio || "",
-          company: prof?.firm || reg.firm || reg.firmName || null,
-          firm: prof?.firm || reg.firm || reg.firmName || null,
-          firmName: prof?.firm || reg.firm || reg.firmName || null,
-          ticketMin: prof?.ticketMin ?? reg.ticketMin ?? null,
-          ticketMax: prof?.ticketMax ?? reg.ticketMax ?? null,
-          focusAreas: prof?.focusAreas || reg.focusAreas || null,
-          deals: prof?.deals ?? reg.deals ?? 0,
-          investmentsCount: prof?.deals ?? reg.deals ?? 0,
-          location: `${user.city || reg.city || 'Bengaluru'}, ${user.country || reg.country || 'India'}`,
-          city: user.city || reg.city || null,
-          country: user.country || reg.country || null,
-          verified: Boolean(user.isVerified || user.verified),
-          registrationData: reg,
-          savedData: true,
-          isSaved: true
-        }));
-      }
-
-      return res.status(404).json(errorResponse('Investor not found', 'NOT_FOUND'));
-    }
-=======
->>>>>>> Stashed changes
 
     if (modelName === 'startup') {
       const id = req.params.id;

@@ -32,10 +32,6 @@ function parseRegData(regData: any): Record<string, any> {
 
 import { getMe, updateMe as authUpdateMe } from '../../auth/auth.controller.js';
 
-<<<<<<< Updated upstream
-export const getProfile = getMe;
-export const updateProfile = authUpdateMe;
-=======
     const reg = parseRegData(user.registrationData);
     const rawGoals = reg.clientGoals || reg.goals || reg.goalIds;
     const resolvedGoals = await resolveMasterOptionsInput(rawGoals, 'client_goal');
@@ -175,7 +171,6 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     next(error);
   }
 };
->>>>>>> Stashed changes
 
 export const uploadLogo = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
