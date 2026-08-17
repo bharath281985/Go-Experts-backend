@@ -775,6 +775,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       roleProfile?.workMode,
       roleProfile?.companySize,
       roleProfile?.hiringGoal,
+      roleProfile?.projectHireBudget,
       roleProfile?.focusAreas,
       roleProfile?.preferredStage,
       roleProfile?.stage,
@@ -839,14 +840,27 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       formattedProfile = { ...roleProfile };
 
       if (activeUser.role === 'freelancer') {
-        formattedProfile.experience = toSingleOption(roleProfile.experience);
-        formattedProfile.industry = toSingleOption(roleProfile.industry);
-        formattedProfile.availability = toSingleOption(roleProfile.availability);
-        formattedProfile.workMode = toSingleOption(roleProfile.workMode);
-        formattedProfile.skills = toMultiOptions(roleProfile.skills);
-      } else if (activeUser.role === 'client') {
+        formattedProfile.headline = roleProfile.titleHeadline;
+        formattedProfile.categoryId = toSingleOption(roleProfile.industry);
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
+        formattedProfile.experienceLevelId = toSingleOption(roleProfile.experience);
+        delete formattedProfile.experience;
+        formattedProfile.availabilityId = toSingleOption(roleProfile.availability);
+        delete formattedProfile.availability;
+        if (roleProfile.workMode) {
+          formattedProfile.workModeId = toSingleOption(roleProfile.workMode);
+          delete formattedProfile.workMode;
+        }
+        const resolvedSkills = toMultiOptions(roleProfile.skills);
+        formattedProfile.skills = resolvedSkills.map(s => s.name);
+      } else if (activeUser.role === 'client') {
+        formattedProfile.companyName = roleProfile.company;
+        formattedProfile.headline = roleProfile.jobTitle;
+        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        delete formattedProfile.industry;
+        formattedProfile.projectHireBudgetId = toSingleOption(roleProfile.projectHireBudget);
+        delete formattedProfile.projectHireBudget;
         formattedProfile.companySizeId = toSingleOption(roleProfile.companySize);
         delete formattedProfile.companySize;
         formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
@@ -856,16 +870,18 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         delete formattedProfile.focusAreas;
         formattedProfile.preferredStageId = toSingleOption(roleProfile.preferredStage);
         delete formattedProfile.preferredStage;
-        if (roleProfile.investorType) {
-          formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
-          delete formattedProfile.investorType;
-        }
+        formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
+        delete formattedProfile.investorType;
       } else if (activeUser.role === 'founder') {
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);
         delete formattedProfile.stage;
-        formattedProfile.primaryGoalId = toSingleOption(roleProfile.primaryGoal);
+        formattedProfile.founderRoleId = toSingleOption(roleProfile.founderRole);
+        delete formattedProfile.founderRole;
+        formattedProfile.teamSizeId = toSingleOption(roleProfile.teamSize ? 'opt_company_size_10_50' : null);
+        delete formattedProfile.teamSize;
+        formattedProfile.primaryGoalId = toMultiOptions(roleProfile.primaryGoal);
         delete formattedProfile.primaryGoal;
       }
     }
@@ -1027,6 +1043,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       remoteAvailability,
       openToTravel,
       company,
+      companyName,
       businessName,
       projectHireBudget,
       projectHireBudgetId,
@@ -1073,11 +1090,15 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     const industryInput = extractVal(req.body.industryId ?? req.body.industry ?? req.body.categoryId);
     const hiringGoalInput = extractVal(req.body.hiringGoalId ?? req.body.hiringGoal);
     const companySizeInput = extractVal(req.body.companySizeId ?? req.body.companySize);
+    const availabilityInput = extractVal(req.body.availabilityId ?? req.body.availability ?? availability);
+    const workModeInput = extractVal(req.body.workModeId ?? req.body.workMode ?? workMode);
     const focusAreasInput = extractVal(req.body.focusAreasId ?? req.body.focusAreas ?? req.body.categoryId);
     const prefStageInput = extractVal(req.body.preferredStageId ?? req.body.preferredStage);
     const stageInput = extractVal(req.body.stageId ?? req.body.stage);
     const primaryGoalInput = extractVal(req.body.primaryGoalId ?? req.body.primaryGoal);
     const investorTypeInput = extractVal(req.body.investorTypeId ?? req.body.investorType);
+    const founderRoleInput = extractVal(req.body.founderRoleId ?? req.body.founderRole);
+    const teamSizeInput = extractVal(req.body.teamSizeId ?? req.body.teamSize);
 
     let avatarUrl: string | undefined = undefined;
     if (req.file) {
@@ -1115,7 +1136,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           skills: skillsInput,
           titleHeadline: titleHeadlineVal ? String(titleHeadlineVal).trim() : undefined,
           hourlyRate: hourlyRateVal,
-          availability: availability ? String(availability).trim() : undefined,
+          availability: availabilityInput ? String(availabilityInput).trim() : undefined,
           experience: expInput ? String(expInput).trim() : undefined,
           yearsOfExperience: yearsOfExperience ? String(yearsOfExperience).trim() : undefined,
           portfolioUrl: portfolioUrl ? String(portfolioUrl).trim() : undefined,
@@ -1138,7 +1159,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           skills: skillsInput || '',
           titleHeadline: titleHeadlineVal ? String(titleHeadlineVal).trim() : null,
           hourlyRate: hourlyRateVal ?? null,
-          availability: availability ? String(availability).trim() : null,
+          availability: availabilityInput ? String(availabilityInput).trim() : null,
           experience: expInput ? String(expInput).trim() : null,
           yearsOfExperience: yearsOfExperience ? String(yearsOfExperience).trim() : null,
           portfolioUrl: portfolioUrl ? String(portfolioUrl).trim() : null,
@@ -1158,7 +1179,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         },
       });
     } else if (role === 'client') {
-      const companyVal = company || businessName;
+      const companyVal = company || companyName || businessName;
+      const jobTitleVal = jobTitle || headline;
 
       await prisma.clientProfile.upsert({
         where: { userId: req.user.id },
@@ -1170,7 +1192,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           companySize: companySizeInput ? String(companySizeInput).trim() : undefined,
           currentTeam: currentTeam ? String(currentTeam).trim() : undefined,
           websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
-          jobTitle: jobTitle ? String(jobTitle).trim() : undefined,
+          jobTitle: jobTitleVal ? String(jobTitleVal).trim() : undefined,
         },
         create: {
           userId: req.user.id,
@@ -1181,7 +1203,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           companySize: companySizeInput ? String(companySizeInput).trim() : null,
           currentTeam: currentTeam ? String(currentTeam).trim() : null,
           websiteUrl: websiteUrl ? String(websiteUrl).trim() : null,
-          jobTitle: jobTitle ? String(jobTitle).trim() : null,
+          jobTitle: jobTitleVal ? String(jobTitleVal).trim() : null,
         },
       });
     } else if (role === 'investor') {
@@ -1214,7 +1236,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     } else if (role === 'founder') {
       const targetRaiseVal = targetRaise ?? raised;
       const raisedVal = raised != null && raised !== '' ? parseFloat(String(raised)) : undefined;
-      const parsedTeamSize = teamSize != null && teamSize !== '' ? parseInt(String(teamSize)) : undefined;
+
+      const parsedTeamSize = teamSizeInput ? parseInt(String(teamSizeInput).replace(/\D/g, '') || '1') || 1 : undefined;
 
       await prisma.founderProfile.upsert({
         where: { userId: req.user.id },
@@ -1222,7 +1245,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           startupName: startupName ? String(startupName).trim() : undefined,
           industry: industryInput ? String(industryInput).trim() : undefined,
           pitch: pitch ? String(pitch).trim() : undefined,
-          founderRole: founderRole ? String(founderRole).trim() : undefined,
+          founderRole: founderRoleInput ? String(founderRoleInput).trim() : undefined,
           founderBio: founderBio ? String(founderBio).trim() : undefined,
           stage: stageInput ? String(stageInput).trim() : undefined,
           targetRaise: targetRaiseVal != null && targetRaiseVal !== '' ? parseFloat(targetRaiseVal) : undefined,
@@ -1235,7 +1258,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           startupName: startupName ? String(startupName).trim() : null,
           industry: industryInput ? String(industryInput).trim() : null,
           pitch: pitch ? String(pitch).trim() : null,
-          founderRole: founderRole ? String(founderRole).trim() : null,
+          founderRole: founderRoleInput ? String(founderRoleInput).trim() : null,
           founderBio: founderBio ? String(founderBio).trim() : null,
           stage: stageInput ? String(stageInput).trim() : null,
           targetRaise: targetRaiseVal != null && targetRaiseVal !== '' ? parseFloat(targetRaiseVal) : null,
@@ -1280,6 +1303,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       roleProfile?.workMode,
       roleProfile?.companySize,
       roleProfile?.hiringGoal,
+      roleProfile?.projectHireBudget,
       roleProfile?.focusAreas,
       roleProfile?.preferredStage,
       roleProfile?.stage,
@@ -1344,14 +1368,27 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       formattedProfile = { ...roleProfile };
 
       if (activeUser.role === 'freelancer') {
-        formattedProfile.experience = toSingleOption(roleProfile.experience);
-        formattedProfile.industry = toSingleOption(roleProfile.industry);
-        formattedProfile.availability = toSingleOption(roleProfile.availability);
-        formattedProfile.workMode = toSingleOption(roleProfile.workMode);
-        formattedProfile.skills = toMultiOptions(roleProfile.skills);
-      } else if (activeUser.role === 'client') {
+        formattedProfile.headline = roleProfile.titleHeadline;
+        formattedProfile.categoryId = toSingleOption(roleProfile.industry);
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
+        formattedProfile.experienceLevelId = toSingleOption(roleProfile.experience);
+        delete formattedProfile.experience;
+        formattedProfile.availabilityId = toSingleOption(roleProfile.availability);
+        delete formattedProfile.availability;
+        if (roleProfile.workMode) {
+          formattedProfile.workModeId = toSingleOption(roleProfile.workMode);
+          delete formattedProfile.workMode;
+        }
+        const resolvedSkills = toMultiOptions(roleProfile.skills);
+        formattedProfile.skills = resolvedSkills.map(s => s.name);
+      } else if (activeUser.role === 'client') {
+        formattedProfile.companyName = roleProfile.company;
+        formattedProfile.headline = roleProfile.jobTitle;
+        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        delete formattedProfile.industry;
+        formattedProfile.projectHireBudgetId = toSingleOption(roleProfile.projectHireBudget);
+        delete formattedProfile.projectHireBudget;
         formattedProfile.companySizeId = toSingleOption(roleProfile.companySize);
         delete formattedProfile.companySize;
         formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
@@ -1361,10 +1398,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         delete formattedProfile.focusAreas;
         formattedProfile.preferredStageId = toSingleOption(roleProfile.preferredStage);
         delete formattedProfile.preferredStage;
-        if (roleProfile.investorType) {
-          formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
-          delete formattedProfile.investorType;
-        }
+        formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
+        delete formattedProfile.investorType;
       } else if (activeUser.role === 'founder') {
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
