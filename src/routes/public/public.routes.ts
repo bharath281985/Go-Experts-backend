@@ -1005,7 +1005,7 @@ router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunct
       const industry = await prisma.industry.findUnique({
         where: { id: industryId },
       });
-      if (industry && industry.isFreePlanEnabled) {
+      if (industry && (industry as any).isFreePlanEnabled) {
         includeFree = true;
       }
     }

@@ -1123,7 +1123,7 @@ export const getPricingPlans = async (req: Request, res: Response, next: NextFun
       const industry = await prisma.industry.findUnique({
         where: { id: industryId },
       });
-      if (industry && industry.isFreePlanEnabled) {
+      if (industry && (industry as any).isFreePlanEnabled) {
         includeFree = true;
       }
     }
