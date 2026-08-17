@@ -791,11 +791,12 @@ model InvoiceItem {
 
 model Industry {
   id         String          @id @default(uuid())
-  name       String          @unique
-  status     String          @default("active")
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
-  categories SkillCategory[]
+  name              String          @unique
+  status            String          @default("active")
+  isFreePlanEnabled Boolean         @default(false) @map("is_free_plan_enabled")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  categories        SkillCategory[]
 
   @@map("industries")
 }

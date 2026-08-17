@@ -1110,8 +1110,23 @@ export const getPricing = async (req: Request, res: Response, next: NextFunction
 
 export const getPricingPlans = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const includeFree = req.query.includeFree === "true";
+    const industryId = req.query.industryId as string | undefined;
+    const role = req.query.role as string | undefined;
     const whereCondition: any = { status: "active" };
+
+    if (role) {
+      whereCondition.role = role;
+    }
+
+    let includeFree = false;
+    if (industryId) {
+      const industry = await prisma.industry.findUnique({
+        where: { id: industryId },
+      });
+      if (industry && industry.isFreePlanEnabled) {
+        includeFree = true;
+      }
+    }
 
     if (!includeFree) {
       whereCondition.amount = { gt: 0 };

@@ -150,6 +150,19 @@ router.get("/currencies", async (_req: Request, res: Response, next: NextFunctio
   }
 });
 
+router.get("/technologies", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const technologies = await (prisma as any).masterOption.findMany({
+      where: { type: "technology", status: "active" },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, label: true, value: true },
+    });
+    res.json({ success: true, count: technologies.length, data: technologies });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/detect-location", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "";
@@ -979,8 +992,23 @@ router.get("/projects/:slug", async (req: Request, res: Response, next: NextFunc
 
 router.get("/pricing_plans", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const includeFree = req.query.includeFree === "true";
+    const industryId = req.query.industryId as string | undefined;
+    const role = req.query.role as string | undefined;
     const whereCondition: any = { status: "active" };
+
+    if (role) {
+      whereCondition.role = role;
+    }
+
+    let includeFree = false;
+    if (industryId) {
+      const industry = await prisma.industry.findUnique({
+        where: { id: industryId },
+      });
+      if (industry && industry.isFreePlanEnabled) {
+        includeFree = true;
+      }
+    }
 
     if (!includeFree) {
       whereCondition.amount = { gt: 0 };

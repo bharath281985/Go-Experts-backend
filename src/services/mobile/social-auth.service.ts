@@ -11,12 +11,16 @@ export type SocialIdentity = {
 
 const googleAudiences = () =>
   [
+    process.env.GOOGLE_CLIENT_ID,        // web oauth (browser login)
     process.env.GOOGLE_WEB_CLIENT_ID,
     process.env.GOOGLE_IOS_CLIENT_ID,
     process.env.GOOGLE_ANDROID_CLIENT_ID,
-    // Flutter app OAuth clients
+    process.env.GOOGLE_ANDROID_CLIENT_ID_2,
+    // Flutter app OAuth clients (fallback hardcoded)
+    '817575811603-132hevs3ekm6pkrm9phppt8eq1t9m9fs.apps.googleusercontent.com', // web oauth
     '817575811603-sjk8n64ib4a7mt6nrojjtgg5uhti6j0q.apps.googleusercontent.com', // web / server
-    '817575811603-m2jfe6l1lunbiunjvmlrilj7p6ig25kt.apps.googleusercontent.com', // android
+    '817575811603-m2jfe6l1lunbiunjvmlrilj7p6ig25kt.apps.googleusercontent.com', // android 1
+    '817575811603-9u7p66h38chir8ko3nkf6rvpae4r64sn.apps.googleusercontent.com', // android 2
     '817575811603-7pgbim1pbp6ps0h89594hnh9kouj2jgc.apps.googleusercontent.com', // ios
   ].filter((value): value is string => Boolean(value));
 

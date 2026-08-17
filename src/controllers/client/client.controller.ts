@@ -418,6 +418,11 @@ export const createClientProject = async (req: AuthenticatedRequest, res: Respon
         technology,
         timeline: body.timeline ? String(body.timeline) : null,
         status: requestedStatus,
+        description: body.description ? String(body.description) : null,
+        industryId: body.industry ? String(body.industry) : null,
+        experienceLevel: body.experience ? String(body.experience) : null,
+        workMode: body.workMode ? String(body.workMode) : null,
+        attachments: body.attachments ? JSON.stringify(body.attachments) : null,
       },
     });
 
