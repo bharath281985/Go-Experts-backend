@@ -152,7 +152,7 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
     res.clearCookie("google_oauth_state");
 
     const redirectUrl = isNewUser
-      ? `${process.env.FRONTEND_URL}/register/step-2?token=${authToken}`
+      ? `${process.env.FRONTEND_URL}/auth/social-success?token=${authToken}&newUser=true`
       : `${process.env.FRONTEND_URL}/auth/social-success?token=${authToken}`;
 
     return res.redirect(redirectUrl);
@@ -319,7 +319,7 @@ export const appleAuthCallback = async (req: Request, res: Response) => {
     res.clearCookie("apple_oauth_nonce");
 
     const redirectUrl = isNewUser
-      ? `${process.env.FRONTEND_URL}/register/step-2?token=${authToken}`
+      ? `${process.env.FRONTEND_URL}/auth/social-success?token=${authToken}&newUser=true`
       : `${process.env.FRONTEND_URL}/auth/social-success?token=${authToken}`;
 
     return res.redirect(redirectUrl);
