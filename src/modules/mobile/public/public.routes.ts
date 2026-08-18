@@ -40,7 +40,7 @@ router.get('/work-modes', masterCache, getWorkModes);
 router.get('/availabilities', masterCache, getAvailabilityOptions);
 router.get('/availability', masterCache, getAvailabilityOptions);
 router.get('/freelancer-availabilities', masterCache, getAvailabilityOptions);
-router.get('/hiring-goals', masterCache, getHiringGoals);
+router.get('/hiring-goals', getHiringGoals);
 router.get('/investor-stages', masterCache, getInvestorStages);
 router.get('/platform-goals', masterCache, getPlatformGoals);
 router.get('/budget-ranges', masterCache, getBudgetRanges);

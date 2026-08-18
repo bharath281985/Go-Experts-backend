@@ -320,17 +320,34 @@ export const getWorkModes = async (req: Request, res: Response, next: NextFuncti
 
 export const getHiringGoals = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const options = await (prisma as any).masterOption?.findMany({
-      where: { type: 'hiring_goal', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
-      select: { id: true, label: true, value: true }
-    }).catch(() => []);
-
-    if (options && options.length > 0) {
-      return res.json(successResponse('Hiring goals retrieved', options));
+    let options: Array<{ id: string; label: string; value: string }> = [];
+    try {
+      options = await prisma.masterOption.findMany({
+        where: { type: 'hiring_goal', status: 'active' },
+        orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+        select: { id: true, label: true, value: true },
+      });
+    } catch {
+      options = await prisma.$queryRaw<Array<{ id: string; label: string; value: string }>>`
+        SELECT id, label, value
+        FROM master_options
+        WHERE type = 'hiring_goal' AND status = 'active'
+        ORDER BY sort_order ASC, label ASC
+      `;
     }
 
-    return res.json(successResponse('Hiring goals retrieved', options || []));
+    const seen = new Set<string>();
+    const data = options.reduce<Array<{ id: string; name: string }>>((result, option) => {
+      const name = String(option.label || option.value || '').trim();
+      const key = name.toLowerCase();
+      if (name && !seen.has(key)) {
+        seen.add(key);
+        result.push({ id: option.id, name });
+      }
+      return result;
+    }, []);
+
+    return res.json(successResponse('Hiring goals retrieved', data));
   } catch (error) { next(error); }
 };
 

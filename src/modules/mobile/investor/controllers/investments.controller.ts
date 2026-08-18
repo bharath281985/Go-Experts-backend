@@ -4,6 +4,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
+import { sendEmail } from '../../../../services/mobile/email.service.js';
 
 const resolveStartupIdea = (startupId: string) => prisma.startupIdea.findFirst({
   where: {
@@ -11,6 +12,37 @@ const resolveStartupIdea = (startupId: string) => prisma.startupIdea.findFirst({
     deletedAt: null,
   },
 });
+
+const resolveFounderUser = (founder: string) => prisma.user.findFirst({
+  where: {
+    OR: [{ id: founder }, { email: founder }, { fullName: founder }],
+    role: 'founder',
+    deletedAt: null,
+  },
+  select: { id: true, fullName: true, email: true },
+});
+
+const notifyFounder = async (
+  founderUser: { id: string; email: string; fullName: string },
+  type: string,
+  title: string,
+  message: string,
+) => {
+  await Promise.allSettled([
+    NotificationEngine.queueNotification({
+      userId: founderUser.id,
+      type,
+      title,
+      message,
+      channel: 'in_app',
+    }),
+    sendEmail(
+      founderUser.email,
+      title,
+      `<p>Hello ${founderUser.fullName || 'Founder'},</p><p>${message}</p><p>Log in to Go Experts to view the details.</p>`,
+    ),
+  ]);
+};
 
 export const listInvestments = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -84,7 +116,8 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
 
     const idea = await resolveStartupIdea(String(startupId || ''));
     if (!idea) return res.status(404).json(errorResponse('Startup not found', 'NOT_FOUND'));
-    const investmentStartupId = idea.founder;
+    const founderUser = await resolveFounderUser(idea.founder);
+    const investmentStartupId = idea.id;
 
     // Fallback logic to prevent NaN crashes
     const parsedOffer = parseFloat(offer ?? amount ?? 0);
@@ -122,14 +155,13 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
       });
     }
 
-    if (idea && idea.founder) {
-      await NotificationEngine.queueNotification({
-        userId: idea.founder,
-        type: 'investment_interest',
-        title: 'New Investment Interest',
-        message: `${req.user.fullName || 'An investor'} has expressed interest in your startup!`,
-        channel: 'all'
-      });
+    if (founderUser) {
+      await notifyFounder(
+        founderUser,
+        'investment_interest',
+        'New Investment Interest',
+        `${req.user.fullName || 'An investor'} has expressed interest in your startup!`,
+      );
     }
 
     return res.status(201).json(successResponse('Interest expressed', {
@@ -146,7 +178,8 @@ export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunct
 
     const idea = await resolveStartupIdea(String(startupId || ''));
     if (!idea) return res.status(404).json(errorResponse('Startup not found', 'NOT_FOUND'));
-    const investmentStartupId = idea.founder;
+    const founderUser = await resolveFounderUser(idea.founder);
+    const investmentStartupId = idea.id;
 
     const parsedOffer = parseFloat(offer ?? amount ?? 0);
     const parsedEquity = parseFloat(equity ?? 0);
@@ -181,14 +214,13 @@ export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunct
       });
     }
 
-    if (idea && idea.founder) {
-      await NotificationEngine.queueNotification({
-        userId: idea.founder,
-        type: 'investment_offer',
-        title: 'New Investment Offer',
-        message: `${req.user.fullName || 'An investor'} has made a direct offer for your startup!`,
-        channel: 'all'
-      });
+    if (founderUser) {
+      await notifyFounder(
+        founderUser,
+        'investment_offer',
+        'New Investment Offer',
+        `${req.user.fullName || 'An investor'} has made a direct offer for your startup!`,
+      );
     }
 
     return res.status(201).json(successResponse('Offer made', {
@@ -209,6 +241,21 @@ export const updateInvestmentStatus = async (req: AuthRequest, res: Response, ne
 
 export const cancelInvestment = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const investment = await prisma.investment.findFirst({
+      where: {
+        OR: [{ id: req.params.id }, { startup: req.params.id }],
+        investor: req.user.id,
+        status: { in: ['Pending', 'Offer'] },
+      },
+    });
+
+    if (!investment) {
+      return res.status(404).json(errorResponse('Investment not found', 'NOT_FOUND'));
+    }
+
+    const idea = await resolveStartupIdea(investment.startup);
+    const founderUser = idea ? await resolveFounderUser(idea.founder) : null;
+
     await prisma.investment.deleteMany({
       where: {
         OR: [{ id: req.params.id }, { startup: req.params.id }],
@@ -217,15 +264,13 @@ export const cancelInvestment = async (req: AuthRequest, res: Response, next: Ne
       }
     });
 
-    const idea = await prisma.startupIdea.findUnique({ where: { id: req.params.id } });
-    if (idea && idea.founder) {
-      await NotificationEngine.queueNotification({
-        userId: idea.founder,
-        type: 'investment_withdrawn',
-        title: 'Investment Withdrawn',
-        message: `${req.user.fullName || 'An investor'} has withdrawn their investment interest.`,
-        channel: 'all'
-      });
+    if (founderUser) {
+      await notifyFounder(
+        founderUser,
+        'investment_withdrawn',
+        'Investment Withdrawn',
+        `${req.user.fullName || 'An investor'} has withdrawn their investment interest.`,
+      );
     }
 
     return res.json(successResponse('Investment withdrawn and removed successfully'));
