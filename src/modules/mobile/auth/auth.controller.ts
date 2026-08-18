@@ -592,6 +592,25 @@ interface OptionObj {
   name: string;
 }
 
+const resolveTeamSizeOption = async (teamSize?: number | null): Promise<OptionObj | null> => {
+  const size = Number(teamSize);
+  if (!Number.isFinite(size)) return null;
+
+  const option = await (prisma as any).masterOption?.findFirst({
+    where: {
+      type: 'team_size',
+      status: 'active',
+      min: { lte: size },
+      max: { gte: size },
+    },
+    orderBy: { sortOrder: 'asc' },
+    select: { id: true, label: true, value: true },
+  }).catch(() => null);
+
+  if (!option) return null;
+  return { id: option.id, name: option.label || option.value };
+};
+
 const resolveOptionMap = async (values: (string | null | undefined)[]) => {
   const rawClean = values.flatMap(v => (v ? String(v).split(',').map(s => s.trim()) : [])).filter(Boolean);
   const cleanValues = [...new Set(rawClean)];
@@ -784,7 +803,12 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       ...rawSkills,
     ];
 
-    const optionMap = await resolveOptionMap(idsToResolve);
+    const [optionMap, teamSizeOption] = await Promise.all([
+      resolveOptionMap(idsToResolve),
+      activeUser.role === 'founder'
+        ? resolveTeamSizeOption(roleProfile?.teamSize)
+        : Promise.resolve(null),
+    ]);
 
     const toSlugId = (text: string) => {
       if (!text) return text;
@@ -873,6 +897,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
         delete formattedProfile.investorType;
       } else if (activeUser.role === 'founder') {
+        formattedProfile.teamSize = teamSizeOption;
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);
@@ -1311,7 +1336,12 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       ...rawSkills,
     ];
 
-    const optionMap = await resolveOptionMap(idsToResolve);
+    const [optionMap, teamSizeOption] = await Promise.all([
+      resolveOptionMap(idsToResolve),
+      activeUser.role === 'founder'
+        ? resolveTeamSizeOption(roleProfile?.teamSize)
+        : Promise.resolve(null),
+    ]);
 
     const toSlugId = (text: string) => {
       if (!text) return text;
@@ -1400,6 +1430,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
         delete formattedProfile.investorType;
       } else if (activeUser.role === 'founder') {
+        formattedProfile.teamSize = teamSizeOption;
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);

@@ -20,6 +20,7 @@ import discoveryRoutes from './discovery/discovery.routes.js';
 import favoritesRoutes from './favorites/favorites.routes.js';
 import chatRoutes from './chat/chat.routes.js';
 import appRoutes from './app/app.routes.js';
+import referralsRoutes from './referrals/referrals.routes.js';
 
 const router = Router();
 
@@ -44,5 +45,6 @@ router.use('/search', searchRoutes);
 router.use('/discovery', discoveryRoutes);
 router.use('/favorites', favoritesRoutes);
 router.use('/chat', chatRoutes);
+router.use('/referrals', referralsRoutes);
 
 export default router;
