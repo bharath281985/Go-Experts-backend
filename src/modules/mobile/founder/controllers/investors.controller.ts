@@ -24,7 +24,7 @@ const parseOptionValues = (value: string | null | undefined) => {
 const resolveLabels = async (values: string[], type?: string) => {
   if (!values.length) return [] as string[];
 
-  const [masterOptions, industries, categories] = await Promise.all([
+  const [masterOptions, industries, categories, skills, stages, projectCategories] = await Promise.all([
     (prisma as any).masterOption?.findMany({
       where: {
         OR: [
@@ -38,6 +38,9 @@ const resolveLabels = async (values: string[], type?: string) => {
     }).catch(() => []),
     prisma.industry.findMany({ where: { id: { in: values } }, select: { id: true, name: true } }).catch(() => []),
     prisma.skillCategory.findMany({ where: { id: { in: values } }, select: { id: true, name: true } }).catch(() => []),
+    prisma.skill.findMany({ where: { id: { in: values } }, select: { id: true, name: true } }).catch(() => []),
+    prisma.startupStage.findMany({ where: { id: { in: values } }, select: { id: true, name: true } }).catch(() => []),
+    (prisma as any).projectCategory?.findMany({ where: { id: { in: values } }, select: { id: true, name: true } }).catch(() => []) || [],
   ]);
 
   const labelMap = new Map<string, string>();
@@ -48,8 +51,11 @@ const resolveLabels = async (values: string[], type?: string) => {
   }
   for (const row of industries || []) labelMap.set(row.id, row.name);
   for (const row of categories || []) labelMap.set(row.id, row.name);
+  for (const row of skills || []) labelMap.set(row.id, row.name);
+  for (const row of stages || []) labelMap.set(row.id, row.name);
+  for (const row of projectCategories || []) labelMap.set(row.id, row.name);
 
-  return values.map((value) => labelMap.get(value) || value).filter(Boolean);
+  return values.map((value) => labelMap.get(value) || (/^[0-9a-f-]{36}$/i.test(value) ? '' : value));
 };
 
 const mapInvestorAsync = async (investor: any) => {
@@ -60,7 +66,7 @@ const mapInvestorAsync = async (investor: any) => {
 
   const [focusAreas, preferredStages, investorTypes] = await Promise.all([
     resolveLabels(focusAreaValues),
-    resolveLabels(preferredStageValues, 'preferred_stage'),
+    resolveLabels(preferredStageValues),
     resolveLabels(investorTypeValues, 'investor_type'),
   ]);
 
@@ -76,12 +82,16 @@ const mapInvestorAsync = async (investor: any) => {
     firm: profile?.firm || null,
     ticketMin: profile?.ticketMin ?? null,
     ticketMax: profile?.ticketMax ?? null,
-    focusAreas: focusAreas.length ? focusAreas.join(', ') : null,
-    focusAreaIds: focusAreaValues,
+    FocusAreas: focusAreaValues.map((focusAreaId, index) => ({
+      focusAreaId,
+      focusAreaName: focusAreas[index] || '',
+    })),
     deals: profile?.deals ?? 0,
     investmentsCount: profile?.deals ?? 0,
-    preferredStage: preferredStages.length ? preferredStages.join(', ') : null,
-    preferredStageIds: preferredStageValues,
+    PreferredStage: preferredStageValues.map((preferredStageId, index) => ({
+      preferredStageId,
+      preferredStageName: preferredStages[index] || '',
+    })),
     investorType: investorTypes.length ? investorTypes.join(', ') : null,
     investorTypeIds: investorTypeValues,
     location: [investor.city, investor.country].filter(Boolean).join(', ') || null,

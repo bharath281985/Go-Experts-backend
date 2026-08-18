@@ -7,6 +7,8 @@ import {
   parseProjectListQuery,
 } from '../../../services/mobile/project-list-query.service.js';
 
+const oneOrMany = <T>(items: T[]): T | T[] => items.length === 1 ? items[0] : items;
+
 const isLegacySkillSchemaError = (error: unknown): boolean => {
   const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return (
@@ -1257,8 +1259,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
             where: { id: { in: pgArr } }, select: { id: true, label: true }
           });
           const pgMap = new Map(pgRows.map((r: any) => [r.id, r.label]));
-          pgArr.forEach((pid: string, i: number) => { pgNames[i] = (pgMap.get(pid) as string) || pid; });
-        } catch { pgArr.forEach((pid: string, i: number) => { pgNames[i] = pid; }); }
+          pgArr.forEach((pid: string, i: number) => { pgNames[i] = (pgMap.get(pid) as string) || ''; });
+        } catch { /* names remain empty */ }
       }
 
       // ── Resolve industry IDs → names via industry table ──
@@ -1267,9 +1269,16 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         try {
           const dbInd = await prisma.industry.findMany({ where: { id: { in: indArr } }, select: { id: true, name: true } });
           const indMap = new Map(dbInd.map((r: any) => [r.id, r.name]));
-          indArr.forEach((iid: string, i: number) => { indNames[i] = (indMap.get(iid) as string) || iid; });
-        } catch { indArr.forEach((iid: string, i: number) => { indNames[i] = iid; }); }
+          indArr.forEach((iid: string, i: number) => { indNames[i] = (indMap.get(iid) as string) || ''; });
+        } catch { /* names remain empty */ }
       }
+
+      const numericTeamSize = profile?.teamSize ?? (reg.teamSize ? parseInt(String(reg.teamSize), 10) || 1 : 1);
+      const teamSizeOption = await (prisma as any).masterOption?.findFirst({
+        where: { type: 'team_size', status: 'active', min: { lte: numericTeamSize }, max: { gte: numericTeamSize } },
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, label: true, value: true },
+      }).catch(() => null);
 
       const founderDetails = {
         id: user.id,
@@ -1293,19 +1302,15 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         stage: profile?.stage || reg.stage || 'Seed',
         raised: profile?.raised ?? reg.raised ?? 0,
         targetRaise: profile?.targetRaise ?? reg.targetRaise ?? 500000,
-        teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
-        PrimaryGoal: pgArr.map((pid: string, i: number) => ({
+        teamSize: teamSizeOption ? { id: teamSizeOption.id, name: teamSizeOption.label || teamSizeOption.value } : null,
+        PrimaryGoal: oneOrMany(pgArr.map((pid: string, i: number) => ({
           primaryGoalId: pid,
-          primaryGoalName: pgNames[i] || pid,
-        })),
-        primaryGoal: pgNames.length > 0 ? pgNames : pgArr,
-        primaryGoalIds: pgArr,
-        Industry: indArr.map((iid: string, i: number) => ({
+          primaryGoalName: pgNames[i] || '',
+        }))),
+        Industry: oneOrMany(indArr.map((iid: string, i: number) => ({
           industryId: iid,
-          industryName: indNames[i] || iid,
-        })),
-        industry: indNames.length > 0 ? indNames : indArr,
-        industryIds: indArr,
+          industryName: indNames[i] || '',
+        }))),
         role: user.role || 'founder',
         status: user.status || 'active',
         verified: Boolean(user.isVerified || (user as any).verified),
@@ -1378,13 +1383,16 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
       const dbSkills = await prisma.skill.findMany({ where: { id: { in: sklArr } } }).catch(() => []);
-      const sklNames = dbSkills.map(s => s.name);
+      const skillMap = new Map<string, string>(dbSkills.map((row): [string, string] => [row.id, row.name]));
+      const sklNames = sklArr.map((id: string) => skillMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id));
 
       const dbIndustries = await prisma.industry.findMany({ where: { id: { in: indArr } } }).catch(() => []);
-      const indNames = dbIndustries.map(i => i.name);
+      const industryMap = new Map<string, string>(dbIndustries.map((row): [string, string] => [row.id, row.name]));
+      const indNames = indArr.map((id: string) => industryMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id));
 
       const dbWorkModes = await prisma.workMode.findMany({ where: { id: { in: wmArr } } }).catch(() => []);
-      const wmNames = dbWorkModes.map(w => w.name);
+      const workModeMap = new Map<string, string>(dbWorkModes.map((row): [string, string] => [row.id, row.name]));
+      const wmNames = wmArr.map((id: string) => workModeMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id));
 
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
@@ -1408,33 +1416,18 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
         Skills: sklArr.map((id: string, idx: number) => ({
           skillId: id,
-          skillName: sklNames[idx] || id
+          skillName: sklNames[idx] || ''
         })),
-        skillId: sklArr,
-        skillsIds: sklArr,
-        skillName: sklNames,
-        skillsNames: sklNames,
-        skills: sklArr,
 
-        Industry: indArr.map((id: string, idx: number) => ({
+        Industry: oneOrMany(indArr.map((id: string, idx: number) => ({
           industryId: id,
-          industryName: indNames[idx] || id
-        })),
-        industryId: indArr,
-        industryIds: indArr,
-        industryName: indNames,
-        industryNames: indNames,
-        industry: indArr,
+          industryName: indNames[idx] || ''
+        }))),
 
-        WorkMode: wmArr.map((id: string, idx: number) => ({
+        WorkMode: oneOrMany(wmArr.map((id: string, idx: number) => ({
           workModeId: id,
-          workModeName: wmNames[idx] || id
-        })),
-        workModeId: wmArr,
-        workModeIds: wmArr,
-        workModeName: wmNames,
-        workModeNames: wmNames,
-        workMode: wmArr,
+          workModeName: wmNames[idx] || ''
+        }))),
         hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
         experience: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
         experienceLevel: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
@@ -1508,8 +1501,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
             where: { id: { in: hgArr } }, select: { id: true, label: true }
           });
           const hgMap = new Map(hgRows.map((r: any) => [r.id, r.label]));
-          hgArr.forEach((hid: string, i: number) => { hgNames[i] = (hgMap.get(hid) as string) || hid; });
-        } catch { hgArr.forEach((hid: string, i: number) => { hgNames[i] = hid; }); }
+          hgArr.forEach((hid: string, i: number) => { hgNames[i] = (hgMap.get(hid) as string) || ''; });
+        } catch { /* names remain empty */ }
       }
 
       // ── Resolve client industry IDs → names via industry table ──
@@ -1521,8 +1514,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         try {
           const ciRows = await prisma.industry.findMany({ where: { id: { in: clientIndArr } }, select: { id: true, name: true } });
           const ciMap = new Map(ciRows.map((r: any) => [r.id, r.name]));
-          clientIndArr.forEach((iid: string, i: number) => { clientIndNames[i] = (ciMap.get(iid) as string) || iid; });
-        } catch { clientIndArr.forEach((iid: string, i: number) => { clientIndNames[i] = iid; }); }
+          clientIndArr.forEach((iid: string, i: number) => { clientIndNames[i] = (ciMap.get(iid) as string) || ''; });
+        } catch { /* names remain empty */ }
       }
 
       return res.json(successResponse('Details retrieved for client', {
@@ -1545,14 +1538,14 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         projectHireBudget: budgetId,
         projectHireBudgetId: budgetId,
         projectHireBudgetLabel: budgetLabel,
-        industry: clientIndNames.length > 0 ? clientIndNames : clientIndArr,
-        industryIds: clientIndArr,
-        HiringGoal: hgArr.map((hid: string, i: number) => ({
+        Industry: oneOrMany(clientIndArr.map((industryId: string, index: number) => ({
+          industryId,
+          industryName: clientIndNames[index] || '',
+        }))),
+        HiringGoal: oneOrMany(hgArr.map((hid: string, i: number) => ({
           hiringGoalId: hid,
-          hiringGoalName: hgNames[i] || hid,
-        })),
-        hiringGoal: hgNames.length > 0 ? hgNames : hgArr,
-        hiringGoalIds: hgArr,
+          hiringGoalName: hgNames[i] || '',
+        }))),
         bio: user.bio || reg.bio || '',
         city: user.city || reg.city || '',
         country: countryName,
@@ -1595,9 +1588,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
             select: { id: true, label: true }
           });
           const psMap = new Map(psRows.map((r: any) => [r.id, r.label]));
-          psArr.forEach((pid: string, i: number) => { psNames[i] = (psMap.get(pid) as string) || pid; });
+          psArr.forEach((pid: string, i: number) => { psNames[i] = (psMap.get(pid) as string) || ''; });
         } catch {
-          psArr.forEach((pid: string, i: number) => { psNames[i] = pid; });
+          // Names remain empty when the catalog lookup fails.
         }
       }
 
@@ -1711,10 +1704,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         thesis: (user.investorProfile as any)?.thesis || reg.thesis || '',
         PreferredStage: psArr.map((pid: string, i: number) => ({
           preferredStageId: pid,
-          preferredStageName: psNames[i] || pid,
+          preferredStageName: psNames[i] || '',
         })),
-        preferredStage: psNames.length > 0 ? psNames : psArr,
-        preferredStageIds: psArr,
         FocusAreas: faArr.map((fid: string, i: number) => ({
           focusAreaId: fid,
           focusAreaName: faNames[i] || '',
