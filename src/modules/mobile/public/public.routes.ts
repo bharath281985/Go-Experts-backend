@@ -59,7 +59,7 @@ router.get('/freelancers/:id', directoryCache, getById('freelancer'));
 router.get('/clients', directoryCache, getClients);
 router.get('/clients/:id', directoryCache, getById('client'));
 router.get('/investors', directoryCache, getInvestors);
-router.get('/investors/:id', directoryCache, getById('investor'));
+router.get('/investors/:id', authenticateOptional, getById('investor'));
 router.get('/startups', directoryCache, getStartups);
 router.get('/startups/:id', authenticateOptional, getById('startup'));
 router.get('/founders/:id', authenticateOptional, getById('founder'));

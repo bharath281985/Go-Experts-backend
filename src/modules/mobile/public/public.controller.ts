@@ -1642,17 +1642,51 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       // ── Resolve countryId UUID → country name ──
       const rawC = reg.countryId || user.country || reg.country || '';
-      let countryName = rawC;
-      let cntryId = rawC;
-      if (rawC && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(rawC)) {
-        try {
-          const cRow = await prisma.country.findFirst({ where: { id: rawC }, select: { id: true, name: true } });
-          if (cRow) { countryName = cRow.name; cntryId = cRow.id; }
-        } catch { /* keep raw */ }
-      } else {
-        cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : rawC) : '';
-        countryName = cntryId;
+      const investorCountry = rawC ? await prisma.country.findFirst({
+        where: { OR: [{ id: rawC }, { name: rawC }, { code: rawC }] },
+        select: { id: true, name: true, code: true },
+      }).catch(() => null) : null;
+      const investorCountryName = investorCountry?.name || rawC;
+      const investorCountryId = investorCountry?.id || rawC;
+      const investorStateRaw = String(reg.stateId || user.state || reg.state || '').trim();
+      let investorStateName = String(user.state || reg.state || investorStateRaw);
+      let investorStateId = investorStateRaw;
+      const investorCountryCode = investorCountry?.code || (rawC.length === 2 ? rawC.toUpperCase() : 'IN');
+      const csc = await getCSC();
+      if (investorStateRaw && csc?.State) {
+        const state = csc.State.getStatesOfCountry(investorCountryCode).find((item: any) =>
+          String(item.isoCode).toLowerCase() === investorStateRaw.toLowerCase()
+          || String(item.name).toLowerCase() === investorStateRaw.toLowerCase()
+        );
+        if (state) {
+          investorStateName = state.name;
+          investorStateId = state.isoCode;
+        }
       }
+      const viewerId = (req as any).user?.id as string | undefined;
+      let isSaved = false;
+      if (viewerId) {
+        const [founderWatchlist, genericFavorites] = await Promise.all([
+          prisma.setting.findUnique({ where: { key: `founder_investor_watchlist:${viewerId}` }, select: { value: true } }).catch(() => null),
+          prisma.setting.findUnique({ where: { key: `favorites:${viewerId}` }, select: { value: true } }).catch(() => null),
+        ]);
+        try {
+          const items = JSON.parse(founderWatchlist?.value || '[]');
+          isSaved = Array.isArray(items) && items.some((item: any) =>
+            item.investorId === user.id || item.investorId === user.investorProfile?.id
+          );
+        } catch { /* ignore invalid legacy setting */ }
+        if (!isSaved) {
+          try {
+            const items = JSON.parse(genericFavorites?.value || '[]');
+            isSaved = Array.isArray(items) && items.some((item: any) =>
+              item.entityType === 'investor'
+              && (item.entityId === user.id || item.entityId === user.investorProfile?.id)
+            );
+          } catch { /* ignore invalid legacy setting */ }
+        }
+      }
+      const savedData = Boolean(user.investorProfile || Object.keys(reg).length > 0);
 
       return res.json(successResponse('Details retrieved for investor', {
         id: user.id,
@@ -1685,16 +1719,16 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         focusAreas: faNames.length > 0 ? faNames : faArr,
         focusAreaIds: faArr,
         city: user.city || reg.city || '',
-        country: countryName,
-        countryId: cntryId,
-        state: user.state || reg.state || '',
-        stateId: reg.stateId || user.state || '',
+        country: investorCountryName,
+        countryId: investorCountryId,
+        state: investorStateName,
+        stateId: investorStateId,
         status: user.status || 'active',
         verified: Boolean(user.isVerified || (user as any).verified),
         role: user.role || 'investor',
         registrationData: reg,
-        savedData: true,
-        isSaved: true,
+        savedData,
+        isSaved,
       }));
     }
 
