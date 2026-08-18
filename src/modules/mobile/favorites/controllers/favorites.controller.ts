@@ -215,6 +215,44 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               investorProfile: true,
             },
           });
+          if (details) {
+            const rawCountry = String(details.country || '').trim();
+            const focusAreaIds = String(details.investorProfile?.focusAreas || '')
+              .split(',').map((value: string) => value.trim()).filter(Boolean);
+            const [country, focusOptions, focusCategories, focusIndustries] = await Promise.all([
+              rawCountry ? prisma.country.findFirst({
+                where: { OR: [{ id: rawCountry }, { name: rawCountry }, { code: rawCountry }] },
+                select: { id: true, name: true },
+              }).catch(() => null) : null,
+              (prisma as any).masterOption?.findMany({
+                where: { OR: [{ id: { in: focusAreaIds } }, { value: { in: focusAreaIds } }, { label: { in: focusAreaIds } }] },
+                select: { id: true, value: true, label: true },
+              }).catch(() => []) || [],
+              prisma.skillCategory.findMany({ where: { id: { in: focusAreaIds } }, select: { id: true, name: true } }).catch(() => []),
+              prisma.industry.findMany({ where: { id: { in: focusAreaIds } }, select: { id: true, name: true } }).catch(() => []),
+            ]);
+            const focusNameMap = new Map<string, string>();
+            focusOptions.forEach((option: any) => {
+              focusNameMap.set(option.id, option.label);
+              if (option.value) focusNameMap.set(option.value, option.label);
+            });
+            [...focusCategories, ...focusIndustries].forEach((option) => focusNameMap.set(option.id, option.name));
+            const focusAreas = focusAreaIds.map((id: string) => focusNameMap.get(id) || id);
+            details = {
+              ...details,
+              country: country?.name || rawCountry,
+              countryId: country?.id || rawCountry,
+              investorProfile: details.investorProfile ? {
+                ...details.investorProfile,
+                focusAreas,
+                focusAreaIds,
+                FocusAreas: focusAreaIds.map((id: string, index: number) => ({
+                  focusAreaId: id,
+                  focusAreaName: focusAreas[index],
+                })),
+              } : null,
+            };
+          }
         } else if (item.entityType === 'freelancer') {
           details = await prisma.user.findFirst({
             where: {
@@ -290,7 +328,10 @@ export const listFavorites = async (req: AuthRequest, res: Response, next: NextF
     // ── Bridge: investor entityType → investor watchlist (startups saved by investor) ──
     if (entityType === 'investor') {
       try {
-        const watchlistKey = `investor_watchlist:${req.user.id}`;
+        const isFounderInvestorWatchlist = req.user.role === 'founder';
+        const watchlistKey = isFounderInvestorWatchlist
+          ? `founder_investor_watchlist:${req.user.id}`
+          : `investor_watchlist:${req.user.id}`;
         const row = await prisma.setting.findUnique({ where: { key: watchlistKey } });
         let watchlistItems: any[] = [];
         if (row?.value) {
@@ -301,6 +342,25 @@ export const listFavorites = async (req: AuthRequest, res: Response, next: NextF
         const total = watchlistItems.length;
         const skip = (page - 1) * limit;
         const slice = watchlistItems.slice(skip, skip + limit);
+
+        if (isFounderInvestorWatchlist) {
+          const favoriteItems: FavItem[] = slice.map((item: any) => ({
+            id: item.id,
+            entityType: 'investor',
+            entityId: item.investorId,
+            note: item.notes || null,
+            createdAt: item.savedAt,
+          }));
+          const populated = await populateFavorites(favoriteItems);
+          return res.json(
+            successResponse('Favorites', populated.map((item: any) => ({ ...item, isSaved: true })), {
+              page,
+              limit,
+              total,
+              totalPages: Math.ceil(total / limit) || 1,
+            })
+          );
+        }
 
         // Populate with startup/founder details
         const startupIds = slice.map((i: any) => i.startupId).filter(Boolean);

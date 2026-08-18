@@ -1228,66 +1228,90 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       const reg = parseRegData(user.registrationData);
       const profile = await prisma.founderProfile.findUnique({ where: { userId: id } }).catch(() => null);
-      const rawC = reg.countryId || user.country || reg.country || "";
-      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
+      // ── Resolve countryId UUID → country name (founder) ──
+      const rawC = reg.countryId || user.country || reg.country || '';
+      let founderCountryName = rawC;
+      let cntryId = rawC;
+      if (rawC && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(rawC)) {
+        try {
+          const cRow = await prisma.country.findFirst({ where: { id: rawC }, select: { id: true, name: true } });
+          if (cRow) { founderCountryName = cRow.name; cntryId = cRow.id; }
+        } catch { /* keep raw */ }
+      } else {
+        cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : rawC) : '';
+        founderCountryName = cntryId;
+      }
 
-      const pgArr = profile?.primaryGoal ? String(profile.primaryGoal).split(",").map(s => s.trim()) : (reg.primaryGoal || []);
-      const indArr = profile?.industry ? String(profile.industry).split(",").map(s => s.trim()) : (reg.industry || []);
+      const pgArr: string[] = profile?.primaryGoal
+        ? String(profile.primaryGoal).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(reg.primaryGoal) ? reg.primaryGoal : []);
+      const indArr: string[] = profile?.industry
+        ? String(profile.industry).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(reg.industry) ? reg.industry : []);
 
-      const PRIMARY_GOAL_MAP: Record<string, string> = {
-        "pg_1": "Looking for Investors",
-        "pg_2": "Hiring Top Freelancers",
-        "pg_3": "Scaling Startup"
-      };
-      const pgNames = pgArr.map((i: string) => PRIMARY_GOAL_MAP[i] || i);
+      // ── Resolve primaryGoal IDs → names via master_options ──
+      const pgNames: string[] = new Array(pgArr.length).fill('');
+      if (pgArr.length > 0) {
+        try {
+          const pgRows = await (prisma as any).masterOption.findMany({
+            where: { id: { in: pgArr } }, select: { id: true, label: true }
+          });
+          const pgMap = new Map(pgRows.map((r: any) => [r.id, r.label]));
+          pgArr.forEach((pid: string, i: number) => { pgNames[i] = (pgMap.get(pid) as string) || pid; });
+        } catch { pgArr.forEach((pid: string, i: number) => { pgNames[i] = pid; }); }
+      }
 
-      const INDUSTRY_NAME_MAP: Record<string, string> = {
-        "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
-        "cfd78d15-899b-4582-9be9-0c26f7f431fc": "Data & AI"
-      };
-      const indNames = indArr.map((i: string) => INDUSTRY_NAME_MAP[i] || i);
+      // ── Resolve industry IDs → names via industry table ──
+      const indNames: string[] = new Array(indArr.length).fill('');
+      if (indArr.length > 0) {
+        try {
+          const dbInd = await prisma.industry.findMany({ where: { id: { in: indArr } }, select: { id: true, name: true } });
+          const indMap = new Map(dbInd.map((r: any) => [r.id, r.name]));
+          indArr.forEach((iid: string, i: number) => { indNames[i] = (indMap.get(iid) as string) || iid; });
+        } catch { indArr.forEach((iid: string, i: number) => { indNames[i] = iid; }); }
+      }
 
       const founderDetails = {
         id: user.id,
         userId: user.id,
-        fullName: user.fullName || reg.fullName || "",
-        name: user.fullName || reg.fullName || "",
-        email: user.email || reg.email || "",
+        fullName: user.fullName || reg.fullName || '',
+        name: user.fullName || reg.fullName || '',
+        email: user.email || reg.email || '',
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
         avatar: user.avatarUrl || reg.avatarUrl || null,
-        bio: user.bio || reg.bio || reg.pitch || "",
-        phone: user.phone || reg.phone || reg.mobile || "",
-        city: user.city || reg.city || "",
-        country: user.country || reg.country || "",
+        bio: user.bio || reg.bio || reg.pitch || '',
+        phone: user.phone || reg.phone || reg.mobile || '',
+        city: user.city || reg.city || '',
+        country: founderCountryName,
         countryId: cntryId,
-        state: user.state || reg.state || "",
-        stateId: reg.stateId || user.state || "",
-        startupName: profile?.startupName || reg.startupName || "",
-        pitch: profile?.pitch || reg.pitch || "",
-        founderRole: profile?.founderRole || reg.founderRole || "Founder",
-        founderBio: profile?.founderBio || reg.founderBio || "",
-        stage: profile?.stage || reg.stage || "Seed",
+        state: user.state || reg.state || '',
+        stateId: reg.stateId || user.state || '',
+        startupName: profile?.startupName || reg.startupName || '',
+        pitch: profile?.pitch || reg.pitch || '',
+        founderRole: profile?.founderRole || reg.founderRole || 'Founder',
+        founderBio: profile?.founderBio || reg.founderBio || '',
+        stage: profile?.stage || reg.stage || 'Seed',
         raised: profile?.raised ?? reg.raised ?? 0,
         targetRaise: profile?.targetRaise ?? reg.targetRaise ?? 500000,
         teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
-        PrimaryGoal: pgArr.map((id: string, idx: number) => ({
-          primaryGoalId: id,
-          primaryGoalName: pgNames[idx] || id
+        PrimaryGoal: pgArr.map((pid: string, i: number) => ({
+          primaryGoalId: pid,
+          primaryGoalName: pgNames[i] || pid,
         })),
-        primaryGoal: pgArr,
-        primaryGoalIds: reg.primaryGoalIds || pgArr,
-        Industry: indArr.map((id: string, idx: number) => ({
-          industryId: id,
-          industryName: indNames[idx] || id
+        primaryGoal: pgNames.length > 0 ? pgNames : pgArr,
+        primaryGoalIds: pgArr,
+        Industry: indArr.map((iid: string, i: number) => ({
+          industryId: iid,
+          industryName: indNames[i] || iid,
         })),
-        industry: indArr,
-        industryIds: reg.industryIds || indArr,
+        industry: indNames.length > 0 ? indNames : indArr,
+        industryIds: indArr,
         role: user.role || 'founder',
         status: user.status || 'active',
-        verified: Boolean(user.isVerified || user.verified),
+        verified: Boolean(user.isVerified || (user as any).verified),
         registrationData: reg,
         savedData: true,
-        isSaved: true
+        isSaved: true,
       };
 
       const idea = await prisma.startupIdea.findFirst({
@@ -1459,23 +1483,55 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         : null;
       const budgetId = reg.projectHireBudgetId || budgetOption?.id || budgetRaw || null;
       const budgetLabel = budgetOption?.label || reg.projectHireBudget || budgetRaw || null;
-      const rawC = reg.countryId || user.country || reg.country || "";
-      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
-      const hgArr = user.clientProfile?.hiringGoal ? String(user.clientProfile.hiringGoal).split(",").map(s => s.trim()) : (reg.hiringGoal || []);
+      // ── Resolve countryId UUID → country name (client) ──
+      const clientRawC = reg.countryId || user.country || reg.country || '';
+      let countryName = clientRawC;
+      let cntryId = clientRawC;
+      if (clientRawC && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(clientRawC)) {
+        try {
+          const cRow = await prisma.country.findFirst({ where: { id: clientRawC }, select: { id: true, name: true } });
+          if (cRow) { countryName = cRow.name; cntryId = cRow.id; }
+        } catch { /* keep raw */ }
+      } else {
+        cntryId = clientRawC ? (clientRawC.length === 2 ? clientRawC.toUpperCase() : clientRawC) : '';
+        countryName = cntryId;
+      }
+      const hgArr: string[] = user.clientProfile?.hiringGoal
+        ? String(user.clientProfile.hiringGoal).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(reg.hiringGoal) ? reg.hiringGoal : []);
 
-      const HIRING_GOAL_NAME_MAP: Record<string, string> = {
-        "hg_1": "Hire Full-Time Developers",
-        "hg_2": "Hire Freelancers"
-      };
-      const hgNames = hgArr.map((id: string) => HIRING_GOAL_NAME_MAP[id] || id);
+      // ── Resolve hiringGoal IDs → names via master_options ──
+      const hgNames: string[] = new Array(hgArr.length).fill('');
+      if (hgArr.length > 0) {
+        try {
+          const hgRows = await (prisma as any).masterOption.findMany({
+            where: { id: { in: hgArr } }, select: { id: true, label: true }
+          });
+          const hgMap = new Map(hgRows.map((r: any) => [r.id, r.label]));
+          hgArr.forEach((hid: string, i: number) => { hgNames[i] = (hgMap.get(hid) as string) || hid; });
+        } catch { hgArr.forEach((hid: string, i: number) => { hgNames[i] = hid; }); }
+      }
+
+      // ── Resolve client industry IDs → names via industry table ──
+      const clientIndArr: string[] = user.clientProfile?.industry
+        ? String(user.clientProfile.industry).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(reg.industry) ? reg.industry : []);
+      const clientIndNames: string[] = new Array(clientIndArr.length).fill('');
+      if (clientIndArr.length > 0) {
+        try {
+          const ciRows = await prisma.industry.findMany({ where: { id: { in: clientIndArr } }, select: { id: true, name: true } });
+          const ciMap = new Map(ciRows.map((r: any) => [r.id, r.name]));
+          clientIndArr.forEach((iid: string, i: number) => { clientIndNames[i] = (ciMap.get(iid) as string) || iid; });
+        } catch { clientIndArr.forEach((iid: string, i: number) => { clientIndNames[i] = iid; }); }
+      }
 
       return res.json(successResponse('Details retrieved for client', {
         id: user.id,
         userId: user.id,
-        fullName: user.fullName || reg.fullName || "",
-        name: user.fullName || reg.fullName || "",
+        fullName: user.fullName || reg.fullName || '',
+        name: user.fullName || reg.fullName || '',
         email: user.email,
-        phone: user.phone || reg.phone || reg.mobile || "",
+        phone: user.phone || reg.phone || reg.mobile || '',
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
         avatar: user.avatarUrl || reg.avatarUrl || null,
         company: compVal,
@@ -1489,28 +1545,28 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         projectHireBudget: budgetId,
         projectHireBudgetId: budgetId,
         projectHireBudgetLabel: budgetLabel,
-        industry: user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : (reg.industry || []),
-        industryIds: reg.industryIds || (user.clientProfile?.industry ? String(user.clientProfile.industry).split(",").map(s => s.trim()) : []),
-        HiringGoal: hgArr.map((id: string, idx: number) => ({
-          hiringGoalId: id,
-          hiringGoalName: hgNames[idx] || id
+        industry: clientIndNames.length > 0 ? clientIndNames : clientIndArr,
+        industryIds: clientIndArr,
+        HiringGoal: hgArr.map((hid: string, i: number) => ({
+          hiringGoalId: hid,
+          hiringGoalName: hgNames[i] || hid,
         })),
-        hiringGoal: hgArr,
-        hiringGoalIds: reg.hiringGoalIds || hgArr,
-        bio: user.bio || reg.bio || "",
-        city: user.city || reg.city || "",
-        country: user.country || reg.country || "",
+        hiringGoal: hgNames.length > 0 ? hgNames : hgArr,
+        hiringGoalIds: hgArr,
+        bio: user.bio || reg.bio || '',
+        city: user.city || reg.city || '',
+        country: countryName,
         countryId: cntryId,
-        state: user.state || reg.state || "",
-        stateId: reg.stateId || user.state || "",
+        state: user.state || reg.state || '',
+        stateId: reg.stateId || user.state || '',
         totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
         projectsPosted: user.clientProfile?.projectsPosted ?? 0,
-        status: user.status || "active",
-        verified: Boolean(user.isVerified || user.verified),
+        status: user.status || 'active',
+        verified: Boolean(user.isVerified || (user as any).verified),
         role: user.role || 'client',
         registrationData: reg,
         savedData: true,
-        isSaved: true
+        isSaved: true,
       }));
     }
 

@@ -67,8 +67,41 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
       }
     });
 
+    const countryValues = [...new Set(users.map((user) => user.country).filter(Boolean))] as string[];
+    const focusAreaValues = [...new Set(users.flatMap((user) =>
+      String(user.investorProfile?.focusAreas || '').split(',').map((value) => value.trim()).filter(Boolean)
+    ))];
+    const [countries, focusOptions, focusCategories, focusIndustries] = await Promise.all([
+      prisma.country.findMany({
+        where: { OR: [{ id: { in: countryValues } }, { name: { in: countryValues } }, { code: { in: countryValues } }] },
+        select: { id: true, name: true, code: true },
+      }).catch(() => []),
+      (prisma as any).masterOption?.findMany({
+        where: { OR: [{ id: { in: focusAreaValues } }, { value: { in: focusAreaValues } }, { label: { in: focusAreaValues } }] },
+        select: { id: true, value: true, label: true },
+      }).catch(() => []) || [],
+      prisma.skillCategory.findMany({ where: { id: { in: focusAreaValues } }, select: { id: true, name: true } }).catch(() => []),
+      prisma.industry.findMany({ where: { id: { in: focusAreaValues } }, select: { id: true, name: true } }).catch(() => []),
+    ]);
+    const countryMap = new Map<string, any>();
+    countries.forEach((country) => {
+      countryMap.set(country.id, country);
+      countryMap.set(country.name, country);
+      if (country.code) countryMap.set(country.code, country);
+    });
+    const focusNameMap = new Map<string, string>();
+    focusOptions.forEach((option: any) => {
+      focusNameMap.set(option.id, option.label);
+      if (option.value) focusNameMap.set(option.value, option.label);
+    });
+    [...focusCategories, ...focusIndustries].forEach((option) => focusNameMap.set(option.id, option.name));
+
     return items.map(item => {
       const investorDetails = userMap.get(item.investorId) || null;
+      const country = countryMap.get(investorDetails?.country);
+      const focusAreaIds = String(investorDetails?.investorProfile?.focusAreas || '')
+        .split(',').map((value) => value.trim()).filter(Boolean);
+      const focusAreas = focusAreaIds.map((focusAreaId) => focusNameMap.get(focusAreaId) || focusAreaId);
       const investorProfile = investorDetails?.investorProfile ? {
         id: investorDetails.investorProfile.id,
         userId: investorDetails.investorProfile.userId,
@@ -76,12 +109,18 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         email: investorDetails.email,
         avatarUrl: investorDetails.avatarUrl,
         city: investorDetails.city,
-        country: investorDetails.country,
+        country: country?.name || investorDetails.country,
+        countryId: country?.id || investorDetails.country,
         bio: investorDetails.bio,
         firm: investorDetails.investorProfile.firm,
         ticketMin: investorDetails.investorProfile.ticketMin,
         ticketMax: investorDetails.investorProfile.ticketMax,
-        focusAreas: investorDetails.investorProfile.focusAreas,
+        focusAreas,
+        focusAreaIds,
+        FocusAreas: focusAreaIds.map((focusAreaId, index) => ({
+          focusAreaId,
+          focusAreaName: focusAreas[index],
+        })),
         deals: investorDetails.investorProfile.deals,
         createdAt: investorDetails.investorProfile.createdAt,
         updatedAt: investorDetails.investorProfile.updatedAt,
