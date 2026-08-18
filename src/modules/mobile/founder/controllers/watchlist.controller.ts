@@ -15,15 +15,32 @@ type WatchlistEntry = {
 
 const watchlistKey = (userId: string) => `founder_investor_watchlist:${userId}`;
 
+const parseStoredItems = (value?: string | null): any[] => {
+  if (!value) return [];
+  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+};
+
 const readList = async (userId: string): Promise<WatchlistEntry[]> => {
-  const row = await prisma.setting.findUnique({ where: { key: watchlistKey(userId) } });
-  if (!row?.value) return [];
-  try {
-    const p = JSON.parse(row.value);
-    return Array.isArray(p) ? p : [];
-  } catch {
-    return [];
+  const [watchlistRow, favoritesRow] = await Promise.all([
+    prisma.setting.findUnique({ where: { key: watchlistKey(userId) } }),
+    prisma.setting.findUnique({ where: { key: `favorites:${userId}` } }),
+  ]);
+  const watchlistItems = parseStoredItems(watchlistRow?.value) as WatchlistEntry[];
+  const favoriteItems: WatchlistEntry[] = parseStoredItems(favoritesRow?.value)
+    .filter((item: any) => item.entityType === 'investor' && item.entityId)
+    .map((item: any) => ({
+      id: item.id,
+      investorId: item.entityId,
+      notes: item.note || '',
+      priority: item.priority || 'medium',
+      savedAt: item.createdAt || new Date(0).toISOString(),
+      updatedAt: item.updatedAt || item.createdAt || new Date(0).toISOString(),
+    }));
+  const merged = [...watchlistItems];
+  for (const favorite of favoriteItems) {
+    if (!merged.some((item) => item.investorId === favorite.investorId)) merged.push(favorite);
   }
+  return merged;
 };
 
 const writeList = async (userId: string, items: WatchlistEntry[]) => {
@@ -32,6 +49,26 @@ const writeList = async (userId: string, items: WatchlistEntry[]) => {
     where: { key },
     update: { value: JSON.stringify(items), category: 'founder_investor_watchlist' },
     create: { key, value: JSON.stringify(items), category: 'founder_investor_watchlist' },
+  });
+};
+
+const saveGenericInvestorFavorite = async (userId: string, entry: WatchlistEntry) => {
+  const key = `favorites:${userId}`;
+  const row = await prisma.setting.findUnique({ where: { key } });
+  const items = parseStoredItems(row?.value);
+  if (!items.some((item: any) => item.entityType === 'investor' && item.entityId === entry.investorId)) {
+    items.unshift({
+      id: entry.id,
+      entityType: 'investor',
+      entityId: entry.investorId,
+      note: entry.notes || null,
+      createdAt: entry.savedAt,
+    });
+  }
+  await prisma.setting.upsert({
+    where: { key },
+    update: { value: JSON.stringify(items), category: 'favorites' },
+    create: { key, value: JSON.stringify(items), category: 'favorites' },
   });
 };
 
@@ -166,18 +203,31 @@ export const getWatchlist = async (req: AuthRequest, res: Response, next: NextFu
 
 export const addToWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investorId = req.body.investorId || req.body.startupId;
+    const requestedInvestorId = req.body.investorId || req.body.startupId;
     const { notes, priority } = req.body;
-    if (!investorId) return res.status(400).json(errorResponse('investorId or startupId is required', 'VALIDATION_ERROR'));
+    if (!requestedInvestorId) return res.status(400).json(errorResponse('investorId or startupId is required', 'VALIDATION_ERROR'));
+
+    const investor = await prisma.user.findFirst({
+      where: {
+        role: 'investor',
+        OR: [{ id: requestedInvestorId }, { investorProfile: { id: requestedInvestorId } }],
+      },
+      select: { id: true, investorProfile: { select: { id: true } } },
+    }).catch(() => null);
+    if (!investor) return res.status(404).json(errorResponse('Investor not found', 'NOT_FOUND'));
+    const investorId = investor.id;
 
     const items = await readList(req.user.id);
-    const exists = items.find(i => i.investorId === investorId);
+    const exists = items.find(i => i.investorId === investorId || i.investorId === investor.investorProfile?.id);
     if (exists) return res.status(409).json(errorResponse('Investor already in watchlist', 'CONFLICT'));
 
     const now = new Date().toISOString();
     const entry: WatchlistEntry = { id: randomUUID(), investorId, notes: notes || '', priority: priority || 'medium', savedAt: now, updatedAt: now };
     items.unshift(entry);
-    await writeList(req.user.id, items);
+    await Promise.all([
+      writeList(req.user.id, items),
+      saveGenericInvestorFavorite(req.user.id, entry),
+    ]);
 
     const populatedList = await populateFounderWatchlist([entry]);
     return res.status(201).json(successResponse('Investor added to watchlist', populatedList[0]));
@@ -199,9 +249,36 @@ export const removeFromWatchlist = async (req: AuthRequest, res: Response, next:
       target?.investorProfile?.id,
     ].filter(Boolean));
     const filtered = items.filter(i => !acceptedIds.has(i.id) && !acceptedIds.has(i.investorId));
-    if (filtered.length === items.length) return res.status(404).json(errorResponse('Watchlist entry not found', 'NOT_FOUND'));
+    const [genericRow, legacyRow] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: `favorites:${req.user.id}` } }),
+      prisma.setting.findUnique({ where: { key: `investor_watchlist:${req.user.id}` } }),
+    ]);
+    const parseItems = (value?: string | null): any[] => {
+      if (!value) return [];
+      try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+    };
+    const genericItems = parseItems(genericRow?.value);
+    const legacyItems = parseItems(legacyRow?.value);
+    const filteredGeneric = genericItems.filter((item: any) => !(
+      item.entityType === 'investor' && acceptedIds.has(item.entityId)
+    ));
+    const filteredLegacy = legacyItems.filter((item: any) =>
+      !acceptedIds.has(item.id) && !acceptedIds.has(item.startupId) && !acceptedIds.has(item.investorId)
+    );
+    const removed = filtered.length !== items.length
+      || filteredGeneric.length !== genericItems.length
+      || filteredLegacy.length !== legacyItems.length;
+    if (!removed) return res.status(404).json(errorResponse('Watchlist entry not found', 'NOT_FOUND'));
 
-    await writeList(req.user.id, filtered);
+    await Promise.all([
+      filtered.length !== items.length ? writeList(req.user.id, filtered) : Promise.resolve(),
+      genericRow && filteredGeneric.length !== genericItems.length
+        ? prisma.setting.update({ where: { key: genericRow.key }, data: { value: JSON.stringify(filteredGeneric) } })
+        : Promise.resolve(),
+      legacyRow && filteredLegacy.length !== legacyItems.length
+        ? prisma.setting.update({ where: { key: legacyRow.key }, data: { value: JSON.stringify(filteredLegacy) } })
+        : Promise.resolve(),
+    ]);
     return res.json(successResponse('Investor removed from watchlist', {
       id: req.params.id,
       investorId: target?.id || req.params.id,

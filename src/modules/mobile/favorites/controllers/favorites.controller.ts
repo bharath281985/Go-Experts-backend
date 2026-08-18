@@ -304,6 +304,7 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
         entityId: item.entityId,
         note: item.note,
         favoritedAt: item.createdAt,
+        isSaved: true,
 
         // Flat details at root level
         ...(details || {}),
