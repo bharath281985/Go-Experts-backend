@@ -809,7 +809,7 @@ const formatStartupResponse = (
 
   if (user) {
     reg = parseRegData(user.registrationData);
-        // Minimal user fields for list view
+    // Minimal user fields for list view
     userObj = {
       id: user.id,
       fullName: user.fullName,
@@ -829,7 +829,7 @@ const formatStartupResponse = (
     }
   } else {
     const fallbackName = idea.founder || idea.startup || "Founder";
-        userObj = {
+    userObj = {
       id: idea.founder || idea.id,
       fullName: fallbackName,
       avatarUrl: idea.logo || null,
@@ -1137,7 +1137,7 @@ export const getPricingPlans = async (req: Request, res: Response, next: NextFun
       where: whereCondition,
       orderBy: { amount: "asc" },
     });
-    
+
     // Some endpoints expect `rows` and `total` for list responses.
     return res.json({
       success: true,
@@ -1228,7 +1228,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       const reg = parseRegData(user.registrationData);
       const profile = await prisma.founderProfile.findUnique({ where: { userId: id } }).catch(() => null);
-            const rawC = reg.countryId || user.country || reg.country || "";
+      const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
       const pgArr = profile?.primaryGoal ? String(profile.primaryGoal).split(",").map(s => s.trim()) : (reg.primaryGoal || []);
@@ -1346,7 +1346,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
 
       const reg = parseRegData(user.registrationData);
-            const indArr = Array.isArray(reg.industry) ? reg.industry : (user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : (reg.industryIds || (reg.industry ? [String(reg.industry)] : [])));
+      const indArr = Array.isArray(reg.industry) ? reg.industry : (user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : (reg.industryIds || (reg.industry ? [String(reg.industry)] : [])));
       const sklArr = Array.isArray(reg.skills) ? reg.skills : (user.freelancerProfile?.skills ? String(user.freelancerProfile.skills).split(",").map(s => s.trim()) : (reg.skillsIds || reg.skillIds || (reg.skills ? [String(reg.skills)] : [])));
       const wmArr = Array.isArray(reg.workMode) ? reg.workMode : (user.freelancerProfile?.workMode ? String(user.freelancerProfile.workMode).split(",").map(s => s.trim()) : (reg.workModeIds || (reg.workMode ? [String(reg.workMode)] : [])));
       const stId = reg.stateId || user.state || reg.state || "";
@@ -1440,7 +1440,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
 
       const reg = parseRegData(user.registrationData);
-            const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
+      const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
       const csVal = user.clientProfile?.companySize || reg.companySize || reg.companySizeId || "1-10 Employees";
       const csId = reg.companySizeId || user.clientProfile?.companySize || reg.companySize || "1-10";
       const teamVal = user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || reg.companySize || "1-10";
@@ -1449,13 +1449,13 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const budgetRaw = rawB == null ? "" : String(rawB).trim();
       const budgetOption = budgetRaw
         ? await (prisma as any).masterOption?.findFirst({
-            where: {
-              type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] },
-              status: 'active',
-              OR: [{ id: budgetRaw }, { value: budgetRaw }, { label: budgetRaw }]
-            },
-            select: { id: true, label: true, value: true }
-          }).catch(() => null)
+          where: {
+            type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] },
+            status: 'active',
+            OR: [{ id: budgetRaw }, { value: budgetRaw }, { label: budgetRaw }]
+          },
+          select: { id: true, label: true, value: true }
+        }).catch(() => null)
         : null;
       const budgetId = reg.projectHireBudgetId || budgetOption?.id || budgetRaw || null;
       const budgetLabel = budgetOption?.label || reg.projectHireBudget || budgetRaw || null;
@@ -1526,75 +1526,119 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
 
       const reg = parseRegData(user.registrationData);
-            const rawC = reg.countryId || user.country || reg.country || "";
-      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
-      const psArr = user.investorProfile?.preferredStage ? String(user.investorProfile.preferredStage).split(",").map(s => s.trim()) : (reg.preferredStage || []);
-      const faArr = user.investorProfile?.focusAreas ? String(user.investorProfile.focusAreas).split(",").map(s => s.trim()) : (reg.focusAreas || []);
+      // ── Resolve preferredStage IDs → names via master_options ──
+      const psArr: string[] = user.investorProfile?.preferredStage
+        ? String(user.investorProfile.preferredStage).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(reg.preferredStage) ? reg.preferredStage : []);
+      const psNames: string[] = new Array(psArr.length).fill('');
+      if (psArr.length > 0) {
+        try {
+          const psRows = await (prisma as any).masterOption.findMany({
+            where: { id: { in: psArr } },
+            select: { id: true, label: true }
+          });
+          const psMap = new Map(psRows.map((r: any) => [r.id, r.label]));
+          psArr.forEach((pid: string, i: number) => { psNames[i] = (psMap.get(pid) as string) || pid; });
+        } catch {
+          psArr.forEach((pid: string, i: number) => { psNames[i] = pid; });
+        }
+      }
 
-      const PREFERRED_STAGE_MAP: Record<string, string> = {
-        "stg_1": "Seed Stage",
-        "stg_2": "Pre-Series A",
-        "stg_3": "Series A+",
-        "stg_4": "MVP / Beta",
-        "stg_5": "Idea / Concept"
-      };
-      const psNames = psArr.map((i: string) => PREFERRED_STAGE_MAP[i] || i);
+      // ── Resolve focusAreas IDs → names via master_options then industry table ──
+      const faArr: string[] = user.investorProfile?.focusAreas
+        ? String(user.investorProfile.focusAreas).split(',').map((s: string) => s.trim()).filter(Boolean)
+        : (Array.isArray(reg.focusAreas) ? reg.focusAreas : []);
+      const faNames: string[] = new Array(faArr.length).fill('');
+      if (faArr.length > 0) {
+        try {
+          const faRows = await (prisma as any).masterOption.findMany({
+            where: { id: { in: faArr } },
+            select: { id: true, label: true }
+          });
+          const faMap = new Map(faRows.map((r: any) => [r.id, r.label]));
+          const missingFaIds = faArr.filter((fid: string) => !faMap.has(fid));
+          if (missingFaIds.length > 0) {
+            const indRows = await prisma.industry.findMany({
+              where: { id: { in: missingFaIds } },
+              select: { id: true, name: true }
+            });
+            indRows.forEach((r: any) => faMap.set(r.id, r.name));
+          }
+          faArr.forEach((fid: string, i: number) => { faNames[i] = (faMap.get(fid) as string) || fid; });
+        } catch {
+          faArr.forEach((fid: string, i: number) => { faNames[i] = fid; });
+        }
+      }
 
-      const FOCUS_AREAS_MAP: Record<string, string> = {
-        "fa_1": "FinTech & AI",
-        "fa_2": "HealthTech",
-        "fa_3": "SaaS & Enterprise"
-      };
-      const faNames = faArr.map((i: string) => FOCUS_AREAS_MAP[i] || i);
+      // ── Resolve investorType ID → label via master_options ──
+      const invTypeRaw = user.investorProfile?.investorType || reg.investorType || '';
+      let invTypeName = invTypeRaw;
+      if (invTypeRaw) {
+        try {
+          const itRow = await (prisma as any).masterOption.findFirst({
+            where: { id: invTypeRaw },
+            select: { id: true, label: true }
+          });
+          if (itRow?.label) invTypeName = itRow.label;
+        } catch { /* keep raw */ }
+      }
 
-      const INVESTOR_TYPE_MAP: Record<string, string> = {
-        "angel": "Angel Investor",
-        "vc": "Venture Capitalist",
-        "syndicate": "Syndicate / PE",
-        "family_office": "Family Office"
-      };
-      const invType = user.investorProfile?.investorType || reg.investorType || "angel";
+      // ── Resolve countryId UUID → country name ──
+      const rawC = reg.countryId || user.country || reg.country || '';
+      let countryName = rawC;
+      let cntryId = rawC;
+      if (rawC && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(rawC)) {
+        try {
+          const cRow = await prisma.country.findFirst({ where: { id: rawC }, select: { id: true, name: true } });
+          if (cRow) { countryName = cRow.name; cntryId = cRow.id; }
+        } catch { /* keep raw */ }
+      } else {
+        cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : rawC) : '';
+        countryName = cntryId;
+      }
 
       return res.json(successResponse('Details retrieved for investor', {
         id: user.id,
         userId: user.id,
-        fullName: user.fullName || reg.fullName || "",
-        name: user.fullName || reg.fullName || "",
+        fullName: user.fullName || reg.fullName || '',
+        name: user.fullName || reg.fullName || '',
         email: user.email,
-        phone: user.phone || reg.phone || reg.mobile || "",
+        phone: user.phone || reg.phone || reg.mobile || '',
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
         avatar: user.avatarUrl || reg.avatarUrl || null,
-        investorType: invType,
-        investorTypeId: invType,
-        investorTypeName: INVESTOR_TYPE_MAP[invType] || invType,
-        firm: user.investorProfile?.firm || reg.firm || "",
-        isAccredited: user.investorProfile?.isAccredited || reg.isAccredited || "Yes",
+        investorType: invTypeRaw,
+        investorTypeId: invTypeRaw,
+        investorTypeName: invTypeName,
+        firm: user.investorProfile?.firm || reg.firm || reg.firmName || '',
+        isAccredited: user.investorProfile?.isAccredited || reg.isAccredited || 'Yes',
         ticketMin: user.investorProfile?.ticketMin ?? reg.ticketMin ?? 25000,
         ticketMax: user.investorProfile?.ticketMax ?? reg.ticketMax ?? 250000,
-        PreferredStage: psArr.map((id: string, idx: number) => ({
-          preferredStageId: id,
-          preferredStageName: psNames[idx] || id
+        bio: user.bio || reg.bio || reg.thesis || '',
+        thesis: (user.investorProfile as any)?.thesis || reg.thesis || '',
+        PreferredStage: psArr.map((pid: string, i: number) => ({
+          preferredStageId: pid,
+          preferredStageName: psNames[i] || pid,
         })),
-        preferredStage: psArr,
-        preferredStageIds: reg.preferredStageIds || psArr,
-        FocusAreas: faArr.map((id: string, idx: number) => ({
-          focusAreaId: id,
-          focusAreaName: faNames[idx] || id
+        preferredStage: psNames.length > 0 ? psNames : psArr,
+        preferredStageIds: psArr,
+        FocusAreas: faArr.map((fid: string, i: number) => ({
+          focusAreaId: fid,
+          focusAreaName: faNames[i] || fid,
         })),
-        focusAreas: faArr,
-        focusAreaIds: reg.focusAreaIds || faArr,
-        city: user.city || reg.city || "",
-        country: user.country || reg.country || "",
+        focusAreas: faNames.length > 0 ? faNames : faArr,
+        focusAreaIds: faArr,
+        city: user.city || reg.city || '',
+        country: countryName,
         countryId: cntryId,
-        state: user.state || reg.state || "",
-        stateId: reg.stateId || user.state || "",
-        status: user.status || "active",
-        verified: Boolean(user.isVerified || user.verified),
+        state: user.state || reg.state || '',
+        stateId: reg.stateId || user.state || '',
+        status: user.status || 'active',
+        verified: Boolean(user.isVerified || (user as any).verified),
         role: user.role || 'investor',
         registrationData: reg,
         savedData: true,
-        isSaved: true
+        isSaved: true,
       }));
     }
 
