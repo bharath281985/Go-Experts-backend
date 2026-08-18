@@ -1605,6 +1605,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const faArr: string[] = user.investorProfile?.focusAreas
         ? String(user.investorProfile.focusAreas).split(',').map((s: string) => s.trim()).filter(Boolean)
         : (Array.isArray(reg.focusAreas) ? reg.focusAreas : []);
+      const registrationFocusAreas: string[] = Array.isArray(reg.focusAreas) ? reg.focusAreas : [];
       const faNames: string[] = new Array(faArr.length).fill('');
       if (faArr.length > 0) {
         try {
@@ -1621,9 +1622,11 @@ export const getById = (modelName: string) => async (req: Request, res: Response
             });
             indRows.forEach((r: any) => faMap.set(r.id, r.name));
           }
-          faArr.forEach((fid: string, i: number) => { faNames[i] = (faMap.get(fid) as string) || fid; });
+          faArr.forEach((fid: string, i: number) => {
+            faNames[i] = (faMap.get(fid) as string) || registrationFocusAreas[i] || '';
+          });
         } catch {
-          faArr.forEach((fid: string, i: number) => { faNames[i] = fid; });
+          faArr.forEach((_fid: string, i: number) => { faNames[i] = registrationFocusAreas[i] || ''; });
         }
       }
 
@@ -1714,10 +1717,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         preferredStageIds: psArr,
         FocusAreas: faArr.map((fid: string, i: number) => ({
           focusAreaId: fid,
-          focusAreaName: faNames[i] || fid,
+          focusAreaName: faNames[i] || '',
         })),
-        focusAreas: faNames.length > 0 ? faNames : faArr,
-        focusAreaIds: faArr,
         city: user.city || reg.city || '',
         country: investorCountryName,
         countryId: investorCountryId,

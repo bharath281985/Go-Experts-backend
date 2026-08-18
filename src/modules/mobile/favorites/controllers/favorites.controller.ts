@@ -246,7 +246,7 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               : (details.registrationData || {});
             const registrationFocusAreas = Array.isArray(registrationData.focusAreas) ? registrationData.focusAreas : [];
             const focusAreas = focusAreaIds.map((id: string, index: number) =>
-              focusNameMap.get(id) || registrationFocusAreas[index] || id
+              focusNameMap.get(id) || registrationFocusAreas[index] || ''
             );
             details = {
               ...details,
@@ -255,8 +255,8 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               countryId: country?.id || rawCountry,
               investorProfile: details.investorProfile ? {
                 ...details.investorProfile,
-                focusAreas,
-                focusAreaIds,
+                focusAreas: undefined,
+                focusAreaIds: undefined,
                 FocusAreas: focusAreaIds.map((id: string, index: number) => ({
                   focusAreaId: id,
                   focusAreaName: focusAreas[index],

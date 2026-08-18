@@ -147,7 +147,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         : (investorDetails?.registrationData || {});
       const registrationFocusAreas = Array.isArray(registrationData.focusAreas) ? registrationData.focusAreas : [];
       const focusAreas = focusAreaIds.map((focusAreaId, index) =>
-        focusNameMap.get(focusAreaId) || registrationFocusAreas[index] || focusAreaId
+        focusNameMap.get(focusAreaId) || registrationFocusAreas[index] || ''
       );
       const investorProfile = investorDetails?.investorProfile ? {
         id: investorDetails.investorProfile.id,
@@ -162,8 +162,6 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         firm: investorDetails.investorProfile.firm,
         ticketMin: investorDetails.investorProfile.ticketMin,
         ticketMax: investorDetails.investorProfile.ticketMax,
-        focusAreas,
-        focusAreaIds,
         FocusAreas: focusAreaIds.map((focusAreaId, index) => ({
           focusAreaId,
           focusAreaName: focusAreas[index],
