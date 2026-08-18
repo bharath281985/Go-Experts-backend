@@ -92,6 +92,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         country: true,
         bio: true,
         createdAt: true,
+        registrationData: true,
         investorProfile: true,
       },
     });
@@ -108,7 +109,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
     const focusAreaValues = [...new Set(users.flatMap((user) =>
       String(user.investorProfile?.focusAreas || '').split(',').map((value) => value.trim()).filter(Boolean)
     ))];
-    const [countries, focusOptions, focusCategories, focusIndustries] = await Promise.all([
+    const [countries, focusOptions, focusCategories, focusIndustries, focusSkills, projectCategories] = await Promise.all([
       prisma.country.findMany({
         where: { OR: [{ id: { in: countryValues } }, { name: { in: countryValues } }, { code: { in: countryValues } }] },
         select: { id: true, name: true, code: true },
@@ -119,6 +120,8 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
       }).catch(() => []) || [],
       prisma.skillCategory.findMany({ where: { id: { in: focusAreaValues } }, select: { id: true, name: true } }).catch(() => []),
       prisma.industry.findMany({ where: { id: { in: focusAreaValues } }, select: { id: true, name: true } }).catch(() => []),
+      prisma.skill.findMany({ where: { id: { in: focusAreaValues } }, select: { id: true, name: true } }).catch(() => []),
+      (prisma as any).projectCategory?.findMany({ where: { id: { in: focusAreaValues } }, select: { id: true, name: true } }).catch(() => []) || [],
     ]);
     const countryMap = new Map<string, any>();
     countries.forEach((country) => {
@@ -131,14 +134,21 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
       focusNameMap.set(option.id, option.label);
       if (option.value) focusNameMap.set(option.value, option.label);
     });
-    [...focusCategories, ...focusIndustries].forEach((option) => focusNameMap.set(option.id, option.name));
+    [...focusCategories, ...focusIndustries, ...focusSkills, ...projectCategories]
+      .forEach((option: any) => focusNameMap.set(option.id, option.name));
 
     return items.map(item => {
       const investorDetails = userMap.get(item.investorId) || null;
       const country = countryMap.get(investorDetails?.country);
       const focusAreaIds = String(investorDetails?.investorProfile?.focusAreas || '')
         .split(',').map((value) => value.trim()).filter(Boolean);
-      const focusAreas = focusAreaIds.map((focusAreaId) => focusNameMap.get(focusAreaId) || focusAreaId);
+      const registrationData: any = typeof investorDetails?.registrationData === 'string'
+        ? (() => { try { return JSON.parse(investorDetails.registrationData); } catch { return {}; } })()
+        : (investorDetails?.registrationData || {});
+      const registrationFocusAreas = Array.isArray(registrationData.focusAreas) ? registrationData.focusAreas : [];
+      const focusAreas = focusAreaIds.map((focusAreaId, index) =>
+        focusNameMap.get(focusAreaId) || registrationFocusAreas[index] || focusAreaId
+      );
       const investorProfile = investorDetails?.investorProfile ? {
         id: investorDetails.investorProfile.id,
         userId: investorDetails.investorProfile.userId,

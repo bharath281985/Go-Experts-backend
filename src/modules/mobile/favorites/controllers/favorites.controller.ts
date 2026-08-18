@@ -212,6 +212,7 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               country: true,
               bio: true,
               createdAt: true,
+              registrationData: true,
               investorProfile: true,
             },
           });
@@ -219,7 +220,7 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
             const rawCountry = String(details.country || '').trim();
             const focusAreaIds = String(details.investorProfile?.focusAreas || '')
               .split(',').map((value: string) => value.trim()).filter(Boolean);
-            const [country, focusOptions, focusCategories, focusIndustries] = await Promise.all([
+            const [country, focusOptions, focusCategories, focusIndustries, focusSkills, projectCategories] = await Promise.all([
               rawCountry ? prisma.country.findFirst({
                 where: { OR: [{ id: rawCountry }, { name: rawCountry }, { code: rawCountry }] },
                 select: { id: true, name: true },
@@ -230,16 +231,26 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               }).catch(() => []) || [],
               prisma.skillCategory.findMany({ where: { id: { in: focusAreaIds } }, select: { id: true, name: true } }).catch(() => []),
               prisma.industry.findMany({ where: { id: { in: focusAreaIds } }, select: { id: true, name: true } }).catch(() => []),
+              prisma.skill.findMany({ where: { id: { in: focusAreaIds } }, select: { id: true, name: true } }).catch(() => []),
+              (prisma as any).projectCategory?.findMany({ where: { id: { in: focusAreaIds } }, select: { id: true, name: true } }).catch(() => []) || [],
             ]);
             const focusNameMap = new Map<string, string>();
             focusOptions.forEach((option: any) => {
               focusNameMap.set(option.id, option.label);
               if (option.value) focusNameMap.set(option.value, option.label);
             });
-            [...focusCategories, ...focusIndustries].forEach((option) => focusNameMap.set(option.id, option.name));
-            const focusAreas = focusAreaIds.map((id: string) => focusNameMap.get(id) || id);
+            [...focusCategories, ...focusIndustries, ...focusSkills, ...projectCategories]
+              .forEach((option: any) => focusNameMap.set(option.id, option.name));
+            const registrationData: any = typeof details.registrationData === 'string'
+              ? (() => { try { return JSON.parse(details.registrationData); } catch { return {}; } })()
+              : (details.registrationData || {});
+            const registrationFocusAreas = Array.isArray(registrationData.focusAreas) ? registrationData.focusAreas : [];
+            const focusAreas = focusAreaIds.map((id: string, index: number) =>
+              focusNameMap.get(id) || registrationFocusAreas[index] || id
+            );
             details = {
               ...details,
+              registrationData: undefined,
               country: country?.name || rawCountry,
               countryId: country?.id || rawCountry,
               investorProfile: details.investorProfile ? {
