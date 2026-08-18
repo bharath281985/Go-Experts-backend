@@ -4,6 +4,12 @@ import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
+const shapeMeeting = (meeting: any) => {
+  if (!meeting) return meeting;
+  const { meetingLink, ...data } = meeting;
+  return { ...data, meeting_link: meetingLink || null };
+};
+
 export const listMeetings = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -42,7 +48,7 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     const data = meetings.map((m) => ({
-      ...m,
+      ...shapeMeeting(m),
       duration: (m as any).duration || 30,
     }));
 
@@ -61,9 +67,9 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { founderId, date, time, mode } = req.body;
+    const { founderId, date, time, mode, meeting_link } = req.body;
     const meeting = await prisma.meeting.create({
-      data: { investor: req.user.id, founder: founderId, date, time, mode: mode || 'Online', status: 'Scheduled' }
+      data: { investor: req.user.id, founder: founderId, date, time, mode: mode || 'Online', status: 'Scheduled', meetingLink: meeting_link ? String(meeting_link).trim() : null }
     });
 
     await NotificationEngine.queueNotification({
@@ -74,14 +80,14 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
       channel: 'all'
     });
 
-    return res.status(201).json(successResponse('Meeting scheduled', meeting));
+    return res.status(201).json(successResponse('Meeting scheduled', shapeMeeting(meeting)));
   } catch (error) { next(error); }
 };
 
 export const getMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, investor: req.user.id } });
-    return res.json(successResponse('Meeting details', meeting));
+    return res.json(successResponse('Meeting details', shapeMeeting(meeting)));
   } catch (error) { next(error); }
 };
 

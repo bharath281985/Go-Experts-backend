@@ -1,9 +1,16 @@
 import { Response, NextFunction } from 'express';
 import { readList, formatStartupResponse, loadRelatedDataForIdeas } from './startups.controller.js';
 import { prisma } from '../../../../config/database.js';
-import { successResponse } from '../../../../core/response.js';
+import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
+
+const resolveStartupIdea = (startupId: string) => prisma.startupIdea.findFirst({
+  where: {
+    OR: [{ id: startupId }, { founder: startupId }],
+    deletedAt: null,
+  },
+});
 
 export const listInvestments = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -27,7 +34,9 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const startupIds = [...new Set(investments.map(i => i.startup).filter(Boolean))];
     let startups: any[] = [];
     if (startupIds.length > 0) {
-      startups = await prisma.startupIdea.findMany({ where: { id: { in: startupIds } } });
+      startups = await prisma.startupIdea.findMany({
+        where: { OR: [{ id: { in: startupIds } }, { founder: { in: startupIds } }], deletedAt: null },
+      });
     }
 
     const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(startups);
@@ -35,9 +44,9 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const investedIds = new Set<string>(startupIds);
 
     const enriched = investments.map(inv => {
-      const idea = startups.find(s => s.id === inv.startup);
+      const idea = startups.find(s => s.id === inv.startup || s.founder === inv.startup);
       const details = idea ? formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap) : null;
-      return { ...inv, startupDetails: details };
+      return { ...inv, startup: idea?.id || inv.startup, startupId: idea?.id || inv.startup, startupDetails: details };
     });
 
     return res.json(successResponse('Investments retrieved', enriched, { page, limit, total, totalPages: Math.ceil(total / limit) }));
@@ -49,7 +58,7 @@ export const getInvestment = async (req: AuthRequest, res: Response, next: NextF
     const investment = await prisma.investment.findFirst({ where: { id: req.params.id, investor: req.user.id } });
     if (!investment) return res.status(404).json(successResponse('Investment not found', null));
 
-    const idea = await prisma.startupIdea.findUnique({ where: { id: investment.startup } }).catch(() => null);
+    const idea = await resolveStartupIdea(investment.startup).catch(() => null);
     let details = null;
 
     if (idea) {
@@ -60,13 +69,22 @@ export const getInvestment = async (req: AuthRequest, res: Response, next: NextF
       details = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true, platformRaisedMap);
     }
 
-    return res.json(successResponse('Investment details', { ...investment, startupDetails: details }));
+    return res.json(successResponse('Investment details', {
+      ...investment,
+      startup: idea?.id || investment.startup,
+      startupId: idea?.id || investment.startup,
+      startupDetails: details,
+    }));
   } catch (error) { next(error); }
 };
 
 export const expressInterest = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { startupId, offer, amount, equity, message, meetingDate } = req.body;
+
+    const idea = await resolveStartupIdea(String(startupId || ''));
+    if (!idea) return res.status(404).json(errorResponse('Startup not found', 'NOT_FOUND'));
+    const investmentStartupId = idea.founder;
 
     // Fallback logic to prevent NaN crashes
     const parsedOffer = parseFloat(offer ?? amount ?? 0);
@@ -75,7 +93,7 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
     const finalEquity = isNaN(parsedEquity) ? 0 : parsedEquity;
 
     const existing = await prisma.investment.findFirst({
-      where: { investor: req.user.id, startup: startupId }
+      where: { investor: req.user.id, startup: { in: [idea.id, investmentStartupId] } }
     });
 
     let investment;
@@ -94,7 +112,7 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
       investment = await prisma.investment.create({
         data: {
           investor: req.user.id,
-          startup: startupId,
+          startup: investmentStartupId,
           offer: finalOffer,
           equity: finalEquity,
           meetingDate: meetingDate || null,
@@ -104,7 +122,6 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
       });
     }
 
-    const idea = await prisma.startupIdea.findUnique({ where: { id: startupId } });
     if (idea && idea.founder) {
       await NotificationEngine.queueNotification({
         userId: idea.founder,
@@ -115,13 +132,21 @@ export const expressInterest = async (req: AuthRequest, res: Response, next: Nex
       });
     }
 
-    return res.status(201).json(successResponse('Interest expressed', investment));
+    return res.status(201).json(successResponse('Interest expressed', {
+      ...investment,
+      startup: idea.id,
+      startupId: idea.id,
+    }));
   } catch (error) { next(error); }
 };
 
 export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { startupId, offer, amount, equity } = req.body;
+    const { startupId, offer, amount, equity, message } = req.body;
+
+    const idea = await resolveStartupIdea(String(startupId || ''));
+    if (!idea) return res.status(404).json(errorResponse('Startup not found', 'NOT_FOUND'));
+    const investmentStartupId = idea.founder;
 
     const parsedOffer = parseFloat(offer ?? amount ?? 0);
     const parsedEquity = parseFloat(equity ?? 0);
@@ -129,7 +154,7 @@ export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunct
     const finalEquity = isNaN(parsedEquity) ? 0 : parsedEquity;
 
     const existing = await prisma.investment.findFirst({
-      where: { investor: req.user.id, startup: startupId }
+      where: { investor: req.user.id, startup: { in: [idea.id, investmentStartupId] } }
     });
 
     let investment;
@@ -139,22 +164,23 @@ export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunct
         data: {
           offer: finalOffer,
           equity: finalEquity,
-          status: 'Offer'
+          status: 'Offer',
+          docs: message || existing.docs,
         }
       });
     } else {
       investment = await prisma.investment.create({
         data: {
           investor: req.user.id,
-          startup: startupId,
+          startup: investmentStartupId,
           offer: finalOffer,
           equity: finalEquity,
-          status: 'Offer'
+          status: 'Offer',
+          docs: message || 'View folder',
         }
       });
     }
 
-    const idea = await prisma.startupIdea.findUnique({ where: { id: startupId } });
     if (idea && idea.founder) {
       await NotificationEngine.queueNotification({
         userId: idea.founder,
@@ -165,7 +191,11 @@ export const makeOffer = async (req: AuthRequest, res: Response, next: NextFunct
       });
     }
 
-    return res.status(201).json(successResponse('Offer made', investment));
+    return res.status(201).json(successResponse('Offer made', {
+      ...investment,
+      startup: idea.id,
+      startupId: idea.id,
+    }));
   } catch (error) { next(error); }
 };
 

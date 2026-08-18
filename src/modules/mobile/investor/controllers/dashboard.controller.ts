@@ -192,10 +192,16 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       // Industry & stage distribution
       const startup = startupByFounder.get(inv.startup);
       if (startup) {
-        const resolvedIndustry = industryMap.get(startup.industry) || startup.industry;
-        const resolvedStage = optionMap.get(startup.stage) || startup.stage;
-        industryDistributionMap.set(resolvedIndustry, (industryDistributionMap.get(resolvedIndustry) || 0) + inv.offer);
-        stageMap.set(resolvedStage, (stageMap.get(resolvedStage) || 0) + inv.offer);
+        const industryIsUuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(startup.industry || ''));
+        const stageIsUuid = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(startup.stage || ''));
+        const resolvedIndustry = industryMap.get(startup.industry) || (industryIsUuid ? '' : startup.industry);
+        const resolvedStage = optionMap.get(startup.stage) || (stageIsUuid ? '' : startup.stage);
+        if (resolvedIndustry) {
+          industryDistributionMap.set(resolvedIndustry, (industryDistributionMap.get(resolvedIndustry) || 0) + inv.offer);
+        }
+        if (resolvedStage) {
+          stageMap.set(resolvedStage, (stageMap.get(resolvedStage) || 0) + inv.offer);
+        }
       }
     });
 

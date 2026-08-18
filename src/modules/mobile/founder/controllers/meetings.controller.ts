@@ -42,7 +42,7 @@ const shapeMeeting = (meeting: any, userMap: Record<string, any>, viewerRole: st
     duration: meeting.duration || 45,
     mode: meeting.mode || 'Online',
     status: meeting.status || 'Scheduled',
-    meetingLink: meeting.meetingLink || generateMeetingLink(meeting.id),
+    meeting_link: meeting.meetingLink || null,
     createdAt: meeting.createdAt,
     updatedAt: meeting.updatedAt,
     withProfile,
@@ -99,7 +99,7 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { investorId, date, time, mode, duration } = req.body;
+    const { investorId, date, time, mode, duration, meeting_link } = req.body;
     const investor = await prisma.user.findFirst({ where: { id: investorId, role: 'investor', deletedAt: null } });
 
     if (!investor) {
@@ -116,10 +116,11 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
         mode: mode || 'Google Meet',
         status: 'Scheduled',
         createdBy: req.user.id,
+        meetingLink: meeting_link ? String(meeting_link).trim() : null,
       },
     });
 
-    const meetingWithLink = await prisma.meeting.update({
+    const meetingWithLink = meeting.meetingLink ? meeting : await prisma.meeting.update({
       where: { id: meeting.id },
       data: { meetingLink: generateMeetingLink(meeting.id) },
     });

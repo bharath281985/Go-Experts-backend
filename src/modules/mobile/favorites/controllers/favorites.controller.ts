@@ -246,7 +246,9 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               : (details.registrationData || {});
             const registrationFocusAreas = Array.isArray(registrationData.focusAreas) ? registrationData.focusAreas : [];
             const focusAreas = focusAreaIds.map((id: string, index: number) =>
-              focusNameMap.get(id) || registrationFocusAreas[index] || ''
+              focusNameMap.get(id)
+              || (/^[0-9a-f-]{36}$/i.test(String(registrationFocusAreas[index] || '')) ? '' : registrationFocusAreas[index])
+              || ''
             );
             details = {
               ...details,

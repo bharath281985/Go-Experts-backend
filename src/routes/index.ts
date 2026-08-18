@@ -451,6 +451,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   const countryIdVal = rawCntry ? (rawCntry.length === 2 ? rawCntry.toUpperCase() : (rawCntry.toLowerCase() === "india" ? "IN" : (rawCntry.toLowerCase() === "united states" || rawCntry.toLowerCase() === "usa" ? "US" : rawCntry))) : null;
 
   const extractId = (val: any) => typeof val === 'object' && val !== null ? String(val.id || val.value || val.name || val) : String(val);
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   const SKILL_NAME_MAP: Record<string, string> = {
     "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
@@ -480,7 +481,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "hg_1": "Hire Full-Time Developers",
     "hg_2": "Hire Freelancers"
   };
-  const hgNames = hiringGoalArr.map(val => { const id = extractId(val); return HIRING_GOAL_NAME_MAP[id] || id; });
+  const hgNames = hiringGoalArr.map(val => { const id = extractId(val); return HIRING_GOAL_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
 
   const PREFERRED_STAGE_MAP: Record<string, string> = {
     "stg_1": "Seed Stage",
@@ -489,14 +490,14 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "stg_4": "MVP / Beta",
     "stg_5": "Idea / Concept"
   };
-  const psNames = preferredStageArr.map(val => { const id = extractId(val); return PREFERRED_STAGE_MAP[id] || id; });
+  const psNames = preferredStageArr.map(val => { const id = extractId(val); return PREFERRED_STAGE_MAP[id] || (uuidRegex.test(id) ? "" : id); });
 
   const PRIMARY_GOAL_MAP: Record<string, string> = {
     "pg_1": "Looking for Investors",
     "pg_2": "Hiring Top Freelancers",
     "pg_3": "Scaling Startup"
   };
-  const pgNames = primaryGoalArr.map(val => { const id = extractId(val); return PRIMARY_GOAL_MAP[id] || id; });
+  const pgNames = primaryGoalArr.map(val => { const id = extractId(val); return PRIMARY_GOAL_MAP[id] || (uuidRegex.test(id) ? "" : id); });
 
   const FOCUS_AREAS_MAP: Record<string, string> = {
     "fa_1": "FinTech & AI",
@@ -504,7 +505,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "fa_3": "E-Commerce",
     "fa_4": "Web3 & Crypto"
   };
-  const faNames = focusAreasArr.map(val => { const id = extractId(val); return FOCUS_AREAS_MAP[id] || id; });
+  const faNames = focusAreasArr.map(val => { const id = extractId(val); return FOCUS_AREAS_MAP[id] || (uuidRegex.test(id) ? "" : id); });
 
   const INVESTOR_TYPE_MAP: Record<string, string> = {
     "angel": "Angel Investor",

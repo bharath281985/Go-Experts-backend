@@ -147,7 +147,9 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         : (investorDetails?.registrationData || {});
       const registrationFocusAreas = Array.isArray(registrationData.focusAreas) ? registrationData.focusAreas : [];
       const focusAreas = focusAreaIds.map((focusAreaId, index) =>
-        focusNameMap.get(focusAreaId) || registrationFocusAreas[index] || ''
+        focusNameMap.get(focusAreaId)
+        || (/^[0-9a-f-]{36}$/i.test(String(registrationFocusAreas[index] || '')) ? '' : registrationFocusAreas[index])
+        || ''
       );
       const investorProfile = investorDetails?.investorProfile ? {
         id: investorDetails.investorProfile.id,

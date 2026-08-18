@@ -1670,10 +1670,14 @@ export const getById = (modelName: string) => async (req: Request, res: Response
             indRows.forEach((r: any) => faMap.set(r.id, r.name));
           }
           faArr.forEach((fid: string, i: number) => {
-            faNames[i] = (faMap.get(fid) as string) || registrationFocusAreas[i] || '';
+            faNames[i] = (faMap.get(fid) as string)
+              || (/^[0-9a-f-]{36}$/i.test(String(registrationFocusAreas[i] || '')) ? '' : registrationFocusAreas[i])
+              || '';
           });
         } catch {
-          faArr.forEach((_fid: string, i: number) => { faNames[i] = registrationFocusAreas[i] || ''; });
+          faArr.forEach((_fid: string, i: number) => {
+            faNames[i] = /^[0-9a-f-]{36}$/i.test(String(registrationFocusAreas[i] || '')) ? '' : registrationFocusAreas[i] || '';
+          });
         }
       }
 

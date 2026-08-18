@@ -4,17 +4,23 @@ import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
+const shapeMeeting = (meeting: any) => {
+  if (!meeting) return meeting;
+  const { meetingLink, ...data } = meeting;
+  return { ...data, meeting_link: meetingLink || null };
+};
+
 export const listMeetings = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const meetings = await prisma.meeting.findMany({ where: { OR: [{ founder: req.user.id }, { investor: req.user.id }] } });
-    return res.json(successResponse('Meetings retrieved', meetings));
+    return res.json(successResponse('Meetings retrieved', meetings.map(shapeMeeting)));
   } catch (error) { next(error); }
 };
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { date, time, mode, withUserId } = req.body;
-    const meeting = await prisma.meeting.create({ data: { founder: req.user.id, investor: withUserId, date, time, mode, status: 'Scheduled' } });
+    const { date, time, mode, withUserId, meeting_link } = req.body;
+    const meeting = await prisma.meeting.create({ data: { founder: req.user.id, investor: withUserId, date, time, mode, status: 'Scheduled', meetingLink: meeting_link ? String(meeting_link).trim() : null } });
 
     await NotificationEngine.queueNotification({
       userId: withUserId,
@@ -24,14 +30,14 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
       channel: 'all'
     });
 
-    return res.status(201).json(successResponse('Meeting scheduled', meeting));
+    return res.status(201).json(successResponse('Meeting scheduled', shapeMeeting(meeting)));
   } catch (error) { next(error); }
 };
 
 export const getMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, OR: [{ founder: req.user.id }, { investor: req.user.id }] } });
-    return res.json(successResponse('Meeting details', meeting));
+    return res.json(successResponse('Meeting details', shapeMeeting(meeting)));
   } catch (error) { next(error); }
 };
 
