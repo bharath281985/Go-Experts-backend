@@ -881,9 +881,11 @@ const formatStartupResponse = (
     }
   }
 
-  const industryValue = isUUID(idea.industry) ? industryMap.get(idea.industry) || idea.industry : idea.industry;
-  const categoryValue = isUUID(idea.category) ? optionMap.get(idea.category) || idea.category : idea.category;
-  const stageValue = isUUID(idea.stage) ? optionMap.get(idea.stage) || idea.stage : idea.stage;
+  const resolveDisplayName = (value: string | null | undefined) =>
+    isUUID(value) ? industryMap.get(value) || optionMap.get(value) || '' : value || '';
+  const industryValue = resolveDisplayName(idea.industry);
+  const categoryValue = resolveDisplayName(idea.category);
+  const stageValue = resolveDisplayName(idea.stage);
 
   const teamSize = founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1);
   const location = [userObj?.city, userObj?.countryId].filter(Boolean).join(', ') || "";
@@ -897,7 +899,9 @@ const formatStartupResponse = (
 
   let tags: string[] = [];
   if (Array.isArray(reg.tags) && reg.tags.length > 0) {
-    tags = reg.tags;
+    tags = reg.tags
+      .map((tag: unknown) => resolveDisplayName(String(tag)))
+      .filter(Boolean);
   } else {
     tags = [categoryValue, industryValue, "Technology", "Startup", "Innovation"].filter(Boolean).slice(0, 5) as string[];
   }
@@ -1044,7 +1048,23 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
         const skillCats = await prisma.skillCategory.findMany({ where: { id: { in: missingIds } }, select: { id: true, name: true } });
         skillCats.forEach((c: any) => optionMap.set(c.id, c.name));
       } catch { }
+      try {
+        const industries = await prisma.industry.findMany({ where: { id: { in: missingIds } }, select: { id: true, name: true } });
+        industries.forEach((item: any) => optionMap.set(item.id, item.name));
+      } catch { }
     }
+  }
+
+  const unresolvedIndustryIds = industryIds.filter((id: string) => !industryMap.has(id));
+  if (unresolvedIndustryIds.length > 0) {
+    const [projectCategories, skillCategories, masterOptions] = await Promise.all([
+      (prisma as any).projectCategory?.findMany({ where: { id: { in: unresolvedIndustryIds } }, select: { id: true, name: true } }).catch(() => []) || [],
+      prisma.skillCategory.findMany({ where: { id: { in: unresolvedIndustryIds } }, select: { id: true, name: true } }).catch(() => []),
+      (prisma as any).masterOption?.findMany({ where: { id: { in: unresolvedIndustryIds } }, select: { id: true, label: true } }).catch(() => []) || [],
+    ]);
+    projectCategories.forEach((item: any) => industryMap.set(item.id, item.name));
+    skillCategories.forEach((item: any) => industryMap.set(item.id, item.name));
+    masterOptions.forEach((item: any) => industryMap.set(item.id, item.label || ''));
   }
 
   // Calculate platform raised dynamically based on ACTIVE/COMPLETED/OFFER investments

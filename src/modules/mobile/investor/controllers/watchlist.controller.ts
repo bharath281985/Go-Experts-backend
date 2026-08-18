@@ -109,9 +109,9 @@ const formatStartupResponse = (
     createdAt: idea.createdAt,
     updatedAt: idea.updatedAt,
 
-    industry: isUUID(idea.industry) ? industryMap.get(idea.industry) || idea.industry : idea.industry,
-    category: isUUID(idea.category) ? optionMap.get(idea.category) || idea.category : idea.category,
-    stage: isUUID(idea.stage) ? optionMap.get(idea.stage) || idea.stage : idea.stage,
+    industry: isUUID(idea.industry) ? industryMap.get(idea.industry) || optionMap.get(idea.industry) || '' : idea.industry,
+    category: isUUID(idea.category) ? optionMap.get(idea.category) || industryMap.get(idea.category) || '' : idea.category,
+    stage: isUUID(idea.stage) ? optionMap.get(idea.stage) || industryMap.get(idea.stage) || '' : idea.stage,
 
     teamSize: founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
     description: reg.description || reg.pitch || userObj?.bio || "",
