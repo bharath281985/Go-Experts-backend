@@ -131,6 +131,7 @@ const populateFounderWatchlist = async (items: WatchlistEntry[]): Promise<any[]>
         watchlistId: item.id,
         id: investorDetails?.id || item.investorId,
         investorId: item.investorId,
+        isSaved: true,
         notes: item.notes,
         priority: item.priority,
         savedAt: item.savedAt,
@@ -188,11 +189,24 @@ export const addToWatchlist = async (req: AuthRequest, res: Response, next: Next
 export const removeFromWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const items = await readList(req.user.id);
-    const filtered = items.filter(i => i.id !== req.params.id && i.investorId !== req.params.id);
+    const target = await prisma.user.findFirst({
+      where: { OR: [{ id: req.params.id }, { investorProfile: { id: req.params.id } }] },
+      select: { id: true, investorProfile: { select: { id: true } } },
+    }).catch(() => null);
+    const acceptedIds = new Set([
+      req.params.id,
+      target?.id,
+      target?.investorProfile?.id,
+    ].filter(Boolean));
+    const filtered = items.filter(i => !acceptedIds.has(i.id) && !acceptedIds.has(i.investorId));
     if (filtered.length === items.length) return res.status(404).json(errorResponse('Watchlist entry not found', 'NOT_FOUND'));
 
     await writeList(req.user.id, filtered);
-    return res.json(successResponse('Investor removed from watchlist'));
+    return res.json(successResponse('Investor removed from watchlist', {
+      id: req.params.id,
+      investorId: target?.id || req.params.id,
+      isSaved: false,
+    }));
   } catch (error) {
     next(error);
   }

@@ -285,10 +285,14 @@ export const addToWatchlist = async (req: AuthRequest, res: Response, next: Next
 export const removeFromWatchlist = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const items = await readList(req.user.id);
-    const filtered = items.filter(i => i.id !== req.params.id);
+    const filtered = items.filter(i => i.id !== req.params.id && i.startupId !== req.params.id);
     if (filtered.length === items.length) return res.status(404).json(errorResponse('Watchlist entry not found', 'NOT_FOUND'));
     await writeList(req.user.id, filtered);
-    return res.json(successResponse('Startup removed from watchlist'));
+    return res.json(successResponse('Startup removed from watchlist', {
+      id: req.params.id,
+      startupId: req.params.id,
+      isSaved: false,
+    }));
   } catch (error) { next(error); }
 };
 
