@@ -86,6 +86,24 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       })
     ]);
 
+    const recommendedFocusAreaIds = [...new Set(rawRecommendedInvestors.flatMap((user) =>
+      String(user.investorProfile?.focusAreas || '').split(',').map((value) => value.trim()).filter(Boolean)
+    ))];
+    const [focusOptions, focusIndustries] = await Promise.all([
+      (prisma as any).masterOption.findMany({
+        where: { id: { in: recommendedFocusAreaIds } },
+        select: { id: true, label: true },
+      }).catch(() => []),
+      prisma.industry.findMany({
+        where: { id: { in: recommendedFocusAreaIds } },
+        select: { id: true, name: true },
+      }).catch(() => []),
+    ]);
+    const focusAreaNameMap = new Map<string, string>([
+      ...focusOptions.map((item: any): [string, string] => [item.id, item.label || '']),
+      ...focusIndustries.map((item): [string, string] => [item.id, item.name]),
+    ]);
+
     // Format recommendedInvestors with user fields nested inside investorProfile
     // Filter out users who don't have an investor profile yet
     const recommendedInvestors = rawRecommendedInvestors
@@ -106,7 +124,14 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
             firm: u.investorProfile!.firm,
             ticketMin: u.investorProfile!.ticketMin,
             ticketMax: u.investorProfile!.ticketMax,
-            focusAreas: u.investorProfile!.focusAreas,
+            FocusAreas: String(u.investorProfile!.focusAreas || '')
+              .split(',')
+              .map((focusAreaId) => focusAreaId.trim())
+              .filter(Boolean)
+              .map((focusAreaId) => ({
+                focusAreaId,
+                focusAreaName: focusAreaNameMap.get(focusAreaId) || '',
+              })),
             deals: u.investorProfile!.deals,
             createdAt: u.investorProfile!.createdAt,
             updatedAt: u.investorProfile!.updatedAt,

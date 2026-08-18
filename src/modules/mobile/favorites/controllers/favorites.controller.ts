@@ -256,7 +256,6 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               investorProfile: details.investorProfile ? {
                 ...details.investorProfile,
                 focusAreas: undefined,
-                focusAreaIds: undefined,
                 FocusAreas: focusAreaIds.map((id: string, index: number) => ({
                   focusAreaId: id,
                   focusAreaName: focusAreas[index],

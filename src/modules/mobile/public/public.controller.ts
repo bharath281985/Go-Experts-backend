@@ -776,7 +776,41 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
       prisma.user.count({ where: { role: 'investor', status: 'active', deletedAt: null } })
     ]);
 
-    return res.json(successResponse('Investors retrieved', investors, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    const focusAreaIds = [...new Set(investors.flatMap((investor) =>
+      String(investor.investorProfile?.focusAreas || '').split(',').map((value) => value.trim()).filter(Boolean)
+    ))];
+    const [focusOptions, focusIndustries] = await Promise.all([
+      (prisma as any).masterOption.findMany({
+        where: { id: { in: focusAreaIds } },
+        select: { id: true, label: true },
+      }).catch(() => []),
+      prisma.industry.findMany({
+        where: { id: { in: focusAreaIds } },
+        select: { id: true, name: true },
+      }).catch(() => []),
+    ]);
+    const focusAreaNameMap = new Map<string, string>([
+      ...focusOptions.map((item: any): [string, string] => [item.id, item.label || '']),
+      ...focusIndustries.map((item): [string, string] => [item.id, item.name]),
+    ]);
+    const formattedInvestors = investors.map((investor) => ({
+      ...investor,
+      investorProfile: investor.investorProfile ? {
+        ticketMin: investor.investorProfile.ticketMin,
+        ticketMax: investor.investorProfile.ticketMax,
+        deals: investor.investorProfile.deals,
+        FocusAreas: String(investor.investorProfile.focusAreas || '')
+          .split(',')
+          .map((focusAreaId) => focusAreaId.trim())
+          .filter(Boolean)
+          .map((focusAreaId) => ({
+            focusAreaId,
+            focusAreaName: focusAreaNameMap.get(focusAreaId) || '',
+          })),
+      } : null,
+    }));
+
+    return res.json(successResponse('Investors retrieved', formattedInvestors, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
@@ -1693,9 +1727,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         phone: user.phone || reg.phone || reg.mobile || '',
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
         avatar: user.avatarUrl || reg.avatarUrl || null,
-        investorType: invTypeRaw,
-        investorTypeId: invTypeRaw,
-        investorTypeName: invTypeName,
+        InvestorType: invTypeRaw ? {
+          investorTypeId: invTypeRaw,
+          investorTypeName: invTypeName,
+        } : null,
         firm: user.investorProfile?.firm || reg.firm || reg.firmName || '',
         isAccredited: user.investorProfile?.isAccredited || reg.isAccredited || 'Yes',
         ticketMin: user.investorProfile?.ticketMin ?? reg.ticketMin ?? 25000,

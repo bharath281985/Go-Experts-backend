@@ -528,71 +528,43 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
 
     Skills: skillsArr.map((id, index) => ({
       skillId: id,
-      skillName: sklNames[index] || id
+      skillName: sklNames[index] || ""
     })),
-    skillId: skillsArr,
-    skillsIds: skillsArr,
-    skillName: sklNames,
-    skillsNames: sklNames,
-    skills: skillsArr,
 
-    Industry: industryArr.map((id, index) => ({
-      industryId: id,
-      industryName: indNames[index] || id
-    })),
-    industryId: industryArr,
-    industryIds: industryArr,
-    industryName: indNames,
-    industryNames: indNames,
-    industry: industryArr,
+    Industry: industryArr.length ? {
+      industryId: industryArr[0],
+      industryName: indNames[0] || ""
+    } : null,
 
-    WorkMode: workModeArr.map((id, index) => ({
-      workModeId: id,
-      workModeName: wmNames[index] || id
-    })),
-    workModeId: workModeArr,
-    workModeIds: workModeArr,
-    workModeName: wmNames,
-    workModeNames: wmNames,
-    workMode: workModeArr,
+    WorkMode: workModeArr.length ? {
+      workModeId: workModeArr[0],
+      workModeName: wmNames[0] || ""
+    } : null,
 
-    HiringGoal: hiringGoalArr.map((id, index) => ({
-      hiringGoalId: id,
-      hiringGoalName: hgNames[index] || id
-    })),
-    hiringGoalId: hiringGoalArr,
-    hiringGoalIds: hiringGoalArr,
-    hiringGoalName: hgNames,
-    hiringGoalNames: hgNames,
-    hiringGoal: hiringGoalArr,
+    HiringGoal: hiringGoalArr.length ? {
+      hiringGoalId: hiringGoalArr[0],
+      hiringGoalName: hgNames[0] || ""
+    } : null,
 
     PreferredStage: preferredStageArr.map((id, index) => ({
       preferredStageId: id,
-      preferredStageName: psNames[index] || id
+      preferredStageName: psNames[index] || ""
     })),
-    preferredStage: preferredStageArr,
-    preferredStageIds: preferredStageArr,
-    preferredStageNames: psNames,
 
-    PrimaryGoal: primaryGoalArr.map((id, index) => ({
-      primaryGoalId: id,
-      primaryGoalName: pgNames[index] || id
-    })),
-    primaryGoal: primaryGoalArr,
-    primaryGoalIds: primaryGoalArr,
-    primaryGoalNames: pgNames,
+    PrimaryGoal: primaryGoalArr.length ? {
+      primaryGoalId: primaryGoalArr[0],
+      primaryGoalName: pgNames[0] || ""
+    } : null,
 
     FocusAreas: focusAreasArr.map((id, index) => ({
       focusAreaId: id,
-      focusAreaName: faNames[index] || id
+      focusAreaName: faNames[index] || ""
     })),
-    focusAreas: focusAreasArr,
-    focusAreaIds: focusAreasArr,
-    focusAreaNames: faNames,
 
-    investorType: invTypeVal,
-    investorTypeId: invTypeVal,
-    investorTypeName: invTypeVal ? (INVESTOR_TYPE_MAP[invTypeVal] || invTypeVal) : null,
+    InvestorType: invTypeVal ? {
+      investorTypeId: invTypeVal,
+      investorTypeName: INVESTOR_TYPE_MAP[invTypeVal] || invTypeVal
+    } : null,
 
     projects_posted: projectsPosted,
     projectsPosted,

@@ -92,8 +92,10 @@ const mapInvestorAsync = async (investor: any) => {
       preferredStageId,
       preferredStageName: preferredStages[index] || '',
     })),
-    investorType: investorTypes.length ? investorTypes.join(', ') : null,
-    investorTypeIds: investorTypeValues,
+    InvestorType: investorTypeValues.length ? {
+      investorTypeId: investorTypeValues[0],
+      investorTypeName: investorTypes[0] || '',
+    } : null,
     location: [investor.city, investor.country].filter(Boolean).join(', ') || null,
     city: investor.city || null,
     country: investor.country || null,
