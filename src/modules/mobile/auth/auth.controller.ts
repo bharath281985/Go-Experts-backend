@@ -868,10 +868,19 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         formattedProfile.categoryId = toSingleOption(roleProfile.industry);
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
-        formattedProfile.experienceLevelId = toSingleOption(roleProfile.experience);
+        const experienceLevel = toSingleOption(roleProfile.experience);
+        formattedProfile.ExperienceLevel = experienceLevel ? {
+          experienceLevelId: experienceLevel.id,
+          experienceLevelName: experienceLevel.name,
+        } : null;
         delete formattedProfile.experience;
-        formattedProfile.availabilityId = toSingleOption(roleProfile.availability);
+        const availability = toSingleOption(roleProfile.availability);
+        formattedProfile.Availability = availability ? {
+          availabilityId: availability.id,
+          availabilityName: availability.name,
+        } : null;
         delete formattedProfile.availability;
+        formattedProfile.websiteUrl = roleProfile.websiteUrl || null;
         if (roleProfile.workMode) {
           formattedProfile.workModeId = toSingleOption(roleProfile.workMode);
           delete formattedProfile.workMode;
@@ -1401,10 +1410,19 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         formattedProfile.categoryId = toSingleOption(roleProfile.industry);
         formattedProfile.industryId = toSingleOption(roleProfile.industry);
         delete formattedProfile.industry;
-        formattedProfile.experienceLevelId = toSingleOption(roleProfile.experience);
+        const experienceLevel = toSingleOption(roleProfile.experience);
+        formattedProfile.ExperienceLevel = experienceLevel ? {
+          experienceLevelId: experienceLevel.id,
+          experienceLevelName: experienceLevel.name,
+        } : null;
         delete formattedProfile.experience;
-        formattedProfile.availabilityId = toSingleOption(roleProfile.availability);
+        const availability = toSingleOption(roleProfile.availability);
+        formattedProfile.Availability = availability ? {
+          availabilityId: availability.id,
+          availabilityName: availability.name,
+        } : null;
         delete formattedProfile.availability;
+        formattedProfile.websiteUrl = roleProfile.websiteUrl || null;
         if (roleProfile.workMode) {
           formattedProfile.workModeId = toSingleOption(roleProfile.workMode);
           delete formattedProfile.workMode;
