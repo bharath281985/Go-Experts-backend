@@ -6,7 +6,7 @@ import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreel
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
 import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
-import { getCountries, getStates, getSkills, getIndustries, getBudgetRanges, getTeamSizes, getFounderTypes, getBusinessTypes, getInvestorTypes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals } from "../../modules/mobile/public/public.controller.js";
+import { getCountries, getStates, getSkills, getIndustries, getBudgetRanges, getTeamSizes, getFounderTypes, getBusinessTypes, getInvestorTypes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getCompanySizes, } from "../../modules/mobile/public/public.controller.js";
 const router = Router();
 router.get("/countries", getCountries);
 router.get("/states", getStates);
@@ -18,13 +18,46 @@ router.get("/hiring-budget-ranges", getBudgetRanges);
 router.get("/project-budgets", getBudgetRanges);
 router.get("/project-budget-ranges", getBudgetRanges);
 router.get("/team-sizes", getTeamSizes);
+router.get("/team_sizes", getTeamSizes);
 router.get("/founder-types", getFounderTypes);
 router.get("/business-types", getBusinessTypes);
 router.get("/investor-types", getInvestorTypes);
+router.get("/investor_types", getInvestorTypes);
 router.get("/work-modes", getWorkModes);
 router.get("/hiring-goals", getHiringGoals);
+router.get("/hiring_goals", getHiringGoals);
 router.get("/investor-stages", getInvestorStages);
+router.get("/investment-stages", getInvestorStages);
+router.get("/investment_stages", getInvestorStages);
 router.get("/platform-goals", getPlatformGoals);
+router.get("/company-sizes", getCompanySizes);
+router.get("/company_sizes", getCompanySizes);
+router.get("/accredited-statuses", async (_req, res, next) => {
+    try {
+        const options = await prisma.masterOption.findMany({
+            where: { type: 'accredited_status', status: 'active' },
+            orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+            select: { id: true, label: true, value: true },
+        }).catch(() => []);
+        res.json({ success: true, data: options, rows: options });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/accredited_statuses", async (_req, res, next) => {
+    try {
+        const options = await prisma.masterOption.findMany({
+            where: { type: 'accredited_status', status: 'active' },
+            orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+            select: { id: true, label: true, value: true },
+        }).catch(() => []);
+        res.json({ success: true, data: options, rows: options });
+    }
+    catch (err) {
+        next(err);
+    }
+});
 router.get("/settings/branding", async (req, res) => {
     const result = await getSettingsSection("branding");
     res.json(result);
@@ -102,6 +135,23 @@ router.get("/states", async (req, res, next) => {
             console.error("Failed to dynamically import country-state-city in public.routes:", e);
         }
         res.json({ success: true, count: states.length, data: states, rows: states });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/cities", async (req, res, next) => {
+    try {
+        const countryId = String(req.query.countryId || "").trim();
+        if (!countryId) {
+            return res.json({ success: true, count: 0, data: [], rows: [] });
+        }
+        // Fetch cities from db by countryId
+        const cities = await prisma.city?.findMany({
+            where: { countryId, status: "active" },
+            orderBy: { name: "asc" }
+        }) || [];
+        res.json({ success: true, count: cities.length, data: cities, rows: cities });
     }
     catch (err) {
         next(err);
@@ -992,6 +1042,14 @@ router.get("/expansion-goals", async (_req, res) => {
 router.get("/expansion_goals", async (_req, res) => {
     const goals = await fetchMasterOptions("expansion_goal");
     return res.json({ success: true, data: goals, rows: goals });
+});
+router.get("/founder-roles", async (_req, res) => {
+    const roles = await fetchMasterOptions("founder_role");
+    return res.json({ success: true, data: roles });
+});
+router.get("/founder_roles", async (_req, res) => {
+    const roles = await fetchMasterOptions("founder_role");
+    return res.json({ success: true, data: roles });
 });
 router.get("/founder-goals", async (_req, res) => {
     const goals = await fetchMasterOptions("founder_goal");

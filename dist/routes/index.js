@@ -39,6 +39,7 @@ import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
+import subscriptionRoutes from "./subscription/subscription.routes.js";
 import mobileRoutes from "../modules/mobile/index.js";
 const router = Router();
 // 1. Auth & Payment routes (Public/Unprotected - mounted on all version prefixes)
@@ -48,6 +49,8 @@ router.use("/payments", paymentsRoutes);
 // Mobile API Routes (/api/v1/mobile/..., /api/mobile/...)
 router.use("/v1/mobile", mobileRoutes);
 router.use("/mobile", mobileRoutes);
+// Subscription / Plan Activation Routes
+router.use("/subscription", subscriptionRoutes);
 // Shared Messages routes (real-time chat API for all roles)
 router.use("/messages", messagesRoutes);
 // Portal (role-scoped)
@@ -205,6 +208,7 @@ const tableModelMapping = {
     skill_categories: "SkillCategory",
     skills: "Skill",
     countries: "Country",
+    cities: "City",
     currencies: "Currency",
     languages: "Language",
     startup_stages: "StartupStage",
@@ -251,6 +255,7 @@ const tableModelMapping = {
 };
 // Searchable columns for each model
 const searchColumnsMapping = {
+    City: ["name"],
     User: ["fullName", "email", "country"],
     Project: ["title", "client", "freelancer", "category", "technology", "timeline", "status"],
     Task: ["title", "assignedTo"],
@@ -398,6 +403,7 @@ export function sanitizeUserRecord(row) {
     const rawCntry = rest.country ?? regData.countryId ?? regData.country ?? null;
     const countryIdVal = rawCntry ? (rawCntry.length === 2 ? rawCntry.toUpperCase() : (rawCntry.toLowerCase() === "india" ? "IN" : (rawCntry.toLowerCase() === "united states" || rawCntry.toLowerCase() === "usa" ? "US" : rawCntry))) : null;
     const extractId = (val) => typeof val === 'object' && val !== null ? String(val.id || val.value || val.name || val) : String(val);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const SKILL_NAME_MAP = {
         "d3a26eae-3ead-45a6-ac19-9dec47a66add": "Node.js",
         "05756b73-b112-4948-96a7-e6d0df6be8d5": "Flutter",
@@ -423,7 +429,7 @@ export function sanitizeUserRecord(row) {
         "hg_1": "Hire Full-Time Developers",
         "hg_2": "Hire Freelancers"
     };
-    const hgNames = hiringGoalArr.map(val => { const id = extractId(val); return HIRING_GOAL_NAME_MAP[id] || id; });
+    const hgNames = hiringGoalArr.map(val => { const id = extractId(val); return HIRING_GOAL_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
     const PREFERRED_STAGE_MAP = {
         "stg_1": "Seed Stage",
         "stg_2": "Pre-Series A",
@@ -431,20 +437,20 @@ export function sanitizeUserRecord(row) {
         "stg_4": "MVP / Beta",
         "stg_5": "Idea / Concept"
     };
-    const psNames = preferredStageArr.map(val => { const id = extractId(val); return PREFERRED_STAGE_MAP[id] || id; });
+    const psNames = preferredStageArr.map(val => { const id = extractId(val); return PREFERRED_STAGE_MAP[id] || (uuidRegex.test(id) ? "" : id); });
     const PRIMARY_GOAL_MAP = {
         "pg_1": "Looking for Investors",
         "pg_2": "Hiring Top Freelancers",
         "pg_3": "Scaling Startup"
     };
-    const pgNames = primaryGoalArr.map(val => { const id = extractId(val); return PRIMARY_GOAL_MAP[id] || id; });
+    const pgNames = primaryGoalArr.map(val => { const id = extractId(val); return PRIMARY_GOAL_MAP[id] || (uuidRegex.test(id) ? "" : id); });
     const FOCUS_AREAS_MAP = {
         "fa_1": "FinTech & AI",
         "fa_2": "HealthTech",
         "fa_3": "E-Commerce",
         "fa_4": "Web3 & Crypto"
     };
-    const faNames = focusAreasArr.map(val => { const id = extractId(val); return FOCUS_AREAS_MAP[id] || id; });
+    const faNames = focusAreasArr.map(val => { const id = extractId(val); return FOCUS_AREAS_MAP[id] || (uuidRegex.test(id) ? "" : id); });
     const INVESTOR_TYPE_MAP = {
         "angel": "Angel Investor",
         "vc": "Venture Capitalist",
@@ -465,64 +471,36 @@ export function sanitizeUserRecord(row) {
         stateId: stateVal,
         Skills: skillsArr.map((id, index) => ({
             skillId: id,
-            skillName: sklNames[index] || id
+            skillName: sklNames[index] || ""
         })),
-        skillId: skillsArr,
-        skillsIds: skillsArr,
-        skillName: sklNames,
-        skillsNames: sklNames,
-        skills: skillsArr,
-        Industry: industryArr.map((id, index) => ({
-            industryId: id,
-            industryName: indNames[index] || id
-        })),
-        industryId: industryArr,
-        industryIds: industryArr,
-        industryName: indNames,
-        industryNames: indNames,
-        industry: industryArr,
-        WorkMode: workModeArr.map((id, index) => ({
-            workModeId: id,
-            workModeName: wmNames[index] || id
-        })),
-        workModeId: workModeArr,
-        workModeIds: workModeArr,
-        workModeName: wmNames,
-        workModeNames: wmNames,
-        workMode: workModeArr,
-        HiringGoal: hiringGoalArr.map((id, index) => ({
-            hiringGoalId: id,
-            hiringGoalName: hgNames[index] || id
-        })),
-        hiringGoalId: hiringGoalArr,
-        hiringGoalIds: hiringGoalArr,
-        hiringGoalName: hgNames,
-        hiringGoalNames: hgNames,
-        hiringGoal: hiringGoalArr,
+        Industry: industryArr.length ? {
+            industryId: industryArr[0],
+            industryName: indNames[0] || ""
+        } : null,
+        WorkMode: workModeArr.length ? {
+            workModeId: workModeArr[0],
+            workModeName: wmNames[0] || ""
+        } : null,
+        HiringGoal: hiringGoalArr.length ? {
+            hiringGoalId: hiringGoalArr[0],
+            hiringGoalName: hgNames[0] || ""
+        } : null,
         PreferredStage: preferredStageArr.map((id, index) => ({
             preferredStageId: id,
-            preferredStageName: psNames[index] || id
+            preferredStageName: psNames[index] || ""
         })),
-        preferredStage: preferredStageArr,
-        preferredStageIds: preferredStageArr,
-        preferredStageNames: psNames,
-        PrimaryGoal: primaryGoalArr.map((id, index) => ({
-            primaryGoalId: id,
-            primaryGoalName: pgNames[index] || id
-        })),
-        primaryGoal: primaryGoalArr,
-        primaryGoalIds: primaryGoalArr,
-        primaryGoalNames: pgNames,
+        PrimaryGoal: primaryGoalArr.length ? {
+            primaryGoalId: primaryGoalArr[0],
+            primaryGoalName: pgNames[0] || ""
+        } : null,
         FocusAreas: focusAreasArr.map((id, index) => ({
             focusAreaId: id,
-            focusAreaName: faNames[index] || id
+            focusAreaName: faNames[index] || ""
         })),
-        focusAreas: focusAreasArr,
-        focusAreaIds: focusAreasArr,
-        focusAreaNames: faNames,
-        investorType: invTypeVal,
-        investorTypeId: invTypeVal,
-        investorTypeName: invTypeVal ? (INVESTOR_TYPE_MAP[invTypeVal] || invTypeVal) : null,
+        InvestorType: invTypeVal ? {
+            investorTypeId: invTypeVal,
+            investorTypeName: INVESTOR_TYPE_MAP[invTypeVal] || invTypeVal
+        } : null,
         projects_posted: projectsPosted,
         projectsPosted,
         total_spend: totalSpend,
@@ -1800,7 +1778,9 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
             ? { _count: { select: { skills: true } } }
             : modelName === "Skill"
                 ? { category: { select: { id: true, name: true } } }
-                : undefined;
+                : modelName === "City"
+                    ? { country: { select: { id: true, name: true } } }
+                    : undefined;
     // Create router using factory
     const crudRouter = createCrudRouter(modelName, searchCols, include ? { include } : {});
     // We wrap list get request to auto inject default role query filters for user roles

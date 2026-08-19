@@ -52,8 +52,8 @@ export class AdminResumeTemplateService {
           templateId: template.id,
           version: 1,
           rendererKey: data.rendererKey,
-          supportedSections: rendererCaps.supportedSections,
-          themeConfig: {},
+          supportedSections: JSON.stringify(rendererCaps.supportedSections),
+          themeConfig: JSON.stringify({}),
           atsFriendly: false
         }
       });
@@ -132,8 +132,8 @@ export class AdminResumeTemplateService {
           templateId,
           version: nextVersionNumber,
           rendererKey: versionData.rendererKey,
-          supportedSections: versionData.supportedSections || [],
-          themeConfig: versionData.themeConfig || {},
+          supportedSections: JSON.stringify(versionData.supportedSections || []),
+          themeConfig: JSON.stringify(versionData.themeConfig || {}),
           atsFriendly: versionData.atsFriendly || false,
           publishedAt: new Date()
         }

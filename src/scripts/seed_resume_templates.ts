@@ -92,7 +92,7 @@ async function main() {
       },
       update: {
         rendererKey: t.rendererKey,
-        supportedSections: rendererConfig.supportedSections,
+        supportedSections: JSON.stringify(rendererConfig.supportedSections),
         atsFriendly: t.atsFriendly,
         publishedAt: new Date()
       },
@@ -100,7 +100,7 @@ async function main() {
         templateId: template.id,
         version: 1,
         rendererKey: t.rendererKey,
-        supportedSections: rendererConfig.supportedSections,
+        supportedSections: JSON.stringify(rendererConfig.supportedSections),
         atsFriendly: t.atsFriendly,
         publishedAt: new Date()
       }

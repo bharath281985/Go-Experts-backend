@@ -1293,11 +1293,11 @@ export const putFreelancerResume = async (req: AuthenticatedRequest, res: Respon
     await prisma.user.update({
       where: { id: userId },
       data: {
-        registrationData: {
+        registrationData: JSON.stringify({
           ...currentReg,
           resume: mockPdfUrl,
           resumeUrl: mockPdfUrl
-        }
+        })
       }
     });
 
