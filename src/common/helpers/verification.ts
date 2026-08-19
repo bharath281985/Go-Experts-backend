@@ -58,6 +58,14 @@ const VALIDATORS: Record<string, { regex: RegExp; message: string }> = {
     company: { regex: /^[A-Z0-9-\s]{5,25}$/i, message: "Invalid Company Registration format" },
 };
 
+const getVerificationRequirement = (role: string) => {
+    const normalizedRole = role.toLowerCase().trim();
+    if (normalizedRole === "freelancer" || normalizedRole === "talent") {
+        return { personalRequired: 1, businessRequired: 0 };
+    }
+    return { personalRequired: 2, businessRequired: 2 };
+};
+
 export function parseVerificationJson(raw: string | null | undefined): Record<string, Partial<VerificationItem>> {
     if (!raw) return {};
     try {
@@ -116,6 +124,7 @@ export function getVerificationStats(user: any) {
     const items = buildVerificationItems(user, stored);
     const verifiedCount = items.filter((i) => i.status === "verified").length;
     const pendingCount = items.filter((i) => i.status === "pending").length;
+    const requirement = getVerificationRequirement(String(user.role || ""));
     
     // Group keys
     const personalKeys = ["pan", "aadhaar", "driving", "driving_licence"];
@@ -130,8 +139,8 @@ export function getVerificationStats(user: any) {
     const isEmailVerified = emailItem?.status === "verified";
     
     // Calculate missing counts
-    const missingPersonal = Math.max(0, 2 - personalSubmitted);
-    const missingBusiness = Math.max(0, 2 - businessSubmitted);
+    const missingPersonal = Math.max(0, requirement.personalRequired - personalSubmitted);
+    const missingBusiness = Math.max(0, requirement.businessRequired - businessSubmitted);
     const missingEmail = isEmailMissing ? 1 : 0;
     const missingCount = missingEmail + missingPersonal + missingBusiness;
     
@@ -139,8 +148,10 @@ export function getVerificationStats(user: any) {
     const personalVerified = items.filter(i => personalKeys.includes(i.key) && i.status === "verified").length;
     const businessVerified = items.filter(i => businessKeys.includes(i.key) && i.status === "verified").length;
     
-    const requiredTotal = 5; // 2 personal + 2 business + 1 email
-    const requiredVerified = (isEmailVerified ? 1 : 0) + Math.min(2, personalVerified) + Math.min(2, businessVerified);
+    const requiredTotal = 1 + requirement.personalRequired + requirement.businessRequired;
+    const requiredVerified = (isEmailVerified ? 1 : 0)
+        + Math.min(requirement.personalRequired, personalVerified)
+        + Math.min(requirement.businessRequired, businessVerified);
     const trustScore = Math.min(100, Math.round((requiredVerified / requiredTotal) * 100));
 
     return {
