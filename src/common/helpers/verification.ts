@@ -72,7 +72,6 @@ export function buildVerificationItems(user: any, stored: Record<string, Partial
     const accountVerified = Boolean(user.isVerified || user.verified);
 
     return VERIFICATION_KEYS
-        .filter(({ key }) => key === "email" || key === "phone" || stored[key])
         .map(({ key, label, required }) => {
         const fromStore = stored[key] || {};
         let status = (fromStore.status as VerificationItem["status"]) || "missing";
@@ -123,7 +122,7 @@ export function getVerificationStats(user: any) {
     const trustScore = Math.round((verifiedCount / Math.max(items.length, 1)) * 100);
 
     return {
-        items,
+        items: items.filter((i) => i.status !== "missing"),
         trustScore,
         verifiedCount,
         pendingCount,
