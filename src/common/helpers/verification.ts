@@ -49,7 +49,7 @@ export const VERIFICATION_KEYS: Array<{ key: string; label: string; required?: b
 const VALIDATORS: Record<string, { regex: RegExp; message: string }> = {
     pan: { regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, message: "Invalid PAN format (e.g. ABCDE1234F)" },
     business_pan: { regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, message: "Invalid PAN format (e.g. ABCDE1234F)" },
-    aadhaar: { regex: /^[2-9]{1}[0-9]{3}\s?[0-9]{4}\s?[0-9]{4}$/, message: "Invalid Aadhaar format (12 digits)" },
+    aadhaar: { regex: /^[0-9]{4}\s?[0-9]{4}\s?[0-9]{4}$/, message: "Invalid Aadhaar format (12 digits)" },
     gst: { regex: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i, message: "Invalid GST format (15 characters)" },
     udyam: { regex: /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/i, message: "Invalid Udyam format (e.g. UDYAM-MH-18-0123456)" },
     driving: { regex: /^[A-Z0-9-/\s]{10,20}$/i, message: "Invalid Driving Licence format" },
