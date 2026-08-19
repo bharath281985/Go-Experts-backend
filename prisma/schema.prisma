@@ -1,5 +1,3 @@
-// Unified Prisma Schema for GoExperts (Mobile API + Admin/Web Backend)
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -118,7 +116,15 @@ model User {
   createdAt               DateTime                @default(now()) @map("created_at")
   updatedAt               DateTime                @updatedAt @map("updated_at")
   deletedAt               DateTime?               @map("deleted_at")
+  trialEndsAt             DateTime?               @map("trial_ends_at")
+  registrationData        String?                 @map("registration_data") @db.LongText
+  onboardingStatus        String                  @default("NOT_STARTED") @map("onboarding_status")
+  completedSteps          String?                 @map("completed_steps") @db.LongText
+  currentStep             String?                 @map("current_step")
+  nextStepKey             String?                 @map("next_step_key")
+  completionPercentage    Int                     @default(0) @map("completion_percentage")
   advertisements          Advertisement[]
+  authIdentities          AuthIdentity[]
   clientProfile           ClientProfile?
   clientContracts         Contract[]              @relation("ClientContracts")
   freelancerContracts     Contract[]              @relation("FreelancerContracts")
@@ -126,6 +132,9 @@ model User {
   deviceTokens            DeviceToken[]
   featuredServices        FeaturedService[]
   founderProfile          FounderProfile?
+  freelancerCertificates  FreelancerCertificate[]
+  freelancerEducations    FreelancerEducation[]
+  freelancerExperiences   FreelancerExperience[]
   freelancerProfile       FreelancerProfile?
   investorProfile         InvestorProfile?
   invoices                Invoice[]
@@ -136,25 +145,14 @@ model User {
   proposals               Proposal[]
   referralReceived        Referral?               @relation("Referee")
   referralsGiven          Referral[]              @relation("Referrer")
+  resumeShares            ResumeShare[]
   reviewsReceived         Review[]                @relation("Reviewee")
   reviewsWritten          Review[]                @relation("Reviewer")
   subscriptionHistories   SubscriptionHistory[]
   subscriptions           Subscription[]
+  resumeConfig            UserResumeConfig?
   walletRewards           WalletReward[]
   wallet                  Wallet?
-  trialEndsAt             DateTime?               @map("trial_ends_at")
-  registrationData        Json?                   @map("registration_data")
-  onboardingStatus        String                  @default("NOT_STARTED") @map("onboarding_status")
-  completedSteps          Json?                   @map("completed_steps")
-  currentStep             String?                 @map("current_step")
-  nextStepKey             String?                 @map("next_step_key")
-  completionPercentage    Int                     @default(0) @map("completion_percentage")
-  freelancerExperiences FreelancerExperience[]
-  freelancerEducations  FreelancerEducation[]
-  freelancerCertificates  FreelancerCertificate[]
-  resumeConfig            UserResumeConfig?
-  resumeShares            ResumeShare[]
-  authIdentities          AuthIdentity[]
 
   @@index([role])
   @@index([status])
@@ -165,12 +163,11 @@ model User {
 model AuthIdentity {
   id             String   @id @default(uuid())
   userId         String   @map("user_id")
-  provider       String   // e.g. "GOOGLE", "APPLE"
+  provider       String
   providerUserId String   @map("provider_user_id")
   email          String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
-
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerUserId])
@@ -179,6 +176,7 @@ model AuthIdentity {
 }
 
 model FreelancerProfile {
+<<<<<<< Updated upstream
     id                 String   @id @default(uuid())
     userId             String   @unique @map("user_id")
     titleHeadline      String?  @map("title_headline")
@@ -193,21 +191,37 @@ model FreelancerProfile {
     websiteUrl         String?  @map("website_url")
     githubUrl          String?  @map("github_url")
     dribbbleUrl        String?  @map("dribbble_url")
+=======
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  titleHeadline      String?  @map("title_headline")
+  skills             String?
+  hourlyRate         Float?   @map("hourly_rate")
+  rating             Float?   @default(5)
+  experience         String?  @map("experience_level")
+  yearsOfExperience  String?  @map("years_of_experience")
+  portfolioUrl       String?  @map("portfolio_url")
+  linkedInUrl        String?  @map("linkedin_url")
+  githubUrl          String?  @map("github_url")
+  dribbbleUrl        String?  @map("dribbble_url")
+>>>>>>> Stashed changes
   industry           String?
   workMode           String?  @map("work_mode")
-  industryId       String?   @map("industry_id")
-  currency           String?
-  monthlyRetainer    Float?   @map("monthly_retainer")
-  availability       String?
-  workingHours       String?  @map("working_hours")
-  responseTime       String?  @map("response_time")
-  remoteAvailability Boolean? @default(true) @map("remote_availability")
-  openToTravel       Boolean? @default(false) @map("open_to_travel")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   verificationJson   String?  @map("verification_json") @db.Text
   portfolioJson      String?  @map("portfolio_json") @db.Text
+  availability       String?
+  currency           String?
+  monthlyRetainer    Float?   @map("monthly_retainer")
+  openToTravel       Boolean? @default(false) @map("open_to_travel")
+  remoteAvailability Boolean? @default(true) @map("remote_availability")
+  responseTime       String?  @map("response_time")
+  workingHours       String?  @map("working_hours")
+  industryId         String?  @map("industry_id")
+  resumeUrl          String?  @map("resume_url")
+  websiteUrl         String?  @map("website_url")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("freelancer_profiles")
 }
@@ -227,13 +241,14 @@ model ClientProfile {
   projectsPosted    Int      @default(0) @map("projects_posted")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   verificationJson  String?  @map("verification_json") @db.Text
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("client_profiles")
 }
 
 model InvestorProfile {
+<<<<<<< Updated upstream
   id             String   @id @default(uuid())
   userId         String   @unique @map("user_id")
   investorType   String?  @map("investor_type")
@@ -248,11 +263,28 @@ model InvestorProfile {
   updatedAt      DateTime @updatedAt @map("updated_at")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   verificationJson  String?  @map("verification_json") @db.Text
+=======
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  investorType     String?  @map("investor_type")
+  firm             String?
+  isAccredited     String?  @map("is_accredited")
+  ticketMin        Float?   @map("ticket_min")
+  ticketMax        Float?   @map("ticket_max")
+  focusAreas       String?  @map("focus_areas")
+  preferredStage   String?  @map("preferred_stage")
+  deals            Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  verificationJson String?  @map("verification_json") @db.Text
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+>>>>>>> Stashed changes
 
   @@map("investor_profiles")
 }
 
 model FounderProfile {
+<<<<<<< Updated upstream
   id          String   @id @default(uuid())
   userId      String   @unique @map("user_id")
   startupName String?  @map("startup_name")
@@ -269,6 +301,24 @@ model FounderProfile {
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   verificationJson  String?  @map("verification_json") @db.Text
+=======
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  startupName      String?  @map("startup_name")
+  industry         String?
+  stage            String?
+  pitch            String?  @db.Text
+  founderRole      String?  @map("founder_role")
+  founderBio       String?  @map("founder_bio") @db.Text
+  raised           Float?   @default(0)
+  targetRaise      Float?   @map("target_raise")
+  teamSize         Int      @default(1) @map("team_size")
+  primaryGoal      String?  @map("primary_goal")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  verificationJson String?  @map("verification_json") @db.Text
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+>>>>>>> Stashed changes
 
   @@map("founder_profiles")
 }
@@ -286,7 +336,6 @@ model Project {
   timeline        String?
   description     String?     @db.Text
   workMode        String?     @map("work_mode")
-  industryId       String?   @map("industry_id")
   experienceLevel String?     @map("experience_level")
   attachments     String?     @db.Text
   shareCount      Int?        @default(0) @map("share_count")
@@ -294,6 +343,7 @@ model Project {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
   deletedAt       DateTime?   @map("deleted_at")
+  industryId      String?     @map("industry_id")
   contracts       Contract[]
   milestones      Milestone[]
   proposals       Proposal[]
@@ -790,12 +840,12 @@ model InvoiceItem {
 }
 
 model Industry {
-  id         String          @id @default(uuid())
+  id                String          @id @default(uuid())
   name              String          @unique
   status            String          @default("active")
-  isFreePlanEnabled Boolean         @default(false) @map("is_free_plan_enabled")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
+  isFreePlanEnabled Boolean         @default(false) @map("is_free_plan_enabled")
   categories        SkillCategory[]
 
   @@map("industries")
@@ -809,8 +859,8 @@ model SkillCategory {
   sortOrder  Int       @default(0) @map("sort_order")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
+  industry   Industry? @relation(fields: [industryId], references: [id])
   skills     Skill[]
-  industry   Industry? @relation(fields: [industryId], references: [id], onDelete: SetNull)
 
   @@index([industryId], map: "skill_categories_industry_id_fkey")
   @@map("skill_categories")
@@ -823,8 +873,8 @@ model Skill {
   status     String         @default("active")
   createdAt  DateTime       @default(now()) @map("created_at")
   updatedAt  DateTime       @updatedAt @map("updated_at")
-  category   SkillCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   industry   String?
+  category   SkillCategory? @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId], map: "skills_category_id_fkey")
   @@map("skills")
@@ -836,17 +886,31 @@ model Country {
   status            String   @default("active")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
-  code              String?  @default("") // ISO 2-letter code e.g. IN, US, GB, AE
-  phoneCode         String?  @default("") @map("phone_code") // e.g. +91, +1, +44
-  currencyCode      String?  @default("INR") @map("currency_code") // Default currency ISO code e.g. INR, USD
-  currencySymbol    String?  @default("₹") @map("currency_symbol") // e.g. ₹, $, £
-  flag              String?  @default("") // Flag emoji or image URL e.g. 🇮🇳, 🇺🇸
-  region            String?  @default("Asia") // Continent / Region
-  isDefault         Boolean? @default(false) @map("is_default") // Is default platform country
-  allowRegistration Boolean? @default(true) @map("allow_registration") // Allow registration from country
-  taxRate           Float?   @default(0.0) @map("tax_rate") // Country VAT/GST %
+  code              String?  @default("")
+  phoneCode         String?  @default("") @map("phone_code")
+  currencyCode      String?  @default("INR") @map("currency_code")
+  currencySymbol    String?  @default("₹") @map("currency_symbol")
+  flag              String?  @default("")
+  region            String?  @default("Asia")
+  isDefault         Boolean? @default(false) @map("is_default")
+  allowRegistration Boolean? @default(true) @map("allow_registration")
+  taxRate           Float?   @default(0) @map("tax_rate")
+  cities            City[]
 
   @@map("countries")
+}
+
+model City {
+  id        String   @id @default(uuid())
+  name      String
+  countryId String   @map("country_id")
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+
+  @@index([countryId], map: "cities_country_id_fkey")
+  @@map("cities")
 }
 
 model Currency {
@@ -857,10 +921,10 @@ model Currency {
   status        String   @default("active")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
-  exchangeRate  Float?   @default(1.0) @map("exchange_rate") // Rate relative to Base Currency
-  isBase        Boolean? @default(false) @map("is_base") // Is Base Currency (e.g. INR or USD)
-  isDefault     Boolean? @default(false) @map("is_default") // Default display currency
-  decimalPlaces Int?     @default(2) @map("decimal_places") // Precision
+  exchangeRate  Float?   @default(1) @map("exchange_rate")
+  isBase        Boolean? @default(false) @map("is_base")
+  isDefault     Boolean? @default(false) @map("is_default")
+  decimalPlaces Int?     @default(2) @map("decimal_places")
 
   @@map("currencies")
 }
@@ -930,11 +994,11 @@ model SubscriptionPlan {
   status         String                @default("active")
   createdAt      DateTime              @default(now()) @map("created_at")
   updatedAt      DateTime              @updatedAt @map("updated_at")
+  originalAmount Float?                @map("original_amount")
+  savedBadge     String?               @map("saved_badge")
   featureList    SubscriptionFeature[]
   history        SubscriptionHistory[]
   subscriptions  Subscription[]
-  originalAmount Float?                @map("original_amount")
-  savedBadge     String?               @map("saved_badge")
 
   @@map("subscription_plans")
 }
@@ -1007,7 +1071,7 @@ model Faq {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   deletedAt    DateTime?     @map("deleted_at")
-  helpCategory HelpCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  helpCategory HelpCategory? @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId], map: "faqs_help_category_id_fkey")
   @@index([status])
@@ -1026,8 +1090,8 @@ model HelpCategory {
   enabled          Boolean          @default(true)
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
-  articles         HelpArticle[]
   faqs             Faq[]
+  articles         HelpArticle[]
   videoGuides      HelpVideoGuide[]
 
   @@map("help_categories")
@@ -1091,14 +1155,14 @@ model Testimonial {
 
 model MasterOption {
   id        String   @id @default(uuid())
-  type      String // company_size, ticket_size, investor_type, founder_type, business_type, team_size, service_taxonomy, experience_level, startup_stage
+  type      String
   label     String
   value     String
   min       Float?
   max       Float?
   groupKey  String?  @map("group_key")
   sortOrder Int      @default(0) @map("sort_order")
-  metadata  Json?
+  metadata  String?  @db.LongText
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1397,17 +1461,17 @@ model NotificationPreference {
 model DeviceToken {
   id         String   @id @default(uuid())
   userId     String   @map("user_id")
-  deviceId   String?  @map("device_id")
   token      String   @unique
   platform   String
-  isActive   Boolean  @default(true) @map("is_active")
-  lastSeenAt DateTime @default(now()) @map("last_seen_at")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
+  deviceId   String?  @map("device_id")
+  isActive   Boolean  @default(true) @map("is_active")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId], map: "device_tokens_user_id_fkey")
-  @@index([deviceId], map: "device_tokens_device_id_idx")
+  @@index([deviceId])
   @@map("device_tokens")
 }
 
@@ -1517,23 +1581,21 @@ model NotificationCampaign {
   @@map("notification_campaigns")
 }
 
-
 model FreelancerExperience {
-  id             String    @id @default(uuid())
-  userId         String    @map("user_id")
-  title          String
-  company        String
-  location       String?
-  industryId     String?   @map("industry_id")
-  startDate      String?   @map("start_date")
-  endDate        String?   @map("end_date")
-  isCurrent      Boolean   @default(false) @map("is_current")
-  description    String?   @db.Text
-  skillsUsed     String?   @map("skills_used") // Will store as JSON string or comma separated
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  company     String
+  location    String?
+  industryId  String?  @map("industry_id")
+  startDate   String?  @map("start_date")
+  endDate     String?  @map("end_date")
+  isCurrent   Boolean  @default(false) @map("is_current")
+  description String?  @db.Text
+  skillsUsed  String?  @map("skills_used")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("freelancer_experiences")
@@ -1551,32 +1613,30 @@ model FreelancerEducation {
   category       String
   fileUrl        String?  @map("file_url")
   fileType       String?  @map("file_type")
-  skillsUsed     String?  @map("skills_used")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillsUsed     String?  @map("skills_used")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("freelancer_educations")
 }
 
 model FreelancerCertificate {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  name      String
-  issuer    String
-  number    String
-  issued    String
-  url       String?
-  verified  Boolean  @default(false)
-  fileUrl   String?  @map("file_url")
-  fileType  String?  @map("file_type")
-  skillsUsed String? @map("skills_used")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  name       String
+  issuer     String
+  number     String
+  issued     String
+  url        String?
+  verified   Boolean  @default(false)
+  fileUrl    String?  @map("file_url")
+  fileType   String?  @map("file_type")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  skillsUsed String?  @map("skills_used")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("freelancer_certificates")
@@ -1943,19 +2003,18 @@ model CareerApplication {
 }
 
 model ResumeTemplate {
-  id                String    @id @default(uuid())
-  key               String    @unique
-  name              String
-  category          String
-  description       String?   @db.Text
-  thumbnail         String?
-  status            String    @default("draft") // draft, published, archived
-  currentVersion    Int       @default(1) @map("current_version")
-  sortOrder         Int       @default(0) @map("sort_order")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-
-  versions ResumeTemplateVersion[]
+  id             String                  @id @default(uuid())
+  key            String                  @unique
+  name           String
+  category       String
+  status         String                  @default("draft")
+  sortOrder      Int                     @default(0) @map("sort_order")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+  currentVersion Int                     @default(1) @map("current_version")
+  description    String?                 @db.Text
+  thumbnail      String?
+  versions       ResumeTemplateVersion[]
 
   @@index([key])
   @@index([status])
@@ -1965,41 +2024,41 @@ model ResumeTemplate {
 model ResumeTemplateVersion {
   id                String         @id @default(uuid())
   templateId        String         @map("template_id")
-  template          ResumeTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   version           Int
   description       String?        @db.Text
   thumbnail         String?
   rendererKey       String         @map("renderer_key")
   atsFriendly       Boolean        @default(false) @map("ats_friendly")
-  supportedSections Json           @default("[]") @map("supported_sections")
-  requiredSections  Json           @default("[]") @map("required_sections")
-  defaultSections   Json           @default("[]") @map("default_sections")
-  themeConfig       Json?          @map("theme_config")
-  atsConfig         Json?          @map("ats_config")
-  layoutConfig      Json?          @map("layout_config")
+  supportedSections String         @map("supported_sections") @db.LongText
+  requiredSections  String         @map("required_sections") @db.LongText
+  defaultSections   String         @map("default_sections") @db.LongText
+  themeConfig       String?        @map("theme_config") @db.LongText
+  atsConfig         String?        @map("ats_config") @db.LongText
+  layoutConfig      String?        @map("layout_config") @db.LongText
   createdAt         DateTime       @default(now()) @map("created_at")
   publishedAt       DateTime?      @map("published_at")
+  template          ResumeTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@unique([templateId, version])
   @@map("resume_template_versions")
 }
 
 model UserResumeConfig {
-  id               String    @id @default(uuid())
-  userId           String    @unique @map("user_id")
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  templateId       String    @map("template_id")
-  templateVersion  Int       @default(1) @map("template_version")
-  enabledSections  Json      @default("{}") @map("enabled_sections")
-  sectionOrder     Json      @default("[]") @map("section_order")
-  headlineMode     String    @default("PROFILE") @map("headline_mode") // PROFILE or CUSTOM
-  headlineOverride String?   @map("headline_override")
-  summaryMode      String    @default("PROFILE") @map("summary_mode") // PROFILE or CUSTOM
-  summaryOverride  String?   @map("summary_override") @db.Text
-  themeConfig      Json?     @map("theme_config")
-  configVersion    Int       @default(1) @map("config_version")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  templateId       String   @map("template_id")
+  templateVersion  Int      @default(1) @map("template_version")
+  enabledSections  String   @map("enabled_sections") @db.LongText
+  sectionOrder     String   @map("section_order") @db.LongText
+  headlineOverride String?  @map("headline_override")
+  summaryOverride  String?  @map("summary_override") @db.Text
+  themeConfig      String?  @map("theme_config") @db.LongText
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  configVersion    Int      @default(1) @map("config_version")
+  headlineMode     String   @default("PROFILE") @map("headline_mode")
+  summaryMode      String   @default("PROFILE") @map("summary_mode")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([templateId])
@@ -2011,29 +2070,23 @@ model ResumeShare {
   userId           String    @map("user_id")
   resumeConfigId   String?   @map("resume_config_id")
   tokenHash        String    @unique @map("token_hash")
-  status           String    @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  status           String    @default("ACTIVE")
   visibility       String    @default("LINK_ONLY")
-  
   templateId       String    @map("template_id")
   templateVersion  Int       @map("template_version")
   configVersion    Int       @map("config_version")
-  snapshotData     Json      @map("snapshot_data")
-  
+  snapshotData     String    @map("snapshot_data") @db.LongText
   expiresAt        DateTime? @map("expires_at")
   revokedAt        DateTime? @map("revoked_at")
-  
   allowPdfDownload Boolean   @default(true) @map("allow_pdf_download")
   allowPrint       Boolean   @default(true) @map("allow_print")
-  
   viewCount        Int       @default(0) @map("view_count")
   downloadCount    Int       @default(0) @map("download_count")
   lastViewedAt     DateTime? @map("last_viewed_at")
-  
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
-
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId])
   @@index([status])
   @@map("resume_shares")

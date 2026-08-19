@@ -46,6 +46,7 @@ import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
+import subscriptionRoutes from "./subscription/subscription.routes.js";
 
 import mobileRoutes from "../modules/mobile/index.js";
 
@@ -59,6 +60,9 @@ router.use("/payments", paymentsRoutes);
 // Mobile API Routes (/api/v1/mobile/..., /api/mobile/...)
 router.use("/v1/mobile", mobileRoutes);
 router.use("/mobile", mobileRoutes);
+
+// Subscription / Plan Activation Routes
+router.use("/subscription", subscriptionRoutes);
 
 // Shared Messages routes (real-time chat API for all roles)
 router.use("/messages", messagesRoutes);
@@ -249,6 +253,7 @@ const tableModelMapping: Record<string, string> = {
   skill_categories: "SkillCategory",
   skills: "Skill",
   countries: "Country",
+  cities: "City",
   currencies: "Currency",
   languages: "Language",
   startup_stages: "StartupStage",
@@ -296,6 +301,7 @@ const tableModelMapping: Record<string, string> = {
 
 // Searchable columns for each model
 const searchColumnsMapping: Record<string, string[]> = {
+  City: ["name"],
   User: ["fullName", "email", "country"],
   Project: ["title", "client", "freelancer", "category", "technology", "timeline", "status"],
   Task: ["title", "assignedTo"],
@@ -1983,7 +1989,9 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
         ? { _count: { select: { skills: true } } }
         : modelName === "Skill"
           ? { category: { select: { id: true, name: true } } }
-          : undefined;
+          : modelName === "City"
+            ? { country: { select: { id: true, name: true } } }
+            : undefined;
 
   // Create router using factory
   const crudRouter = createCrudRouter(modelName as any, searchCols, include ? { include } : {});

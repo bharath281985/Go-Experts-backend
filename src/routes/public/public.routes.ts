@@ -33,7 +33,8 @@ import {
   getWorkModes,
   getHiringGoals,
   getInvestorStages,
-  getPlatformGoals
+  getPlatformGoals,
+  getCompanySizes,
 } from "../../modules/mobile/public/public.controller.js";
 
 const router = Router();
@@ -48,13 +49,40 @@ router.get("/hiring-budget-ranges", getBudgetRanges);
 router.get("/project-budgets", getBudgetRanges);
 router.get("/project-budget-ranges", getBudgetRanges);
 router.get("/team-sizes", getTeamSizes);
+router.get("/team_sizes", getTeamSizes);
 router.get("/founder-types", getFounderTypes);
 router.get("/business-types", getBusinessTypes);
 router.get("/investor-types", getInvestorTypes);
+router.get("/investor_types", getInvestorTypes);
 router.get("/work-modes", getWorkModes);
 router.get("/hiring-goals", getHiringGoals);
+router.get("/hiring_goals", getHiringGoals);
 router.get("/investor-stages", getInvestorStages);
+router.get("/investment-stages", getInvestorStages);
+router.get("/investment_stages", getInvestorStages);
 router.get("/platform-goals", getPlatformGoals);
+router.get("/company-sizes", getCompanySizes);
+router.get("/company_sizes", getCompanySizes);
+router.get("/accredited-statuses", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const options = await (prisma as any).masterOption.findMany({
+      where: { type: 'accredited_status', status: 'active' },
+      orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+      select: { id: true, label: true, value: true },
+    }).catch(() => []);
+    res.json({ success: true, data: options, rows: options });
+  } catch (err) { next(err); }
+});
+router.get("/accredited_statuses", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const options = await (prisma as any).masterOption.findMany({
+      where: { type: 'accredited_status', status: 'active' },
+      orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+      select: { id: true, label: true, value: true },
+    }).catch(() => []);
+    res.json({ success: true, data: options, rows: options });
+  } catch (err) { next(err); }
+});
 
 router.get("/settings/branding", async (req: Request, res: Response) => {
   const result = await getSettingsSection("branding");
@@ -136,6 +164,23 @@ router.get("/states", async (req: Request, res: Response, next: NextFunction) =>
     }
 
     res.json({ success: true, count: states.length, data: states, rows: states });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/cities", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const countryId = String(req.query.countryId || "").trim();
+    if (!countryId) {
+      return res.json({ success: true, count: 0, data: [], rows: [] });
+    }
+    // Fetch cities from db by countryId
+    const cities = await (prisma as any).city?.findMany({
+      where: { countryId, status: "active" },
+      orderBy: { name: "asc" }
+    }) || [];
+    res.json({ success: true, count: cities.length, data: cities, rows: cities });
   } catch (err) {
     next(err);
   }
@@ -1113,6 +1158,16 @@ router.get("/expansion-goals", async (_req: Request, res: Response) => {
 router.get("/expansion_goals", async (_req: Request, res: Response) => {
   const goals = await fetchMasterOptions("expansion_goal");
   return res.json({ success: true, data: goals, rows: goals });
+});
+
+router.get("/founder-roles", async (_req: Request, res: Response) => {
+  const roles = await fetchMasterOptions("founder_role");
+  return res.json({ success: true, data: roles });
+});
+
+router.get("/founder_roles", async (_req: Request, res: Response) => {
+  const roles = await fetchMasterOptions("founder_role");
+  return res.json({ success: true, data: roles });
 });
 
 router.get("/founder-goals", async (_req: Request, res: Response) => {
