@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { resolveProfileCompletion } from '../../../../services/mobile/profile-completion.service.js';
+import { getVerificationStats } from '../../../../common/helpers/verification.js';
 
 export const getDashboard = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -144,13 +145,16 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       createdAt: n.createdAt,
     }));
 
-    const authUser = await prisma.user.findUnique({ where: { id: userId }, select: { verified: true } });
+    const authUser = await prisma.user.findUnique({ where: { id: userId } });
+    const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
 
     return res.json(
       successResponse('Client dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
         isProfileComplete: completion.isProfileComplete,
         accountVerified: Boolean(authUser?.verified),
+        verificationMissingCount: verStats.missingCount,
+        verificationTrustScore: verStats.trustScore,
         activeProjects,
         draftProjects,
         completedProjects,

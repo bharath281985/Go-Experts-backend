@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { resolveProfileCompletion } from '../../../../services/mobile/profile-completion.service.js';
+import { getVerificationStats } from '../../../../common/helpers/verification.js';
 import { loadRelatedDataForIdeas, formatStartupResponse, readList } from './startups.controller.js';
 
 export const getDashboard = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -222,13 +223,16 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
 
     const watchlistCount = watchlist.length;
 
-    const authUser = await prisma.user.findUnique({ where: { id: userId }, select: { verified: true } });
+    const authUser = await prisma.user.findUnique({ where: { id: userId } });
+    const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
 
     return res.json(
       successResponse('Investor dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
         isProfileComplete: completion.isProfileComplete,
         accountVerified: Boolean(authUser?.verified),
+        verificationMissingCount: verStats.missingCount,
+        verificationTrustScore: verStats.trustScore,
         subscription: subscription
           ? {
             status: subscription.status,
