@@ -53,8 +53,8 @@ export class AdminResumeTemplateService {
           version: 1,
           rendererKey: data.rendererKey,
           supportedSections: JSON.stringify(rendererCaps.supportedSections || []),
-          requiredSections: JSON.stringify(rendererCaps.requiredSections || []),
-          defaultSections: JSON.stringify(rendererCaps.defaultSections || []),
+          requiredSections: JSON.stringify([]),
+          defaultSections: JSON.stringify([]),
           themeConfig: JSON.stringify({}),
           atsFriendly: false
         }

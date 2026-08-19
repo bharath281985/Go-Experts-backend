@@ -93,8 +93,8 @@ async function main() {
       update: {
         rendererKey: t.rendererKey,
         supportedSections: JSON.stringify(rendererConfig.supportedSections || []),
-        requiredSections: JSON.stringify(rendererConfig.requiredSections || []),
-        defaultSections: JSON.stringify(rendererConfig.defaultSections || []),
+        requiredSections: JSON.stringify([]),
+        defaultSections: JSON.stringify([]),
         atsFriendly: t.atsFriendly,
         publishedAt: new Date()
       },
@@ -103,8 +103,8 @@ async function main() {
         version: 1,
         rendererKey: t.rendererKey,
         supportedSections: JSON.stringify(rendererConfig.supportedSections || []),
-        requiredSections: JSON.stringify(rendererConfig.requiredSections || []),
-        defaultSections: JSON.stringify(rendererConfig.defaultSections || []),
+        requiredSections: JSON.stringify([]),
+        defaultSections: JSON.stringify([]),
         atsFriendly: t.atsFriendly,
         publishedAt: new Date()
       }
