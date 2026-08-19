@@ -116,10 +116,32 @@ export function getVerificationStats(user: any) {
     const items = buildVerificationItems(user, stored);
     const verifiedCount = items.filter((i) => i.status === "verified").length;
     const pendingCount = items.filter((i) => i.status === "pending").length;
-    const missingCount = items.filter((i) => i.status === "missing").length;
-    const requiredItems = items.filter((i) => i.required);
-    const requiredVerified = requiredItems.filter((i) => i.status === "verified").length;
-    const trustScore = Math.round((verifiedCount / Math.max(items.length, 1)) * 100);
+    
+    // Group keys
+    const personalKeys = ["pan", "aadhaar", "driving", "driving_licence"];
+    const businessKeys = ["gst", "udyam", "incorporation", "business_pan", "company"];
+    
+    // Calculate submitted items (verified or pending)
+    const personalSubmitted = items.filter(i => personalKeys.includes(i.key) && (i.status === "verified" || i.status === "pending")).length;
+    const businessSubmitted = items.filter(i => businessKeys.includes(i.key) && (i.status === "verified" || i.status === "pending")).length;
+    
+    const emailItem = items.find(i => i.key === "email");
+    const isEmailMissing = !emailItem || emailItem.status === "missing";
+    const isEmailVerified = emailItem?.status === "verified";
+    
+    // Calculate missing counts
+    const missingPersonal = Math.max(0, 2 - personalSubmitted);
+    const missingBusiness = Math.max(0, 2 - businessSubmitted);
+    const missingEmail = isEmailMissing ? 1 : 0;
+    const missingCount = missingEmail + missingPersonal + missingBusiness;
+    
+    // Calculate verified counts for the required groups
+    const personalVerified = items.filter(i => personalKeys.includes(i.key) && i.status === "verified").length;
+    const businessVerified = items.filter(i => businessKeys.includes(i.key) && i.status === "verified").length;
+    
+    const requiredTotal = 5; // 2 personal + 2 business + 1 email
+    const requiredVerified = (isEmailVerified ? 1 : 0) + Math.min(2, personalVerified) + Math.min(2, businessVerified);
+    const trustScore = Math.min(100, Math.round((requiredVerified / requiredTotal) * 100));
 
     return {
         items: items.filter((i) => i.status !== "missing"),
@@ -128,7 +150,7 @@ export function getVerificationStats(user: any) {
         pendingCount,
         missingCount,
         requiredVerified,
-        requiredTotal: requiredItems.length,
+        requiredTotal,
         accountVerified: Boolean(user.isVerified || user.verified),
         fullName: user.fullName,
         email: user.email,
