@@ -12,6 +12,13 @@ async function main() {
       WHERE updated_at < '1970-01-01' OR updated_at IS NULL
     `);
     console.log('Successfully fixed invalid dates in master_options.');
+
+    await prisma.$executeRawUnsafe(`
+      UPDATE experience_levels 
+      SET updated_at = CURRENT_TIMESTAMP 
+      WHERE updated_at < '1970-01-01' OR updated_at IS NULL
+    `);
+    console.log('Successfully fixed invalid dates in experience_levels.');
   } catch (error) {
     console.error('Error fixing dates:', error);
   } finally {
