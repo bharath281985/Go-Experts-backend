@@ -71,7 +71,9 @@ export function parseVerificationJson(raw: string | null | undefined): Record<st
 export function buildVerificationItems(user: any, stored: Record<string, Partial<VerificationItem>>): VerificationItem[] {
     const accountVerified = Boolean(user.isVerified || user.verified);
 
-    return VERIFICATION_KEYS.map(({ key, label, required }) => {
+    return VERIFICATION_KEYS
+        .filter(({ key }) => key === "email" || key === "phone" || stored[key])
+        .map(({ key, label, required }) => {
         const fromStore = stored[key] || {};
         let status = (fromStore.status as VerificationItem["status"]) || "missing";
         let value = String(fromStore.value || "").trim();
