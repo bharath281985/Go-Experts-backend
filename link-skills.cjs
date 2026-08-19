@@ -6,7 +6,7 @@ async function main() {
 
   // Get first available industry and category
   const defaultIndustry = await prisma.industry.findFirst({ where: { status: 'active' } });
-  const defaultCategory = await prisma.category.findFirst({ where: { status: 'active' } });
+  const defaultCategory = await prisma.skillCategory.findFirst({ where: { status: 'active' } });
 
   if (!defaultIndustry || !defaultCategory) {
     console.log("Error: Please make sure you have at least one active Industry and Category in the database first.");

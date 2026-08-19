@@ -62,9 +62,9 @@ async function main() {
   const categories = await prisma.masterOption.findMany({ where: { type: "category" } });
   let catCount = 0;
   for (const c of categories) {
-    const existing = await prisma.category.findFirst({ where: { name: c.label } });
+    const existing = await prisma.skillCategory.findFirst({ where: { name: c.label } });
     if (!existing) {
-      await prisma.category.create({
+      await prisma.skillCategory.create({
         data: { name: c.label, status: c.status || "active" }
       });
       catCount++;
