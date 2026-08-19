@@ -46,7 +46,10 @@ export const updateMyVerification = async (req: AuthenticatedRequest, res: Respo
             message: "Verification updated successfully",
             data: targetItem || { key: req.body.key }
         });
-    } catch (error) {
+    } catch (error: any) {
+        if (error.message && (error.message.includes("Invalid") || error.message.includes("already verified") || error.message.includes("Email is verified"))) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         next(error);
     }
 };
