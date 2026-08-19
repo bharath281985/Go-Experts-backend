@@ -151,7 +151,7 @@ export function getVerificationStats(user: any) {
         missingCount,
         requiredVerified,
         requiredTotal,
-        accountVerified: Boolean(user.isVerified || user.verified),
+        accountVerified: Boolean(user.verified),
         fullName: user.fullName,
         email: user.email,
     };
