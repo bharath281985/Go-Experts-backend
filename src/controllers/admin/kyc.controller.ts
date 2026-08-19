@@ -46,9 +46,9 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
             
             if (isVerified) {
                 const { sendKycApprovalPlanActivationEmail } = await import("../../services/mobile/email.service.js");
-                const userObj = await prisma.user.findFirst({ where: { id }, select: { email: true, name: true } });
+                const userObj = await prisma.user.findFirst({ where: { id }, select: { email: true, fullName: true } });
                 if (userObj && userObj.email) {
-                    await sendKycApprovalPlanActivationEmail(userObj.email, userObj.name || 'User');
+                    await sendKycApprovalPlanActivationEmail(userObj.email, userObj.fullName || 'User');
                 }
             }
         }

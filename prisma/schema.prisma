@@ -176,35 +176,20 @@ model AuthIdentity {
 }
 
 model FreelancerProfile {
-<<<<<<< Updated upstream
-    id                 String   @id @default(uuid())
-    userId             String   @unique @map("user_id")
-    titleHeadline      String?  @map("title_headline")
-    skills             String?  @db.Text
-    hourlyRate         Float?   @map("hourly_rate")
-    rating             Float?   @default(5)
-    experience         String?  @map("experience_level")
-    yearsOfExperience  String?  @map("years_of_experience")
-    portfolioUrl       String?  @map("portfolio_url")
-    resumeUrl          String?  @map("resume_url")
-    linkedInUrl        String?  @map("linkedin_url")
-    websiteUrl         String?  @map("website_url")
-    githubUrl          String?  @map("github_url")
-    dribbbleUrl        String?  @map("dribbble_url")
-=======
   id                 String   @id @default(uuid())
   userId             String   @unique @map("user_id")
   titleHeadline      String?  @map("title_headline")
-  skills             String?
+  skills             String?  @db.Text
   hourlyRate         Float?   @map("hourly_rate")
   rating             Float?   @default(5)
   experience         String?  @map("experience_level")
   yearsOfExperience  String?  @map("years_of_experience")
   portfolioUrl       String?  @map("portfolio_url")
+  resumeUrl          String?  @map("resume_url")
   linkedInUrl        String?  @map("linkedin_url")
+  websiteUrl         String?  @map("website_url")
   githubUrl          String?  @map("github_url")
   dribbbleUrl        String?  @map("dribbble_url")
->>>>>>> Stashed changes
   industry           String?
   workMode           String?  @map("work_mode")
   createdAt          DateTime @default(now()) @map("created_at")
@@ -219,8 +204,6 @@ model FreelancerProfile {
   responseTime       String?  @map("response_time")
   workingHours       String?  @map("working_hours")
   industryId         String?  @map("industry_id")
-  resumeUrl          String?  @map("resume_url")
-  websiteUrl         String?  @map("website_url")
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("freelancer_profiles")
@@ -248,22 +231,6 @@ model ClientProfile {
 }
 
 model InvestorProfile {
-<<<<<<< Updated upstream
-  id             String   @id @default(uuid())
-  userId         String   @unique @map("user_id")
-  investorType   String?  @map("investor_type")
-  firm           String?
-  isAccredited   String?  @map("is_accredited")
-  ticketMin      Float?   @map("ticket_min")
-  ticketMax      Float?   @map("ticket_max")
-  focusAreas     String?  @map("focus_areas") @db.Text
-  preferredStage String?  @map("preferred_stage")
-  deals          Int      @default(0)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  verificationJson  String?  @map("verification_json") @db.Text
-=======
   id               String   @id @default(uuid())
   userId           String   @unique @map("user_id")
   investorType     String?  @map("investor_type")
@@ -271,37 +238,18 @@ model InvestorProfile {
   isAccredited     String?  @map("is_accredited")
   ticketMin        Float?   @map("ticket_min")
   ticketMax        Float?   @map("ticket_max")
-  focusAreas       String?  @map("focus_areas")
+  focusAreas       String?  @map("focus_areas") @db.Text
   preferredStage   String?  @map("preferred_stage")
   deals            Int      @default(0)
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
-  verificationJson String?  @map("verification_json") @db.Text
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
->>>>>>> Stashed changes
+  verificationJson String?  @map("verification_json") @db.Text
 
   @@map("investor_profiles")
 }
 
 model FounderProfile {
-<<<<<<< Updated upstream
-  id          String   @id @default(uuid())
-  userId      String   @unique @map("user_id")
-  startupName String?  @map("startup_name")
-  industry    String?
-  stage       String?
-  pitch       String?  @db.Text
-  founderRole String?  @map("founder_role")
-  founderBio  String?  @map("founder_bio") @db.Text
-  raised      Float?   @default(0)
-  targetRaise Float?   @map("target_raise")
-  teamSize    Int      @default(1) @map("team_size")
-  primaryGoal String?  @map("primary_goal") @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  verificationJson  String?  @map("verification_json") @db.Text
-=======
   id               String   @id @default(uuid())
   userId           String   @unique @map("user_id")
   startupName      String?  @map("startup_name")
@@ -313,12 +261,11 @@ model FounderProfile {
   raised           Float?   @default(0)
   targetRaise      Float?   @map("target_raise")
   teamSize         Int      @default(1) @map("team_size")
-  primaryGoal      String?  @map("primary_goal")
+  primaryGoal      String?  @map("primary_goal") @db.Text
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
-  verificationJson String?  @map("verification_json") @db.Text
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
->>>>>>> Stashed changes
+  verificationJson String?  @map("verification_json") @db.Text
 
   @@map("founder_profiles")
 }
