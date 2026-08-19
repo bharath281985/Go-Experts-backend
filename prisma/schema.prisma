@@ -182,7 +182,7 @@ model FreelancerProfile {
     id                 String   @id @default(uuid())
     userId             String   @unique @map("user_id")
     titleHeadline      String?  @map("title_headline")
-    skills             String?
+    skills             String?  @db.Text
     hourlyRate         Float?   @map("hourly_rate")
     rating             Float?   @default(5)
     experience         String?  @map("experience_level")
@@ -222,7 +222,7 @@ model ClientProfile {
   projectHireBudget String?  @map("project_hire_budget")
   websiteUrl        String?  @map("website_url")
   jobTitle          String?  @map("job_title")
-  hiringGoal        String?  @map("hiring_goal")
+  hiringGoal        String?  @map("hiring_goal") @db.Text
   totalSpend        Float?   @default(0) @map("total_spend")
   projectsPosted    Int      @default(0) @map("projects_posted")
   createdAt         DateTime @default(now()) @map("created_at")
@@ -241,7 +241,7 @@ model InvestorProfile {
   isAccredited   String?  @map("is_accredited")
   ticketMin      Float?   @map("ticket_min")
   ticketMax      Float?   @map("ticket_max")
-  focusAreas     String?  @map("focus_areas")
+  focusAreas     String?  @map("focus_areas") @db.Text
   preferredStage String?  @map("preferred_stage")
   deals          Int      @default(0)
   createdAt      DateTime @default(now()) @map("created_at")
@@ -264,7 +264,7 @@ model FounderProfile {
   raised      Float?   @default(0)
   targetRaise Float?   @map("target_raise")
   teamSize    Int      @default(1) @map("team_size")
-  primaryGoal String?  @map("primary_goal")
+  primaryGoal String?  @map("primary_goal") @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
