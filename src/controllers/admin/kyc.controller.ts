@@ -36,9 +36,31 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
         const { id } = req.params;
         const updatePayload = req.body || {};
 
+        // Fetch user first to check stats if approving
+        const user = await prisma.user.findFirst({
+            where: { id, deletedAt: null },
+            include: {
+                freelancerProfile: true,
+                clientProfile: true,
+                founderProfile: true,
+                investorProfile: true
+            }
+        });
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
         // Toggle explicit verified flag on the user record directly
         if (updatePayload.verified !== undefined || updatePayload.isVerified !== undefined) {
             const isVerified = Boolean(updatePayload.verified ?? updatePayload.isVerified);
+            
+            if (isVerified) {
+                const checkStats = getVerificationStats(user);
+                if (checkStats.missingCount > 0) {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: `Cannot approve user. ${checkStats.missingCount} mandatory verification documents are missing.` 
+                    });
+                }
+            }
             await prisma.user.update({
                 where: { id },
                 data: { verified: isVerified, isVerified }
@@ -66,7 +88,8 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
             }
         } else {
             // Just returning stats if only verified flag was pushed
-            const user = await prisma.user.findFirst({
+            // We already fetched user above, but we need fresh stats in case they were updated
+            const freshUser = await prisma.user.findFirst({
                 where: { id, deletedAt: null },
                 include: {
                     freelancerProfile: true,
@@ -75,8 +98,7 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                     investorProfile: true
                 }
             });
-            if (!user) return res.status(404).json({ success: false, message: "User not found" });
-            stats = getVerificationStats(user);
+            stats = freshUser ? getVerificationStats(freshUser) : getVerificationStats(user);
         }
 
         // Return the updated info using unified format
