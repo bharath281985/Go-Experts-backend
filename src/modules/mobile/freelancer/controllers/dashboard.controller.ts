@@ -147,7 +147,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       createdAt: n.createdAt,
     }));
 
-    const authUser = await prisma.user.findUnique({ where: { id: userId } });
+    const authUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { freelancerProfile: true },
+    });
     const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
 
     const data = {

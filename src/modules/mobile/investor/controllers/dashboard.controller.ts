@@ -223,7 +223,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
 
     const watchlistCount = watchlist.length;
 
-    const authUser = await prisma.user.findUnique({ where: { id: userId } });
+    const authUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { investorProfile: true },
+    });
     const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
 
     return res.json(

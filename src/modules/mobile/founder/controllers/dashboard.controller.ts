@@ -281,7 +281,10 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     } else if (activeInvestorsCount > 0) {
       aiSuggestions = `You currently have ${activeInvestorsCount} active investors. Keep them updated with regular reports and consider hosting a strategic alignment meeting to secure follow-on funding.`;
     }
-    const authUser = await prisma.user.findUnique({ where: { id: userId } });
+    const authUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { founderProfile: true },
+    });
     const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
 
     return res.json(
