@@ -45,10 +45,11 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
             });
             
             if (isVerified) {
-                const { sendKycApprovalPlanActivationEmail } = await import("../../services/mobile/email.service.js");
+                const { sendAccountActiveEmail, sendPlanActivationEmail } = await import("../../services/mobile/email.service.js");
                 const userObj = await prisma.user.findFirst({ where: { id }, select: { email: true, fullName: true } });
                 if (userObj && userObj.email) {
-                    await sendKycApprovalPlanActivationEmail(userObj.email, userObj.fullName || 'User');
+                    await sendAccountActiveEmail(userObj.email, userObj.fullName || 'User');
+                    await sendPlanActivationEmail(userObj.email, userObj.fullName || 'User');
                 }
             }
         }
