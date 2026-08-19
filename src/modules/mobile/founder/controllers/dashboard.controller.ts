@@ -280,11 +280,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     } else if (activeInvestorsCount > 0) {
       aiSuggestions = `You currently have ${activeInvestorsCount} active investors. Keep them updated with regular reports and consider hosting a strategic alignment meeting to secure follow-on funding.`;
     }
+    const authUser = await prisma.user.findUnique({ where: { id: userId }, select: { verified: true } });
 
     return res.json(
       successResponse('Founder dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
         isProfileComplete: completion.isProfileComplete,
+        accountVerified: Boolean(authUser?.verified),
         startupCompletion,
         startupVerificationStatus,
         subscription: subscription

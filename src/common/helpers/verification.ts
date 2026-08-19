@@ -47,11 +47,11 @@ export const VERIFICATION_KEYS: Array<{ key: string; label: string; required?: b
 ];
 
 const VALIDATORS: Record<string, { regex: RegExp; message: string }> = {
-    pan: { regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, message: "Invalid PAN format (e.g. ABCDE1234F)" },
-    business_pan: { regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, message: "Invalid PAN format (e.g. ABCDE1234F)" },
+    pan: { regex: /^[a-zA-Z0-9]{10}$/, message: "Invalid PAN format (10 alphanumeric characters)" },
+    business_pan: { regex: /^[a-zA-Z0-9]{10}$/, message: "Invalid PAN format (10 alphanumeric characters)" },
     aadhaar: { regex: /^[0-9]{4}\s?[0-9]{4}\s?[0-9]{4}$/, message: "Invalid Aadhaar format (12 digits)" },
-    gst: { regex: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i, message: "Invalid GST format (15 characters)" },
-    udyam: { regex: /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/i, message: "Invalid Udyam format (e.g. UDYAM-MH-18-0123456)" },
+    gst: { regex: /^[a-zA-Z0-9]{15}$/, message: "Invalid GST format (15 alphanumeric characters)" },
+    udyam: { regex: /^[a-zA-Z0-9-]{10,25}$/, message: "Invalid Udyam format (10-25 characters)" },
     driving: { regex: /^[A-Z0-9-/\s]{10,20}$/i, message: "Invalid Driving Licence format" },
     driving_licence: { regex: /^[A-Z0-9-/\s]{10,20}$/i, message: "Invalid Driving Licence format" },
     incorporation: { regex: /^[A-Z0-9-\s]{5,25}$/i, message: "Invalid Incorporation Number format" },

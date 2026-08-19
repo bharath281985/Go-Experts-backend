@@ -222,10 +222,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
 
     const watchlistCount = watchlist.length;
 
+    const authUser = await prisma.user.findUnique({ where: { id: userId }, select: { verified: true } });
+
     return res.json(
       successResponse('Investor dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
         isProfileComplete: completion.isProfileComplete,
+        accountVerified: Boolean(authUser?.verified),
         subscription: subscription
           ? {
             status: subscription.status,

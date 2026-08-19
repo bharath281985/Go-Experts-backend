@@ -146,9 +146,12 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       createdAt: n.createdAt,
     }));
 
+    const authUser = await prisma.user.findUnique({ where: { id: userId }, select: { verified: true } });
+
     const data = {
       profileCompletion: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
+      accountVerified: Boolean(authUser?.verified),
       walletBalance: wallet?.balance || 0,
       subscriptionStatus: subscription ? 'active' : 'inactive',
       todaysTasks: todayTasksCount,

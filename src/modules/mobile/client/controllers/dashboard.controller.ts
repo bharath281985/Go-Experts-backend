@@ -144,10 +144,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       createdAt: n.createdAt,
     }));
 
+    const authUser = await prisma.user.findUnique({ where: { id: userId }, select: { verified: true } });
+
     return res.json(
       successResponse('Client dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
         isProfileComplete: completion.isProfileComplete,
+        accountVerified: Boolean(authUser?.verified),
         activeProjects,
         draftProjects,
         completedProjects,
