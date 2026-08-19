@@ -346,6 +346,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         message: "A user with this email already exists. Please use a different email address.",
       });
     }
+    // If user exists but was soft-deleted, we'll restore them below in the transaction
 
     const hashed = await bcrypt.hash(password, 10);
     const phone = req.body?.phone ? String(req.body.phone) : null;
@@ -376,6 +377,10 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               city,
               bio,
               registrationData,
+              // IMPORTANT: Clear soft-delete so the account is restored/visible
+              deletedAt: null,
+              isVerified: false,
+              verified: false,
             },
           })
         : await tx.user.create({
