@@ -21,23 +21,6 @@ async function main() {
   }
   console.log(`Updated ${moCount} MasterOptions to use ₹.`);
 
-  // Update Project Hire Budgets
-  const budgets = await prisma.projectHireBudget.findMany({
-    where: { label: { contains: '$' } }
-  });
-
-  let pbCount = 0;
-  for (const b of budgets) {
-    const newLabel = b.label.replace(/\$/g, '₹');
-    const newValue = b.value.replace(/\$/g, '₹');
-    await prisma.projectHireBudget.update({
-      where: { id: b.id },
-      data: { label: newLabel, value: newValue }
-    });
-    pbCount++;
-  }
-  console.log(`Updated ${pbCount} ProjectHireBudgets to use ₹.`);
-
   console.log("Rupee replacement complete.");
 }
 
