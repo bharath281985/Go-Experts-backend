@@ -1559,3 +1559,99 @@ export const revokeClientApiKey = async (req: AuthenticatedRequest, res: Respons
     handleError(err, res, next);
   }
 };
+
+// ==========================================
+// SAVED FREELANCERS (bookmark)
+// ==========================================
+
+export const listSavedFreelancers = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const rows = await getJsonSetting(userId, "savedFreelancers", [] as any[]);
+    res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const toggleSavedFreelancer = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+
+    const { freelancerId, slug, name, headline, avatar, rate, rating, location } = req.body ?? {};
+    if (!freelancerId) return res.status(400).json({ success: false, message: "freelancerId is required" });
+
+    const rows: any[] = await getJsonSetting(userId, "savedFreelancers", []);
+    const existing = rows.findIndex((r: any) => r.freelancerId === freelancerId);
+
+    let saved: boolean;
+    let next: any[];
+    if (existing >= 0) {
+      // already saved → remove (toggle off)
+      next = rows.filter((_: any, i: number) => i !== existing);
+      saved = false;
+    } else {
+      // not yet saved → add
+      const entry = {
+        id: `sf-${Date.now()}`,
+        freelancerId,
+        slug: slug ?? freelancerId,
+        name: name ?? "Freelancer",
+        headline: headline ?? "",
+        avatar: avatar ?? "",
+        rate: rate ?? 0,
+        rating: rating ?? 5,
+        location: location ?? "",
+        savedAt: new Date().toISOString(),
+      };
+      next = [...rows, entry];
+      saved = true;
+    }
+
+    await setJsonSetting(userId, "savedFreelancers", next);
+    res.json({ success: true, saved, rows: next, total: next.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+export const removeSavedFreelancer = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ success: false, message: "id is required" });
+
+    const rows: any[] = await getJsonSetting(userId, "savedFreelancers", []);
+    const next = rows.filter((r: any) => r.id !== id && r.freelancerId !== id);
+    await setJsonSetting(userId, "savedFreelancers", next);
+    res.json({ success: true, rows: next, total: next.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+// ==========================================
+// SHARE FREELANCER (track share event)
+// ==========================================
+
+export const shareFreelancer = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+
+    const { freelancerId, slug, name } = req.body ?? {};
+    if (!freelancerId) return res.status(400).json({ success: false, message: "freelancerId is required" });
+
+    const shareUrl = `${process.env.FRONTEND_URL ?? ""}/freelancers/${slug ?? freelancerId}`;
+    const log: any[] = await getJsonSetting(userId, "sharedFreelancers", []);
+    log.unshift({ freelancerId, slug, name, sharedAt: new Date().toISOString(), url: shareUrl });
+    await setJsonSetting(userId, "sharedFreelancers", log.slice(0, 100)); // keep last 100
+
+    res.json({ success: true, url: shareUrl });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};

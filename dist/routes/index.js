@@ -33,6 +33,7 @@ import clientRoutes from "./client/client.routes.js";
 import investorRoutes from "./investor/investor.routes.js";
 import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
+import messagesRoutes from "./messages/messages.routes.js";
 import aboutRouter from "./admin/about.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
@@ -47,6 +48,8 @@ router.use("/payments", paymentsRoutes);
 // Mobile API Routes (/api/v1/mobile/..., /api/mobile/...)
 router.use("/v1/mobile", mobileRoutes);
 router.use("/mobile", mobileRoutes);
+// Shared Messages routes (real-time chat API for all roles)
+router.use("/messages", messagesRoutes);
 // Portal (role-scoped)
 router.use("/freelancer", freelancerRoutes);
 router.use("/client", clientRoutes);
@@ -556,9 +559,9 @@ export function sanitizeUserRecord(row) {
         currentTeamId: regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
         currentTeamSize: clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
         currentTeamSizeId: regData.currentTeamSizeId ?? regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
-        projectHireBudget: regData.projectHireBudgetId ?? (clientProfile.projectHireBudget === "34000" ? "bgt_3" : (clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? "bgt_3")),
-        projectHireBudgetId: regData.projectHireBudgetId ?? (clientProfile.projectHireBudget === "34000" ? "bgt_3" : (clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? "bgt_3")),
-        projectHireBudgetLabel: clientProfile.projectHireBudget ?? regData.projectHireBudget ?? "$10,000 - $50,000",
+        projectHireBudget: regData.projectHireBudgetId ?? clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null,
+        projectHireBudgetId: regData.projectHireBudgetId ?? clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null,
+        projectHireBudgetLabel: regData.projectHireBudget ?? clientProfile.projectHireBudget ?? regData.projectHireBudgetId ?? regData.budget ?? null,
         websiteUrl: clientProfile.websiteUrl ?? regData.websiteUrl ?? null,
         jobTitle: clientProfile.jobTitle ?? regData.jobTitle ?? null,
         // Investor fields

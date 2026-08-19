@@ -56,6 +56,10 @@ import {
   generateClientApiKey,
   revokeClientApiKey,
   listClientApplications,
+  listSavedFreelancers,
+  toggleSavedFreelancer,
+  removeSavedFreelancer,
+  shareFreelancer,
 } from "../../controllers/client/client.controller.js";
 
 const router = Router();
@@ -142,5 +146,13 @@ router.post("/api-keys", generateClientApiKey as any);
 router.delete("/api-keys/:id", revokeClientApiKey as any);
 
 router.post("/media/upload", upload.single("file"), uploadFile as any);
+
+// Saved freelancers (bookmark)
+router.get("/freelancers/saved", listSavedFreelancers as any);
+router.post("/freelancers/save", toggleSavedFreelancer as any);
+router.delete("/freelancers/saved/:id", removeSavedFreelancer as any);
+
+// Share freelancer (track)
+router.post("/freelancers/share", shareFreelancer as any);
 
 export default router;

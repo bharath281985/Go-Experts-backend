@@ -515,29 +515,6 @@ export const register = async (req, res, next) => {
                 trial_ends_at: trialDateStr,
                 selected_plan: planSelected,
                 app_url: process.env.CLIENT_URL || "https://goexperts.in",
-            }, {
-                subject: "Welcome to Go Experts! Your 90-Day Free Trial is Active 🎉",
-                html: `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748; background: #ffffff; border-radius: 12px; border: 1px solid #eaedf1; overflow: hidden;">
-              <div style="padding: 24px; text-align: center; border-bottom: 3px solid #E30613;">
-                <img src="https://goexperts.in/assets/img/logo.png" alt="Go Experts" style="max-height: 44px;" />
-              </div>
-              <div style="padding: 32px 24px;">
-                <h2 style="color: #1a202c; font-size: 22px; font-weight: 800; margin-bottom: 12px;">Welcome to Go Experts! 🎉</h2>
-                <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Hello <strong>${user.fullName}</strong>, thank you for registering with <strong>Go Experts</strong> as a <strong>${user.role.toUpperCase()}</strong>.</p>
-                
-                <div style="background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 24px 0;">
-                  <h3 style="margin: 0 0 10px 0; color: #E30613; font-size: 16px; font-weight: 700;">🎁 90-Day Free Trial Activated!</h3>
-                  <p style="margin: 0 0 8px 0; font-size: 14px; color: #4a5568;">Your account has been granted <strong>90 Days of Full Platform Access</strong> with zero commitment.</p>
-                  <p style="margin: 0; font-size: 13px; color: #718096;"><strong>Trial Expiry Date:</strong> ${trialDateStr}</p>
-                </div>
-
-                <div style="text-align: center; margin-top: 32px;">
-                  <a href="${process.env.CLIENT_URL || 'https://goexperts.in'}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block;">Explore Platform Now &rarr;</a>
-                </div>
-              </div>
-            </div>
-          `,
             });
             await emailAdapter.send({
                 to: user.email,
@@ -1663,6 +1640,10 @@ export const saveOnboardingDraft = async (req, res, next) => {
         investorType, firm, isAccredited, ticketMin, ticketMax, focusAreas, preferredStage, 
         // Founder fields
         startupName, stage, pitch, founderRole, founderBio, raised, targetRaise, teamSize, primaryGoal, ...extraData } = req.body || {};
+        const projectHireBudgetInput = req.body?.projectHireBudgetId ?? req.body?.projectHireBudget ?? req.body?.budget;
+        const investorTypeInput = req.body?.investorTypeId ?? investorType;
+        const focusAreasInput = req.body?.focusAreasId ?? focusAreas;
+        const preferredStageInput = req.body?.preferredStageId ?? preferredStage;
         const currentRegData = typeof user.registrationData === "object" && user.registrationData !== null ? user.registrationData : {};
         const mergedRegData = {
             ...currentRegData,
@@ -1728,7 +1709,6 @@ export const saveOnboardingDraft = async (req, res, next) => {
                         githubUrl: gitUrl ? String(gitUrl) : undefined,
                         dribbbleUrl: dribUrl ? String(dribUrl) : undefined,
                         industry: joinArray(industry),
-                        workMode: joinArray(workMode),
                     },
                     update: {
                         ...(titleHeadline !== undefined && { titleHeadline: String(titleHeadline) }),
@@ -1748,7 +1728,7 @@ export const saveOnboardingDraft = async (req, res, next) => {
             else if (userRole === "client") {
                 const compName = req.body?.companyName || req.body?.company;
                 const currTeam = req.body?.currentTeam || req.body?.teamSize || req.body?.companySize;
-                const projBudget = req.body?.projectHireBudget || req.body?.budget;
+                const projBudget = projectHireBudgetInput;
                 await prisma.clientProfile.upsert({
                     where: { userId },
                     create: {
@@ -1779,22 +1759,22 @@ export const saveOnboardingDraft = async (req, res, next) => {
                     where: { userId },
                     create: {
                         userId,
-                        investorType: investorType ? String(investorType) : undefined,
+                        investorType: investorTypeInput ? String(investorTypeInput) : undefined,
                         firm: firm ? String(firm) : undefined,
                         isAccredited: isAccredited ? String(isAccredited) : undefined,
                         ticketMin: ticketMin !== undefined ? parseFloat(ticketMin) || null : undefined,
                         ticketMax: ticketMax !== undefined ? parseFloat(ticketMax) || null : undefined,
-                        focusAreas: joinArray(focusAreas),
-                        preferredStage: joinArray(preferredStage),
+                        focusAreas: joinArray(focusAreasInput),
+                        preferredStage: joinArray(preferredStageInput),
                     },
                     update: {
-                        ...(investorType !== undefined && { investorType: String(investorType) }),
+                        ...(investorTypeInput !== undefined && { investorType: String(investorTypeInput) }),
                         ...(firm !== undefined && { firm: String(firm) }),
                         ...(isAccredited !== undefined && { isAccredited: String(isAccredited) }),
                         ...(ticketMin !== undefined && { ticketMin: parseFloat(ticketMin) || null }),
                         ...(ticketMax !== undefined && { ticketMax: parseFloat(ticketMax) || null }),
-                        ...(focusAreas !== undefined && { focusAreas: joinArray(focusAreas) }),
-                        ...(preferredStage !== undefined && { preferredStage: joinArray(preferredStage) }),
+                        ...(focusAreasInput !== undefined && { focusAreas: joinArray(focusAreasInput) }),
+                        ...(preferredStageInput !== undefined && { preferredStage: joinArray(preferredStageInput) }),
                     },
                 });
             }

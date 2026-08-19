@@ -1,6 +1,24 @@
 import { prisma } from "../../config/database.js";
 import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
+/** Resolve an industry string (name or id) to {id, name}, or null if empty */
+async function resolveIndustry(raw) {
+    if (!raw || !raw.trim())
+        return null;
+    const val = raw.trim();
+    try {
+        const found = await prisma.industry.findFirst({
+            where: { OR: [{ id: val }, { name: val }] },
+            select: { id: true, name: true },
+        });
+        if (found)
+            return { id: found.id, name: found.name };
+    }
+    catch { /* ignore */ }
+    // fallback: construct a slug id from the name
+    const slugId = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return { id: slugId, name: val };
+}
 async function loadClientUser(userId) {
     const user = await prisma.user.findFirst({
         where: { id: userId, deletedAt: null },
@@ -135,6 +153,7 @@ export const getClientProfile = async (req, res, next) => {
         const user = await loadClientUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
+        const resolvedIndustry = await resolveIndustry(user.clientProfile?.industry);
         res.json({
             success: true,
             data: {
@@ -147,7 +166,8 @@ export const getClientProfile = async (req, res, next) => {
                 city: user.city || "",
                 country: user.country || "",
                 company: user.clientProfile?.company || "",
-                industry: user.clientProfile?.industry || "",
+                industry: resolvedIndustry,
+                industryName: resolvedIndustry?.name || null,
                 totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
                 projectsPosted: user.clientProfile?.projectsPosted ?? 0,
                 status: user.status || "active",
@@ -346,6 +366,11 @@ export const createClientProject = async (req, res, next) => {
                 technology,
                 timeline: body.timeline ? String(body.timeline) : null,
                 status: requestedStatus,
+                description: body.description ? String(body.description) : null,
+                industryId: body.industry ? String(body.industry) : null,
+                experienceLevel: body.experience ? String(body.experience) : null,
+                workMode: body.workMode ? String(body.workMode) : null,
+                attachments: body.attachments ? JSON.stringify(body.attachments) : null,
             },
         });
         await prisma.clientProfile.upsert({
@@ -467,6 +492,33 @@ export const listProjectApplications = async (req, res, next) => {
             orderBy: { createdAt: "desc" },
         });
         res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const listClientApplications = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const user = await loadClientUser(userId);
+        if (!user)
+            return res.status(404).json({ success: false, message: "User not found" });
+        const projWhere = clientProjectWhere(user, user.clientProfile);
+        const rows = await prisma.proposal.findMany({
+            where: { project: { is: projWhere }, deletedAt: null },
+            include: {
+                project: { select: { id: true, title: true } },
+                freelancer: { select: { id: true, fullName: true, email: true, avatarUrl: true, bio: true } }
+            },
+            orderBy: { createdAt: "desc" },
+        });
+        const mappedRows = rows.map((r) => ({
+            ...r,
+            projectTitle: r.project?.title || "Project",
+        }));
+        res.json({ success: true, rows: mappedRows, total: rows.length });
     }
     catch (err) {
         handleError(err, res, next);
@@ -1441,6 +1493,100 @@ export const revokeClientApiKey = async (req, res, next) => {
         const nextRows = rows.filter((r) => r.id !== id);
         await setJsonSetting(userId, "apiKeys", nextRows);
         res.json({ success: true, message: "API key revoked", rows: nextRows });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+// ==========================================
+// SAVED FREELANCERS (bookmark)
+// ==========================================
+export const listSavedFreelancers = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const rows = await getJsonSetting(userId, "savedFreelancers", []);
+        res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const toggleSavedFreelancer = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { freelancerId, slug, name, headline, avatar, rate, rating, location } = req.body ?? {};
+        if (!freelancerId)
+            return res.status(400).json({ success: false, message: "freelancerId is required" });
+        const rows = await getJsonSetting(userId, "savedFreelancers", []);
+        const existing = rows.findIndex((r) => r.freelancerId === freelancerId);
+        let saved;
+        let next;
+        if (existing >= 0) {
+            // already saved → remove (toggle off)
+            next = rows.filter((_, i) => i !== existing);
+            saved = false;
+        }
+        else {
+            // not yet saved → add
+            const entry = {
+                id: `sf-${Date.now()}`,
+                freelancerId,
+                slug: slug ?? freelancerId,
+                name: name ?? "Freelancer",
+                headline: headline ?? "",
+                avatar: avatar ?? "",
+                rate: rate ?? 0,
+                rating: rating ?? 5,
+                location: location ?? "",
+                savedAt: new Date().toISOString(),
+            };
+            next = [...rows, entry];
+            saved = true;
+        }
+        await setJsonSetting(userId, "savedFreelancers", next);
+        res.json({ success: true, saved, rows: next, total: next.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const removeSavedFreelancer = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        if (!id)
+            return res.status(400).json({ success: false, message: "id is required" });
+        const rows = await getJsonSetting(userId, "savedFreelancers", []);
+        const next = rows.filter((r) => r.id !== id && r.freelancerId !== id);
+        await setJsonSetting(userId, "savedFreelancers", next);
+        res.json({ success: true, rows: next, total: next.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+// ==========================================
+// SHARE FREELANCER (track share event)
+// ==========================================
+export const shareFreelancer = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { freelancerId, slug, name } = req.body ?? {};
+        if (!freelancerId)
+            return res.status(400).json({ success: false, message: "freelancerId is required" });
+        const shareUrl = `${process.env.FRONTEND_URL ?? ""}/freelancers/${slug ?? freelancerId}`;
+        const log = await getJsonSetting(userId, "sharedFreelancers", []);
+        log.unshift({ freelancerId, slug, name, sharedAt: new Date().toISOString(), url: shareUrl });
+        await setJsonSetting(userId, "sharedFreelancers", log.slice(0, 100)); // keep last 100
+        res.json({ success: true, url: shareUrl });
     }
     catch (err) {
         handleError(err, res, next);

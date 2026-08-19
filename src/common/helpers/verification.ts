@@ -4,9 +4,30 @@ export type VerificationItem = {
     key: string;
     label: string;
     value: string;
-    status: "verified" | "pending" | "missing";
+    status: "verified" | "pending" | "missing" | "rejected";
     documentUrl?: string | null;
     required?: boolean;
+};
+
+// Canonical map of all accepted verification keys → label
+export const VERIFICATION_KEY_MAP: Record<string, string> = {
+    // Legacy / generic keys
+    email: "Email address",
+    phone: "Phone number",
+    personal_id_1: "Primary ID Proof",
+    personal_id_2: "Secondary ID Proof",
+    business_proof: "Business Proof",
+    address: "Address proof",
+    selfie: "Selfie verification",
+    // Personal document keys (shown in UI)
+    pan: "PAN Card",
+    aadhaar: "Aadhaar Card",
+    driving: "Driving Licence",
+    // Business document keys (shown in UI)
+    gst: "GST Certificate",
+    udyam: "Udyam Aadhaar",
+    incorporation: "Incorporation Proof",
+    business_pan: "Business PAN",
 };
 
 export const VERIFICATION_KEYS: Array<{ key: string; label: string; required?: boolean }> = [
@@ -16,8 +37,25 @@ export const VERIFICATION_KEYS: Array<{ key: string; label: string; required?: b
     { key: "personal_id_2", label: "Secondary ID Proof", required: true },
     { key: "business_proof", label: "Business Proof", required: false },
     { key: "address", label: "Address proof", required: false },
-    { key: "selfie", label: "Selfie verification", required: false }
+    { key: "selfie", label: "Selfie verification", required: false },
+    { key: "pan", label: "PAN Card", required: false },
+    { key: "aadhaar", label: "Aadhaar Card", required: false },
+    { key: "driving", label: "Driving Licence", required: false },
+    { key: "gst", label: "GST Certificate", required: false },
+    { key: "udyam", label: "Udyam Aadhaar", required: false },
+    { key: "incorporation", label: "Incorporation Proof", required: false },
+    { key: "business_pan", label: "Business PAN", required: false },
 ];
+
+const VALIDATORS: Record<string, { regex: RegExp; message: string }> = {
+    pan: { regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, message: "Invalid PAN format (e.g. ABCDE1234F)" },
+    business_pan: { regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, message: "Invalid PAN format (e.g. ABCDE1234F)" },
+    aadhaar: { regex: /^[2-9]{1}[0-9]{3}\s?[0-9]{4}\s?[0-9]{4}$/, message: "Invalid Aadhaar format (12 digits)" },
+    gst: { regex: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i, message: "Invalid GST format (15 characters)" },
+    udyam: { regex: /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$/i, message: "Invalid Udyam format (e.g. UDYAM-MH-18-0123456)" },
+    driving: { regex: /^[A-Z0-9-/\s]{10,20}$/i, message: "Invalid Driving Licence format" },
+    incorporation: { regex: /^[A-Z0-9-\s]{5,25}$/i, message: "Invalid Incorporation Number format" },
+};
 
 export function parseVerificationJson(raw: string | null | undefined): Record<string, Partial<VerificationItem>> {
     if (!raw) return {};
@@ -32,42 +70,32 @@ export function parseVerificationJson(raw: string | null | undefined): Record<st
 export function buildVerificationItems(user: any, stored: Record<string, Partial<VerificationItem>>): VerificationItem[] {
     const location = [user.city, user.country].filter(Boolean).join(", ");
     const accountVerified = Boolean(user.isVerified || user.verified);
+    const VALID_STATUSES = ["verified", "pending", "missing", "rejected"] as const;
 
-    return VERIFICATION_KEYS.map(({ key, label, required }) => {
-        const fromStore = stored[key] || {};
-        let status = (fromStore.status as VerificationItem["status"]) || "missing";
-        let value = String(fromStore.value || "").trim();
-        const documentUrl = fromStore.documentUrl || null;
+    // Build sparse items from what is actually stored — email & phone are excluded
+    return Object.entries(stored)
+        .filter(([key]) => key !== "email" && key !== "phone")
+        .map(([key, fromStore]) => {
+            let status = (fromStore.status as VerificationItem["status"]) || "missing";
+            let value = String(fromStore.value || "").trim();
+            const documentUrl = fromStore.documentUrl || null;
+            const label = VERIFICATION_KEY_MAP[key] || fromStore.label as string || key;
+            const required = VERIFICATION_KEYS.find(k => k.key === key)?.required ?? false;
 
-        if (key === "email") {
-            value = user.email || value || "Not set";
-            status = user.email ? "verified" : "missing";
-        } else if (key === "phone") {
-            value = user.phone || value || "Not submitted";
-            status = user.phone ? (fromStore.status as any) || "verified" : "missing";
-        } else if (key === "personal_id_1" || key === "personal_id_2") {
-            if (!value) value = accountVerified ? "Account verified by admin" : "Not submitted";
-            if (accountVerified && status === "missing") status = "verified";
-        } else if (key === "address") {
-            if (!value && location) {
-                value = location;
+            // personal_id_1/2 backward-compat
+            if ((key === "personal_id_1" || key === "personal_id_2") && !value) {
+                value = accountVerified ? "Account verified by admin" : "Not submitted";
+                if (accountVerified && status === "missing") status = "verified";
+            } else if (key === "address" && !value) {
+                value = location || "Not submitted";
+            } else if (!value) {
+                value = status === "missing" ? "Not submitted" : "Submitted";
             }
-            if (!value) value = "Not submitted";
-        } else if (!value) {
-            value = status === "missing" ? "Not submitted" : value || "Submitted";
-        }
 
-        if (!["verified", "pending", "missing"].includes(status)) status = "missing";
+            if (!VALID_STATUSES.includes(status as any)) status = "missing";
 
-        return {
-            key,
-            label,
-            value,
-            status,
-            documentUrl,
-            required: Boolean(required),
-        };
-    });
+            return { key, label, value, status, documentUrl, required: Boolean(required) };
+        });
 }
 
 // Extract verification details from a user based on role
@@ -130,13 +158,23 @@ export async function applyVerificationUpdate(userId: string, body: any) {
 
     const stored = getVerificationJsonForUser(user);
     const nextStatusRaw = body.status != null ? String(body.status).toLowerCase() : "pending";
-    const nextStatus = ["verified", "pending", "missing"].includes(nextStatusRaw)
+    const nextStatus = ["verified", "pending", "missing", "rejected"].includes(nextStatusRaw)
         ? (nextStatusRaw as VerificationItem["status"])
         : "pending";
 
-    const value = body.value != null
-        ? String(body.value).trim()
-        : stored[key]?.value || (nextStatus === "missing" ? "Not submitted" : "Submitted for review");
+    const value = body.value != null ? String(body.value).trim() : (stored[key]?.value || "");
+
+    if (value && VALIDATORS[key]) {
+        if (!VALIDATORS[key].regex.test(value)) {
+            throw new Error(VALIDATORS[key].message);
+        }
+    }
+
+    // Enforce locking: once verified, it cannot be altered by normal user update flows.
+    // If the backend tries to update a verified document to 'pending', reject it.
+    if (stored[key]?.status === "verified" && nextStatus !== "verified") {
+        throw new Error("Document is already verified and locked. Please contact support to request an update.");
+    }
 
     stored[key] = {
         ...stored[key],

@@ -22,7 +22,8 @@ export const initSocket = (server: HttpServer) => {
         if (
           socketOrigins.includes(origin) ||
           origin.startsWith('http://localhost:') ||
-          origin.startsWith('http://127.0.0.1:')
+          origin.startsWith('http://127.0.0.1:') ||
+          !origin // allow non-browser clients like Postman in dev
         ) {
           return callback(null, true);
         }

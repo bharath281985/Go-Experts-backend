@@ -447,13 +447,35 @@ export const purchaseFreelancerSubscription = async (req, res, next) => {
 // ==========================================
 // EXPERIENCE / EDUCATION / CERTIFICATES / SKILLS
 // ==========================================
+const populateSkillsUsed = async (items) => {
+    const isArray = Array.isArray(items);
+    const rows = isArray ? items : [items];
+    const populated = await Promise.all(rows.map(async (row) => {
+        let skillsDetails = [];
+        if (row.skillsUsed) {
+            const skillIds = row.skillsUsed.split(',').map((s) => s.trim()).filter(Boolean);
+            if (skillIds.length > 0) {
+                skillsDetails = await prisma.skill.findMany({
+                    where: { id: { in: skillIds } },
+                    select: { id: true, name: true }
+                });
+            }
+        }
+        return { ...row, skillsDetails };
+    }));
+    return isArray ? populated : populated[0];
+};
 export const getFreelancerExperience = async (req, res, next) => {
     try {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const rows = await getJsonSetting(userId, "experience", []);
-        res.json({ success: true, rows, total: rows.length });
+        const rows = await prisma.freelancerExperience.findMany({
+            where: { userId },
+            orderBy: { createdAt: "desc" },
+        });
+        const populatedRows = await populateSkillsUsed(rows);
+        res.json({ success: true, data: populatedRows, total: populatedRows.length });
     }
     catch (err) {
         handleError(err, res, next);
@@ -464,11 +486,112 @@ export const putFreelancerExperience = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const items = Array.isArray(req.body) ? req.body : req.body?.items;
-        if (!Array.isArray(items))
-            return res.status(400).json({ success: false, message: "items array is required" });
-        await setJsonSetting(userId, "experience", items);
-        res.json({ success: true, message: "Experience updated", rows: items });
+        let items = Array.isArray(req.body) ? req.body : (req.body?.items || null);
+        if (!items) {
+            if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0)
+                items = [req.body];
+            else
+                return res.status(400).json({ success: false, message: "items array is required" });
+        }
+        await prisma.$transaction([
+            prisma.freelancerExperience.deleteMany({ where: { userId } }),
+            prisma.freelancerExperience.createMany({
+                data: items.map((item) => ({
+                    userId,
+                    title: String(item.title || item.designation || ""),
+                    company: String(item.company || ""),
+                    location: item.location ? String(item.location) : null,
+                    industryId: item.industryId ? String(item.industryId) : null,
+                    startDate: item.startDate ? String(item.startDate) : null,
+                    endDate: item.endDate ? String(item.endDate) : null,
+                    isCurrent: Boolean(item.isCurrent),
+                    description: item.description ? String(item.description) : null,
+                    skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
+                })),
+            }),
+        ]);
+        const newRows = await prisma.freelancerExperience.findMany({
+            where: { userId },
+            orderBy: { createdAt: "desc" },
+        });
+        const populatedRows = await populateSkillsUsed(newRows);
+        res.json({ success: true, message: "Experience updated", data: populatedRows });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const postFreelancerExperience = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const item = req.body;
+        const created = await prisma.freelancerExperience.create({
+            data: {
+                userId,
+                title: String(item.title || item.designation || ""),
+                company: String(item.company || ""),
+                location: item.location ? String(item.location) : null,
+                industryId: item.industryId ? String(item.industryId) : null,
+                startDate: item.startDate ? String(item.startDate) : null,
+                endDate: item.endDate ? String(item.endDate) : null,
+                isCurrent: Boolean(item.isCurrent),
+                description: item.description ? String(item.description) : null,
+                skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
+            }
+        });
+        const populated = await populateSkillsUsed(created);
+        res.status(201).json({ success: true, message: "Experience created", data: populated });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const deleteFreelancerExperience = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        await prisma.freelancerExperience.deleteMany({
+            where: { id, userId }
+        });
+        res.json({ success: true, message: "Experience deleted" });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const putFreelancerExperienceById = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        const item = req.body;
+        const existing = await prisma.freelancerExperience.findFirst({
+            where: { id, userId }
+        });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: "Experience not found" });
+        }
+        const updated = await prisma.freelancerExperience.update({
+            where: { id },
+            data: {
+                title: item.title !== undefined ? String(item.title) : (item.designation !== undefined ? String(item.designation) : undefined),
+                company: item.company !== undefined ? String(item.company) : undefined,
+                location: item.location !== undefined ? (item.location ? String(item.location) : null) : undefined,
+                industryId: item.industryId !== undefined ? (item.industryId ? String(item.industryId) : null) : undefined,
+                startDate: item.startDate !== undefined ? (item.startDate ? String(item.startDate) : null) : undefined,
+                endDate: item.endDate !== undefined ? (item.endDate ? String(item.endDate) : null) : undefined,
+                isCurrent: item.isCurrent !== undefined ? Boolean(item.isCurrent) : undefined,
+                description: item.description !== undefined ? (item.description ? String(item.description) : null) : undefined,
+                skillsUsed: item.skillsUsed !== undefined ? (Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null)) : undefined,
+            }
+        });
+        const populated = await populateSkillsUsed(updated);
+        res.json({ success: true, message: "Experience updated", data: populated });
     }
     catch (err) {
         handleError(err, res, next);
@@ -489,7 +612,29 @@ export const getFreelancerEducation = async (req, res, next) => {
             educationFile: r.fileUrl,
             document: r.fileUrl
         }));
-        res.json({ success: true, data: mappedRows, total: mappedRows.length });
+        const populatedRows = await populateSkillsUsed(mappedRows);
+        res.json({ success: true, data: populatedRows, total: populatedRows.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const getFreelancerEducationByUserId = async (req, res, next) => {
+    try {
+        const { userId } = req.params;
+        if (!userId)
+            return res.status(400).json({ success: false, message: "User ID is required" });
+        const rows = await prisma.freelancerEducation.findMany({
+            where: { userId },
+            orderBy: { createdAt: "asc" },
+        });
+        const mappedRows = rows.map((r) => ({
+            ...r,
+            educationFile: r.fileUrl,
+            document: r.fileUrl
+        }));
+        const populatedRows = await populateSkillsUsed(mappedRows);
+        res.json({ success: true, data: populatedRows, total: populatedRows.length });
     }
     catch (err) {
         handleError(err, res, next);
@@ -523,6 +668,7 @@ export const putFreelancerEducation = async (req, res, next) => {
                     category: String(item.category || ""),
                     fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
                     fileType: item.fileType ? String(item.fileType) : null,
+                    skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
                 })),
             }),
         ]);
@@ -530,7 +676,8 @@ export const putFreelancerEducation = async (req, res, next) => {
             where: { userId },
             orderBy: { createdAt: "asc" },
         });
-        res.json({ success: true, message: "Education updated", data: newRows });
+        const populatedRows = await populateSkillsUsed(newRows);
+        res.json({ success: true, message: "Education updated", data: populatedRows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -554,9 +701,11 @@ export const postFreelancerEducation = async (req, res, next) => {
                 category: String(item.category || ""),
                 fileUrl: item.document ? String(item.document) : (item.educationFile ? String(item.educationFile) : (item.fileUrl ? String(item.fileUrl) : null)),
                 fileType: item.fileType ? String(item.fileType) : null,
+                skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
             }
         });
-        res.status(201).json({ success: true, message: "Education created", data: created });
+        const populated = await populateSkillsUsed(created);
+        res.status(201).json({ success: true, message: "Education created", data: populated });
     }
     catch (err) {
         handleError(err, res, next);
@@ -603,9 +752,11 @@ export const putFreelancerEducationById = async (req, res, next) => {
                 category: item.category !== undefined ? String(item.category) : undefined,
                 fileUrl: item.document !== undefined ? String(item.document) : (item.educationFile !== undefined ? String(item.educationFile) : (item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined)),
                 fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
+                skillsUsed: item.skillsUsed !== undefined ? (Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null)) : undefined,
             }
         });
-        res.json({ success: true, message: "Education updated", data: updated });
+        const populated = await populateSkillsUsed(updated);
+        res.json({ success: true, message: "Education updated", data: populated });
     }
     catch (err) {
         handleError(err, res, next);
@@ -626,7 +777,8 @@ export const getFreelancerCertificates = async (req, res, next) => {
             certificateUrl: r.url,
             certificateFile: r.fileUrl
         }));
-        res.json({ success: true, data: mappedRows, total: mappedRows.length });
+        const populatedRows = await populateSkillsUsed(mappedRows);
+        res.json({ success: true, data: populatedRows, total: populatedRows.length });
     }
     catch (err) {
         handleError(err, res, next);
@@ -659,6 +811,7 @@ export const putFreelancerCertificates = async (req, res, next) => {
                     verified: Boolean(item.verified),
                     fileUrl: item.certificateFile ? String(item.certificateFile) : (item.fileUrl ? String(item.fileUrl) : null),
                     fileType: item.fileType ? String(item.fileType) : null,
+                    skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
                 })),
             }),
         ]);
@@ -666,7 +819,8 @@ export const putFreelancerCertificates = async (req, res, next) => {
             where: { userId },
             orderBy: { createdAt: "asc" },
         });
-        res.json({ success: true, message: "Certificates updated", data: newRows });
+        const populatedRows = await populateSkillsUsed(newRows);
+        res.json({ success: true, message: "Certificates updated", data: populatedRows });
     }
     catch (err) {
         handleError(err, res, next);
@@ -689,9 +843,11 @@ export const postFreelancerCertificates = async (req, res, next) => {
                 verified: Boolean(item.verified),
                 fileUrl: item.certificateFile ? String(item.certificateFile) : (item.fileUrl ? String(item.fileUrl) : null),
                 fileType: item.fileType ? String(item.fileType) : null,
+                skillsUsed: Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null),
             }
         });
-        res.status(201).json({ success: true, message: "Certificate created", data: created });
+        const populated = await populateSkillsUsed(created);
+        res.status(201).json({ success: true, message: "Certificate created", data: populated });
     }
     catch (err) {
         handleError(err, res, next);
@@ -737,9 +893,11 @@ export const putFreelancerCertificateById = async (req, res, next) => {
                 verified: item.verified !== undefined ? Boolean(item.verified) : undefined,
                 fileUrl: item.certificateFile !== undefined ? String(item.certificateFile) : (item.fileUrl !== undefined ? (item.fileUrl ? String(item.fileUrl) : null) : undefined),
                 fileType: item.fileType !== undefined ? (item.fileType ? String(item.fileType) : null) : undefined,
+                skillsUsed: item.skillsUsed !== undefined ? (Array.isArray(item.skillsUsed) ? item.skillsUsed.join(", ") : (item.skillsUsed ? String(item.skillsUsed) : null)) : undefined,
             }
         });
-        res.json({ success: true, message: "Certificate updated", data: updated });
+        const populated = await populateSkillsUsed(updated);
+        res.json({ success: true, message: "Certificate updated", data: populated });
     }
     catch (err) {
         handleError(err, res, next);
@@ -972,13 +1130,51 @@ export const getFreelancerResume = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const data = await getJsonSetting(userId, "resume", {
+        const config = await getJsonSetting(userId, "resume", {
             template: "modern",
             sections: {},
             headline: "",
             summary: "",
         });
-        res.json({ success: true, data });
+        const pdfUrl = `${req.protocol}://${req.get("host")}/api/v1/mobile/freelancer/resume/export`;
+        // Fetch all user profile details
+        const user = await prisma.user.findFirst({
+            where: { id: userId, deletedAt: null },
+            include: {
+                freelancerProfile: true
+            }
+        });
+        const rawExperiences = await prisma.freelancerExperience.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+        const experiences = await populateSkillsUsed(rawExperiences);
+        const rawEducation = await prisma.freelancerEducation.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
+        const education = await populateSkillsUsed(rawEducation);
+        const rawCertificates = await prisma.freelancerCertificate.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
+        const certificates = await populateSkillsUsed(rawCertificates);
+        res.json({
+            success: true,
+            data: {
+                config,
+                fileUrl: pdfUrl,
+                downloadUrl: pdfUrl,
+                profile: {
+                    fullName: user?.fullName,
+                    email: user?.email,
+                    phone: user?.phone,
+                    avatarUrl: user?.avatarUrl,
+                    title: user?.freelancerProfile?.titleHeadline,
+                    bio: user?.freelancerProfile?.overview,
+                    hourlyRate: user?.freelancerProfile?.hourlyRate,
+                    location: user?.location,
+                    website: user?.freelancerProfile?.portfolioUrl,
+                    linkedin: user?.freelancerProfile?.linkedInUrl,
+                    github: user?.freelancerProfile?.githubUrl,
+                    skills: user?.freelancerProfile?.skills
+                },
+                experiences: Array.isArray(experiences) ? experiences : (experiences ? [experiences] : []),
+                education: Array.isArray(education) ? education : (education ? [education] : []),
+                certificates: Array.isArray(certificates) ? certificates : (certificates ? [certificates] : [])
+            }
+        });
     }
     catch (err) {
         handleError(err, res, next);
@@ -1011,10 +1207,35 @@ export const putFreelancerResume = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const safeName = (user?.fullName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const mockPdfUrl = `https://apiai.goexperts.in/uploads/mock_resume_${safeName}.pdf`;
         const existing = await getJsonSetting(userId, "resume", {});
         const merged = { ...existing, ...(req.body || {}) };
         await setJsonSetting(userId, "resume", merged);
-        res.json({ success: true, message: "Resume saved", data: merged });
+        let currentReg = {};
+        if (user?.registrationData) {
+            if (typeof user.registrationData === 'string') {
+                try {
+                    currentReg = JSON.parse(user.registrationData);
+                }
+                catch { }
+            }
+            else if (typeof user.registrationData === 'object') {
+                currentReg = user.registrationData;
+            }
+        }
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                registrationData: {
+                    ...currentReg,
+                    resume: mockPdfUrl,
+                    resumeUrl: mockPdfUrl
+                }
+            }
+        });
+        res.json({ success: true, message: "Resume generated successfully", data: { ...merged, resumeUrl: mockPdfUrl } });
     }
     catch (err) {
         handleError(err, res, next);

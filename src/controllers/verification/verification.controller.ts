@@ -71,8 +71,22 @@ export const deleteMyVerification = async (req: AuthenticatedRequest, res: Respo
         }
 
         // Otherwise, completely wipe it
-        const user = await prisma.user.findFirst({ where: { id: req.user.id } });
+        const user = await prisma.user.findFirst({
+            where: { id: req.user.id },
+            include: {
+                freelancerProfile: true,
+                clientProfile: true,
+                founderProfile: true,
+                investorProfile: true
+            }
+        });
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+        // Enforce lock: if any document is already verified, block wiping the whole verification state
+        const currentStats = getVerificationStats(user);
+        if (currentStats.items.some(i => i.status === "verified")) {
+            return res.status(403).json({ success: false, message: "You have verified documents that cannot be deleted. Please contact support." });
+        }
 
         const role = String(user.role).toLowerCase();
         const emptyJson = JSON.stringify({});

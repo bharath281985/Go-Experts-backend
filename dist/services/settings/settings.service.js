@@ -42,6 +42,9 @@ export async function saveSettingsSection(section, data) {
     return { section, data };
 }
 export async function renderEmailTemplate(templateId, variables, fallback) {
+    if (!fallback) {
+        fallback = SETTINGS_DEFAULTS.email_templates.find(t => t.id === templateId) || { subject: "Go Experts", html: "Hello" };
+    }
     try {
         const section = await getSettingsSection("email_templates");
         const templates = Array.isArray(section?.data) ? section.data : [];

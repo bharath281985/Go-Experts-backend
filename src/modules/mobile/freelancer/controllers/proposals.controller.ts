@@ -9,10 +9,19 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
+    const status = req.query.status as string | undefined;
+
+    const where: any = { freelancerId: req.user.id };
+    if (status) where.status = status;
 
     const [proposals, total] = await Promise.all([
-      prisma.proposal.findMany({ where: { freelancerId: req.user.id }, skip, take: limit }),
-      prisma.proposal.count({ where: { freelancerId: req.user.id } })
+      prisma.proposal.findMany({
+        where,
+        skip,
+        take: limit,
+        include: { project: true }
+      }),
+      prisma.proposal.count({ where })
     ]);
     return res.json(successResponse('Proposals retrieved', proposals, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }

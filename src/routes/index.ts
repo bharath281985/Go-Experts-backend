@@ -40,6 +40,7 @@ import clientRoutes from "./client/client.routes.js";
 import investorRoutes from "./investor/investor.routes.js";
 import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
+import messagesRoutes from "./messages/messages.routes.js";
 import aboutRouter from "./admin/about.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
@@ -58,6 +59,9 @@ router.use("/payments", paymentsRoutes);
 // Mobile API Routes (/api/v1/mobile/..., /api/mobile/...)
 router.use("/v1/mobile", mobileRoutes);
 router.use("/mobile", mobileRoutes);
+
+// Shared Messages routes (real-time chat API for all roles)
+router.use("/messages", messagesRoutes);
 
 // Portal (role-scoped)
 router.use("/freelancer", freelancerRoutes);

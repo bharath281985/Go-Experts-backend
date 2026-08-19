@@ -52,6 +52,9 @@ type PortfolioItem = {
   shares: number;
   created: string;
   overview?: string;
+  challenge?: string;
+  solution?: string;
+  impact?: string;
   githubUrl?: string;
   liveUrl?: string;
   pdfUrl?: string;
@@ -116,6 +119,9 @@ function normalizePortfolioItem(input: any, fallbackId?: string): PortfolioItem 
     shares: Math.max(0, Number(input?.shares) || 0),
     created: String(input?.created || new Date().toISOString().slice(0, 10)),
     overview: input?.overview != null ? String(input.overview) : "",
+    challenge: input?.challenge != null ? String(input.challenge) : "",
+    solution: input?.solution != null ? String(input.solution) : "",
+    impact: input?.impact != null ? String(input.impact) : "",
     githubUrl: input?.githubUrl != null ? String(input.githubUrl) : "",
     liveUrl: input?.liveUrl != null ? String(input.liveUrl) : "",
     pdfUrl: input?.pdfUrl != null ? String(input.pdfUrl) : (input?.pdfCaseStudy ? String(input.pdfCaseStudy) : ""),

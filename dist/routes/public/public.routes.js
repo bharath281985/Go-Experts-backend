@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../../config/database.js";
-import { getHomeCmsContent, getHomePagePayload, getHomePageFallbackPayload, getPublicCategories, getPublicPlatformStats, getPublicSkills, } from "../../services/public/home.service.js";
+import { getHomeCmsContent, getHomePagePayload, getPublicCategories, getPublicPlatformStats, getPublicSkills, } from "../../services/public/home.service.js";
 import { parseCatalogListBody, parseFreelancersListBody, parseSkillsListBody } from "../../common/helpers/catalog-body.js";
 import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreelancers, } from "../../services/public/freelancers.service.js";
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
@@ -14,6 +14,9 @@ router.get("/skills", getSkills);
 router.get("/industries", getIndustries);
 router.get("/budget-ranges", getBudgetRanges);
 router.get("/hiring-budgets", getBudgetRanges);
+router.get("/hiring-budget-ranges", getBudgetRanges);
+router.get("/project-budgets", getBudgetRanges);
+router.get("/project-budget-ranges", getBudgetRanges);
 router.get("/team-sizes", getTeamSizes);
 router.get("/founder-types", getFounderTypes);
 router.get("/business-types", getBusinessTypes);
@@ -111,6 +114,19 @@ router.get("/currencies", async (_req, res, next) => {
             orderBy: [{ isBase: "desc" }, { name: "asc" }],
         });
         res.json({ success: true, count: currencies.length, data: currencies });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+router.get("/technologies", async (_req, res, next) => {
+    try {
+        const technologies = await prisma.masterOption.findMany({
+            where: { type: "technology", status: "active" },
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, label: true, value: true },
+        });
+        res.json({ success: true, count: technologies.length, data: technologies });
     }
     catch (err) {
         next(err);
@@ -353,8 +369,7 @@ router.get("/home", async (_req, res, next) => {
         res.json({ success: true, data });
     }
     catch (err) {
-        console.error("Public home payload failed, returning fallback:", err);
-        res.json({ success: true, data: getHomePageFallbackPayload() });
+        next(err);
     }
 });
 router.get("/cms_pages", async (req, res, next) => {
@@ -855,10 +870,41 @@ router.post("/projects", async (req, res, next) => {
         next(err);
     }
 });
+router.get("/projects/:slug", async (req, res, next) => {
+    try {
+        const { slug } = req.params;
+        const project = await prisma.project.findFirst({
+            where: {
+                id: slug,
+                deletedAt: null,
+            },
+        });
+        if (!project) {
+            return res.status(404).json({ success: false, message: "Project not found" });
+        }
+        res.json({ success: true, data: project });
+    }
+    catch (err) {
+        next(err);
+    }
+});
 router.get("/pricing_plans", async (req, res, next) => {
     try {
-        const includeFree = req.query.includeFree === "true";
+        const industryId = req.query.industryId;
+        const role = req.query.role;
         const whereCondition = { status: "active" };
+        if (role) {
+            whereCondition.role = role;
+        }
+        let includeFree = false;
+        if (industryId) {
+            const industry = await prisma.industry.findUnique({
+                where: { id: industryId },
+            });
+            if (industry && industry.isFreePlanEnabled) {
+                includeFree = true;
+            }
+        }
         if (!includeFree) {
             whereCondition.amount = { gt: 0 };
             whereCondition.duration = { not: "90_days" };
