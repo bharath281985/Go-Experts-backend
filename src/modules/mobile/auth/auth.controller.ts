@@ -437,6 +437,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         const experienceVal = expRaw != null ? String(expRaw) : null;
         const hourlyRateVal = b.hourlyRate != null && b.hourlyRate !== '' ? parseFloat(b.hourlyRate) : null;
 
+        const educationVal = b.education != null ? String(b.education).trim() : null;
+
         await tx.freelancerProfile.upsert({
           where: { userId: created.id },
           update: {
@@ -444,6 +446,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             industry: industryVal ? String(industryVal).trim() : undefined,
             experience: experienceVal || undefined,
             hourlyRate: hourlyRateVal != null ? hourlyRateVal : undefined,
+            education: educationVal || undefined,
           },
           create: {
             userId: created.id,
@@ -451,6 +454,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             industry: industryVal ? String(industryVal).trim() : null,
             experience: experienceVal,
             hourlyRate: hourlyRateVal,
+            education: educationVal,
           }
         });
       }
