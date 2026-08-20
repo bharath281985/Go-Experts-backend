@@ -2100,9 +2100,9 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
 export const checkEmailVerification = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email } = req.query;
-    if (!email) return res.json(successResponse('Verified', { verified: false }));
+    if (!email) return res.json({ success: true, message: 'Verified', data: { verified: false } });
     const user = await prisma.user.findUnique({ where: { email: String(email).trim().toLowerCase() } });
-    if (!user) return res.json(successResponse('User not found', { verified: false }));
-    return res.json(successResponse('Check complete', { verified: user.isVerified }));
+    if (!user) return res.json({ success: true, message: 'User not found', data: { verified: false } });
+    return res.json({ success: true, message: 'Check complete', data: { verified: user.isVerified } });
   } catch (error) { next(error); }
 };

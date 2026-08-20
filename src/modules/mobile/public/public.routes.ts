@@ -4,7 +4,7 @@ import {
   getFreelancers, getClients, getInvestors, getStartups,
   getProjects, shareProject, getPricing, getPricingPlans, getBlogs, getFaqs, getTestimonials,
   submitContact, search, getById,
-  getExperienceLevels, getStartupStages, getCompanySizes, getTicketSizes,
+  getEducationLevels, getExperienceLevels, getStartupStages, getCompanySizes, getTicketSizes,
   getInvestorTypes, getFounderTypes, getTeamSizes, getCountries, getStates,
   getBusinessTypes, getServicesTaxonomy, getProjectCategories,
   getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getBudgetRanges,
@@ -24,6 +24,7 @@ router.get('/home', directoryCache, getHomeData);
 router.get('/categories', masterCache, getCategories);
 router.get('/skills', skillsCache, getSkills);
 router.get('/industries', masterCache, getIndustries);
+router.get('/education_levels', masterCache, getEducationLevels as any);
 router.get('/experience-levels', masterCache, getExperienceLevels);
 router.get('/startup-stages', masterCache, getStartupStages);
 router.get('/company-sizes', masterCache, getCompanySizes);
@@ -76,24 +77,27 @@ router.post('/contact', submitContact);
 router.get('/search', directoryCache, search);
 
 export default router;
-
 // Get Education Levels
 router.get("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const levels = await prisma.educationLevel.findMany({
-      where: { isActive: true },
-      orderBy: { order: "asc" }
+    const dbLevels = await (prisma as any).masterOption.findMany({
+      where: { type: 'education_level' },
+      orderBy: { sortOrder: 'asc' }
     });
-    return res.json(successResponse('Education levels fetched', levels));
+    const levels = dbLevels.map((l: any) => ({ id: l.id, label: l.label, value: l.value }));
+    return res.json({ success: true, message: 'Education levels fetched', data: levels });
   } catch (error) { next(error); }
 });
 
 router.post("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const levels = await prisma.educationLevel.findMany({
-      where: { isActive: true },
-      orderBy: { order: "asc" }
+    const dbLevels = await (prisma as any).masterOption.findMany({
+      where: { type: 'education_level' },
+      orderBy: { sortOrder: 'asc' }
     });
-    return res.json(successResponse('Education levels fetched', levels));
+    const levels = dbLevels.map((l: any) => ({ id: l.id, label: l.label, value: l.value }));
+    return res.json({ success: true, message: 'Education levels fetched', data: levels });
   } catch (error) { next(error); }
 });
+
+export default router;

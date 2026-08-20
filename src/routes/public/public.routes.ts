@@ -460,6 +460,18 @@ router.get("/experience_levels", async (req: Request, res: Response, next: NextF
 });
 
 router.get("/freelancers/filters", async (_req: Request, res: Response, next: NextFunction) => {
+router.get("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbLevels = await prisma.masterOption.findMany({
+      where: { type: 'education_level' },
+      orderBy: { sortOrder: 'asc' }
+    });
+    const rows = dbLevels.map((l) => ({ id: l.id, label: l.label, value: l.value }));
+    res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    next(err);
+  }
+});
   try {
     const data = await getPublicFreelancerFilters();
     res.json({ success: true, data });
@@ -1599,25 +1611,3 @@ router.get("/help-center/articles/:slug", async (req: Request, res: Response, ne
 });
 
 export default router;
-
-
-// Get Education Levels
-router.get("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const levels = await prisma.educationLevel.findMany({
-      where: { isActive: true },
-      orderBy: { order: "asc" }
-    });
-    return res.json(successResponse('Education levels fetched', levels));
-  } catch (error) { next(error); }
-});
-
-router.post("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const levels = await prisma.educationLevel.findMany({
-      where: { isActive: true },
-      orderBy: { order: "asc" }
-    });
-    return res.json(successResponse('Education levels fetched', levels));
-  } catch (error) { next(error); }
-});

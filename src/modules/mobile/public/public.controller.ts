@@ -1807,3 +1807,15 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
 
 
+
+export const getEducationLevels = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbLevels = await prisma.masterOption.findMany({
+      where: { type: 'education_level' },
+      orderBy: { sortOrder: 'asc' }
+    }).catch(() => []);
+
+    const levels = dbLevels.map((l) => ({ id: l.id, label: l.label, value: l.value }));
+    return res.json(successResponse('Education levels retrieved', levels));
+  } catch (error) { next(error); }
+};
