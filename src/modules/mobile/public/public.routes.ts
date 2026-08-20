@@ -76,28 +76,6 @@ router.get('/testimonials', masterCache, getTestimonials);
 router.post('/contact', submitContact);
 router.get('/search', directoryCache, search);
 
-export default router;
-// Get Education Levels
-router.get("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const dbLevels = await (prisma as any).masterOption.findMany({
-      where: { type: 'education_level' },
-      orderBy: { sortOrder: 'asc' }
-    });
-    const levels = dbLevels.map((l: any) => ({ id: l.id, label: l.label, value: l.value }));
-    return res.json({ success: true, message: 'Education levels fetched', data: levels });
-  } catch (error) { next(error); }
-});
-
-router.post("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const dbLevels = await (prisma as any).masterOption.findMany({
-      where: { type: 'education_level' },
-      orderBy: { sortOrder: 'asc' }
-    });
-    const levels = dbLevels.map((l: any) => ({ id: l.id, label: l.label, value: l.value }));
-    return res.json({ success: true, message: 'Education levels fetched', data: levels });
-  } catch (error) { next(error); }
-});
+router.get('/education_levels', masterCache, getEducationLevels as any);
 
 export default router;
