@@ -76,3 +76,24 @@ router.post('/contact', submitContact);
 router.get('/search', directoryCache, search);
 
 export default router;
+
+// Get Education Levels
+router.get("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const levels = await prisma.educationLevel.findMany({
+      where: { isActive: true },
+      orderBy: { order: "asc" }
+    });
+    return res.json(successResponse('Education levels fetched', levels));
+  } catch (error) { next(error); }
+});
+
+router.post("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const levels = await prisma.educationLevel.findMany({
+      where: { isActive: true },
+      orderBy: { order: "asc" }
+    });
+    return res.json(successResponse('Education levels fetched', levels));
+  } catch (error) { next(error); }
+});

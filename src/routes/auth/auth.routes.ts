@@ -17,6 +17,7 @@ import {
   sendVerificationLink,
   updateVerificationData,
   saveOnboardingDraft,
+  checkEmailVerification,
 } from "../../controllers/auth/auth.controller.js";
 import {
   googleAuthStart,
@@ -46,6 +47,7 @@ router.post("/avatar", authMiddleware as any, upload.single("file"), uploadAvata
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.get("/otp-info", getOtpInfo);
+router.get("/check-email-verification", checkEmailVerification);
 router.post("/send-verification-link", sendVerificationLink);
 router.patch("/verification", authMiddleware as any, updateVerificationData as any);
 router.patch("/onboarding/draft", authMiddleware as any, saveOnboardingDraft as any);
