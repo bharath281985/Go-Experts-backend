@@ -869,8 +869,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
       if (activeUser.role === 'freelancer') {
         formattedProfile.headline = roleProfile.titleHeadline;
-        formattedProfile.categoryId = toSingleOption(roleProfile.industry);
-        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        formattedProfile.categoryId = toMultiOptions(roleProfile.industry);
+        formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         const experienceLevel = toSingleOption(roleProfile.experience);
         formattedProfile.ExperienceLevel = experienceLevel ? {
@@ -878,6 +878,9 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
           experienceLevelName: experienceLevel.name,
         } : null;
         delete formattedProfile.experience;
+        const education = toSingleOption(roleProfile.education);
+        formattedProfile.educationId = education;
+        delete formattedProfile.education;
         const availability = toSingleOption(roleProfile.availability);
         formattedProfile.Availability = availability ? {
           availabilityId: availability.id,
@@ -894,7 +897,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       } else if (activeUser.role === 'client') {
         formattedProfile.companyName = roleProfile.company;
         formattedProfile.headline = roleProfile.jobTitle;
-        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.projectHireBudgetId = toSingleOption(roleProfile.projectHireBudget);
         delete formattedProfile.projectHireBudget;
@@ -911,7 +914,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         delete formattedProfile.investorType;
       } else if (activeUser.role === 'founder') {
         formattedProfile.teamSize = teamSizeOption;
-        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);
         delete formattedProfile.stage;
@@ -1101,6 +1104,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       targetRaise,
       raised,
       teamSize,
+      education,
     } = req.body;
 
     const rawPhone = req.body.phone;
@@ -1136,6 +1140,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     const investorTypeInput = extractVal(req.body.investorTypeId ?? req.body.investorType);
     const founderRoleInput = extractVal(req.body.founderRoleId ?? req.body.founderRole);
     const teamSizeInput = extractVal(req.body.teamSizeId ?? req.body.teamSize);
+    const educationInput = extractVal(req.body.educationId ?? req.body.education ?? education);
 
     let avatarUrl: string | undefined = undefined;
     if (req.file) {
@@ -1190,6 +1195,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           responseTime: responseTime ? String(responseTime).trim() : undefined,
           remoteAvailability: remoteAvailability != null ? Boolean(remoteAvailability) : undefined,
           openToTravel: openToTravel != null ? Boolean(openToTravel) : undefined,
+          education: educationInput ? String(educationInput).trim() : undefined,
         },
         create: {
           userId: req.user.id,
@@ -1213,6 +1219,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           responseTime: responseTime ? String(responseTime).trim() : null,
           remoteAvailability: remoteAvailability != null ? Boolean(remoteAvailability) : true,
           openToTravel: openToTravel != null ? Boolean(openToTravel) : false,
+          education: educationInput ? String(educationInput).trim() : null,
         },
       });
     } else if (role === 'client') {
@@ -1411,8 +1418,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
 
       if (activeUser.role === 'freelancer') {
         formattedProfile.headline = roleProfile.titleHeadline;
-        formattedProfile.categoryId = toSingleOption(roleProfile.industry);
-        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        formattedProfile.categoryId = toMultiOptions(roleProfile.industry);
+        formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         const experienceLevel = toSingleOption(roleProfile.experience);
         formattedProfile.ExperienceLevel = experienceLevel ? {
@@ -1420,6 +1427,9 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           experienceLevelName: experienceLevel.name,
         } : null;
         delete formattedProfile.experience;
+        const education = toSingleOption(roleProfile.education);
+        formattedProfile.educationId = education;
+        delete formattedProfile.education;
         const availability = toSingleOption(roleProfile.availability);
         formattedProfile.Availability = availability ? {
           availabilityId: availability.id,
@@ -1436,7 +1446,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       } else if (activeUser.role === 'client') {
         formattedProfile.companyName = roleProfile.company;
         formattedProfile.headline = roleProfile.jobTitle;
-        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.projectHireBudgetId = toSingleOption(roleProfile.projectHireBudget);
         delete formattedProfile.projectHireBudget;
@@ -1453,7 +1463,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         delete formattedProfile.investorType;
       } else if (activeUser.role === 'founder') {
         formattedProfile.teamSize = teamSizeOption;
-        formattedProfile.industryId = toSingleOption(roleProfile.industry);
+        formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);
         delete formattedProfile.stage;
