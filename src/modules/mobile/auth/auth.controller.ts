@@ -320,7 +320,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           bio: bioVal ? String(bioVal).trim() : null,
           avatarUrl: avatarUrlVal ? String(avatarUrlVal).trim() : null,
           isVerified: isEmailVerified,
-          registrationData: b,
+          registrationData: JSON.stringify(b),
           status: 'active',
         },
       });
