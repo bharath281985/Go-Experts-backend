@@ -191,7 +191,7 @@ model FreelancerProfile {
   websiteUrl         String?  @map("website_url")
   githubUrl          String?  @map("github_url")
   dribbbleUrl        String?  @map("dribbble_url")
-  industry           String?
+  industry           String?  @db.Text
   workMode           String?  @map("work_mode")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
@@ -214,7 +214,7 @@ model ClientProfile {
   id                String   @id @default(uuid())
   userId            String   @unique @map("user_id")
   company           String?
-  industry          String?
+  industry          String?  @db.Text
   companySize       String?  @map("company_size")
   currentTeam       String?  @map("current_team")
   projectHireBudget String?  @map("project_hire_budget")
@@ -254,7 +254,7 @@ model FounderProfile {
   id               String   @id @default(uuid())
   userId           String   @unique @map("user_id")
   startupName      String?  @map("startup_name")
-  industry         String?
+  industry         String?  @db.Text
   stage            String?
   pitch            String?  @db.Text
   founderRole      String?  @map("founder_role")
