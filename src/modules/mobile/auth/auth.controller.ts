@@ -94,6 +94,21 @@ const buildPhoneNumber = (phone?: string, countryCode?: string) => {
   return `${countryCode}${phone}`;
 };
 
+const resolveIsSocialLogin = async (user: any): Promise<boolean> => {
+  if (!user) return false;
+  if (!user.password || user.password.trim() === '' || user.password === 'N/A' || user.password === 'social_login') {
+    return true;
+  }
+  if (user.registrationData && (String(user.registrationData).includes('"isSocialLogin":true') || String(user.registrationData).includes('"isSocial":true'))) {
+    return true;
+  }
+  const identityCount = await (prisma as any).authIdentity?.count({ where: { userId: user.id } }).catch(() => 0);
+  if (identityCount > 0) return true;
+
+  const socialCount = await (prisma as any).socialAccount?.count({ where: { userId: user.id } }).catch(() => 0);
+  return socialCount > 0;
+};
+
 const createAccessToken = async (user: Pick<AuthUser, 'id' | 'role'>) => {
   const epoch = await getAuthEpoch(user.id);
   return jwt.sign({ id: user.id, role: user.role, epoch }, JWT_SECRET, {
@@ -140,14 +155,17 @@ const buildAuthPayload = async (user: AuthUser) => {
 
   let completion = { profileCompletion: 80, isProfileComplete: true };
   let subscriptionGate: any = { status: 'active', planId: 'Free_Trial', planName: 'Starter' };
+  let isSocial = false;
 
   try {
-    const [c, s] = await Promise.all([
+    const [c, s, isSocialRes] = await Promise.all([
       resolveProfileCompletion(user.id).catch(() => null),
       resolveUserSubscriptionGate(user.id).catch(() => null),
+      resolveIsSocialLogin(user).catch(() => false),
     ]);
     if (c) completion = c;
     if (s) subscriptionGate = s;
+    if (typeof isSocialRes === 'boolean') isSocial = isSocialRes;
   } catch (err) {
     console.error('Error resolving profile/subscription details:', err);
   }
@@ -158,6 +176,7 @@ const buildAuthPayload = async (user: AuthUser) => {
     accessToken,
     refreshToken,
     token: accessToken,
+    isSocialLogin: isSocial,
     subscriptionPlan: hasActiveSubscription,
     hasSubscription: hasActiveSubscription,
     isSubscribed: hasActiveSubscription,
@@ -172,7 +191,7 @@ const buildAuthPayload = async (user: AuthUser) => {
       avatarUrl: user.avatarUrl,
       status: user.status,
       isVerified: user.isVerified,
-      isSocialLogin: false,
+      isSocialLogin: isSocial,
       profileCompletion: completion.profileCompletion,
       profileCompletedPer: completion.profileCompletion,
       profileCompletedPercentage: completion.profileCompletion,

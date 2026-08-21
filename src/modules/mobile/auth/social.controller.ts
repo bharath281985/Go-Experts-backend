@@ -115,6 +115,8 @@ const findOrCreateSocialUser = async (
           status: 'active',
           isVerified: true,
           avatarUrl: avatarUrl || null,
+          password: '',
+          registrationData: JSON.stringify({ isSocialLogin: true, isSocial: true }),
         },
       });
       await bootstrapNewUser(created.id, role, tx);
@@ -124,15 +126,28 @@ const findOrCreateSocialUser = async (
     if (user.status !== 'active') {
       throw new Error('ACCOUNT_INACTIVE');
     }
-    // Existing accounts keep their role; only ensure profile row exists.
-    await ensureRoleProfile(user.id, user.role);
-    await bootstrapUserResources(user.id);
-    if (!user.avatarUrl && avatarUrl) {
+    // Ensure registrationData records social login intent if missing
+    if (!user.registrationData || !user.registrationData.includes('isSocial')) {
+      let regObj: any = {};
+      try { regObj = JSON.parse(user.registrationData || '{}'); } catch {}
+      regObj.isSocialLogin = true;
+      regObj.isSocial = true;
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          registrationData: JSON.stringify(regObj),
+          ...(avatarUrl && !user.avatarUrl ? { avatarUrl } : {}),
+        },
+      });
+    } else if (!user.avatarUrl && avatarUrl) {
       user = await prisma.user.update({
         where: { id: user.id },
         data: { avatarUrl },
       });
     }
+    // Existing accounts keep their role; only ensure profile row exists.
+    await ensureRoleProfile(user.id, user.role);
+    await bootstrapUserResources(user.id);
   }
   return { user, isNewUser };
 };
