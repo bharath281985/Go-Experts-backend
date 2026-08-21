@@ -1644,7 +1644,15 @@ export const saveOnboardingDraft = async (req, res, next) => {
         const investorTypeInput = req.body?.investorTypeId ?? investorType;
         const focusAreasInput = req.body?.focusAreasId ?? focusAreas;
         const preferredStageInput = req.body?.preferredStageId ?? preferredStage;
-        const currentRegData = typeof user.registrationData === "object" && user.registrationData !== null ? user.registrationData : {};
+        let currentRegData = {};
+        if (user.registrationData) {
+            try {
+                currentRegData = typeof user.registrationData === "string"
+                    ? JSON.parse(user.registrationData)
+                    : user.registrationData;
+            }
+            catch (e) { }
+        }
         const mergedRegData = {
             ...currentRegData,
             ...req.body,
@@ -1654,9 +1662,9 @@ export const saveOnboardingDraft = async (req, res, next) => {
         const progress = calculateOnboardingProgress(user.role, step || 0, isCompleted);
         // Update User model basic fields
         const userUpdate = {
-            registrationData: mergedRegData,
+            registrationData: JSON.stringify(mergedRegData),
             onboardingStatus: progress.status,
-            completedSteps: progress.completedSteps,
+            completedSteps: progress.completedSteps ? JSON.stringify(progress.completedSteps) : undefined,
             currentStep: progress.currentStep,
             nextStepKey: progress.nextStepKey,
             completionPercentage: progress.percentage
