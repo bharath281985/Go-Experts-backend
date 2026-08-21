@@ -123,37 +123,16 @@ export async function getFreelancerRateRange() {
   }
 }
 
-async function getDistinctProfileExperience() {
-  try {
-    const profiles = await prisma.freelancerProfile.findMany({
-      where: { experience: { not: null } },
-      select: { experience: true },
-      distinct: ["experience"],
-      take: 50,
-    });
-
-    return profiles
-      .map((profile) => profile.experience)
-      .filter((value): value is string => Boolean(value?.trim()));
-  } catch {
-    return [];
-  }
-}
-
 export async function getPublicFreelancerFilters() {
-  const [categoriesResult, experienceResult, rateRange, profileExperience] = await Promise.all([
+  const [categoriesResult, experienceResult, rateRange] = await Promise.all([
     getPublicCategories({ pageSize: 100 }),
     listPublicExperienceLevels(50),
     getFreelancerRateRange(),
-    getDistinctProfileExperience(),
   ]);
 
   const experienceNames = new Set<string>();
   for (const row of experienceResult.rows) {
     if (row.name) experienceNames.add(row.name);
-  }
-  for (const name of profileExperience) {
-    experienceNames.add(name);
   }
 
   return {
@@ -180,30 +159,21 @@ export async function listPublicExperienceLevels(pageSize = 50) {
   };
 
   try {
-    const masterRows = await (prisma as any).masterOption?.findMany({
+    const masterRows = await (prisma as any).masterOption.findMany({
       where: { type: "experience_level", status: "active" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
       take: pageSize,
       select: { id: true, label: true, value: true, status: true },
-    }).catch(() => []);
+    });
 
-    if (Array.isArray(masterRows) && masterRows.length > 0) {
-      const rows = dedupeRows(masterRows.map((row: any) => ({
-        id: row.id,
-        name: row.label,
-        label: row.label,
-        value: row.value,
-        status: row.status,
-      })));
-      return { rows, total: rows.length };
-    }
-
-    const legacyRows = dedupeRows(await prisma.experienceLevel.findMany({
-      where: { status: "active" },
-      orderBy: { createdAt: "asc" },
-      take: pageSize,
-    }));
-    return { rows: legacyRows, total: legacyRows.length };
+    const rows = dedupeRows(masterRows.map((row: any) => ({
+      id: row.id,
+      name: row.label,
+      label: row.label,
+      value: row.value,
+      status: row.status,
+    })));
+    return { rows, total: rows.length };
   } catch {
     return { rows: [], total: 0 };
   }

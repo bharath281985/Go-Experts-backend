@@ -48,6 +48,7 @@ import kycRouter from "./admin/kyc.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import subscriptionRoutes from "./subscription/subscription.routes.js";
+import { getVerificationStats } from "../common/helpers/verification.js";
 
 import mobileRoutes from "../modules/mobile/index.js";
 
@@ -363,6 +364,7 @@ const freelancerInclude = {
       hourlyRate: true,
       rating: true,
       experience: true,
+      verificationJson: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -549,6 +551,9 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "family_office": "Family Office"
   };
   const invTypeVal = investorProfile.investorType ?? regData.investorType ?? null;
+  const verificationStats = getVerificationStats(rest);
+  const profileApproved = Boolean(verificationStats.profileApproved);
+  const kycApproved = Boolean(verificationStats.kycApproved);
 
   const sanitized = {
     ...rest,
@@ -614,7 +619,23 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     raised,
     stage,
     rating: freelancerProfile.rating ?? 5.0,
-    verified: Boolean(rest.isVerified || rest.verified),
+    verified: profileApproved,
+    profileApproved,
+    profileStatus: profileApproved ? "Approved" : "Pending",
+    kycApproved,
+    kycStatus: kycApproved ? "Approved" : "Pending",
+    verificationSummary: {
+      profileApproved,
+      profileStatus: profileApproved ? "Approved" : "Pending",
+      kycApproved,
+      kycStatus: kycApproved ? "Approved" : "Pending",
+      personalRequired: verificationStats.personalRequired,
+      businessRequired: verificationStats.businessRequired,
+      personalVerified: verificationStats.personalVerified,
+      businessVerified: verificationStats.businessVerified,
+      requiredPersonalVerified: verificationStats.requiredPersonalVerified,
+      requiredBusinessVerified: verificationStats.requiredBusinessVerified,
+    },
     // Freelancer fields
     title: freelancerProfile.titleHeadline ?? regData.titleHeadline ?? rest.titleHeadline ?? "Freelancer",
     titleHeadline: freelancerProfile.titleHeadline ?? regData.titleHeadline ?? rest.titleHeadline ?? "Freelancer",

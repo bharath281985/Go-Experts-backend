@@ -149,11 +149,15 @@ export function getVerificationStats(user: any) {
     // Calculate verified counts for the required groups
     const personalVerified = items.filter(i => personalKeys.includes(i.key) && i.status === "verified").length;
     const businessVerified = items.filter(i => businessKeys.includes(i.key) && i.status === "verified").length;
+    const requiredPersonalVerified = Math.min(requirement.personalRequired, personalVerified);
+    const requiredBusinessVerified = Math.min(requirement.businessRequired, businessVerified);
+    const kycApproved = personalVerified >= requirement.personalRequired && businessVerified >= requirement.businessRequired;
+    const profileApproved = Boolean(user.isVerified || user.verified);
     
     const requiredTotal = 1 + requirement.personalRequired + requirement.businessRequired;
     const requiredVerified = (isEmailVerified ? 1 : 0)
-        + Math.min(requirement.personalRequired, personalVerified)
-        + Math.min(requirement.businessRequired, businessVerified);
+        + requiredPersonalVerified
+        + requiredBusinessVerified;
     const trustScore = Math.min(100, Math.round((requiredVerified / requiredTotal) * 100));
 
     return {
@@ -164,7 +168,16 @@ export function getVerificationStats(user: any) {
         missingCount,
         requiredVerified,
         requiredTotal,
-        accountVerified: Boolean(user.verified),
+        personalRequired: requirement.personalRequired,
+        businessRequired: requirement.businessRequired,
+        personalVerified,
+        businessVerified,
+        requiredPersonalVerified,
+        requiredBusinessVerified,
+        profileApproved,
+        kycApproved,
+        kycStatus: kycApproved ? "APPROVED" : "PENDING",
+        accountVerified: profileApproved,
         fullName: user.fullName,
         email: user.email,
     };
