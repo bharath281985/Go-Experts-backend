@@ -506,7 +506,7 @@ export const getFounderTypes = async (req: Request, res: Response, next: NextFun
 export const getFounderRoles = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const roles = await (prisma as any).masterOption?.findMany({
-      where: { type: { in: ['founder_role', 'designation', 'startup_role', 'role', 'founder_type'] }, status: 'active' },
+      where: { type: { in: ['founder_role'] }, status: 'active' },
       orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
       select: { id: true, label: true, value: true }
     }).catch(() => []);
