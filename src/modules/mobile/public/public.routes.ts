@@ -5,7 +5,7 @@ import {
   getProjects, shareProject, getPricing, getPricingPlans, getBlogs, getFaqs, getTestimonials,
   submitContact, search, getById,
   getEducationLevels, getExperienceLevels, getStartupStages, getCompanySizes, getTicketSizes,
-  getInvestorTypes, getFounderTypes, getTeamSizes, getCountries, getStates,
+  getInvestorTypes, getFounderTypes, getFounderRoles, getTeamSizes, getCountries, getStates,
   getBusinessTypes, getServicesTaxonomy, getProjectCategories,
   getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getBudgetRanges,
   getDesignations, getFounderGoals, getAvailabilityOptions
@@ -31,6 +31,9 @@ router.get('/company-sizes', masterCache, getCompanySizes);
 router.get('/ticket-sizes', masterCache, getTicketSizes);
 router.get('/investor-types', masterCache, getInvestorTypes);
 router.get('/founder-types', masterCache, getFounderTypes);
+router.get('/founder_types', masterCache, getFounderTypes);
+router.get('/founder-roles', masterCache, getFounderRoles);
+router.get('/founder_roles', masterCache, getFounderRoles);
 router.get('/business-types', masterCache, getBusinessTypes);
 router.get('/services', masterCache, getServicesTaxonomy);
 router.get('/project-categories', masterCache, getProjectCategories);

@@ -1100,16 +1100,19 @@ function deduplicateMasterOptions(items: Array<{ id: string; label: string; valu
   return result;
 }
 
-async function fetchMasterOptions(type: string): Promise<Array<{ id: string; label: string; value: string }>> {
+async function fetchMasterOptions(type: string | string[]): Promise<Array<{ id: string; label: string; value: string }>> {
   try {
+    const types = Array.isArray(type) ? type : [type];
     const rows = await (prisma as any).masterOption.findMany({
-      where: { type, status: "active" },
-      orderBy: { sortOrder: "asc" },
+      where: { type: { in: types }, status: "active" },
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
       select: { id: true, label: true, value: true }
     });
     return deduplicateMasterOptions(rows || []);
   } catch {
-    const rawRows = await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type = '${type}' AND status = 'active' ORDER BY sort_order ASC`).catch(() => []);
+    const types = Array.isArray(type) ? type : [type];
+    const typeStr = types.map(t => `'${t}'`).join(',');
+    const rawRows = await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type IN (${typeStr}) AND status = 'active' ORDER BY sort_order ASC, label ASC`).catch(() => []);
     return deduplicateMasterOptions(rawRows || []);
   }
 }
@@ -1175,13 +1178,13 @@ router.get("/expansion_goals", async (_req: Request, res: Response) => {
 });
 
 router.get("/founder-roles", async (_req: Request, res: Response) => {
-  const roles = await fetchMasterOptions("founder_role");
-  return res.json({ success: true, data: roles });
+  const roles = await fetchMasterOptions(["founder_role", "designation", "startup_role", "role", "founder_type"]);
+  return res.json({ success: true, data: roles, rows: roles, total: roles.length });
 });
 
 router.get("/founder_roles", async (_req: Request, res: Response) => {
-  const roles = await fetchMasterOptions("founder_role");
-  return res.json({ success: true, data: roles });
+  const roles = await fetchMasterOptions(["founder_role", "designation", "startup_role", "role", "founder_type"]);
+  return res.json({ success: true, data: roles, rows: roles, total: roles.length });
 });
 
 router.get("/founder-goals", async (_req: Request, res: Response) => {
