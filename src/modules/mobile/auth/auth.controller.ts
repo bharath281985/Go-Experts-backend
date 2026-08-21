@@ -88,16 +88,6 @@ type AuthUser = {
   isVerified: boolean;
 };
 
-const getRedirectTo = (role: string) => {
-  switch (role) {
-    case 'freelancer': return '/freelancer/dashboard';
-    case 'client': return '/client/dashboard';
-    case 'investor': return '/investor/dashboard';
-    case 'founder': return '/founder/dashboard';
-    default: return '/dashboard';
-  }
-};
-
 const buildPhoneNumber = (phone?: string, countryCode?: string) => {
   if (!phone) return undefined;
   if (!countryCode) return phone;
@@ -192,7 +182,6 @@ const buildAuthPayload = async (user: AuthUser) => {
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
-      redirectTo: getRedirectTo(user.role),
     },
   };
 };
@@ -987,7 +976,6 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
-      redirectTo: getRedirectTo(activeUser.role),
     };
     return res.json(successResponse('User profile retrieved', { user: userData }));
   } catch (error) { next(error); }
@@ -1539,7 +1527,6 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
-      redirectTo: getRedirectTo(activeUser.role),
     };
 
     return res.json(successResponse('Profile updated successfully', { user: userData, completion }));

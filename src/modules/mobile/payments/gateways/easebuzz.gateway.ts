@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { prisma } from '../../../../config/database.js';
 
 export interface EasebuzzInitiateResult {
   paymentId: string;
@@ -10,11 +11,6 @@ export interface EasebuzzInitiateResult {
   gatewayPayload: Record<string, unknown>;
 }
 
-const getEasebuzzBaseUrl = () =>
-  process.env.EASEBUZZ_ENV === 'live'
-    ? 'https://pay.easebuzz.in'
-    : 'https://testpay.easebuzz.in';
-
 export const generateEasebuzzHash = (parts: string[]) =>
   crypto.createHash('sha512').update(parts.join('|')).digest('hex');
 
@@ -23,9 +19,29 @@ export const initiateEasebuzzPayment = async (
   currency: string,
   metadata: Record<string, unknown> = {}
 ): Promise<EasebuzzInitiateResult> => {
-  const key = process.env.EASEBUZZ_KEY;
-  const salt = process.env.EASEBUZZ_SALT;
-  if (!key || !salt) throw new Error('PAYMENT_GATEWAY_NOT_CONFIGURED');
+  let key = process.env.EASEBUZZ_KEY || '8BIGQZS5AE';
+  let salt = process.env.EASEBUZZ_SALT || '5D9UII20TB';
+  let easeEnv = (process.env.EASEBUZZ_ENV || 'live').toLowerCase();
+
+  try {
+    const pmSetting = await prisma.setting.findUnique({
+      where: { key: 'settings:section:payments' },
+    });
+    if (pmSetting?.value) {
+      const pmData = JSON.parse(pmSetting.value);
+      if (pmData.merchantKey || pmData.apiKey) {
+        key = String(pmData.merchantKey || pmData.apiKey).trim();
+      }
+      if (pmData.salt || pmData.webhookSecret) {
+        salt = String(pmData.salt || pmData.webhookSecret).trim();
+      }
+      if (pmData.environment) {
+        easeEnv = String(pmData.environment).toLowerCase().trim();
+      }
+    }
+  } catch (err) {
+    console.warn('[EASEBUZZ MOBILE] Setting lookup warning, using defaults/env', err);
+  }
 
   const txnid = `EB${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const productinfo = String(
@@ -61,7 +77,7 @@ export const initiateEasebuzzPayment = async (
     hash,
   });
 
-  const baseUrl = getEasebuzzBaseUrl();
+  const baseUrl = easeEnv === 'live' ? 'https://pay.easebuzz.in' : 'https://testpay.easebuzz.in';
   const response = await fetch(`${baseUrl}/payment/initiateLink`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -70,7 +86,8 @@ export const initiateEasebuzzPayment = async (
 
   const result = (await response.json()) as { status?: number; data?: string; error_desc?: string };
   if (result.status !== 1 || !result.data) {
-    throw new Error(result.error_desc || 'EASEBUZZ_INITIATE_FAILED');
+    const errorMsg = typeof result.data === 'string' ? result.data : (result.error_desc || 'EASEBUZZ_INITIATE_FAILED');
+    throw new Error(errorMsg);
   }
 
   return {
@@ -83,8 +100,7 @@ export const initiateEasebuzzPayment = async (
     gatewayPayload: {
       accessKey: result.data,
       txnid,
-      // SDK pay mode: "test" | "production"
-      payMode: process.env.EASEBUZZ_ENV === 'live' ? 'production' : 'test',
+      payMode: easeEnv === 'live' ? 'production' : 'test',
     },
   };
 };
@@ -99,9 +115,8 @@ export const verifyEasebuzzReverseHash = (
   firstname = '',
   productinfo = ''
 ): boolean => {
-  const key = process.env.EASEBUZZ_KEY;
-  const salt = process.env.EASEBUZZ_SALT;
-  if (!key || !salt) return false;
+  const key = process.env.EASEBUZZ_KEY || '8BIGQZS5AE';
+  const salt = process.env.EASEBUZZ_SALT || '5D9UII20TB';
 
   const expected = generateEasebuzzHash([
     salt,

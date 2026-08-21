@@ -31,25 +31,33 @@ export const getCurrent = async (req: AuthRequest, res: Response, next: NextFunc
 };
 
 const startPlanPayment = async (req: AuthRequest, res: Response, action: string) => {
-  const planId = req.body.planId || req.body.id;
-  const gateway = (req.body.gateway as string) || 'easebuzz';
-  if (!planId) {
-    return res.status(400).json(errorResponse('planId is required', 'VALIDATION_ERROR'));
+  try {
+    const planId = req.body.planId || req.body.id;
+    const gateway = (req.body.gateway as string) || 'easebuzz';
+    if (!planId) {
+      return res.status(400).json(errorResponse('planId is required', 'VALIDATION_ERROR'));
+    }
+    const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+    if (!plan) {
+      return res.status(404).json(errorResponse('Plan not found', 'NOT_FOUND'));
+    }
+    const baseAmount = Number(plan.amount ?? 0);
+    if (!baseAmount || baseAmount <= 0) {
+      return res.status(400).json(errorResponse('Plan has invalid price', 'VALIDATION_ERROR'));
+    }
+    const gst = parseFloat((baseAmount * 0.18).toFixed(2));
+    const totalAmount = parseFloat((baseAmount + gst).toFixed(2));
+
+    const result = await initiatePaymentService(req.user.id, gateway, totalAmount, 'INR', {
+      planId,
+      action,
+      type: 'subscription',
+      purpose: 'subscription',
+    });
+    return res.status(201).json(successResponse(`Subscription ${action} payment initiated`, result));
+  } catch (error: any) {
+    return res.status(400).json(errorResponse(error?.message || 'Payment initiation failed', 'PAYMENT_INITIATION_FAILED'));
   }
-  const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
-  if (!plan) {
-    return res.status(404).json(errorResponse('Plan not found', 'NOT_FOUND'));
-  }
-  const amount = Number(plan.amount ?? 0);
-  if (!amount || amount <= 0) {
-    return res.status(400).json(errorResponse('Plan has invalid price', 'VALIDATION_ERROR'));
-  }
-  const result = await initiatePaymentService(req.user.id, gateway, amount, 'INR', {
-    planId,
-    action,
-    type: 'subscription',
-  });
-  return res.status(201).json(successResponse(`Subscription ${action} payment initiated`, result));
 };
 
 export const purchase = async (req: AuthRequest, res: Response, next: NextFunction) => {

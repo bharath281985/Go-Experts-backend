@@ -62,7 +62,6 @@ const issueAuthResponse = async (
     subscriptionStatus: subscriptionGate.status,
     subscriptionPlanId: subscriptionGate.planId,
     subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
-    redirectTo: getRedirectTo(user.role),
   };
 
   return {

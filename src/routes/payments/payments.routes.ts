@@ -292,9 +292,9 @@ router.post("/checkout", async (req: Request, res: Response) => {
     }
 
     // Read live Easebuzz configuration from Admin Settings or env vars
-    let easeKey = process.env.EASEBUZZ_KEY || "NQOKGR29D";
-    let easeSalt = process.env.EASEBUZZ_SALT || "DZJLI6TFN";
-    let easeEnv = (process.env.EASEBUZZ_ENV || "test").toLowerCase();
+    let easeKey = process.env.EASEBUZZ_KEY || "8BIGQZS5AE";
+    let easeSalt = process.env.EASEBUZZ_SALT || "5D9UII20TB";
+    let easeEnv = (process.env.EASEBUZZ_ENV || "live").toLowerCase();
 
     try {
       const pmSetting = await prisma.setting.findUnique({
