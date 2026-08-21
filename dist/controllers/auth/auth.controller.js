@@ -1660,11 +1660,7 @@ export const saveOnboardingDraft = async (req, res, next) => {
         let currentRegData = {};
         if (user.registrationData) {
             try {
-<<<<<<< Updated upstream
-                currentRegData = typeof user.registrationData === "string"
-=======
                 currentRegData = typeof user.registrationData === 'string'
->>>>>>> Stashed changes
                     ? JSON.parse(user.registrationData)
                     : user.registrationData;
             }

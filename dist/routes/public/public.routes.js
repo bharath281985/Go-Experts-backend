@@ -6,7 +6,7 @@ import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreel
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
 import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
-import { getCountries, getStates, getSkills, getIndustries, getBudgetRanges, getTeamSizes, getFounderTypes, getBusinessTypes, getInvestorTypes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getCompanySizes, } from "../../modules/mobile/public/public.controller.js";
+import { getCountries, getStates, getSkills, getIndustries, getBudgetRanges, getTeamSizes, getFounderTypes, getBusinessTypes, getInvestorTypes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getCompanySizes, getExperienceLevels, } from "../../modules/mobile/public/public.controller.js";
 const router = Router();
 router.get("/countries", getCountries);
 router.get("/states", getStates);
@@ -32,6 +32,7 @@ router.get("/investment_stages", getInvestorStages);
 router.get("/platform-goals", getPlatformGoals);
 router.get("/company-sizes", getCompanySizes);
 router.get("/company_sizes", getCompanySizes);
+router.get("/experience-levels", getExperienceLevels);
 router.get("/accredited-statuses", async (_req, res, next) => {
     try {
         const options = await prisma.masterOption.findMany({

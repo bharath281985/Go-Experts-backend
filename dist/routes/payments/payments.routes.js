@@ -479,18 +479,33 @@ router.post("/webhooks/easebuzz", async (req, res) => {
         const body = req.body || {};
         const txnid = body.txnid || body.txnId || body.transaction_id;
         const statusRaw = String(body.status || body.udf1 || "").toLowerCase();
+        const isBrowser = req.headers.accept?.includes("text/html");
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
         if (txnid) {
             const payment = await prisma.payment.findFirst({ where: { transactionId: String(txnid) } });
             if (payment) {
                 let status = payment.status;
-                if (["success", "successful", "completed", "paid"].includes(statusRaw))
+                if (["success", "successful", "completed", "paid"].includes(statusRaw)) {
                     status = "completed";
+                    // Check if this was a subscription payment (indicated in productinfo)
+                    if (body.productinfo?.startsWith("SUB_")) {
+                        const planId = body.productinfo?.replace("SUB_", "");
+                        if (planId) {
+                            // Activate subscription
+                            const { purchaseSubscriptionForSelf } = await import("../../common/helpers/portal-shared.js");
+                            await purchaseSubscriptionForSelf(payment.userId, planId, "easebuzz", String(txnid)).catch(console.error);
+                        }
+                    }
+                }
                 else if (["failure", "failed", "userCancelled", "bounced"].includes(statusRaw))
                     status = "failed";
                 else if (statusRaw)
                     status = statusRaw;
                 await prisma.payment.update({ where: { id: payment.id }, data: { status } });
             }
+        }
+        if (isBrowser) {
+            return res.redirect(`${frontendUrl}/dashboard/subscriptions?status=${statusRaw}`);
         }
         return res.json({ success: true, received: true });
     }
