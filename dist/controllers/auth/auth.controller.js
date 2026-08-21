@@ -1297,11 +1297,13 @@ export const sendOtp = async (req, res, next) => {
         const otp = crypto.randomInt(100000, 1000000).toString();
         const key = (email || mobile).toLowerCase();
         otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
-        console.log(`\n======================================================================`);
-        console.log(`🔑 [OTP DISPATCH]`);
-        console.log(`   Recipient: ${email || mobile}`);
-        console.log(`   OTP Code:  ${otp}`);
-        console.log(`======================================================================\n`);
+        if (process.env.NODE_ENV !== "production") {
+            console.log(`\n======================================================================`);
+            console.log(`[OTP DISPATCH]`);
+            console.log(`   Recipient: ${email || mobile}`);
+            console.log(`   OTP Code:  ${otp}`);
+            console.log(`======================================================================\n`);
+        }
         if (email) {
             try {
                 const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
@@ -1360,7 +1362,7 @@ export const sendOtp = async (req, res, next) => {
                     success: true,
                     id: otpId,
                     otpId,
-                    otp,
+                    ...(process.env.NODE_ENV !== "production" ? { otp } : {}),
                     message: "Verification link sent to your email. Please check your inbox or Spam folder.",
                 });
             }
@@ -1372,7 +1374,7 @@ export const sendOtp = async (req, res, next) => {
                 success: true,
                 id: otpId,
                 otpId,
-                otp,
+                ...(process.env.NODE_ENV !== "production" ? { otp } : {}),
                 message: "Verification link sent to your email. Please check your inbox or Spam folder.",
             });
         }
@@ -1388,7 +1390,11 @@ export const sendOtp = async (req, res, next) => {
         if (response.status === "failed") {
             return res.status(500).json({ success: false, message: response.errorMessage || "Failed to send OTP" });
         }
-        return res.json({ success: true, message: "OTP sent successfully", otp });
+        return res.json({
+            success: true,
+            message: "OTP sent successfully",
+            ...(process.env.NODE_ENV !== "production" ? { otp } : {}),
+        });
     }
     catch (err) {
         next(err);
@@ -1409,7 +1415,15 @@ export const verifyOtp = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Invalid OTP code. Please try again." });
         }
         otpStore.delete(key);
-        return res.json({ success: true, message: "OTP Verified successfully" });
+        if (req.body?.email) {
+            await prisma.user.updateMany({
+                where: { email: key, deletedAt: null },
+                data: { isVerified: true, verified: true },
+            }).catch((err) => {
+                console.warn("[VERIFY OTP] Could not persist email verification state:", err);
+            });
+        }
+        return res.json({ success: true, verified: true, message: "OTP Verified successfully" });
     }
     catch (err) {
         next(err);
@@ -1496,6 +1510,12 @@ export const verifyDeleteAccountOtp = async (req, res, next) => {
 };
 export const getOtpInfo = async (req, res, next) => {
     try {
+        if (process.env.NODE_ENV === "production") {
+            return res.status(404).json({
+                success: false,
+                message: "Verification codes are sent by email and are not exposed by this endpoint.",
+            });
+        }
         const email = String(req.query.email || "").trim().toLowerCase();
         if (!email) {
             return res.status(400).json({ success: false, message: "Email parameter required" });
@@ -1582,7 +1602,7 @@ export const sendVerificationLink = async (req, res, next) => {
         return res.json({
             success: true,
             message: "Verification link sent to your email. Please check your inbox or Spam folder.",
-            otp,
+            ...(process.env.NODE_ENV !== "production" ? { otp } : {}),
         });
     }
     catch (err) {
