@@ -1178,12 +1178,12 @@ router.get("/expansion_goals", async (_req: Request, res: Response) => {
 });
 
 router.get("/founder-roles", async (_req: Request, res: Response) => {
-  const roles = await fetchMasterOptions(["founder_role", "designation", "startup_role", "role", "founder_type"]);
+  const roles = await fetchMasterOptions("founder_role");
   return res.json({ success: true, data: roles, rows: roles, total: roles.length });
 });
 
 router.get("/founder_roles", async (_req: Request, res: Response) => {
-  const roles = await fetchMasterOptions(["founder_role", "designation", "startup_role", "role", "founder_type"]);
+  const roles = await fetchMasterOptions("founder_role");
   return res.json({ success: true, data: roles, rows: roles, total: roles.length });
 });
 

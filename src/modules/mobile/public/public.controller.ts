@@ -511,7 +511,8 @@ export const getFounderRoles = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Founder roles retrieved', deduplicateMasterOptions(roles || [])));
+    const data = deduplicateMasterOptions(roles || []);
+    return res.json({ success: true, data, rows: data });
   } catch (error) { next(error); }
 };
 
