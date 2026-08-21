@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login, register, registerAdmin, logout, refresh, me, forgotPassword, resetPassword, changePassword, updateProfile, uploadAvatar, sendOtp, verifyOtp, getOtpInfo, sendVerificationLink, updateVerificationData, saveOnboardingDraft, } from "../../controllers/auth/auth.controller.js";
+import { login, register, registerAdmin, logout, refresh, me, forgotPassword, resetPassword, changePassword, updateProfile, uploadAvatar, sendOtp, verifyOtp, getOtpInfo, sendVerificationLink, updateVerificationData, saveOnboardingDraft, checkEmailVerification, } from "../../controllers/auth/auth.controller.js";
 import { googleAuthStart, googleAuthCallback, appleAuthStart, appleAuthCallback, } from "../../controllers/auth/social-auth.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
@@ -21,6 +21,7 @@ router.post("/avatar", authMiddleware, upload.single("file"), uploadAvatar);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.get("/otp-info", getOtpInfo);
+router.get("/check-email-verification", checkEmailVerification);
 router.post("/send-verification-link", sendVerificationLink);
 router.patch("/verification", authMiddleware, updateVerificationData);
 router.patch("/onboarding/draft", authMiddleware, saveOnboardingDraft);

@@ -80,11 +80,11 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
 
         // Apply granular KYC key update (e.g. key: "address", value: "...", status: "verified")
         if (updatePayload.key && updatePayload.status) {
-            stats = await applyVerificationUpdate(id, updatePayload);
+            stats = await applyVerificationUpdate(id, updatePayload, true);
         } else if (updatePayload.kycData && Array.isArray(updatePayload.kycData)) {
             // Support array of keys if they pass in bulk updates
             for (const update of updatePayload.kycData) {
-                stats = await applyVerificationUpdate(id, update);
+                stats = await applyVerificationUpdate(id, update, true);
             }
         } else {
             // Just returning stats if only verified flag was pushed
@@ -99,6 +99,22 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                 }
             });
             stats = freshUser ? getVerificationStats(freshUser) : getVerificationStats(user);
+        }
+
+        // Auto-approve user if all required documents are verified
+        if (stats && stats.requiredVerified >= stats.requiredTotal) {
+            const freshUserForCheck = await prisma.user.findFirst({ where: { id, deletedAt: null } });
+            if (freshUserForCheck && (!freshUserForCheck.verified || !freshUserForCheck.isVerified)) {
+                await prisma.user.update({
+                    where: { id },
+                    data: { verified: true, isVerified: true }
+                });
+                const { sendAccountActiveEmail, sendPlanActivationEmail } = await import("../../services/mobile/email.service.js");
+                if (freshUserForCheck.email) {
+                    await sendAccountActiveEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
+                    await sendPlanActivationEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
+                }
+            }
         }
 
         // Return the updated info using unified format

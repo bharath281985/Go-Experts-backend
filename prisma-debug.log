@@ -95,3 +95,16 @@ D:\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:965:42
 Invalid scalar field `client` for include statement on model Project. Available options are marked with ?.
 Note that include statements only accept relation fields.
 
+[2026-08-21T06:07:34.258Z] PRISMA ERROR:
+
+Invalid `prisma.user.findMany()` invocation in
+D:\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:764:36
+
+  761 
+  762 router.get("/delete-requests", async (req: Request, res: Response, next: NextFunction) => {
+  763   try {
+→ 764     const rows = await prisma.user.findMany(
+Authentication failed against database server at `localhost`, the provided database credentials for `goexperts_user` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `localhost`.
+

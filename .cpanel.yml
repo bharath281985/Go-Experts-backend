@@ -1,8 +1,0 @@
----
-deployment:
-  tasks:
-    - export PATH=/usr/local/bin:$PATH
-    - npm install
-    - npx prisma generate
-    - npm run build
-    - touch tmp/restart.txt
