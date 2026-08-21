@@ -9,6 +9,7 @@ import { renderEmailTemplate } from "../../services/settings/settings.service.js
 import { sendEmail } from "../../services/mobile/email.service.js";
 import { sanitizeUserRecord } from "../../routes/index.js";
 import { calculateOnboardingProgress } from "../../config/onboarding.js";
+import { getVerificationStats } from "../../common/helpers/verification.js";
 
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 
@@ -93,6 +94,23 @@ function clientMeta(req: Request) {
     || null;
   const userAgent = req.headers["user-agent"] || null;
   return { ipAddress, userAgent };
+}
+
+function buildKycReadiness(user: any) {
+  const stats = getVerificationStats(user);
+  const submitted = stats.missingCount === 0;
+  const verified = stats.requiredTotal > 0 && stats.requiredVerified >= stats.requiredTotal;
+  return {
+    submitted,
+    verified,
+    status: verified ? "verified" : submitted ? "submitted" : "missing",
+    missingCount: stats.missingCount,
+    pendingCount: stats.pendingCount,
+    verifiedCount: stats.verifiedCount,
+    requiredVerified: stats.requiredVerified,
+    requiredTotal: stats.requiredTotal,
+    trustScore: stats.trustScore,
+  };
 }
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
@@ -214,6 +232,12 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
       user = await prisma.user.findFirst({
         where: userWhere,
+        include: {
+          freelancerProfile: true,
+          clientProfile: true,
+          investorProfile: true,
+          founderProfile: true,
+        },
       }).catch(() => null);
     } catch {
       user = null;
@@ -277,6 +301,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const hasActiveSubscription = subscriptionGate.status === 'active';
+    const kycReadiness = buildKycReadiness(user);
 
     const userPayload = {
       id: user.id,
@@ -289,6 +314,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       state: user.state,
       city: user.city,
       isVerified: Boolean(user.isVerified || user.verified),
+      isKycSubmitted: kycReadiness.submitted,
+      isKycVerified: kycReadiness.verified,
+      kycStatus: kycReadiness.status,
+      kyc: kycReadiness,
       profileCompletion: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
       completedSteps: completion.completedSteps,
@@ -362,6 +391,11 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       return res.status(409).json({
         success: false,
         message: "A user with this email already exists. Please use a different email address.",
+        existingUser: {
+          role: existing.role,
+          status: existing.status,
+          isVerified: existing.isVerified ?? existing.verified ?? false,
+        },
       });
     }
     // If user exists but can be reused, we'll restore them below in the transaction.
@@ -833,10 +867,16 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         }
       } catch(e) {}
 
+      const kycReadiness = buildKycReadiness(user);
+
       return res.json({
         success: true,
         user: {
           ...sanitized,
+          isKycSubmitted: kycReadiness.submitted,
+          isKycVerified: kycReadiness.verified,
+          kycStatus: kycReadiness.status,
+          kyc: kycReadiness,
           profileReadiness: {
             role: (user.role || "").toUpperCase(),
             profileCompletion: completion.profileCompletion,
@@ -915,10 +955,16 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           }
         } catch(e) {}
 
+        const kycReadiness = buildKycReadiness(user);
+
         return res.json({
           success: true,
           user: {
             ...sanitizedFallback,
+              isKycSubmitted: kycReadiness.submitted,
+              isKycVerified: kycReadiness.verified,
+              kycStatus: kycReadiness.status,
+              kyc: kycReadiness,
               profileReadiness: {
                 role: (user.role || "").toUpperCase(),
                 profileCompletion: completion.profileCompletion,

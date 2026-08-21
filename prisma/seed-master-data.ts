@@ -3,10 +3,11 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const EXPERIENCE_LEVELS = [
-  { label: "Beginner (0-2 yrs)", value: "Beginner", sortOrder: 1 },
-  { label: "Intermediate (2-5 yrs)", value: "Intermediate", sortOrder: 2 },
-  { label: "Senior (5-8 yrs)", value: "Senior", sortOrder: 3 },
-  { label: "Expert (8+ yrs)", value: "Expert", sortOrder: 4 },
+  { label: "Entry Level (0-2 Yrs)", value: "Entry Level", sortOrder: 1 },
+  { label: "Intermediate (2-5 Yrs)", value: "Intermediate", sortOrder: 2 },
+  { label: "Senior Level (5-8 Yrs)", value: "Senior Level", sortOrder: 3 },
+  { label: "Lead / Principal (8-12 Yrs)", value: "Lead / Principal", sortOrder: 4 },
+  { label: "Executive / Director (12+ Yrs)", value: "Executive / Director", sortOrder: 5 },
 ];
 
 const STARTUP_STAGES = [
@@ -165,11 +166,15 @@ async function seedMasterData() {
   // 1. Seed ExperienceLevels in DB
   for (const exp of EXPERIENCE_LEVELS) {
     await prisma.experienceLevel.upsert({
-      where: { name: exp.value },
+      where: { name: exp.label },
       update: { status: "active" },
-      create: { name: exp.value, status: "active" },
+      create: { name: exp.label, status: "active" },
     }).catch(() => null);
   }
+  await prisma.experienceLevel.updateMany({
+    where: { name: { notIn: EXPERIENCE_LEVELS.map((exp) => exp.label) } },
+    data: { status: "inactive" },
+  }).catch(() => null);
   console.log("âœ… Seeded Experience Levels in Database");
 
   // 2. Seed StartupStages in DB
@@ -250,6 +255,16 @@ async function seedMasterData() {
 
   await upsertOptions("company_size", COMPANY_SIZES);
   console.log("âœ… Seeded Company Sizes in Database");
+
+  await upsertOptions("experience_level", EXPERIENCE_LEVELS);
+  await (prisma as any).masterOption?.updateMany({
+    where: {
+      type: "experience_level",
+      value: { notIn: EXPERIENCE_LEVELS.map((exp) => exp.value) },
+    },
+    data: { status: "inactive" },
+  }).catch(() => null);
+  console.log("Seeded Experience Levels in Master Options");
 
   await upsertOptions("ticket_size", TICKET_SIZES);
   console.log("âœ… Seeded Ticket Sizes in Database");

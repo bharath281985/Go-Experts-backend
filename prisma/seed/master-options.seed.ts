@@ -28,13 +28,11 @@ export const RAW_MASTER_OPTIONS: RawMasterOption[] = [
   { type: "budget_range", label: "INR 2,00,000 - INR 10,00,000 ($2,500-$12,500)", value: "INR 2,00,000 - INR 10,00,000", min: 200000, max: 1000000, sortOrder: 4 },
   { type: "budget_range", label: "INR 10,00,000+ ($12,500+)", value: "INR 10,00,000+", min: 1000000, max: 99999999, sortOrder: 5 },
   // Experience Level
-  { type: "experience_level", label: "Fresher / Trainee", value: "Fresher", sortOrder: 1 },
-  { type: "experience_level", label: "Entry Level (0-2 yrs)", value: "Entry Level", sortOrder: 2 },
-  { type: "experience_level", label: "Junior (1-3 yrs)", value: "Junior", sortOrder: 3 },
-  { type: "experience_level", label: "Intermediate / Mid-Level (3-5 yrs)", value: "Intermediate", sortOrder: 4 },
-  { type: "experience_level", label: "Senior (5-8 yrs)", value: "Senior", sortOrder: 5 },
-  { type: "experience_level", label: "Lead / Manager (8-12 yrs)", value: "Lead", sortOrder: 6 },
-  { type: "experience_level", label: "Expert / Principal (12+ yrs)", value: "Expert", sortOrder: 7 },
+  { type: "experience_level", label: "Entry Level (0-2 Yrs)", value: "Entry Level", sortOrder: 1 },
+  { type: "experience_level", label: "Intermediate (2-5 Yrs)", value: "Intermediate", sortOrder: 2 },
+  { type: "experience_level", label: "Senior Level (5-8 Yrs)", value: "Senior Level", sortOrder: 3 },
+  { type: "experience_level", label: "Lead / Principal (8-12 Yrs)", value: "Lead / Principal", sortOrder: 4 },
+  { type: "experience_level", label: "Executive / Director (12+ Yrs)", value: "Executive / Director", sortOrder: 5 },
 
   // Experience Ranges
   { type: "experience_range", label: "Less than 1 Year", value: "<1", min: 0, max: 1, sortOrder: 1 },

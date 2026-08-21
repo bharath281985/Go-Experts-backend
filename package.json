@@ -12,6 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:seed-catalog": "tsx prisma/seed-catalog.ts",
+    "prisma:seed-experience-levels": "tsx prisma/seed-experience-levels.ts",
     "prisma:seed-master": "tsx prisma/seed-master-data.ts",
     "test": "vitest run",
     "test:unit": "vitest run --testPathPattern=unit",

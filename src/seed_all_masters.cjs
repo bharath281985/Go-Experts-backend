@@ -36442,13 +36442,11 @@ var RAW_MASTER_OPTIONS = [
   { type: "company_size", label: "5,001\u201310,000 employees", value: "5001-10000", min: 5001, max: 1e4, sortOrder: 8 },
   { type: "company_size", label: "10,001+ employees", value: "10001+", min: 10001, max: 999999, sortOrder: 9 },
   // Experience Level
-  { type: "experience_level", label: "Fresher / Trainee", value: "Fresher", sortOrder: 1 },
-  { type: "experience_level", label: "Entry Level (0-2 yrs)", value: "Entry Level", sortOrder: 2 },
-  { type: "experience_level", label: "Junior (1-3 yrs)", value: "Junior", sortOrder: 3 },
-  { type: "experience_level", label: "Intermediate / Mid-Level (3-5 yrs)", value: "Intermediate", sortOrder: 4 },
-  { type: "experience_level", label: "Senior (5-8 yrs)", value: "Senior", sortOrder: 5 },
-  { type: "experience_level", label: "Lead / Manager (8-12 yrs)", value: "Lead", sortOrder: 6 },
-  { type: "experience_level", label: "Expert / Principal (12+ yrs)", value: "Expert", sortOrder: 7 },
+  { type: "experience_level", label: "Entry Level (0-2 Yrs)", value: "Entry Level", sortOrder: 1 },
+  { type: "experience_level", label: "Intermediate (2-5 Yrs)", value: "Intermediate", sortOrder: 2 },
+  { type: "experience_level", label: "Senior Level (5-8 Yrs)", value: "Senior Level", sortOrder: 3 },
+  { type: "experience_level", label: "Lead / Principal (8-12 Yrs)", value: "Lead / Principal", sortOrder: 4 },
+  { type: "experience_level", label: "Executive / Director (12+ Yrs)", value: "Executive / Director", sortOrder: 5 },
   // Experience Ranges
   { type: "experience_range", label: "Less than 1 Year", value: "<1", min: 0, max: 1, sortOrder: 1 },
   { type: "experience_range", label: "1\u20132 Years", value: "1-2", min: 1, max: 2, sortOrder: 2 },
@@ -37005,6 +37003,16 @@ async function seedDesignations() {
 }
 async function seedMasterOptions() {
   console.log("Seeding Expanded Master Options dataset...");
+  const activeExperienceValues = RAW_MASTER_OPTIONS.filter((opt) => opt.type === "experience_level").map((opt) => opt.value);
+  if (activeExperienceValues.length > 0) {
+    await prisma.masterOption.updateMany({
+      where: {
+        type: "experience_level",
+        value: { notIn: activeExperienceValues }
+      },
+      data: { status: "inactive" }
+    });
+  }
   let count = 0;
   for (const opt of RAW_MASTER_OPTIONS) {
     const id2 = `opt_${opt.type}_${opt.value.replace(/[^a-zA-Z0-9_-]/g, "_")}`;

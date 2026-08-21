@@ -149,23 +149,41 @@ export async function getPublicFreelancerFilters() {
     };
 }
 export async function listPublicExperienceLevels(pageSize = 50) {
-    try {
-        const rows = await prisma.experienceLevel.findMany({
-            where: { status: "active" },
-            orderBy: { name: "asc" },
-            take: pageSize,
+    const dedupeRows = (rows) => {
+        const seen = new Set();
+        return rows.filter((row) => {
+            const key = String(row.value || row.label || row.name || "").trim().toLowerCase();
+            if (!key || seen.has(key))
+                return false;
+            seen.add(key);
+            return true;
         });
-        return { rows, total: rows.length };
+    };
+    try {
+        const masterRows = await prisma.masterOption?.findMany({
+            where: { type: "experience_level", status: "active" },
+            orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+            take: pageSize,
+            select: { id: true, label: true, value: true, status: true },
+        }).catch(() => []);
+        if (Array.isArray(masterRows) && masterRows.length > 0) {
+            const rows = dedupeRows(masterRows.map((row) => ({
+                id: row.id,
+                name: row.label,
+                label: row.label,
+                value: row.value,
+                status: row.status,
+            })));
+            return { rows, total: rows.length };
+        }
+        const legacyRows = dedupeRows(await prisma.experienceLevel.findMany({
+            where: { status: "active" },
+            orderBy: { createdAt: "asc" },
+            take: pageSize,
+        }));
+        return { rows: legacyRows, total: legacyRows.length };
     }
     catch {
-        return {
-            rows: [
-                { id: "entry", name: "Entry", status: "active" },
-                { id: "intermediate", name: "Intermediate", status: "active" },
-                { id: "expert", name: "Expert", status: "active" },
-                { id: "top-rated", name: "Top-rated", status: "active" },
-            ],
-            total: 4,
-        };
+        return { rows: [], total: 0 };
     }
 }

@@ -143,16 +143,67 @@ router.get("/states", async (req, res, next) => {
 });
 router.get("/cities", async (req, res, next) => {
     try {
-        const countryId = String(req.query.countryId || "").trim();
-        if (!countryId) {
+        const rawCountry = String(req.query.countryId || req.query.country || req.query.countryCode || "").trim();
+        const search = String(req.query.search || "").trim().toLowerCase();
+        if (!rawCountry) {
             return res.json({ success: true, count: 0, data: [], rows: [] });
         }
-        // Fetch cities from db by countryId
         const cities = await prisma.city?.findMany({
-            where: { countryId, status: "active" },
+            where: {
+                countryId: rawCountry,
+                status: "active",
+                ...(search ? { name: { contains: search } } : {}),
+            },
             orderBy: { name: "asc" }
         }) || [];
-        res.json({ success: true, count: cities.length, data: cities, rows: cities });
+        if (cities.length > 0) {
+            return res.json({ success: true, count: cities.length, data: cities, rows: cities });
+        }
+        const country = await prisma.country.findFirst({
+            where: {
+                OR: [
+                    { id: rawCountry },
+                    { name: rawCountry },
+                    { code: rawCountry.toUpperCase() },
+                ],
+            },
+        }).catch(() => null);
+        let isoCode = (country?.code || "").trim().toUpperCase();
+        if (!isoCode && rawCountry.length === 2)
+            isoCode = rawCountry.toUpperCase();
+        if (!isoCode && country?.name) {
+            try {
+                // @ts-ignore
+                const csc = await import("country-state-city");
+                const matchedCountry = csc?.Country?.getAllCountries?.().find((item) => String(item.name || "").trim().toLowerCase() === String(country.name || "").trim().toLowerCase());
+                isoCode = matchedCountry?.isoCode || "";
+            }
+            catch {
+                isoCode = "";
+            }
+        }
+        if (!isoCode) {
+            return res.json({ success: true, count: 0, data: [], rows: [] });
+        }
+        let fallbackCities = [];
+        try {
+            // @ts-ignore
+            const csc = await import("country-state-city");
+            fallbackCities = (csc?.City?.getCitiesOfCountry?.(isoCode) || [])
+                .map((city) => ({
+                id: `${isoCode}-${city.stateCode || "NA"}-${city.name}`,
+                name: city.name,
+                stateCode: city.stateCode || null,
+                countryCode: isoCode,
+                countryId: country?.id || rawCountry,
+                status: "active",
+            }))
+                .filter((city) => !search || String(city.name || "").toLowerCase().includes(search));
+        }
+        catch {
+            fallbackCities = [];
+        }
+        res.json({ success: true, count: fallbackCities.length, data: fallbackCities, rows: fallbackCities });
     }
     catch (err) {
         next(err);

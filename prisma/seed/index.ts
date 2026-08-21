@@ -194,6 +194,20 @@ async function seedDesignations() {
 
 async function seedMasterOptions() {
   console.log("Seeding Expanded Master Options dataset...");
+  const activeExperienceValues = RAW_MASTER_OPTIONS
+    .filter((opt) => opt.type === "experience_level")
+    .map((opt) => opt.value);
+
+  if (activeExperienceValues.length > 0) {
+    await prisma.masterOption.updateMany({
+      where: {
+        type: "experience_level",
+        value: { notIn: activeExperienceValues },
+      },
+      data: { status: "inactive" },
+    });
+  }
+
   let count = 0;
   for (const opt of RAW_MASTER_OPTIONS) {
     const id = `opt_${opt.type}_${opt.value.replace(/[^a-zA-Z0-9_-]/g, "_")}`;

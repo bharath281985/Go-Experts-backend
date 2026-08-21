@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database.js';
+import { getVerificationStats } from '../../common/helpers/verification.js';
 
 const hasText = (value?: string | null) =>
   typeof value === 'string' && value.trim().length > 0;
@@ -23,6 +24,12 @@ export type ProfileCompletionResult = {
     email: string;
     phone: string;
     identity: string;
+    kycStatus?: string;
+    kycSubmitted?: boolean;
+    kycVerified?: boolean;
+    missingCount?: number;
+    requiredVerified?: number;
+    requiredTotal?: number;
   };
   capabilities: Record<string, { allowed: boolean; reason?: string; missing?: { key: string; label: string; route?: string }[] }>;
   
@@ -405,6 +412,10 @@ export const resolveProfileCompletion = async (
 
   const isCoreComplete = evaluation.missingCore.length === 0;
   const operationalReady = evaluation.score >= 80 && isCoreComplete;
+  const kycStats = getVerificationStats(user);
+  const kycSubmitted = kycStats.missingCount === 0;
+  const kycVerified = kycStats.requiredTotal > 0 && kycStats.requiredVerified >= kycStats.requiredTotal;
+  const kycStatus = kycVerified ? 'VERIFIED' : kycSubmitted ? 'SUBMITTED' : 'PENDING';
 
   return {
     profileCompletion: evaluation.score,
@@ -422,7 +433,13 @@ export const resolveProfileCompletion = async (
     verification: {
       email: user.isVerified ? 'VERIFIED' : 'PENDING',
       phone: user.phone ? 'VERIFIED' : 'PENDING',
-      identity: 'PENDING'
+      identity: kycStatus,
+      kycStatus,
+      kycSubmitted,
+      kycVerified,
+      missingCount: kycStats.missingCount,
+      requiredVerified: kycStats.requiredVerified,
+      requiredTotal: kycStats.requiredTotal,
     },
     capabilities: evaluation.capabilities,
     
