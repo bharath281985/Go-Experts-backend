@@ -1410,6 +1410,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const mobile = String(req.body?.mobile || "").trim();
+    const suppressEmail = req.body?.suppressEmail === true || req.body?.sendEmail === false;
 
     if (!email && !mobile) {
       return res.status(400).json({ success: false, message: "Email or mobile number is required" });
@@ -1440,7 +1441,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       console.log(`======================================================================\n`);
     }
 
-    if (email) {
+    if (email && !suppressEmail) {
       try {
         const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
         const emailAdapter = new EmailChannelAdapter();
