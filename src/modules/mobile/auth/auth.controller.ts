@@ -828,7 +828,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       activeUser.role === 'client'
         ? resolveMasterOption(roleProfile?.projectHireBudget, ['budget_range', 'project_budget_range', 'hiring_budget_range'])
         : Promise.resolve(null),
-      prisma.socialAccount.count({ where: { userId: activeUser.id } }).catch(() => 0),
+      (prisma as any).socialAccount?.count({ where: { userId: activeUser.id } }).catch(() => 0),
     ]);
 
     const toSlugId = (text: string) => {
@@ -1389,7 +1389,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       activeUser.role === 'client'
         ? resolveMasterOption(roleProfile?.projectHireBudget, ['budget_range', 'project_budget_range', 'hiring_budget_range'])
         : Promise.resolve(null),
-      prisma.socialAccount.count({ where: { userId: activeUser.id } }).catch(() => 0),
+      (prisma as any).socialAccount?.count({ where: { userId: activeUser.id } }).catch(() => 0),
     ]);
 
     const toSlugId = (text: string) => {
