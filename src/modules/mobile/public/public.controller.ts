@@ -233,23 +233,23 @@ export const getIndustries = async (req: Request, res: Response, next: NextFunct
 
 export const getExperienceLevels = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dbLevels = await prisma.experienceLevel.findMany({
-      where: { status: 'active' },
-      orderBy: { name: 'asc' }
-    }).catch(() => []);
-
-    if (dbLevels.length > 0) {
-      const levels = dbLevels.map((l) => ({ id: l.id, label: l.name, value: l.name }));
-      return res.json(successResponse('Experience levels retrieved', levels));
-    }
-
     const options = await (prisma as any).masterOption?.findMany({
       where: { type: 'experience_level', status: 'active' },
       orderBy: { sortOrder: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Experience levels retrieved', options || []));
+    if (options && options.length > 0) {
+      return res.json(successResponse('Experience levels retrieved', options));
+    }
+
+    const dbLevels = await prisma.experienceLevel.findMany({
+      where: { status: 'active' },
+      orderBy: { createdAt: 'asc' }
+    }).catch(() => []);
+
+    const levels = dbLevels.map((l) => ({ id: l.id, label: l.name, value: l.name }));
+    return res.json(successResponse('Experience levels retrieved', levels));
   } catch (error) { next(error); }
 };
 
