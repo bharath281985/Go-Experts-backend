@@ -255,23 +255,25 @@ export const getExperienceLevels = async (req: Request, res: Response, next: Nex
 
 export const getStartupStages = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dbStages = await prisma.startupStage.findMany({
-      where: { status: 'active' },
-      orderBy: { name: 'asc' }
-    }).catch(() => []);
-
-    if (dbStages.length > 0) {
-      const stages = dbStages.map((s) => ({ id: s.id, label: s.name, value: s.name }));
-      return res.json(successResponse('Startup stages retrieved', stages));
-    }
-
-    const options = await (prisma as any).masterOption?.findMany({
+    const options = await prisma.masterOption.findMany({
       where: { type: 'startup_stage', status: 'active' },
       orderBy: { sortOrder: 'asc' },
       select: { id: true, label: true, value: true }
-    }).catch(() => []);
+    }).catch(async () => {
+      return prisma.$queryRawUnsafe<Array<{ id: string; label: string; value: string }>>(
+        "SELECT id, label, value FROM master_options WHERE type = 'startup_stage' AND status = 'active' ORDER BY sort_order ASC"
+      ).catch(() => []);
+    });
 
-    return res.json(successResponse('Startup stages retrieved', options || []));
+    const seen = new Set<string>();
+    const stages = options.filter((option) => {
+      const key = String(option.value || option.label || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return res.json({ success: true, data: stages });
   } catch (error) { next(error); }
 };
 

@@ -62,7 +62,7 @@ const VALIDATORS: Record<string, { regex: RegExp; message: string }> = {
 const getVerificationRequirement = (role: string) => {
     const normalizedRole = role.toLowerCase().trim();
     if (normalizedRole === "freelancer" || normalizedRole === "talent") {
-        return { personalRequired: 1, businessRequired: 0 };
+        return { personalRequired: 2, businessRequired: 0 };
     }
     return { personalRequired: 2, businessRequired: 2 };
 };

@@ -615,6 +615,26 @@ const resolveTeamSizeOption = async (teamSize?: number | null): Promise<OptionOb
   return { id: option.id, name: option.label || option.value };
 };
 
+const resolveMasterOption = async (
+  value: string | null | undefined,
+  types: string[],
+): Promise<OptionObj | null> => {
+  const clean = String(value || '').trim();
+  if (!clean) return null;
+
+  const option = await prisma.masterOption.findFirst({
+    where: {
+      type: { in: types },
+      status: 'active',
+      OR: [{ id: clean }, { value: clean }, { label: clean }],
+    },
+    orderBy: { sortOrder: 'asc' },
+    select: { id: true, label: true, value: true },
+  }).catch(() => null);
+
+  return option ? { id: option.id, name: option.label || option.value } : null;
+};
+
 const resolveOptionMap = async (values: (string | null | undefined)[]) => {
   const rawClean = values.flatMap(v => (v ? String(v).split(',').map(s => s.trim()) : [])).filter(Boolean);
   const cleanValues = [...new Set(rawClean)];
@@ -807,10 +827,16 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       ...rawSkills,
     ];
 
-    const [optionMap, teamSizeOption] = await Promise.all([
+    const [optionMap, teamSizeOption, clientCompanySizeOption, clientBudgetOption] = await Promise.all([
       resolveOptionMap(idsToResolve),
       activeUser.role === 'founder'
         ? resolveTeamSizeOption(roleProfile?.teamSize)
+        : Promise.resolve(null),
+      activeUser.role === 'client'
+        ? resolveMasterOption(roleProfile?.companySize, ['company_size'])
+        : Promise.resolve(null),
+      activeUser.role === 'client'
+        ? resolveMasterOption(roleProfile?.projectHireBudget, ['budget_range', 'project_budget_range', 'hiring_budget_range'])
         : Promise.resolve(null),
     ]);
 
@@ -899,9 +925,10 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         formattedProfile.headline = roleProfile.jobTitle;
         formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
-        formattedProfile.projectHireBudgetId = toSingleOption(roleProfile.projectHireBudget);
+        formattedProfile.projectHireBudgetId = clientBudgetOption || toSingleOption(roleProfile.projectHireBudget);
         delete formattedProfile.projectHireBudget;
-        formattedProfile.companySizeId = toSingleOption(roleProfile.companySize);
+        formattedProfile.companySizeId = clientCompanySizeOption || toSingleOption(roleProfile.companySize);
+        formattedProfile.currentTeam = formattedProfile.companySizeId?.name || roleProfile.currentTeam || null;
         delete formattedProfile.companySize;
         formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
         delete formattedProfile.hiringGoal;
@@ -1131,6 +1158,10 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     const industryInput = extractVal(req.body.industryId ?? req.body.industry ?? req.body.categoryId);
     const hiringGoalInput = extractVal(req.body.hiringGoalId ?? req.body.hiringGoal);
     const companySizeInput = extractVal(req.body.companySizeId ?? req.body.companySize);
+    const projectHireBudgetInput = extractVal(req.body.projectHireBudgetId ?? req.body.projectHireBudget);
+    const currentTeamInput = extractVal(
+      req.body.currentTeam ?? req.body.currentTeamId ?? req.body.companySizeId ?? req.body.companySize
+    );
     const availabilityInput = extractVal(req.body.availabilityId ?? req.body.availability ?? availability);
     const workModeInput = extractVal(req.body.workModeId ?? req.body.workMode ?? workMode);
     const focusAreasInput = extractVal(req.body.focusAreasId ?? req.body.focusAreas ?? req.body.categoryId);
@@ -1232,9 +1263,9 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           company: companyVal ? String(companyVal).trim() : undefined,
           industry: industryInput ? String(industryInput).trim() : undefined,
           hiringGoal: hiringGoalInput ? String(hiringGoalInput).trim() : undefined,
-          projectHireBudget: (projectHireBudgetId ?? projectHireBudget) ? String(projectHireBudgetId ?? projectHireBudget).trim() : undefined,
+          projectHireBudget: projectHireBudgetInput ? String(projectHireBudgetInput).trim() : undefined,
           companySize: companySizeInput ? String(companySizeInput).trim() : undefined,
-          currentTeam: currentTeam ? String(currentTeam).trim() : undefined,
+          currentTeam: currentTeamInput ? String(currentTeamInput).trim() : undefined,
           websiteUrl: websiteUrl ? String(websiteUrl).trim() : undefined,
           jobTitle: jobTitleVal ? String(jobTitleVal).trim() : undefined,
         },
@@ -1243,9 +1274,9 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
           company: companyVal ? String(companyVal).trim() : null,
           industry: industryInput ? String(industryInput).trim() : null,
           hiringGoal: hiringGoalInput ? String(hiringGoalInput).trim() : null,
-          projectHireBudget: (projectHireBudgetId ?? projectHireBudget) ? String(projectHireBudgetId ?? projectHireBudget).trim() : null,
+          projectHireBudget: projectHireBudgetInput ? String(projectHireBudgetInput).trim() : null,
           companySize: companySizeInput ? String(companySizeInput).trim() : null,
-          currentTeam: currentTeam ? String(currentTeam).trim() : null,
+          currentTeam: currentTeamInput ? String(currentTeamInput).trim() : null,
           websiteUrl: websiteUrl ? String(websiteUrl).trim() : null,
           jobTitle: jobTitleVal ? String(jobTitleVal).trim() : null,
         },
@@ -1356,10 +1387,16 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       ...rawSkills,
     ];
 
-    const [optionMap, teamSizeOption] = await Promise.all([
+    const [optionMap, teamSizeOption, clientCompanySizeOption, clientBudgetOption] = await Promise.all([
       resolveOptionMap(idsToResolve),
       activeUser.role === 'founder'
         ? resolveTeamSizeOption(roleProfile?.teamSize)
+        : Promise.resolve(null),
+      activeUser.role === 'client'
+        ? resolveMasterOption(roleProfile?.companySize, ['company_size'])
+        : Promise.resolve(null),
+      activeUser.role === 'client'
+        ? resolveMasterOption(roleProfile?.projectHireBudget, ['budget_range', 'project_budget_range', 'hiring_budget_range'])
         : Promise.resolve(null),
     ]);
 
@@ -1448,9 +1485,10 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         formattedProfile.headline = roleProfile.jobTitle;
         formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
-        formattedProfile.projectHireBudgetId = toSingleOption(roleProfile.projectHireBudget);
+        formattedProfile.projectHireBudgetId = clientBudgetOption || toSingleOption(roleProfile.projectHireBudget);
         delete formattedProfile.projectHireBudget;
-        formattedProfile.companySizeId = toSingleOption(roleProfile.companySize);
+        formattedProfile.companySizeId = clientCompanySizeOption || toSingleOption(roleProfile.companySize);
+        formattedProfile.currentTeam = formattedProfile.companySizeId?.name || roleProfile.currentTeam || null;
         delete formattedProfile.companySize;
         formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
         delete formattedProfile.hiringGoal;
