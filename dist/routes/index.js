@@ -37,6 +37,7 @@ import messagesRoutes from "./messages/messages.routes.js";
 import aboutRouter from "./admin/about.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
+import kycRouter from "./admin/kyc.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import subscriptionRoutes from "./subscription/subscription.routes.js";
@@ -109,6 +110,7 @@ router.use("/admin/marketing", marketingRouter);
 router.use("/admin/system", systemRouter);
 router.use("/admin/settings", settingsRouter);
 router.use("/admin/developer", developerRouter);
+router.use("/admin/kyc", authMiddleware, kycRouter);
 router.use("/admin", workflowsRoutes);
 router.use("/admin/resume-templates", authMiddleware, resumeTemplateRouter);
 import { getAdminContactPage, saveContactDraft, publishContactPage, listContactEnquiries, getContactEnquiryById, updateContactEnquiry, } from "../controllers/admin/contact.controller.js";
@@ -1808,5 +1810,46 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
         next();
     });
     router.use(`/admin/${tableName}`, authMiddleware, auditMiddleware("mutate", tableName), crudRouter);
+});
+router.post("/admin/users/:id/remind-kyc", authMiddleware, async (req, res, next) => {
+    try {
+        const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+        if (!user)
+            return res.status(404).json({ success: false, message: "User not found" });
+        const { sendEmail } = await import("../services/mobile/email.service.js");
+        await sendEmail(user.email, "Action Required: Complete Your KYC on Go Experts", `<p>Hi ${user.fullName || "User"},</p><p>We noticed that your KYC verification is incomplete. Please log in to your dashboard and submit the required documents so we can fully activate your account and features.</p><p>Thank you,<br>The Go Experts Team</p>`);
+        res.json({ success: true, message: "KYC reminder sent" });
+    }
+    catch (e) {
+        next(e);
+    }
+});
+router.post("/admin/users/:id/remind-profile", authMiddleware, async (req, res, next) => {
+    try {
+        const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+        if (!user)
+            return res.status(404).json({ success: false, message: "User not found" });
+        const { sendEmail } = await import("../services/mobile/email.service.js");
+        await sendEmail(user.email, "Action Required: Complete Your Profile on Go Experts", `<p>Hi ${user.fullName || "User"},</p><p>Your profile is currently incomplete. To get the most out of Go Experts and start connecting with others, please take a moment to log in and complete your profile to at least 75%.</p><p>Thank you,<br>The Go Experts Team</p>`);
+        res.json({ success: true, message: "Profile reminder sent" });
+    }
+    catch (e) {
+        next(e);
+    }
+});
+router.get("/admin/users/unread-counts", authMiddleware, (req, res) => {
+    res.json({
+        success: true,
+        data: { freelancers: 0, clients: 0, investors: 0, founders: 0 }
+    });
+});
+router.get("/admin/users/unread-list", authMiddleware, (req, res) => {
+    res.json({
+        success: true,
+        data: []
+    });
+});
+router.post("/admin/users/:id/mark-viewed", authMiddleware, (req, res) => {
+    res.json({ success: true, message: "Marked viewed" });
 });
 export default router;
