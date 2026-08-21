@@ -100,6 +100,29 @@ router.get("/docs/postman.json", (req, res) => {
 
 // 2. Admin operations
 // 2.1 Public operations (used by the public frontend)
+const listPublicEducationLevelsDirect = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = await (prisma as any).masterOption.findMany({
+      where: { type: "education_level", status: "active" },
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+      select: { id: true, label: true, value: true },
+    }).catch(async () => {
+      return prisma.$queryRawUnsafe<any[]>(
+        "SELECT id, label, value FROM master_options WHERE type = 'education_level' AND status = 'active' ORDER BY sort_order ASC, label ASC"
+      ).catch(() => []);
+    });
+
+    return res.json({ success: true, data: rows, rows, total: rows.length });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+router.get("/public/education_levels", listPublicEducationLevelsDirect);
+router.get("/public/education-levels", listPublicEducationLevelsDirect);
+router.get("/v1/public/education_levels", listPublicEducationLevelsDirect);
+router.get("/v1/public/education-levels", listPublicEducationLevelsDirect);
+
 router.use("/public", publicRoutes);
 router.use("/public/resume-templates", publicResumeTemplateRouter);
 router.use("/public/resume-share", publicResumeShareRouter);

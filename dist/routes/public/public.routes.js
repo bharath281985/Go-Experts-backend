@@ -396,20 +396,26 @@ router.get("/experience_levels", async (req, res, next) => {
         next(err);
     }
 });
+const listPublicEducationLevels = async (_req, res, next) => {
+    try {
+        const dbLevels = await prisma.masterOption.findMany({
+            where: { type: "education_level", status: "active" },
+            orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+        });
+        const rows = dbLevels.map((level) => ({
+            id: level.id,
+            label: level.label,
+            value: level.value,
+        }));
+        return res.json({ success: true, data: rows, rows, total: rows.length });
+    }
+    catch (err) {
+        return next(err);
+    }
+};
+router.get("/education_levels", listPublicEducationLevels);
+router.get("/education-levels", listPublicEducationLevels);
 router.get("/freelancers/filters", async (_req, res, next) => {
-    router.get("/education_levels", async (req, res, next) => {
-        try {
-            const dbLevels = await prisma.masterOption.findMany({
-                where: { type: 'education_level' },
-                orderBy: { sortOrder: 'asc' }
-            });
-            const rows = dbLevels.map((l) => ({ id: l.id, label: l.label, value: l.value }));
-            res.json({ success: true, rows, total: rows.length });
-        }
-        catch (err) {
-            next(err);
-        }
-    });
     try {
         const data = await getPublicFreelancerFilters();
         res.json({ success: true, data });
@@ -997,15 +1003,18 @@ function deduplicateMasterOptions(items) {
 }
 async function fetchMasterOptions(type) {
     try {
+        const types = Array.isArray(type) ? type : [type];
         const rows = await prisma.masterOption.findMany({
-            where: { type, status: "active" },
-            orderBy: { sortOrder: "asc" },
+            where: { type: { in: types }, status: "active" },
+            orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
             select: { id: true, label: true, value: true }
         });
         return deduplicateMasterOptions(rows || []);
     }
     catch {
-        const rawRows = await prisma.$queryRawUnsafe(`SELECT id, label, value FROM master_options WHERE type = '${type}' AND status = 'active' ORDER BY sort_order ASC`).catch(() => []);
+        const types = Array.isArray(type) ? type : [type];
+        const typeStr = types.map(t => `'${t}'`).join(',');
+        const rawRows = await prisma.$queryRawUnsafe(`SELECT id, label, value FROM master_options WHERE type IN (${typeStr}) AND status = 'active' ORDER BY sort_order ASC, label ASC`).catch(() => []);
         return deduplicateMasterOptions(rawRows || []);
     }
 }
@@ -1059,11 +1068,11 @@ router.get("/expansion_goals", async (_req, res) => {
 });
 router.get("/founder-roles", async (_req, res) => {
     const roles = await fetchMasterOptions("founder_role");
-    return res.json({ success: true, data: roles });
+    return res.json({ success: true, data: roles, rows: roles, total: roles.length });
 });
 router.get("/founder_roles", async (_req, res) => {
     const roles = await fetchMasterOptions("founder_role");
-    return res.json({ success: true, data: roles });
+    return res.json({ success: true, data: roles, rows: roles, total: roles.length });
 });
 router.get("/founder-goals", async (_req, res) => {
     const goals = await fetchMasterOptions("founder_goal");
