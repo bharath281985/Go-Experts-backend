@@ -22,6 +22,17 @@ function normalizePortalRole(role) {
         return "founder";
     return value;
 }
+function canReuseRegistrationEmail(user) {
+    if (!user)
+        return true;
+    if (user.deletedAt)
+        return true;
+    const status = String(user.status || "").trim().toLowerCase();
+    if (["pending_deletion", "deleted", "deleted_by_user"].includes(status))
+        return true;
+    const emailVerified = user.isVerified === true || user.verified === true;
+    return status === "pending" && !emailVerified;
+}
 function getClientHost(req) {
     const origin = req?.headers?.origin;
     if (origin && typeof origin === "string" && origin.startsWith("http")) {
@@ -299,13 +310,13 @@ export const register = async (req, res, next) => {
             role = "freelancer";
         }
         const existing = await prisma.user.findUnique({ where: { email } });
-        if (existing && !existing.deletedAt) {
+        if (!canReuseRegistrationEmail(existing)) {
             return res.status(409).json({
                 success: false,
                 message: "A user with this email already exists. Please use a different email address.",
             });
         }
-        // If user exists but was soft-deleted, we'll restore them below in the transaction
+        // If user exists but can be reused, we'll restore them below in the transaction.
         const hashed = await bcrypt.hash(password, 10);
         const phone = req.body?.phone ? String(req.body.phone) : null;
         const country = req.body?.country ? String(req.body.country) : null;
@@ -495,42 +506,6 @@ export const register = async (req, res, next) => {
             }
             return created;
         });
-        try {
-            const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
-            const emailAdapter = new EmailChannelAdapter();
-            let parsedConfig = {};
-            try {
-                const chanConfig = await prisma.communicationChannel.findUnique({
-                    where: { name: "email" },
-                });
-                if (chanConfig && chanConfig.config) {
-                    parsedConfig = JSON.parse(chanConfig.config);
-                }
-            }
-            catch {
-                // fallback
-            }
-            const trialDateStr = trialEndsAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-            const planSelected = req.body?.subscriptionPlan || "90-Day Free Trial";
-            const welcomeRendered = await renderEmailTemplate("tpl_welcome", {
-                full_name: user.fullName,
-                email: user.email,
-                role: user.role.toUpperCase(),
-                trial_days: "90",
-                trial_ends_at: trialDateStr,
-                selected_plan: planSelected,
-                app_url: process.env.CLIENT_URL || "https://goexperts.in",
-            });
-            await emailAdapter.send({
-                to: user.email,
-                subject: welcomeRendered.subject,
-                body: `Hello ${user.fullName},\n\nWelcome to Go Experts! Your 90-Day Free Trial is active until ${trialDateStr}.\n\nBest regards,\nGo Experts Team`,
-                html: welcomeRendered.html,
-            }, parsedConfig);
-        }
-        catch (emailErr) {
-            console.warn("[REGISTER EMAIL WARN] Could not send welcome email:", emailErr);
-        }
         const tokenPayload = { id: user.id, email: user.email, role: user.role, type: "portal" };
         const accessToken = signAccessToken(tokenPayload);
         const refreshToken = signRefreshToken(tokenPayload);
@@ -1279,20 +1254,8 @@ export const sendOtp = async (req, res, next) => {
     try {
         const email = String(req.body?.email || "").trim().toLowerCase();
         const mobile = String(req.body?.mobile || "").trim();
-        const suppressEmail = req.body?.suppressEmail === true || req.body?.sendEmail === false;
         if (!email && !mobile) {
             return res.status(400).json({ success: false, message: "Email or mobile number is required" });
-        }
-        if (email && req.body?.isSignup !== false) {
-            const existingUser = await prisma.user.findFirst({
-                where: { email },
-            }).catch(() => null);
-            if (existingUser) {
-                return res.status(400).json({
-                    success: false,
-                    message: "User with this email address already exists. Please log in.",
-                });
-            }
         }
         const crypto = await import("crypto");
         const otp = crypto.randomInt(100000, 1000000).toString();
@@ -1305,7 +1268,7 @@ export const sendOtp = async (req, res, next) => {
             console.log(`   OTP Code:  ${otp}`);
             console.log(`======================================================================\n`);
         }
-        if (email && !suppressEmail) {
+        if (email) {
             try {
                 const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
                 const emailAdapter = new EmailChannelAdapter();
