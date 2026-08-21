@@ -6,6 +6,7 @@ export type VerificationItem = {
     value: string;
     status: "verified" | "pending" | "missing" | "rejected";
     documentUrl?: string | null;
+    rejectReason?: string | null;
     required?: boolean;
 };
 
@@ -85,6 +86,7 @@ export function buildVerificationItems(user: any, stored: Record<string, Partial
         let status = (fromStore.status as VerificationItem["status"]) || "missing";
         let value = String(fromStore.value || "").trim();
         const documentUrl = fromStore.documentUrl || null;
+        const rejectReason = fromStore.rejectReason || null;
 
         if (key === "email") {
             value = user.email || value || "Not set";
@@ -103,7 +105,7 @@ export function buildVerificationItems(user: any, stored: Record<string, Partial
             value = status === "missing" ? "Not submitted" : value || "Submitted";
         }
 
-            return { key, label, value, status, documentUrl, required: Boolean(required) };
+            return { key, label, value, status, documentUrl, rejectReason, required: Boolean(required) };
         });
 }
 
@@ -169,7 +171,7 @@ export function getVerificationStats(user: any) {
 }
 
 // Generic updater function that can be used globally
-export async function applyVerificationUpdate(userId: string, body: any) {
+export async function applyVerificationUpdate(userId: string, body: any, isAdmin: boolean = false) {
     const key = String(body.key || "").trim().toLowerCase();
     if (!key || !VERIFICATION_KEYS.some((k) => k.key === key)) {
         throw new Error("Invalid verification key");
@@ -205,8 +207,8 @@ export async function applyVerificationUpdate(userId: string, body: any) {
     }
 
     // Enforce locking: once verified, it cannot be altered by normal user update flows.
-    // If the backend tries to update a verified document to 'pending', reject it.
-    if (stored[key]?.status === "verified" && nextStatus !== "verified") {
+    // If the backend tries to update a verified document to 'pending', reject it unless it's an admin.
+    if (!isAdmin && stored[key]?.status === "verified" && nextStatus !== "verified") {
         throw new Error("Document is already verified and locked. Please contact support to request an update.");
     }
 
@@ -217,6 +219,7 @@ export async function applyVerificationUpdate(userId: string, body: any) {
         value,
         status: nextStatus,
         documentUrl: body.documentUrl != null ? String(body.documentUrl).trim() || null : stored[key]?.documentUrl || null,
+        rejectReason: body.reason != null ? String(body.reason).trim() : stored[key]?.rejectReason || null,
     };
 
     if (key === "phone" && body.value) {

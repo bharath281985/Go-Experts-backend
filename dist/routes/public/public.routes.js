@@ -396,6 +396,19 @@ router.get("/experience_levels", async (req, res, next) => {
     }
 });
 router.get("/freelancers/filters", async (_req, res, next) => {
+    router.get("/education_levels", async (req, res, next) => {
+        try {
+            const dbLevels = await prisma.masterOption.findMany({
+                where: { type: 'education_level' },
+                orderBy: { sortOrder: 'asc' }
+            });
+            const rows = dbLevels.map((l) => ({ id: l.id, label: l.label, value: l.value }));
+            res.json({ success: true, rows, total: rows.length });
+        }
+        catch (err) {
+            next(err);
+        }
+    });
     try {
         const data = await getPublicFreelancerFilters();
         res.json({ success: true, data });

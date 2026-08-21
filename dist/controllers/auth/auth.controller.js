@@ -305,6 +305,7 @@ export const register = async (req, res, next) => {
                 message: "A user with this email already exists. Please use a different email address.",
             });
         }
+        // If user exists but was soft-deleted, we'll restore them below in the transaction
         const hashed = await bcrypt.hash(password, 10);
         const phone = req.body?.phone ? String(req.body.phone) : null;
         const country = req.body?.country ? String(req.body.country) : null;
@@ -331,6 +332,10 @@ export const register = async (req, res, next) => {
                         city,
                         bio,
                         registrationData,
+                        // IMPORTANT: Clear soft-delete so the account is restored/visible
+                        deletedAt: null,
+                        isVerified: false,
+                        verified: false,
                     },
                 })
                 : await tx.user.create({
@@ -1593,13 +1598,21 @@ export const updateVerificationData = async (req, res, next) => {
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
-        const currentData = typeof user.registrationData === "object" && user.registrationData !== null ? user.registrationData : {};
+        let currentData = {};
+        if (user.registrationData) {
+            try {
+                currentData = typeof user.registrationData === 'string'
+                    ? JSON.parse(user.registrationData)
+                    : user.registrationData;
+            }
+            catch (e) { }
+        }
         // Update main user email/mobile if provided
         const updateData = {
-            registrationData: {
+            registrationData: JSON.stringify({
                 ...currentData,
                 ...req.body,
-            }
+            })
         };
         if (req.body.email) {
             updateData.email = req.body.email;
@@ -1647,7 +1660,11 @@ export const saveOnboardingDraft = async (req, res, next) => {
         let currentRegData = {};
         if (user.registrationData) {
             try {
+<<<<<<< Updated upstream
                 currentRegData = typeof user.registrationData === "string"
+=======
+                currentRegData = typeof user.registrationData === 'string'
+>>>>>>> Stashed changes
                     ? JSON.parse(user.registrationData)
                     : user.registrationData;
             }
@@ -1669,16 +1686,25 @@ export const saveOnboardingDraft = async (req, res, next) => {
             nextStepKey: progress.nextStepKey,
             completionPercentage: progress.percentage
         };
+        const getStringVal = (val) => {
+            if (val === null || val === undefined || val === '')
+                return null;
+            if (typeof val === "object") {
+                const ext = val.name || val.label || val.value || val.id;
+                return ext ? String(ext) : null;
+            }
+            return String(val);
+        };
         if (bio !== undefined)
-            userUpdate.bio = String(bio);
+            userUpdate.bio = getStringVal(bio);
         if (phone !== undefined)
-            userUpdate.phone = String(phone);
+            userUpdate.phone = getStringVal(phone);
         if (country !== undefined)
-            userUpdate.country = String(country);
+            userUpdate.country = getStringVal(country);
         if (state !== undefined)
-            userUpdate.state = String(state);
+            userUpdate.state = getStringVal(state);
         if (city !== undefined)
-            userUpdate.city = String(city);
+            userUpdate.city = getStringVal(city);
         await prisma.user.update({
             where: { id: userId },
             data: userUpdate,
@@ -1707,27 +1733,27 @@ export const saveOnboardingDraft = async (req, res, next) => {
                     where: { userId },
                     create: {
                         userId,
-                        titleHeadline: titleHeadline ? String(titleHeadline) : undefined,
+                        titleHeadline: getStringVal(titleHeadline) || undefined,
                         skills: joinArray(skills),
                         hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) || null : undefined,
-                        experience: experienceLevel ? String(experienceLevel) : undefined,
-                        yearsOfExperience: yrsExp ? String(yrsExp) : undefined,
-                        portfolioUrl: portUrl ? String(portUrl) : undefined,
-                        linkedInUrl: linkUrl ? String(linkUrl) : undefined,
-                        githubUrl: gitUrl ? String(gitUrl) : undefined,
-                        dribbbleUrl: dribUrl ? String(dribUrl) : undefined,
+                        experience: getStringVal(experienceLevel) || undefined,
+                        yearsOfExperience: getStringVal(yrsExp) || undefined,
+                        portfolioUrl: getStringVal(portUrl) || undefined,
+                        linkedInUrl: getStringVal(linkUrl) || undefined,
+                        githubUrl: getStringVal(gitUrl) || undefined,
+                        dribbbleUrl: getStringVal(dribUrl) || undefined,
                         industry: joinArray(industry),
                     },
                     update: {
-                        ...(titleHeadline !== undefined && { titleHeadline: String(titleHeadline) }),
+                        ...(titleHeadline !== undefined && { titleHeadline: getStringVal(titleHeadline) }),
                         ...(skills !== undefined && { skills: joinArray(skills) }),
                         ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) || null }),
-                        ...(experienceLevel !== undefined && { experience: String(experienceLevel) }),
-                        ...(yrsExp !== undefined && { yearsOfExperience: String(yrsExp) }),
-                        ...(portUrl !== undefined && { portfolioUrl: String(portUrl) }),
-                        ...(linkUrl !== undefined && { linkedInUrl: String(linkUrl) }),
-                        ...(gitUrl !== undefined && { githubUrl: String(gitUrl) }),
-                        ...(dribUrl !== undefined && { dribbbleUrl: String(dribUrl) }),
+                        ...(experienceLevel !== undefined && { experience: getStringVal(experienceLevel) }),
+                        ...(yrsExp !== undefined && { yearsOfExperience: getStringVal(yrsExp) }),
+                        ...(portUrl !== undefined && { portfolioUrl: getStringVal(portUrl) }),
+                        ...(linkUrl !== undefined && { linkedInUrl: getStringVal(linkUrl) }),
+                        ...(gitUrl !== undefined && { githubUrl: getStringVal(gitUrl) }),
+                        ...(dribUrl !== undefined && { dribbbleUrl: getStringVal(dribUrl) }),
                         ...(industry !== undefined && { industry: joinArray(industry) }),
                         ...(workMode !== undefined && { workMode: joinArray(workMode) }),
                     },
@@ -1741,23 +1767,23 @@ export const saveOnboardingDraft = async (req, res, next) => {
                     where: { userId },
                     create: {
                         userId,
-                        company: compName ? String(compName) : undefined,
+                        company: getStringVal(compName) || undefined,
                         industry: joinArray(industry),
-                        companySize: companySize ? String(companySize) : undefined,
-                        currentTeam: currTeam ? String(currTeam) : undefined,
-                        projectHireBudget: projBudget ? String(projBudget) : undefined,
-                        websiteUrl: websiteUrl ? String(websiteUrl) : undefined,
-                        jobTitle: jobTitle ? String(jobTitle) : undefined,
+                        companySize: getStringVal(companySize) || undefined,
+                        currentTeam: getStringVal(currTeam) || undefined,
+                        projectHireBudget: getStringVal(projBudget) || undefined,
+                        websiteUrl: getStringVal(websiteUrl) || undefined,
+                        jobTitle: getStringVal(jobTitle) || undefined,
                         hiringGoal: joinArray(hiringGoal),
                     },
                     update: {
-                        ...(compName !== undefined && { company: String(compName) }),
+                        ...(compName !== undefined && { company: getStringVal(compName) }),
                         ...(industry !== undefined && { industry: joinArray(industry) }),
-                        ...(companySize !== undefined && { companySize: String(companySize) }),
-                        ...(currTeam !== undefined && { currentTeam: String(currTeam) }),
-                        ...(projBudget !== undefined && { projectHireBudget: String(projBudget) }),
-                        ...(websiteUrl !== undefined && { websiteUrl: String(websiteUrl) }),
-                        ...(jobTitle !== undefined && { jobTitle: String(jobTitle) }),
+                        ...(companySize !== undefined && { companySize: getStringVal(companySize) }),
+                        ...(currTeam !== undefined && { currentTeam: getStringVal(currTeam) }),
+                        ...(projBudget !== undefined && { projectHireBudget: getStringVal(projBudget) }),
+                        ...(websiteUrl !== undefined && { websiteUrl: getStringVal(websiteUrl) }),
+                        ...(jobTitle !== undefined && { jobTitle: getStringVal(jobTitle) }),
                         ...(hiringGoal !== undefined && { hiringGoal: joinArray(hiringGoal) }),
                     },
                 });
@@ -1767,18 +1793,18 @@ export const saveOnboardingDraft = async (req, res, next) => {
                     where: { userId },
                     create: {
                         userId,
-                        investorType: investorTypeInput ? String(investorTypeInput) : undefined,
-                        firm: firm ? String(firm) : undefined,
-                        isAccredited: isAccredited ? String(isAccredited) : undefined,
+                        investorType: getStringVal(investorTypeInput) || undefined,
+                        firm: getStringVal(firm) || undefined,
+                        isAccredited: getStringVal(isAccredited) || undefined,
                         ticketMin: ticketMin !== undefined ? parseFloat(ticketMin) || null : undefined,
                         ticketMax: ticketMax !== undefined ? parseFloat(ticketMax) || null : undefined,
                         focusAreas: joinArray(focusAreasInput),
                         preferredStage: joinArray(preferredStageInput),
                     },
                     update: {
-                        ...(investorTypeInput !== undefined && { investorType: String(investorTypeInput) }),
-                        ...(firm !== undefined && { firm: String(firm) }),
-                        ...(isAccredited !== undefined && { isAccredited: String(isAccredited) }),
+                        ...(investorTypeInput !== undefined && { investorType: getStringVal(investorTypeInput) }),
+                        ...(firm !== undefined && { firm: getStringVal(firm) }),
+                        ...(isAccredited !== undefined && { isAccredited: getStringVal(isAccredited) }),
                         ...(ticketMin !== undefined && { ticketMin: parseFloat(ticketMin) || null }),
                         ...(ticketMax !== undefined && { ticketMax: parseFloat(ticketMax) || null }),
                         ...(focusAreasInput !== undefined && { focusAreas: joinArray(focusAreasInput) }),
@@ -1791,24 +1817,24 @@ export const saveOnboardingDraft = async (req, res, next) => {
                     where: { userId },
                     create: {
                         userId,
-                        startupName: startupName ? String(startupName) : undefined,
+                        startupName: getStringVal(startupName) || undefined,
                         industry: joinArray(industry),
-                        stage: stage ? String(stage) : undefined,
-                        pitch: pitch ? String(pitch) : undefined,
-                        founderRole: founderRole ? String(founderRole) : undefined,
-                        founderBio: founderBio ? String(founderBio) : undefined,
+                        stage: getStringVal(stage) || undefined,
+                        pitch: getStringVal(pitch) || undefined,
+                        founderRole: getStringVal(founderRole) || undefined,
+                        founderBio: getStringVal(founderBio) || undefined,
                         raised: raised !== undefined ? parseFloat(raised) || null : undefined,
                         targetRaise: targetRaise !== undefined ? parseFloat(targetRaise) || null : undefined,
                         teamSize: teamSize !== undefined ? parseInt(teamSize) || 1 : undefined,
                         primaryGoal: joinArray(primaryGoal),
                     },
                     update: {
-                        ...(startupName !== undefined && { startupName: String(startupName) }),
+                        ...(startupName !== undefined && { startupName: getStringVal(startupName) }),
                         ...(industry !== undefined && { industry: joinArray(industry) }),
-                        ...(stage !== undefined && { stage: String(stage) }),
-                        ...(pitch !== undefined && { pitch: String(pitch) }),
-                        ...(founderRole !== undefined && { founderRole: String(founderRole) }),
-                        ...(founderBio !== undefined && { founderBio: String(founderBio) }),
+                        ...(stage !== undefined && { stage: getStringVal(stage) }),
+                        ...(pitch !== undefined && { pitch: getStringVal(pitch) }),
+                        ...(founderRole !== undefined && { founderRole: getStringVal(founderRole) }),
+                        ...(founderBio !== undefined && { founderBio: getStringVal(founderBio) }),
                         ...(raised !== undefined && { raised: parseFloat(raised) || null }),
                         ...(targetRaise !== undefined && { targetRaise: parseFloat(targetRaise) || null }),
                         ...(teamSize !== undefined && { teamSize: parseInt(teamSize) || 1 }),
@@ -1840,5 +1866,19 @@ export const saveOnboardingDraft = async (req, res, next) => {
     }
     catch (err) {
         next(err);
+    }
+};
+export const checkEmailVerification = async (req, res, next) => {
+    try {
+        const { email } = req.query;
+        if (!email)
+            return res.json({ success: true, message: 'Verified', data: { verified: false } });
+        const user = await prisma.user.findUnique({ where: { email: String(email).trim().toLowerCase() } });
+        if (!user)
+            return res.json({ success: true, message: 'User not found', data: { verified: false } });
+        return res.json({ success: true, message: 'Check complete', data: { verified: user.isVerified } });
+    }
+    catch (error) {
+        next(error);
     }
 };
