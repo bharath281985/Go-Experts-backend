@@ -535,8 +535,8 @@ router.post("/webhooks/easebuzz", async (req: Request, res: Response) => {
         if (["success", "successful", "completed", "paid"].includes(statusRaw)) {
           status = "completed";
           // Check if this was a subscription payment (indicated in productinfo)
-          if (payment.purpose?.startsWith("SUB_") || body.productinfo?.startsWith("SUB_")) {
-            const planId = payment.purpose?.replace("SUB_", "") || body.productinfo?.replace("SUB_", "");
+          if (body.productinfo?.startsWith("SUB_")) {
+            const planId = body.productinfo?.replace("SUB_", "");
             if (planId) {
               // Activate subscription
               const { purchaseSubscriptionForSelf } = await import("../../common/helpers/portal-shared.js");
