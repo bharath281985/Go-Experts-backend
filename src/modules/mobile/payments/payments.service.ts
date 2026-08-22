@@ -51,18 +51,26 @@ export const initiatePaymentService = async (
   });
 
   let gatewayResult;
-  switch (allowedGateway) {
-    case 'easebuzz':
-      gatewayResult = await initiateEasebuzzPayment(amount, currency, enriched);
-      break;
-    case 'razorpay':
-      gatewayResult = await initiateRazorpayPayment(amount, currency, enriched);
-      break;
-    case 'stripe':
-      gatewayResult = await initiateStripePayment(amount, currency, enriched);
-      break;
-    default:
-      throw new Error('INVALID_GATEWAY');
+  try {
+    switch (allowedGateway) {
+      case 'easebuzz':
+        gatewayResult = await initiateEasebuzzPayment(amount, currency, enriched);
+        break;
+      case 'razorpay':
+        gatewayResult = await initiateRazorpayPayment(amount, currency, enriched);
+        break;
+      case 'stripe':
+        gatewayResult = await initiateStripePayment(amount, currency, enriched);
+        break;
+      default:
+        throw new Error('INVALID_GATEWAY');
+    }
+  } catch (error) {
+    await prisma.payment.update({
+      where: { id: paymentRecord.id },
+      data: { status: 'failed' },
+    });
+    throw error;
   }
 
   await prisma.payment.update({

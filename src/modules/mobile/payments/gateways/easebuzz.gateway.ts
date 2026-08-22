@@ -14,13 +14,43 @@ export interface EasebuzzInitiateResult {
 export const generateEasebuzzHash = (parts: string[]) =>
   crypto.createHash('sha512').update(parts.join('|')).digest('hex');
 
+const cleanEasebuzzText = (value: unknown, fallback: string, maxLength: number) => {
+  const cleaned = String(value || fallback)
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+  return cleaned || fallback;
+};
+
+const cleanEasebuzzEmail = (value: unknown) => {
+  const email = String(value || '').trim();
+  if (!email || !email.includes('@')) {
+    throw new Error('USER_EMAIL_REQUIRED_FOR_PAYMENT');
+  }
+  return email;
+};
+
+const cleanEasebuzzPhone = (value: unknown) => {
+  const phone = String(value || '').replace(/[^\d]/g, '').trim();
+  return phone.length >= 10 ? phone.slice(-10) : '9999999999';
+};
+
+const cleanEasebuzzFirstName = (value: unknown) => {
+  const firstname = cleanEasebuzzText(String(value || '').split(' ')[0], '', 50);
+  if (!firstname) {
+    throw new Error('USER_NAME_REQUIRED_FOR_PAYMENT');
+  }
+  return firstname;
+};
+
 export const initiateEasebuzzPayment = async (
   amount: number,
   currency: string,
   metadata: Record<string, unknown> = {}
 ): Promise<EasebuzzInitiateResult> => {
-  let key = process.env.EASEBUZZ_KEY || '8BIGQZS5AE';
-  let salt = process.env.EASEBUZZ_SALT || '5D9UII20TB';
+  let key = process.env.EASEBUZZ_KEY || '';
+  let salt = process.env.EASEBUZZ_SALT || '';
   let easeEnv = (process.env.EASEBUZZ_ENV || 'live').toLowerCase();
 
   try {
@@ -40,18 +70,28 @@ export const initiateEasebuzzPayment = async (
       }
     }
   } catch (err) {
-    console.warn('[EASEBUZZ MOBILE] Setting lookup warning, using defaults/env', err);
+    console.warn('[EASEBUZZ MOBILE] Setting lookup warning, using env config only', err);
+  }
+
+  if (!key || !salt) {
+    throw new Error('EASEBUZZ_GATEWAY_NOT_CONFIGURED');
   }
 
   const txnid = `EB${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  const productinfo = String(
-    metadata.productinfo || metadata.purpose || metadata.planId || 'GoExperts Payment'
+  const productinfo = cleanEasebuzzText(
+    metadata.productinfo || metadata.purpose || metadata.planId,
+    'GoExperts Payment',
+    80
   );
-  const firstname = String(metadata.firstname || metadata.fullName || 'GoExperts User');
-  const email = String(metadata.email || 'user@goexperts.in');
-  const phone = String(metadata.phone || '9999999999');
-  const surl = String(metadata.successUrl || process.env.EASEBUZZ_SUCCESS_URL || 'https://goexperts.in/payment/success');
-  const furl = String(metadata.failureUrl || process.env.EASEBUZZ_FAILURE_URL || 'https://goexperts.in/payment/failure');
+  const firstname = cleanEasebuzzFirstName(metadata.firstname || metadata.fullName);
+  const email = cleanEasebuzzEmail(metadata.email);
+  const phone = cleanEasebuzzPhone(metadata.phone);
+  const isProd = easeEnv === 'live' || easeEnv === 'prod' || easeEnv === 'production';
+  const apiHost = isProd
+    ? 'https://apiai.goexperts.in/api'
+    : process.env.API_BASE_URL || 'http://localhost:3000/api';
+  const surl = String(metadata.successUrl || process.env.EASEBUZZ_SUCCESS_URL || `${apiHost}/payments/webhooks/easebuzz`);
+  const furl = String(metadata.failureUrl || process.env.EASEBUZZ_FAILURE_URL || `${apiHost}/payments/webhooks/easebuzz`);
 
   const hash = generateEasebuzzHash([
     key,
@@ -77,7 +117,7 @@ export const initiateEasebuzzPayment = async (
     hash,
   });
 
-  const baseUrl = easeEnv === 'live' ? 'https://pay.easebuzz.in' : 'https://testpay.easebuzz.in';
+  const baseUrl = isProd ? 'https://pay.easebuzz.in' : 'https://testpay.easebuzz.in';
   const response = await fetch(`${baseUrl}/payment/initiateLink`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -100,7 +140,7 @@ export const initiateEasebuzzPayment = async (
     gatewayPayload: {
       accessKey: result.data,
       txnid,
-      payMode: easeEnv === 'live' ? 'production' : 'test',
+      payMode: isProd ? 'production' : 'test',
     },
   };
 };
@@ -115,8 +155,9 @@ export const verifyEasebuzzReverseHash = (
   firstname = '',
   productinfo = ''
 ): boolean => {
-  const key = process.env.EASEBUZZ_KEY || '8BIGQZS5AE';
-  const salt = process.env.EASEBUZZ_SALT || '5D9UII20TB';
+  const key = process.env.EASEBUZZ_KEY || '';
+  const salt = process.env.EASEBUZZ_SALT || '';
+  if (!key || !salt) return false;
 
   const expected = generateEasebuzzHash([
     salt,

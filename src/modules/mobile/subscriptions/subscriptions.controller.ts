@@ -45,7 +45,8 @@ const startPlanPayment = async (req: AuthRequest, res: Response, action: string)
     if (!baseAmount || baseAmount <= 0) {
       return res.status(400).json(errorResponse('Plan has invalid price', 'VALIDATION_ERROR'));
     }
-    const gst = parseFloat((baseAmount * 0.18).toFixed(2));
+    // const gst = parseFloat((baseAmount * 0.18).toFixed(2));\
+    const gst = 0;
     const totalAmount = parseFloat((baseAmount + gst).toFixed(2));
 
     const result = await initiatePaymentService(req.user.id, gateway, totalAmount, 'INR', {
