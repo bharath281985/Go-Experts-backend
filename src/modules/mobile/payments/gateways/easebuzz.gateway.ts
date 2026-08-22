@@ -33,10 +33,7 @@ const cleanEasebuzzEmail = (value: unknown) => {
 
 const cleanEasebuzzPhone = (value: unknown) => {
   const phone = String(value || '').replace(/[^\d]/g, '').trim();
-  if (phone.length < 10) {
-    throw new Error('USER_PHONE_REQUIRED_FOR_PAYMENT');
-  }
-  return phone.slice(-10);
+  return phone.length >= 10 ? phone.slice(-10) : '';
 };
 
 const cleanEasebuzzFirstName = (value: unknown) => {
@@ -114,11 +111,13 @@ export const initiateEasebuzzPayment = async (
     productinfo,
     firstname,
     email,
-    phone,
     surl,
     furl,
     hash,
   });
+  if (phone) {
+    body.set('phone', phone);
+  }
 
   const baseUrl = isProd ? 'https://pay.easebuzz.in' : 'https://testpay.easebuzz.in';
   const response = await fetch(`${baseUrl}/payment/initiateLink`, {
