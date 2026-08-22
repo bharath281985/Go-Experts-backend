@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
@@ -7,6 +8,7 @@ import { getMyVerification, updateMyVerification, deleteMyVerification } from ".
 import { getInvestorDashboard, getInvestorProfile, updateInvestorProfile, listWatchlist, addToWatchlist, removeFromWatchlist, getInvestorPortfolio, listInvestorInvestments, createInvestorInvestment, listInvestorMeetings, createInvestorMeeting, listInvestorMessages, createInvestorMessage, getInvestorWallet, depositInvestorWallet, withdrawInvestorWallet, listInvestorInvoices, getInvestorAnalytics, getInvestorReports, listInvestorNotifications, markInvestorNotificationRead, markAllInvestorNotificationsRead, listInvestorDocuments, addInvestorDocument, listInvestorSubscriptions, purchaseInvestorSubscription, getInvestorSettings, updateInvestorSettings, listAllFounders, } from "../../controllers/investor/investor.controller.js";
 const router = Router();
 router.use(authMiddleware);
+router.use(requireOnboarding);
 router.use(portalRoleMiddleware(["investor"]));
 router.get("/dashboard", getInvestorDashboard);
 router.get("/profile", getInvestorProfile);

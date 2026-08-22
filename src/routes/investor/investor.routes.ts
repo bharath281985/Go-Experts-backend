@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
@@ -39,6 +40,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware as any);
+router.use(requireOnboarding as any);
 router.use(portalRoleMiddleware(["investor"]) as any);
 
 router.get("/dashboard", getInvestorDashboard as any);
@@ -93,3 +95,4 @@ router.get("/all-founders", listAllFounders as any);
 router.post("/media/upload", upload.single("file"), uploadFile as any);
 
 export default router;
+

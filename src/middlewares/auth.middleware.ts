@@ -24,16 +24,28 @@ export const authMiddleware = async (
     let decoded: any;
     try {
       decoded = jwt.verify(token, env.JWT_SECRET);
-    } catch {
-      decoded = jwt.decode(token);
-    }
-
-    if (!decoded || typeof decoded !== "object") {
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        return res.status(401).json({ success: false, message: "Token Expired" });
+      }
       return res.status(401).json({ success: false, message: "Invalid Access Token" });
     }
 
-    const userId = decoded.id || decoded.userId || decoded.sub || "dev-user";
-    const userEmail = decoded.email || "user@example.com";
+    if (!decoded || typeof decoded !== "object") {
+      return res.status(401).json({ success: false, message: "Invalid Access Token payload" });
+    }
+
+    // `purpose` check: ensure registration tokens cannot be used as access tokens
+    if (decoded.purpose === "SOCIAL_REGISTRATION") {
+      return res.status(401).json({ success: false, message: "Registration token cannot be used for API access" });
+    }
+
+    const userId = decoded.id || decoded.userId || decoded.sub;
+    const userEmail = decoded.email;
+
+    if (!userId && !userEmail) {
+      return res.status(401).json({ success: false, message: "Invalid token payload" });
+    }
 
     // 1. Try finding portal user by ID or Email
     const user = await prisma.user.findFirst({
@@ -44,10 +56,20 @@ export const authMiddleware = async (
     });
 
     if (user) {
+      // Account Status Guard
+      if (user.status === "SUSPENDED") {
+        return res.status(403).json({ success: false, message: "Account suspended." });
+      }
+      if (user.status === "BLOCKED" || user.status === "DELETED") {
+        return res.status(403).json({ success: false, message: "Account unavailable." });
+      }
+
       req.user = {
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role, // from DB!
+        onboardingStatus: user.onboardingStatus, // from DB!
+        currentStep: user.currentStep, // from DB!
         type: "portal",
       };
       return next();
@@ -60,6 +82,11 @@ export const authMiddleware = async (
     });
 
     if (admin) {
+      // Admin Account Status Guard
+      if (admin.status !== "active") {
+        return res.status(403).json({ success: false, message: "Admin account deactivated." });
+      }
+
       req.user = {
         id: admin.id,
         email: admin.email,
@@ -69,18 +96,9 @@ export const authMiddleware = async (
       return next();
     }
 
-    // 3. Fallback: Authenticate valid JWT session
-    req.user = {
-      id: userId,
-      email: userEmail,
-      role: decoded.role || "client",
-      type: "portal",
-    };
-    return next();
+    return res.status(401).json({ success: false, message: "User not found" });
   } catch (error: any) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ success: false, message: "Token Expired" });
-    }
-    return res.status(401).json({ success: false, message: "Invalid Access Token" });
+    console.error("Auth Middleware Error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error during authentication" });
   }
 };

@@ -7,7 +7,7 @@ import { AuthRequest } from '../../../middlewares/auth.js';
 import { sendWelcomeEmail, sendPasswordResetEmail, sendVerificationEmail } from '../../../services/mobile/email.service.js';
 import { saveDeviceToken, removeDeviceToken } from '../../../services/mobile/push.service.js';
 import { AuditEngine } from '../../../services/mobile/audit.engine.js';
-import { bootstrapNewUser } from '../../../services/mobile/auth-bootstrap.service.js';
+import { bootstrapNewUser, bootstrapUserResources, isValidRole } from '../../../services/mobile/auth-bootstrap.service.js';
 import { issuePhoneOtp, verifyPhoneOtp, issueEmailOtp, verifyEmailOtp } from '../../../services/mobile/otp.service.js';
 import { resolveProfileCompletion } from '../../../services/mobile/profile-completion.service.js';
 import { resolveUserSubscriptionGate } from '../../../services/mobile/subscription.service.js';
@@ -1564,6 +1564,82 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     };
 
     return res.json(successResponse('Profile updated successfully', { user: userData, completion }));
+  } catch (error) { next(error); }
+};
+
+export const selectSocialRole = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const role = String(req.body?.role || '').trim().toLowerCase();
+    if (!isValidRole(role)) {
+      return res.status(400).json(errorResponse('A valid role is required.', 'VALIDATION_ERROR'));
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!existing) {
+      return res.status(404).json(errorResponse('User not found.', 'NOT_FOUND'));
+    }
+
+    let registrationData: Record<string, any> = {};
+    try {
+      registrationData =
+        typeof existing.registrationData === 'string'
+          ? JSON.parse(existing.registrationData || '{}')
+          : ((existing.registrationData as any) || {});
+    } catch {
+      registrationData = {};
+    }
+
+    registrationData.isSocialLogin = true;
+    registrationData.isSocial = true;
+    registrationData.selectedRole = role;
+    registrationData.onboardingStatus = registrationData.onboardingStatus || 'draft';
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: req.user.id },
+        data: {
+          role,
+          registrationData: JSON.stringify(registrationData),
+        },
+      });
+
+      if (role === 'freelancer') {
+        await tx.freelancerProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+      } else if (role === 'client') {
+        await tx.clientProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+      } else if (role === 'investor') {
+        await tx.investorProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+      } else if (role === 'founder') {
+        await tx.founderProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+      }
+
+      await bootstrapUserResources(user.id, tx);
+      return user;
+    });
+
+    const [completion, subscriptionGate] = await Promise.all([
+      resolveProfileCompletion(updatedUser.id),
+      resolveUserSubscriptionGate(updatedUser.id),
+    ]);
+
+    return res.json(successResponse('Role selected successfully', {
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+        role: updatedUser.role,
+        avatarUrl: updatedUser.avatarUrl,
+        status: updatedUser.status,
+        isVerified: updatedUser.isVerified,
+        isSocialLogin: true,
+        profileCompletion: completion.profileCompletion,
+        isProfileComplete: completion.isProfileComplete,
+        subscriptionStatus: subscriptionGate.status,
+        subscriptionPlanId: subscriptionGate.planId,
+        subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
+      },
+      completion,
+    }));
   } catch (error) { next(error); }
 };
 

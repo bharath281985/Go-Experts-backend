@@ -51,6 +51,7 @@ import subscriptionRoutes from "./subscription/subscription.routes.js";
 import { getVerificationStats } from "../common/helpers/verification.js";
 
 import mobileRoutes from "../modules/mobile/index.js";
+import { requireOnboarding } from "../middlewares/onboarding.middleware.js";
 
 const router = Router();
 
@@ -353,7 +354,7 @@ const searchColumnsMapping: Record<string, string[]> = {
   Review: ["comment"],
 };
 
-const freelancerInclude = {
+const freelancerInclude = { authIdentities: true,
   // Avoid selecting optional JSON columns that may not exist on older production DBs.
   freelancerProfile: {
     select: {
@@ -393,7 +394,7 @@ const freelancerInclude = {
   },
 };
 
-const clientInclude = {
+const clientInclude = { authIdentities: true,
   clientProfile: true,
   clientContracts: {
     include: { project: true },
@@ -410,7 +411,7 @@ const clientInclude = {
   },
 };
 
-const investorInclude = {
+const investorInclude = { authIdentities: true,
   investorProfile: true,
   wallet: {
     include: {
@@ -422,7 +423,7 @@ const investorInclude = {
   },
 };
 
-const founderInclude = {
+const founderInclude = { authIdentities: true,
   founderProfile: true,
   wallet: {
     include: {

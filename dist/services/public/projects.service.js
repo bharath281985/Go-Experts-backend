@@ -44,19 +44,57 @@ export async function listPublicProjects(options) {
                 technology: true,
                 timeline: true,
                 status: true,
+                description: true,
+                experienceLevel: true,
+                workMode: true,
+                client: true,
+                createdAt: true,
             },
         });
+        const clientIds = [...new Set(rows.map((r) => r.client).filter(Boolean))];
+        const clients = await prisma.user.findMany({
+            where: { id: { in: clientIds } },
+            select: { id: true, fullName: true, avatarUrl: true, country: true, isVerified: true, verified: true },
+        });
+        const clientMap = new Map(clients.map((c) => [c.id, {
+                fullName: c.fullName,
+                avatarUrl: c.avatarUrl,
+                country: c.country,
+                verified: c.isVerified || c.verified
+            }]));
+        const categoryIds = [...new Set(rows.map((r) => r.category).filter(Boolean))];
+        const [industries, skillCategories] = await Promise.all([
+            prisma.industry.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } }),
+            prisma.skillCategory.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } }),
+        ]);
+        const categoryMap = new Map();
+        industries.forEach((i) => categoryMap.set(i.id, i.name));
+        skillCategories.forEach((sc) => categoryMap.set(sc.id, sc.name));
+        const techIds = [...new Set(rows.flatMap((r) => r.technology ? r.technology.split(',').map(s => s.trim()) : []).filter(Boolean))];
+        const skills = await prisma.skill.findMany({
+            where: { id: { in: techIds } },
+            select: { id: true, name: true }
+        });
+        const skillMap = new Map(skills.map((s) => [s.id, s.name]));
         return {
-            rows: rows.map((row) => ({
-                id: row.id,
-                title: row.title,
-                budget: row.budget,
-                budgetLabel: `${formatBudget(row.budget * 0.8)} – ${formatBudget(row.budget * 1.2)}`,
-                category: row.category,
-                technology: row.technology,
-                timeline: formatTimeline(row.timeline),
-                status: row.status,
-            })),
+            rows: rows.map((row) => {
+                const techs = row.technology ? row.technology.split(',').map(s => s.trim()).map(id => skillMap.get(id) || id) : [];
+                return {
+                    id: row.id,
+                    title: row.title,
+                    description: row.description || "",
+                    budget: row.budget,
+                    budgetLabel: `${formatBudget(row.budget * 0.8)} – ${formatBudget(row.budget * 1.2)}`,
+                    category: categoryMap.get(row.category) || row.category || "General",
+                    technology: techs,
+                    timeline: formatTimeline(row.timeline),
+                    status: row.status,
+                    experienceLevel: row.experienceLevel || "Intermediate",
+                    workMode: row.workMode || "Remote",
+                    createdAt: row.createdAt,
+                    clientInfo: clientMap.get(row.client) || { fullName: "Anonymous Client", avatarUrl: null, country: null, verified: false },
+                };
+            }),
             total,
         };
     }

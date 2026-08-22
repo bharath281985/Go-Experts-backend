@@ -26,7 +26,7 @@ app.use(helmet({
 // ==========================================
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: 999999, // TEMPORARY: bypassed for testing
     message: {
         success: false,
         message: "Too many requests from this IP. Please try again later.",

@@ -24,6 +24,8 @@ import {
   googleAuthCallback,
   appleAuthStart,
   appleAuthCallback,
+  selectSocialRole,
+  linkSocialAccount,
 } from "../../controllers/auth/social-auth.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
@@ -58,5 +60,9 @@ router.get("/google", googleAuthStart);
 router.get("/google/callback", googleAuthCallback as any);
 router.get("/apple", appleAuthStart as any);
 router.post("/apple/callback", appleAuthCallback as any);
+
+// Social Post-Auth Transaction Routes (No authMiddleware because they use the short-lived registration token)
+router.post("/social/select-role", selectSocialRole as any);
+router.post("/social/link", linkSocialAccount as any);
 
 export default router;

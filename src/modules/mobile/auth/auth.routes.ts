@@ -3,7 +3,7 @@ import {
   login, register, getMe, logout, refresh,
   forgotPassword, resetPassword, changePassword,
   updateMe, updateAvatar, sendEmailVerification, verifyEmail, deleteAccount,
-  sendOtp, verifyOtp, resendOtp, checkEmail,
+  sendOtp, verifyOtp, resendOtp, checkEmail, selectSocialRole,
 } from './auth.controller.js';
 import { validate } from '../../../middleware/validate.js';
 import { authenticate } from '../../../middlewares/auth.js';
@@ -34,6 +34,7 @@ router.post('/logout', authenticate, logout);
 router.post('/refresh', refresh);
 router.get('/me', authenticate, getMe);
 router.put('/me', authenticate, upload.single('file'), handleUploadError, validate(updateProfileSchema), updateMe);
+router.post('/social-role', authenticate, selectSocialRole);
 router.post('/me/avatar', authenticate, upload.single('file'), handleUploadError, updateAvatar);
 router.put('/me/avatar', authenticate, upload.single('file'), handleUploadError, updateAvatar);
 router.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);

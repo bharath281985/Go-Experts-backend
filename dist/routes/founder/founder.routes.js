@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
@@ -7,6 +8,7 @@ import { getMyVerification, updateMyVerification, deleteMyVerification } from ".
 import { getFounderDashboard, getFounderProfile, updateFounderProfile, getFounderStartup, updateFounderStartup, getBusinessPlan, putBusinessPlan, getPitchDeck, putPitchDeck, getFounderFunding, listInvestorRequests, respondInvestorRequest, listFounderInvestors, listAllInvestors, listFounderTeam, addFounderTeamMember, deleteFounderTeamMember, listFounderDocuments, addFounderDocument, listFounderMilestones, addFounderMilestone, updateFounderMilestone, deleteFounderMilestone, listFounderMeetings, createFounderMeeting, listFounderMessages, createFounderMessage, getFounderWallet, depositFounderWallet, withdrawFounderWallet, listFounderInvoices, getFounderAnalytics, getFounderReports, listFounderNotifications, markFounderNotificationRead, markAllFounderNotificationsRead, listFounderSubscriptions, purchaseFounderSubscription, getFounderSettings, updateFounderSettings, } from "../../controllers/founder/founder.controller.js";
 const router = Router();
 router.use(authMiddleware);
+router.use(requireOnboarding);
 router.use(portalRoleMiddleware(["founder"]));
 router.get("/dashboard", getFounderDashboard);
 router.get("/profile", getFounderProfile);

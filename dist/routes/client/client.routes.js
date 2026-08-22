@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
@@ -7,6 +8,7 @@ import { getMyVerification, updateMyVerification, deleteMyVerification } from ".
 import { getClientDashboard, getClientProfile, updateClientProfile, listClientProjects, getClientPipeline, createClientProject, getClientProject, updateClientProject, deleteClientProject, listProjectApplications, acceptProposal, rejectProposal, interviewProposal, listClientContracts, listClientTasks, addClientTask, updateClientTask, deleteClientTask, listClientMeetings, createClientMeeting, listClientMessages, createClientMessage, getClientWallet, fundClientWallet, withdrawClientWallet, listClientInvoices, listClientPayments, listClientReviews, createClientReview, getClientAnalytics, listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead, getClientSettings, updateClientSettings, listClientSubscriptions, purchaseClientSubscription, listClientDocuments, addClientDocument, deleteClientDocument, listClientTeam, listClientInvitations, addClientTeamMember, deleteClientTeamMember, listClientPipeline, getClientReferrals, getClientReports, listClientApiKeys, generateClientApiKey, revokeClientApiKey, listClientApplications, listSavedFreelancers, toggleSavedFreelancer, removeSavedFreelancer, shareFreelancer, } from "../../controllers/client/client.controller.js";
 const router = Router();
 router.use(authMiddleware);
+router.use(requireOnboarding);
 router.use(portalRoleMiddleware(["client"]));
 router.get("/dashboard", getClientDashboard);
 router.get("/profile", getClientProfile);

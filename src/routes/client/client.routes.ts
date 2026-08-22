@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
@@ -65,6 +66,7 @@ import {
 const router = Router();
 
 router.use(authMiddleware as any);
+router.use(requireOnboarding as any);
 router.use(portalRoleMiddleware(["client"]) as any);
 
 router.get("/dashboard", getClientDashboard as any);
@@ -156,3 +158,4 @@ router.delete("/freelancers/saved/:id", removeSavedFreelancer as any);
 router.post("/freelancers/share", shareFreelancer as any);
 
 export default router;
+

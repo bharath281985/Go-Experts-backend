@@ -302,7 +302,7 @@ const searchColumnsMapping = {
     Contract: ["contractNumber"],
     Review: ["comment"],
 };
-const freelancerInclude = {
+const freelancerInclude = { authIdentities: true,
     // Avoid selecting optional JSON columns that may not exist on older production DBs.
     freelancerProfile: {
         select: {
@@ -341,7 +341,7 @@ const freelancerInclude = {
         take: 10,
     },
 };
-const clientInclude = {
+const clientInclude = { authIdentities: true,
     clientProfile: true,
     clientContracts: {
         include: { project: true },
@@ -357,7 +357,7 @@ const clientInclude = {
         take: 10,
     },
 };
-const investorInclude = {
+const investorInclude = { authIdentities: true,
     investorProfile: true,
     wallet: {
         include: {
@@ -368,7 +368,7 @@ const investorInclude = {
         },
     },
 };
-const founderInclude = {
+const founderInclude = { authIdentities: true,
     founderProfile: true,
     wallet: {
         include: {

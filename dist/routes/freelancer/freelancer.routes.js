@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
@@ -9,6 +10,7 @@ import { listFreelancerProposals, createFreelancerProposal, withdrawFreelancerPr
 import { getFreelancerResumeShare, createFreelancerResumeShare, updateFreelancerResumeShare, regenerateFreelancerResumeShare, updateFreelancerResumeShareSnapshot, deleteFreelancerResumeShare } from "../../controllers/freelancer/freelancer-resume-share.controller.js";
 const router = Router();
 router.use(authMiddleware);
+router.use(requireOnboarding);
 router.use(portalRoleMiddleware(["freelancer", "client", "investor", "founder", "admin", "super_admin"]));
 router.get("/dashboard", getFreelancerDashboard);
 router.get("/professional", getFreelancerProfile);

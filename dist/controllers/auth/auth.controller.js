@@ -8,6 +8,7 @@ import { sendEmail } from "../../services/mobile/email.service.js";
 import { sanitizeUserRecord } from "../../routes/index.js";
 import { calculateOnboardingProgress } from "../../config/onboarding.js";
 import { getVerificationStats } from "../../common/helpers/verification.js";
+import { bootstrapUserResources } from "../../services/mobile/auth-bootstrap.service.js";
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 const signAccessToken = (user) => {
     return jwt.sign({ id: user.id, email: user.email, role: user.role, type: user.type ?? "admin" }, env.JWT_SECRET, { expiresIn: "48h" });
@@ -1614,6 +1615,95 @@ export const sendVerificationLink = async (req, res, next) => {
             success: true,
             message: "Verification link sent to your email. Please check your inbox or Spam folder.",
             ...(process.env.NODE_ENV !== "production" ? { otp } : {}),
+        });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const selectSocialRole = async (req, res, next) => {
+    try {
+        if (!req.user || req.user.type !== "portal") {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+        const role = normalizePortalRole(req.body?.role);
+        if (!role || !PORTAL_ROLES.has(role)) {
+            return res.status(400).json({ success: false, message: "A valid role is required." });
+        }
+        const existing = await prisma.user.findFirst({
+            where: { id: req.user.id, deletedAt: null },
+        });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        let registrationData = {};
+        try {
+            registrationData =
+                typeof existing.registrationData === "string"
+                    ? JSON.parse(existing.registrationData || "{}")
+                    : (existing.registrationData || {});
+        }
+        catch {
+            registrationData = {};
+        }
+        registrationData.isSocialLogin = true;
+        registrationData.isSocial = true;
+        registrationData.selectedRole = role;
+        registrationData.onboardingStatus = registrationData.onboardingStatus || "draft";
+        const updatedUser = await prisma.$transaction(async (tx) => {
+            const user = await tx.user.update({
+                where: { id: existing.id },
+                data: {
+                    role,
+                    registrationData: JSON.stringify(registrationData),
+                    onboardingStatus: existing.onboardingStatus === "NOT_STARTED" ? "DRAFT" : existing.onboardingStatus,
+                    currentStep: existing.currentStep || "2",
+                    completionPercentage: existing.completionPercentage || 20,
+                },
+            });
+            if (role === "freelancer") {
+                await tx.freelancerProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+            }
+            else if (role === "client") {
+                await tx.clientProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+            }
+            else if (role === "investor") {
+                await tx.investorProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+            }
+            else if (role === "founder") {
+                await tx.founderProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id } });
+            }
+            await bootstrapUserResources(user.id, tx);
+            return user;
+        });
+        const payload = {
+            id: updatedUser.id,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            type: "portal",
+        };
+        const user = {
+            id: updatedUser.id,
+            email: updatedUser.email,
+            fullName: updatedUser.fullName,
+            role: updatedUser.role,
+            avatarUrl: updatedUser.avatarUrl,
+            status: updatedUser.status,
+            isVerified: updatedUser.isVerified,
+            verified: updatedUser.verified,
+            registrationData,
+            onboardingStatus: updatedUser.onboardingStatus,
+            completionPercentage: updatedUser.completionPercentage,
+            profileCompletion: updatedUser.completionPercentage,
+            isSocialLogin: true,
+        };
+        return res.json({
+            success: true,
+            message: "Role selected successfully",
+            accessToken: signAccessToken(payload),
+            refreshToken: signRefreshToken(payload),
+            user,
+            data: { user },
         });
     }
     catch (err) {
