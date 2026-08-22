@@ -16,6 +16,28 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '48h';
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-secret';
 
+const resolveIsSocialLogin = async (user: any): Promise<boolean> => {
+  if (!user) return false;
+  // Check password field — social users have empty or placeholder password
+  if (!user.password || user.password.trim() === '' || user.password === 'N/A' || user.password === 'social_login') {
+    return true;
+  }
+  // Check registrationData JSON flag
+  if (
+    user.registrationData &&
+    (String(user.registrationData).includes('"isSocialLogin":true') ||
+      String(user.registrationData).includes('"isSocial":true'))
+  ) {
+    return true;
+  }
+  // Check linked auth identities (OAuth rows)
+  const identityCount = await (prisma as any).authIdentity?.count({ where: { userId: user.id } }).catch(() => 0);
+  if (identityCount > 0) return true;
+  // Check social accounts
+  const socialCount = await (prisma as any).socialAccount?.count({ where: { userId: user.id } }).catch(() => 0);
+  return socialCount > 0;
+};
+
 const getRedirectTo = (role: string) => {
   switch (role) {
     case 'freelancer': return '/freelancer/dashboard';
@@ -39,9 +61,10 @@ const issueAuthResponse = async (
 
   const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] });
   const refreshToken = jwt.sign({ id: user.id, role: user.role }, REFRESH_SECRET, { expiresIn: '30d' });
-  const [completion, subscriptionGate] = await Promise.all([
+  const [completion, subscriptionGate, isSocial] = await Promise.all([
     resolveProfileCompletion(user.id),
     resolveUserSubscriptionGate(user.id),
+    resolveIsSocialLogin(user).catch(() => true), // default true in social flow
   ]);
 
   const hasActiveSubscription = subscriptionGate.status === 'active';
@@ -54,7 +77,7 @@ const issueAuthResponse = async (
     avatarUrl: user.avatarUrl,
     status: user.status,
     isVerified: user.isVerified,
-    isSocialLogin: true,
+    isSocialLogin: isSocial,
     profileCompletion: completion.profileCompletion,
     isProfileComplete: completion.isProfileComplete,
     subscriptionPlan: hasActiveSubscription,
@@ -69,7 +92,7 @@ const issueAuthResponse = async (
     accessToken,
     refreshToken,
     token: accessToken,
-    isSocialLogin: true,
+    isSocialLogin: isSocial,
     subscriptionPlan: hasActiveSubscription,
     hasSubscription: hasActiveSubscription,
     isSubscribed: hasActiveSubscription,

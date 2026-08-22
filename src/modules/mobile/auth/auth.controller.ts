@@ -563,6 +563,8 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
         avatarUrl: true,
         status: true,
         isVerified: true,
+        password: true,
+        registrationData: true,
       },
     });
 
@@ -836,7 +838,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       ...rawSkills,
     ];
 
-    const [optionMap, teamSizeOption, clientCompanySizeOption, clientBudgetOption, socialCount] = await Promise.all([
+    const [optionMap, teamSizeOption, clientCompanySizeOption, clientBudgetOption, isSocialLogin] = await Promise.all([
       resolveOptionMap(idsToResolve),
       activeUser.role === 'founder'
         ? resolveTeamSizeOption(roleProfile?.teamSize)
@@ -847,7 +849,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       activeUser.role === 'client'
         ? resolveMasterOption(roleProfile?.projectHireBudget, ['budget_range', 'project_budget_range', 'hiring_budget_range'])
         : Promise.resolve(null),
-      (prisma as any).socialAccount?.count({ where: { userId: activeUser.id } }).catch(() => 0),
+      resolveIsSocialLogin(activeUser).catch(() => false),
     ]);
 
     const toSlugId = (text: string) => {
@@ -973,7 +975,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       avatarUrl: activeUser.avatarUrl,
       status: activeUser.status,
       isVerified: activeUser.isVerified,
-      isSocialLogin: socialCount > 0,
+      isSocialLogin: isSocialLogin,
       verified: activeUser.verified,
       phone: phoneParsed.phone,
       phoneCode: phoneParsed.phoneCode,
@@ -1397,7 +1399,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       ...rawSkills,
     ];
 
-    const [optionMap, teamSizeOption, clientCompanySizeOption, clientBudgetOption, socialCount] = await Promise.all([
+    const [optionMap, teamSizeOption, clientCompanySizeOption, clientBudgetOption, isSocialLogin] = await Promise.all([
       resolveOptionMap(idsToResolve),
       activeUser.role === 'founder'
         ? resolveTeamSizeOption(roleProfile?.teamSize)
@@ -1408,7 +1410,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       activeUser.role === 'client'
         ? resolveMasterOption(roleProfile?.projectHireBudget, ['budget_range', 'project_budget_range', 'hiring_budget_range'])
         : Promise.resolve(null),
-      (prisma as any).socialAccount?.count({ where: { userId: activeUser.id } }).catch(() => 0),
+      resolveIsSocialLogin(activeUser).catch(() => false),
     ]);
 
     const toSlugId = (text: string) => {
@@ -1534,7 +1536,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       avatarUrl: activeUser.avatarUrl,
       status: activeUser.status,
       isVerified: activeUser.isVerified,
-      isSocialLogin: socialCount > 0,
+      isSocialLogin: isSocialLogin,
       phone: phoneParsed.phone,
       phoneCode: phoneParsed.phoneCode,
       phoneNumber: phoneParsed.phoneNumber,
