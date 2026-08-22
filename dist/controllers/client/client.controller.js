@@ -33,9 +33,13 @@ function clientNeedles(user, profile) {
 }
 function clientProjectWhere(user, profile) {
     const needles = clientNeedles(user, profile);
+    const ownerMatches = [
+        { client: user.id },
+        ...needles.map((n) => ({ client: { contains: n } })),
+    ];
     return {
         deletedAt: null,
-        OR: needles.length ? needles.map((n) => ({ client: { contains: n } })) : [{ client: "__none__" }],
+        OR: ownerMatches,
     };
 }
 function handleError(err, res, next) {
@@ -240,22 +244,25 @@ export const listClientProjects = async (req, res, next) => {
         const status = String(body.status ?? query.status ?? "").trim();
         const category = String(body.category ?? query.category ?? "").trim();
         const baseWhere = clientProjectWhere(user, user.clientProfile);
-        const where = { ...baseWhere };
+        const andFilters = [baseWhere];
         if (status) {
-            where.status = { equals: status };
+            andFilters.push({ status: { equals: status } });
         }
         if (category) {
-            where.category = { contains: category };
+            andFilters.push({ category: { contains: category } });
         }
         if (search) {
-            where.OR = [
-                { title: { contains: search } },
-                { description: { contains: search } },
-                { category: { contains: search } },
-                { technology: { contains: search } },
-                { client: { contains: search } },
-            ];
+            andFilters.push({
+                OR: [
+                    { title: { contains: search } },
+                    { description: { contains: search } },
+                    { category: { contains: search } },
+                    { technology: { contains: search } },
+                    { client: { contains: search } },
+                ],
+            });
         }
+        const where = { AND: andFilters };
         const [rows, total] = await Promise.all([
             prisma.project.findMany({
                 where,
@@ -360,7 +367,7 @@ export const createClientProject = async (req, res, next) => {
         const project = await prisma.project.create({
             data: {
                 title,
-                client: user.fullName,
+                client: userId,
                 budget,
                 category,
                 technology,

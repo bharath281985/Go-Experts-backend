@@ -42,12 +42,20 @@ export const getInvestorDashboard = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const where = investorWhere(user, user.investorProfile);
-        const [total, pending, accepted, wallet, recentInvestments] = await Promise.all([
+        const [total, pending, accepted, wallet, recentInvestments, unreadNotifications] = await Promise.all([
             prisma.investment.count({ where }),
             prisma.investment.count({ where: { ...where, status: "Pending" } }),
             prisma.investment.count({ where: { ...where, status: { in: ["Accepted", "Completed"] } } }),
             getUserWalletPayload(userId),
             prisma.investment.findMany({ where, orderBy: { createdAt: "desc" }, take: 8 }),
+            prisma.notification.count({
+                where: {
+                    status: { notIn: ["cancelled", "draft"] },
+                    readAt: null,
+                    NOT: { status: "read" },
+                    OR: [{ userId }, { AND: [{ userId: null }, { role: "investor" }] }],
+                },
+            }),
         ]);
         const totalDeployed = recentInvestments.reduce((s, i) => s + Number(i.offer || 0), 0);
         res.json({
@@ -60,6 +68,13 @@ export const getInvestorDashboard = async (req, res, next) => {
                     email: user.email,
                     firm: user.investorProfile?.firm || null,
                     avatar: user.avatarUrl || null,
+                },
+                counts: {
+                    notifications: unreadNotifications,
+                    investors: 0,
+                    founders: 0,
+                    meetings: 0,
+                    messages: 0,
                 },
                 kpis: [
                     { key: "total", label: "Total Investments", value: String(total) },

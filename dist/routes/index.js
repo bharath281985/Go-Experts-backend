@@ -396,12 +396,12 @@ export function sanitizeUserRecord(row) {
         || regData.industry
         || rest.industry
         || "Technology";
-    const projectsPosted = freelancerProfile.projectsPosted
+    const projectsPosted = rest.projects_posted
+        ?? rest.projectsPosted
+        ?? freelancerProfile.projectsPosted
         ?? clientProfile.projectsPosted
         ?? (Array.isArray(rest.freelancerContracts) ? rest.freelancerContracts.length : undefined)
         ?? (Array.isArray(rest.clientContracts) ? rest.clientContracts.length : undefined)
-        ?? rest.projects_posted
-        ?? rest.projectsPosted
         ?? 0;
     const totalSpend = freelancerProfile.totalSpend
         ?? clientProfile.totalSpend
@@ -609,6 +609,40 @@ export function sanitizeUserRecord(row) {
 }
 function sanitizeUserRows(rows) {
     return rows.map((row) => sanitizeUserRecord(row));
+}
+async function getClientProjectCountMap(clientIds) {
+    const uniqueClientIds = [...new Set(clientIds.filter((id) => typeof id === "string" && id.trim().length > 0))];
+    if (!uniqueClientIds.length)
+        return new Map();
+    const counts = await prisma.project.groupBy({
+        by: ["client"],
+        where: {
+            client: { in: uniqueClientIds },
+            deletedAt: null,
+        },
+        _count: { _all: true },
+    });
+    return new Map(counts
+        .filter((row) => typeof row.client === "string" && row.client.length > 0)
+        .map((row) => [row.client, row._count._all]));
+}
+function applyClientProjectCounts(rows, projectCounts) {
+    return rows.map((row) => {
+        const count = projectCounts.get(row.id);
+        if (typeof count !== "number")
+            return row;
+        return {
+            ...row,
+            projects_posted: count,
+            projectsPosted: count,
+            clientProfile: row.clientProfile
+                ? {
+                    ...row.clientProfile,
+                    projectsPosted: count,
+                }
+                : row.clientProfile,
+        };
+    });
 }
 async function resolvePasswordHash(password) {
     const value = typeof password === "string" ? password.trim() : "";
@@ -1304,6 +1338,8 @@ adminClientsRouter.get("/", async (req, res, next) => {
             take: pageSize,
             orderBy: { [orderBy]: ascending ? "asc" : "desc" },
         });
+        const projectCounts = await getClientProjectCountMap(rows.map((r) => r.id));
+        const rowsWithProjectCounts = applyClientProjectCounts(rows, projectCounts);
         const docSettings = await prisma.setting.findMany({
             where: {
                 key: {
@@ -1321,7 +1357,7 @@ adminClientsRouter.get("/", async (req, res, next) => {
                 return [userId, []];
             }
         }));
-        const sanitizedRows = sanitizeUserRows(rows).map((r) => ({
+        const sanitizedRows = sanitizeUserRows(rowsWithProjectCounts).map((r) => ({
             ...r,
             documents: docMap.get(r.id) || [],
         }));
@@ -1339,6 +1375,8 @@ adminClientsRouter.get("/:id", async (req, res, next) => {
         });
         if (!row)
             return res.status(404).json({ success: false, message: "Client not found" });
+        const projectCounts = await getClientProjectCountMap([row.id]);
+        const [rowWithProjectCounts] = applyClientProjectCounts([row], projectCounts);
         const docSetting = await prisma.setting.findUnique({
             where: { key: `portal:${row.id}:documents` },
         });
@@ -1349,7 +1387,7 @@ adminClientsRouter.get("/:id", async (req, res, next) => {
             }
             catch { }
         }
-        res.json({ success: true, data: { ...sanitizeUserRecord(row), documents } });
+        res.json({ success: true, data: { ...sanitizeUserRecord(rowWithProjectCounts), documents } });
     }
     catch (err) {
         next(err);

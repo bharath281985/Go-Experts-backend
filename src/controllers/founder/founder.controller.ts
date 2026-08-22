@@ -84,13 +84,21 @@ export const getFounderDashboard = async (req: AuthenticatedRequest, res: Respon
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     const startup = await findOrCreateStartup(user);
-    const [investorRequests, pendingRequests, acceptedRequests, wallet] = await Promise.all([
+    const [investorRequests, pendingRequests, acceptedRequests, wallet, unreadNotifications] = await Promise.all([
       prisma.investment.count({ where: { deletedAt: null, startup: { contains: startup.startup } } }),
       prisma.investment.count({ where: { deletedAt: null, startup: { contains: startup.startup }, status: "Pending" } }),
       prisma.investment.count({
         where: { deletedAt: null, startup: { contains: startup.startup }, status: { in: ["Accepted", "Completed"] } },
       }),
       getUserWalletPayload(userId),
+      prisma.notification.count({
+        where: {
+          status: { notIn: ["cancelled", "draft"] },
+          readAt: null,
+          NOT: { status: "read" },
+          OR: [{ userId }, { AND: [{ userId: null }, { role: "founder" }] }],
+        },
+      }),
     ]);
 
     const raised = Number(user.founderProfile?.raised ?? 0);
@@ -106,6 +114,12 @@ export const getFounderDashboard = async (req: AuthenticatedRequest, res: Respon
           avatar: user.avatarUrl || null,
         },
         startup,
+        counts: {
+          notifications: unreadNotifications,
+          investors: investorRequests,
+          meetings: 0,
+          messages: 0,
+        },
         kpis: [
           { key: "requests", label: "Investor Requests", value: String(investorRequests) },
           { key: "pending", label: "Pending", value: String(pendingRequests) },

@@ -108,3 +108,78 @@ Authentication failed against database server at `localhost`, the provided datab
 
 Please make sure to provide valid database credentials for the database server at `localhost`.
 
+[2026-08-22T05:55:13.297Z] PRISMA ERROR:
+
+Invalid `prisma.project.groupBy()` invocation in
+D:\goexperts\Go-Experts-backend\src\controllers\admin\sidebar-counts.controller.ts:39:22
+
+  36 prisma.user.count({ where: { role: "founder", deletedAt: null } }),
+  37 prisma.project.count({ where: { deletedAt: null } }),
+  38 prisma.project.count({ where: { status: "open", deletedAt: null } }),
+→ 39 prisma.project.groupBy({
+       select: {
+         _count: {
+           select: {
+             id: true
+           }
+         },
+         industry: true
+       },
+       by: [
+         "industry"
+       ]
+       ~~~~~~~~~~~~
+     })
+
+Invalid value for argument `by`. Expected ProjectScalarFieldEnum.
+
+[2026-08-22T05:55:19.245Z] PRISMA ERROR:
+
+Invalid `prisma.project.groupBy()` invocation in
+D:\goexperts\Go-Experts-backend\src\controllers\admin\sidebar-counts.controller.ts:39:22
+
+  36 prisma.user.count({ where: { role: "founder", deletedAt: null } }),
+  37 prisma.project.count({ where: { deletedAt: null } }),
+  38 prisma.project.count({ where: { status: "open", deletedAt: null } }),
+→ 39 prisma.project.groupBy({
+       select: {
+         _count: {
+           select: {
+             id: true
+           }
+         },
+         industry: true
+       },
+       by: [
+         "industry"
+       ]
+       ~~~~~~~~~~~~
+     })
+
+Invalid value for argument `by`. Expected ProjectScalarFieldEnum.
+
+[2026-08-22T05:55:55.015Z] PRISMA ERROR:
+
+Invalid `prisma.project.groupBy()` invocation in
+D:\goexperts\Go-Experts-backend\src\controllers\admin\sidebar-counts.controller.ts:39:22
+
+  36 prisma.user.count({ where: { role: "founder", deletedAt: null } }),
+  37 prisma.project.count({ where: { deletedAt: null } }),
+  38 prisma.project.count({ where: { status: "open", deletedAt: null } }),
+→ 39 prisma.project.groupBy({
+       select: {
+         _count: {
+           select: {
+             id: true
+           }
+         },
+         industry: true
+       },
+       by: [
+         "industry"
+       ]
+       ~~~~~~~~~~~~
+     })
+
+Invalid value for argument `by`. Expected ProjectScalarFieldEnum.
+

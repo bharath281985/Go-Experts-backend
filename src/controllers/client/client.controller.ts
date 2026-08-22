@@ -53,11 +53,16 @@ function clientNeedles(user: { fullName: string; email: string }, profile: { com
     .filter(Boolean);
 }
 
-function clientProjectWhere(user: { fullName: string; email: string }, profile: { company?: string | null } | null) {
+function clientProjectWhere(user: { id: string; fullName: string; email: string }, profile: { company?: string | null } | null) {
   const needles = clientNeedles(user, profile);
+  const ownerMatches = [
+    { client: user.id },
+    ...needles.map((n) => ({ client: { contains: n } })),
+  ];
+
   return {
     deletedAt: null,
-    OR: needles.length ? needles.map((n) => ({ client: { contains: n } })) : [{ client: "__none__" }],
+    OR: ownerMatches,
   };
 }
 
@@ -286,23 +291,26 @@ export const listClientProjects = async (req: AuthenticatedRequest, res: Respons
     const category = String(body.category ?? query.category ?? "").trim();
 
     const baseWhere = clientProjectWhere(user, user.clientProfile);
-    const where: any = { ...baseWhere };
+    const andFilters: any[] = [baseWhere];
 
     if (status) {
-      where.status = { equals: status };
+      andFilters.push({ status: { equals: status } });
     }
     if (category) {
-      where.category = { contains: category };
+      andFilters.push({ category: { contains: category } });
     }
     if (search) {
-      where.OR = [
-        { title: { contains: search } },
-        { description: { contains: search } },
-        { category: { contains: search } },
-        { technology: { contains: search } },
-        { client: { contains: search } },
-      ];
+      andFilters.push({
+        OR: [
+          { title: { contains: search } },
+          { description: { contains: search } },
+          { category: { contains: search } },
+          { technology: { contains: search } },
+          { client: { contains: search } },
+        ],
+      });
     }
+    const where: any = { AND: andFilters };
 
     const [rows, total] = await Promise.all([
       prisma.project.findMany({
@@ -412,7 +420,7 @@ export const createClientProject = async (req: AuthenticatedRequest, res: Respon
     const project = await prisma.project.create({
       data: {
         title,
-        client: user.fullName,
+        client: userId,
         budget,
         category,
         technology,

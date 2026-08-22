@@ -143,6 +143,13 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     if (admin) {
+      if (!admin.password) {
+        prisma.loginAttempt
+          .create({ data: { email, ipAddress, userAgent, success: false, failReason: "No password set (OAuth)" } })
+          .catch(() => {});
+        return res.status(400).json({ success: false, message: "This account was created using Google or social login. Please sign in with that provider, or reset your password." });
+      }
+
       const isMatch = await verifyPassword(password, admin.password);
       if (!isMatch) {
         prisma.loginAttempt
@@ -248,6 +255,13 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Email not found" } })
         .catch(() => {});
       return res.status(400).json({ success: false, message: "Invalid email or password" });
+    }
+
+    if (!user.password) {
+      prisma.loginAttempt
+        .create({ data: { email, ipAddress, userAgent, success: false, failReason: "No password set (OAuth)" } })
+        .catch(() => {});
+      return res.status(400).json({ success: false, message: "This account was created using Google or social login. Please sign in with that provider, or reset your password." });
     }
 
     const isMatch = await verifyPassword(password, user.password);
@@ -1230,8 +1244,8 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       return res.status(400).json({ success: false, message: "Email is required" });
     }
 
-    // Always return the same message to avoid account enumeration
-    const okMessage = "If an account exists for that email, password reset instructions have been sent.";
+    const okMessage = "Password reset instructions have been sent to your registered email address.";
+    const missingMessage = "No Go Experts account was found with this email address.";
 
     const admin = await prisma.adminUser.findFirst({
       where: { OR: [{ email }, { email: String(req.body?.email || "").trim() }] },
@@ -1241,7 +1255,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       : null;
 
     if (!admin && !portalUser) {
-      return res.json({ success: true, message: okMessage });
+      return res.status(404).json({ success: false, message: missingMessage });
     }
 
     const subject = admin
@@ -1303,17 +1317,12 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       }
     } catch (mailErr: any) {
       console.warn("[password-reset] email send skipped/failed:", mailErr);
-      return res.json({ 
-        success: true, 
-        message: okMessage, 
-        debug_error: mailErr?.message || String(mailErr)
-      });
+      return res.status(500).json({ success: false, message: "Unable to send password reset email right now. Please try again later." });
     }
 
     const payload: Record<string, unknown> = { 
       success: true, 
       message: okMessage,
-      debug_success: "Email sending logic completed without throwing errors"
     };
     if (env.NODE_ENV !== "production") {
       payload.resetToken = resetToken;

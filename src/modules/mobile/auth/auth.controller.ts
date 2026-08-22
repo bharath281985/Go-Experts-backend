@@ -1009,19 +1009,27 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
   try {
     const { email } = req.body || {};
     if (!email || typeof email !== 'string' || !email.trim()) {
-      return res.json(successResponse('If the email is registered, a password reset link has been sent.'));
+      return res.status(400).json(errorResponse('Email is required', 'EMAIL_REQUIRED'));
     }
     const cleanEmail = email.trim().toLowerCase();
-    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
-    if (!user || !user.password) {
-      return res.json(successResponse('If the email is registered, a password reset link has been sent.'));
+    const user = await prisma.user.findFirst({
+      where: {
+        email: cleanEmail,
+        deletedAt: null,
+      },
+    });
+    if (!user) {
+      return res.status(404).json(errorResponse('No Go Experts account was found with this email address.', 'ACCOUNT_NOT_FOUND'));
+    }
+    if (!user.password) {
+      return res.status(400).json(errorResponse('This account uses social sign-in. Please continue with Google or Apple.', 'PASSWORD_LOGIN_NOT_AVAILABLE'));
     }
 
     const token = createPasswordResetToken({ id: user.id, password: user.password });
-    void sendPasswordResetEmail(email, token);
+    await sendPasswordResetEmail(user.email, token);
     await AuditEngine.track(user.id, 'password_reset_requested', 'user', user.id, null, null, req);
 
-    return res.json(successResponse('If the email is registered, a password reset link has been sent.'));
+    return res.json(successResponse('Password reset instructions have been sent to your registered email address.'));
   } catch (error) { next(error); }
 };
 
