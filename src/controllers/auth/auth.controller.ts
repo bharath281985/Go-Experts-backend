@@ -1278,7 +1278,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
     const resetUrl = `${env.FRONTEND_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(resetToken)}`;
     console.log(`[password-reset] ${subject.email} → ${resetUrl}`);
 
-    // Attempt email if SMTP channel exists; never fail the request on mail errors
+    // Attempt email through the active SMTP channel and report delivery failures.
     try {
       const nodemailer = await import("nodemailer");
       const channel = await prisma.communicationChannel.findFirst({
@@ -1314,10 +1314,12 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
           html: `<p>Reset your password using this link (valid 1 hour):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
         });
         console.log(`[password-reset] Email sent successfully: ${info.messageId}`);
+      } else {
+        throw new Error("SMTP_HOST or SMTP_USER environment variables are missing on this server.");
       }
     } catch (mailErr: any) {
       console.warn("[password-reset] email send skipped/failed:", mailErr);
-      return res.status(500).json({ success: false, message: "Unable to send password reset email right now. Please try again later." });
+      return res.status(500).json({ success: false, message: `SMTP ERROR: ${mailErr.message || mailErr}` });
     }
 
     const payload: Record<string, unknown> = { 

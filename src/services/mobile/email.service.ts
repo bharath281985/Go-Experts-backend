@@ -17,7 +17,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // ─── Core send utility ─────────────────────────────────────────────────────────
-export const sendEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
+export const sendEmail = async (to: string, subject: string, html: string): Promise<boolean | string> => {
   try {
     const info = await transporter.sendMail({
       from: `"Go Experts" <${fromEmail}>`,
@@ -27,9 +27,9 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
     });
     console.log(`[EMAIL SENT] To: ${to} | Subject: "${subject}" | ID: ${info.messageId}`);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[EMAIL FAILED] To: ${to} | Error:`, error);
-    return false;
+    return error.message || "Unknown SMTP Error";
   }
 };
 
