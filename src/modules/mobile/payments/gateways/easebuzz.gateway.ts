@@ -140,7 +140,7 @@ export const initiateEasebuzzPayment = async (
     gatewayPayload: {
       accessKey: result.data,
       txnid,
-      payMode: easeEnv === 'live' ? 'production' : 'test',
+      payMode: isProd ? 'production' : 'test',
     },
   };
 };
