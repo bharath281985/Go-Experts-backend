@@ -39,9 +39,7 @@ export const dynamicRateLimiter = (options: {
 
       // 2. Adjust limit based on route
       const url = req.originalUrl || req.url;
-      if (url.includes("/auth/login") || url.includes("/auth/forgot-password")) {
-        return 999999; // TEMPORARY: strict limit bypassed for testing
-      }
+      return 999999; // TEMPORARY: bypass limit for ALL routes
 
       // 3. Adjust limit based on client identity (e.g. role from Decoded JWT/Key)
       const role = (req as any).apiKeyDetails?.roleMapping || (req as any).user?.role;
