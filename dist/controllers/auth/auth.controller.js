@@ -116,6 +116,12 @@ export const login = async (req, res, next) => {
             admin = null;
         }
         if (admin) {
+            if (!admin.password) {
+                prisma.loginAttempt
+                    .create({ data: { email, ipAddress, userAgent, success: false, failReason: "No password set (OAuth)" } })
+                    .catch(() => { });
+                return res.status(400).json({ success: false, message: "This account was created using Google or social login. Please sign in with that provider, or reset your password." });
+            }
             const isMatch = await verifyPassword(password, admin.password);
             if (!isMatch) {
                 prisma.loginAttempt
@@ -211,6 +217,12 @@ export const login = async (req, res, next) => {
                 .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Email not found" } })
                 .catch(() => { });
             return res.status(400).json({ success: false, message: "Invalid email or password" });
+        }
+        if (!user.password) {
+            prisma.loginAttempt
+                .create({ data: { email, ipAddress, userAgent, success: false, failReason: "No password set (OAuth)" } })
+                .catch(() => { });
+            return res.status(400).json({ success: false, message: "This account was created using Google or social login. Please sign in with that provider, or reset your password." });
         }
         const isMatch = await verifyPassword(password, user.password);
         if (!isMatch) {
@@ -1145,7 +1157,7 @@ export const forgotPassword = async (req, res, next) => {
         });
         const resetUrl = `${env.FRONTEND_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(resetToken)}`;
         console.log(`[password-reset] ${subject.email} → ${resetUrl}`);
-        // Attempt email if SMTP channel exists; never fail the request on mail errors
+        // Attempt email through the active SMTP channel and report delivery failures.
         try {
             const nodemailer = await import("nodemailer");
             const channel = await prisma.communicationChannel.findFirst({
@@ -1178,10 +1190,13 @@ export const forgotPassword = async (req, res, next) => {
                 });
                 console.log(`[password-reset] Email sent successfully: ${info.messageId}`);
             }
+            else {
+                throw new Error("SMTP_HOST or SMTP_USER environment variables are missing on this server.");
+            }
         }
         catch (mailErr) {
             console.warn("[password-reset] email send skipped/failed:", mailErr);
-            return res.status(500).json({ success: false, message: "Unable to send password reset email right now. Please try again later." });
+            return res.status(500).json({ success: false, message: `SMTP ERROR: ${mailErr.message || mailErr}` });
         }
         const payload = {
             success: true,

@@ -95,11 +95,11 @@ export class NotificationEngine {
         });
         success = true;
       } else if (item.notification.channel === 'email') {
-        success = await sendEmail(user.email, item.notification.title, item.notification.message);
+        success = Boolean(await sendEmail(user.email, item.notification.title, item.notification.message));
       } else if (item.notification.channel === 'push') {
         let dataPayload;
         try { dataPayload = item.notification.metadata ? JSON.parse(item.notification.metadata) : undefined; } catch (e) {}
-        success = await sendPushNotification(user.id, item.notification.title, item.notification.message, dataPayload);
+        success = Boolean(await sendPushNotification(user.id, item.notification.title, item.notification.message, dataPayload));
       }
 
       if (success) {
