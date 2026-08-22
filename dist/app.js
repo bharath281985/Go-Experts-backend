@@ -54,14 +54,7 @@ app.use("/api", rejectLocalFilePaths);
 // ==========================================
 app.use("/uploads", express.static(UPLOADS_DIR));
 app.use("/uploads", (req, res) => {
-    res.setHeader("Content-Type", "image/svg+xml");
-    res.status(200).send(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
-      <rect width="100%" height="100%" fill="#e2e8f0"/>
-      <circle cx="50" cy="40" r="20" fill="#94a3b8"/>
-      <path d="M20,80 C20,60 80,60 80,80" fill="#94a3b8"/>
-    </svg>
-  `);
+    res.status(404).json({ error: "File not found" });
 });
 // ==========================================
 // Root Endpoint

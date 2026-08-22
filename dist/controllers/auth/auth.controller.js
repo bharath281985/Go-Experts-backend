@@ -552,6 +552,10 @@ export const register = async (req, res, next) => {
             }
             return created;
         });
+<<<<<<< Updated upstream
+=======
+        // Welcome email is NOT sent here — it is sent after all onboarding steps are completed
+>>>>>>> Stashed changes
         const tokenPayload = { id: user.id, email: user.email, role: user.role, type: "portal" };
         const accessToken = signAccessToken(tokenPayload);
         const refreshToken = signRefreshToken(tokenPayload);
@@ -1528,6 +1532,12 @@ export const verifyDeleteAccountOtp = async (req, res, next) => {
 };
 export const getOtpInfo = async (req, res, next) => {
     try {
+        if (process.env.NODE_ENV === "production") {
+            return res.status(404).json({
+                success: false,
+                message: "Verification codes are sent by email and are not exposed by this endpoint.",
+            });
+        }
         const email = String(req.query.email || "").trim().toLowerCase();
         if (!email) {
             return res.status(400).json({ success: false, message: "Email parameter required" });
@@ -1615,6 +1625,7 @@ export const sendVerificationLink = async (req, res, next) => {
             success: true,
             message: "Verification link sent to your email. Please check your inbox or Spam folder.",
             ...(process.env.NODE_ENV !== "production" ? { otp } : {}),
+<<<<<<< Updated upstream
         });
     }
     catch (err) {
@@ -1704,6 +1715,8 @@ export const selectSocialRole = async (req, res, next) => {
             refreshToken: signRefreshToken(payload),
             user,
             data: { user },
+=======
+>>>>>>> Stashed changes
         });
     }
     catch (err) {
@@ -1973,6 +1986,56 @@ export const saveOnboardingDraft = async (req, res, next) => {
             },
         });
         const sanitizedUser = sanitizeUserRecord(updatedUser);
+        // Send welcome email ONLY when all steps are completed and it hasn't been sent before
+        if (isCompleted) {
+            const freshUser = await prisma.user.findUnique({ where: { id: userId } });
+            const regData = freshUser?.registrationData || {};
+            const alreadySentWelcome = (typeof regData === 'object' ? regData : {}).welcomeEmailSent === true;
+            if (!alreadySentWelcome) {
+                try {
+                    const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
+                    const emailAdapter = new EmailChannelAdapter();
+                    let parsedConfig = {};
+                    try {
+                        const chanConfig = await prisma.communicationChannel.findUnique({ where: { name: "email" } });
+                        if (chanConfig?.config)
+                            parsedConfig = JSON.parse(chanConfig.config);
+                    }
+                    catch { /* fallback */ }
+                    const trialDateStr = (freshUser?.trialEndsAt || new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+                    const welcomeRendered = await renderEmailTemplate("tpl_welcome", {
+                        full_name: freshUser.fullName,
+                        email: freshUser.email,
+                        role: (freshUser.role || "user").toUpperCase(),
+                        trial_days: "90",
+                        trial_ends_at: trialDateStr,
+                        selected_plan: "90-Day Free Trial",
+                        app_url: process.env.CLIENT_URL || "https://goexperts.in",
+                    });
+                    await emailAdapter.send({
+                        to: freshUser.email,
+                        subject: welcomeRendered.subject,
+                        body: `Hello ${freshUser.fullName},\n\nWelcome to Go Experts! Your 90-Day Free Trial is active until ${trialDateStr}.\n\nBest regards,\nGo Experts Team`,
+                        html: welcomeRendered.html,
+                    }, parsedConfig);
+                    // Mark welcome email as sent to prevent duplicates
+                    const latestRegData = typeof freshUser?.registrationData === 'object' ? freshUser?.registrationData : {};
+                    await prisma.user.update({
+                        where: { id: userId },
+                        data: {
+                            registrationData: JSON.stringify({ ...latestRegData, welcomeEmailSent: true }),
+                        },
+                    });
+                    console.log(`[ONBOARDING] Welcome email sent to ${freshUser.email}`);
+                }
+                catch (emailErr) {
+                    console.warn("[ONBOARDING EMAIL WARN] Could not send welcome email:", emailErr);
+                }
+            }
+            else {
+                console.log(`[ONBOARDING] Welcome email already sent to user ${userId}, skipping.`);
+            }
+        }
         return res.json({
             success: true,
             message: "Details retrieved for freelancer",

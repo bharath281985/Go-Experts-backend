@@ -447,6 +447,7 @@ router.get("/experience_levels", async (req, res, next) => {
         next(err);
     }
 });
+<<<<<<< Updated upstream
 const listPublicEducationLevels = async (_req, res, next) => {
     try {
         const dbLevels = await prisma.masterOption.findMany({
@@ -466,6 +467,45 @@ const listPublicEducationLevels = async (_req, res, next) => {
 };
 router.get("/education_levels", listPublicEducationLevels);
 router.get("/education-levels", listPublicEducationLevels);
+=======
+router.get("/education_levels", async (req, res, next) => {
+    try {
+        const dbLevels = await prisma.masterOption.findMany({
+            where: { type: 'education_level' },
+            orderBy: { sortOrder: 'asc' }
+        });
+        if (dbLevels.length > 0) {
+            const rows = dbLevels.map((l) => ({ id: l.id, label: l.label, value: l.value }));
+            return res.json({ success: true, rows, total: rows.length });
+        }
+        // Fallback: seed defaults into DB and return them
+        const defaults = [
+            { label: "High School / Secondary", value: "High School" },
+            { label: "Diploma / Vocational", value: "Diploma" },
+            { label: "Bachelor's Degree", value: "Bachelor" },
+            { label: "Master's Degree", value: "Master" },
+            { label: "MBA", value: "MBA" },
+            { label: "Doctorate / PhD", value: "PhD" },
+            { label: "Self-taught / Bootcamp", value: "Self-taught" },
+            { label: "Other", value: "Other" },
+        ];
+        const created = await Promise.all(defaults.map((d, i) => prisma.masterOption.create({
+            data: {
+                type: 'education_level',
+                label: d.label,
+                value: d.value,
+                sortOrder: i,
+                status: 'active',
+            },
+        })));
+        const rows = created.map((l) => ({ id: l.id, label: l.label, value: l.value }));
+        return res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        next(err);
+    }
+});
+>>>>>>> Stashed changes
 router.get("/freelancers/filters", async (_req, res, next) => {
     try {
         const data = await getPublicFreelancerFilters();
