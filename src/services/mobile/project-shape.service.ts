@@ -41,7 +41,7 @@ export const shapeProjects = async (
   if (!projects.length) return [];
 
   const clientIds = [...new Set(projects.map((p) => p.client).filter(Boolean))];
-  const categoryIds = [
+  const industryIds = [
     ...new Set(
       projects
         .map((p) => p.category)
@@ -54,16 +54,16 @@ export const shapeProjects = async (
     ),
   ];
 
-  const [clients, categories, skills] = await Promise.all([
+  const [clients, industries, skills] = await Promise.all([
     clientIds.length
       ? prisma.user.findMany({
         where: { id: { in: clientIds } },
         select: { id: true, fullName: true, avatarUrl: true, isVerified: true },
       })
       : Promise.resolve([]),
-    categoryIds.length
+    industryIds.length
       ? prisma.skillCategory.findMany({
-        where: { id: { in: categoryIds } },
+        where: { id: { in: industryIds } },
         select: { id: true, name: true },
       })
       : Promise.resolve([]),
@@ -76,7 +76,7 @@ export const shapeProjects = async (
   ]);
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
-  const categoryById = new Map(categories.map((c) => [c.id, c.name]));
+  const industryById = new Map(industries.map((c) => [c.id, c.name]));
   const skillById = new Map(skills.map((s) => [s.id, s.name]));
 
   const proposalCounts = await prisma.proposal.groupBy({
@@ -95,8 +95,8 @@ export const shapeProjects = async (
     const client: any = clientById.get(project.client);
     const skillIdList = splitIds(project.technology);
     const skillNames = skillIdList.map((id) => skillById.get(id) ?? id);
-    const categoryName = uuidLike.test(String(project.category || ''))
-      ? categoryById.get(project.category) ?? 'General'
+    const industryName = uuidLike.test(String(project.category || ''))
+      ? industryById.get(project.category) ?? 'General'
       : project.category || 'General';
 
     const formattedSkills = skillIdList.map((id, index) => ({
@@ -112,10 +112,10 @@ export const shapeProjects = async (
       clientName: client?.fullName || 'Client',
       clientAvatar: client?.avatarUrl ?? null,
       clientVerified: Boolean(client?.isVerified),
-      category: categoryName,
-      categoryId: uuidLike.test(String(project.category || ''))
-        ? project.category
-        : null,
+      industry: {
+        id: uuidLike.test(String(project.category || '')) ? project.category : '',
+        name: industryName,
+      },
       skills: formattedSkills,
       techStack: skillNames,
       technology: skillNames.join(', '),

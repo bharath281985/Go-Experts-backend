@@ -49,6 +49,16 @@ const technologyFromBody = (body: any) => {
   return undefined;
 };
 
+const resolveIndustryInput = async (raw: unknown): Promise<{ id: string; name: string } | null> => {
+  const value = String(raw ?? '').trim();
+  if (!value) return null;
+  const found = await prisma.industry.findFirst({
+    where: { OR: [{ id: value }, { name: value }] },
+    select: { id: true, name: true },
+  }).catch(() => null);
+  return found ? { id: found.id, name: found.name } : { id: value, name: value };
+};
+
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, {
@@ -82,7 +92,8 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
           ...project,
           clientId: project.client,
           clientName: 'Client',
-          category: project.category,
+          industry: project.category,
+          industryId: project.category,
           skills: String(project.technology || '')
             .split(',')
             .map((s) => s.trim())
@@ -118,8 +129,8 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
   try {
     const {
       title,
-      category,
-      categoryId,
+      industry,
+      industryId,
       timeline,
       deadline,
       description,
@@ -128,7 +139,8 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       attachments,
     } = req.body;
 
-    const categoryValue = categoryId || category || 'General';
+    const resolvedIndustry = await resolveIndustryInput(industryId ?? industry);
+    const categoryValue = resolvedIndustry?.id || 'General';
     const technologyValue = technologyFromBody(req.body) || '';
     const budgets = parseBudget(req.body);
     const level = normalizeExperienceLevel(experienceLevel);
@@ -233,8 +245,8 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
 
     const {
       title,
-      category,
-      categoryId,
+      industry,
+      industryId,
       timeline,
       deadline,
       description,
@@ -244,7 +256,8 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
       status,
     } = req.body;
 
-    const categoryValue = categoryId ?? category;
+    const resolvedIndustry = await resolveIndustryInput(industryId ?? industry);
+    const categoryValue = resolvedIndustry?.id;
     const technologyValue = technologyFromBody(req.body);
     const budgets = parseBudget(req.body);
     const level = normalizeExperienceLevel(experienceLevel);
