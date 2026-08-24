@@ -149,9 +149,11 @@ curl -X PUT "$BASE_URL/client/projects/acdb4887-b6c1-43df-882d-0873cdc2bac4" \
     "title": "Updated Project Title",
     "industryId": "industry-uuid",
     "experienceLevelId": "experience-level-uuid",
-    "budget": 60000,
+    "workModeId": "work-mode-uuid",
+    "budgetRangeId": "budget-range-uuid",
+    "budget": 100000,
     "timeline": "4 weeks",
-    "workMode": "Remote"
+    "description": "Updated project description"
   }'
 ```
 

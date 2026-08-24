@@ -69,6 +69,26 @@ const resolveExperienceLevelInput = async (raw: unknown): Promise<{ id: string; 
   return found ? { id: found.id, name: found.name } : { id: value, name: value };
 };
 
+const resolveWorkModeInput = async (raw: unknown): Promise<{ id: string; name: string } | null> => {
+  const value = String(raw ?? '').trim();
+  if (!value) return null;
+  const found = await prisma.workMode.findFirst({
+    where: { OR: [{ id: value }, { name: value }] },
+    select: { id: true, name: true },
+  }).catch(() => null);
+  return found ? { id: found.id, name: found.name } : { id: value, name: value };
+};
+
+const resolveBudgetRangeInput = async (raw: unknown): Promise<{ id: string; label: string; value: string; min: number | null; max: number | null } | null> => {
+  const value = String(raw ?? '').trim();
+  if (!value) return null;
+  const found = await (prisma as any).masterOption?.findFirst({
+    where: { OR: [{ id: value }, { value }, { label: value }], type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] } },
+    select: { id: true, label: true, value: true, min: true, max: true },
+  }).catch(() => null);
+  return found ? found : { id: value, label: value, value, min: null, max: null };
+};
+
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, {
@@ -97,13 +117,19 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
           budgetMax?: number | null;
           workMode?: string | null;
           experienceLevel?: string | null;
+          budgetRangeId?: string | null;
         };
+        const fallbackBudgetRange = project.budgetRangeId
+          ? { id: project.budgetRangeId, label: '', value: '', min: null, max: null, sortOrder: 0 }
+          : null;
         return {
           ...project,
           clientId: project.client,
           clientName: 'Client',
-          industry: project.category,
-          industryId: project.category,
+          industry: {
+            id: project.category || '',
+            name: project.category || 'General',
+          },
           skills: String(project.technology || '')
             .split(',')
             .map((s) => s.trim())
@@ -111,9 +137,15 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
             .map((name) => ({ skillId: '', skillName: name })),
           budgetMin: project.budgetMin ?? project.budget,
           budgetMax: project.budgetMax ?? project.budget,
-          workMode: project.workMode ?? 'Remote',
-          experienceLevel:
-            normalizeExperienceLevel(project.experienceLevel) ?? 'intermediate',
+          budgetRange: fallbackBudgetRange,
+          workMode: {
+            id: project.workMode || '',
+            name: project.workMode || 'Remote',
+          },
+          experienceLevel: {
+            id: project.experienceLevel || '',
+            name: project.experienceLevel || 'intermediate',
+          },
           attachments: [],
           proposalsCount: 0,
           isOwner: true,
@@ -145,7 +177,9 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       deadline,
       description,
       workMode,
+      workModeId,
       experienceLevel,
+      budgetRangeId,
       attachments,
     } = req.body;
 
@@ -155,6 +189,12 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
     const budgets = parseBudget(req.body);
     const resolvedExperienceLevel = await resolveExperienceLevelInput(experienceLevel);
     const level = resolvedExperienceLevel?.id || normalizeExperienceLevel(experienceLevel);
+    const resolvedWorkMode = await resolveWorkModeInput(workModeId ?? workMode);
+    const workModeValue = resolvedWorkMode?.id || workMode || null;
+    const resolvedBudgetRange = await resolveBudgetRangeInput(budgetRangeId);
+    const budgetMaxValue = resolvedBudgetRange?.max ?? budgets.budgetMax;
+    const budgetMinValue = resolvedBudgetRange?.min ?? budgets.budgetMin;
+    const budgetValue = budgetMaxValue ?? budgets.budget;
 
     if (experienceLevel != null && experienceLevel !== '' && level === null) {
       return res.status(400).json(
@@ -181,13 +221,14 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
         client: req.user.id,
         category: categoryValue,
         technology: technologyValue,
-        budget: budgets.budget,
-        budgetMin: budgets.budgetMin,
-        budgetMax: budgets.budgetMax,
+        budget: budgetValue ?? budgets.budget,
+        budgetMin: budgetMinValue,
+        budgetMax: budgetMaxValue,
         timeline: timeline || deadline || null,
         description: description || null,
-        workMode: workMode || null,
+        workMode: workModeValue,
         experienceLevel: level ?? 'intermediate',
+        budgetRangeId: resolvedBudgetRange?.id ?? null,
         attachments: serializeAttachments(attachments),
         status: 'draft',
       },
@@ -262,8 +303,10 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
       deadline,
       description,
       workMode,
+      workModeId,
       experienceLevel,
       experienceLevelId,
+      budgetRangeId,
       attachments,
       status,
     } = req.body;
@@ -276,6 +319,12 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     const level = resolvedExperienceLevel?.id
       ? resolvedExperienceLevel.id
       : normalizeExperienceLevel(experienceLevel);
+    const resolvedWorkMode = await resolveWorkModeInput(workModeId ?? workMode);
+    const workModeValue = resolvedWorkMode?.id || workMode;
+    const resolvedBudgetRange = await resolveBudgetRangeInput(budgetRangeId);
+    const budgetMaxValue = resolvedBudgetRange?.max ?? budgets.budgetMax;
+    const budgetMinValue = resolvedBudgetRange?.min ?? budgets.budgetMin;
+    const budgetValue = budgetMaxValue ?? budgets.budget;
 
     if ((experienceLevelId != null || experienceLevel != null) && level === null) {
       return res.status(400).json(
@@ -296,13 +345,14 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     if (title != null) data.title = title;
     if (categoryValue != null) data.category = categoryValue;
     if (technologyValue != null) data.technology = technologyValue;
-    if (budgets.budget != null && !Number.isNaN(budgets.budget)) data.budget = budgets.budget;
-    if (budgets.budgetMin != null && !Number.isNaN(budgets.budgetMin)) data.budgetMin = budgets.budgetMin;
-    if (budgets.budgetMax != null && !Number.isNaN(budgets.budgetMax)) data.budgetMax = budgets.budgetMax;
+    if (budgetValue != null && !Number.isNaN(budgetValue)) data.budget = budgetValue;
+    if (budgetMinValue != null && !Number.isNaN(budgetMinValue)) data.budgetMin = budgetMinValue;
+    if (budgetMaxValue != null && !Number.isNaN(budgetMaxValue)) data.budgetMax = budgetMaxValue;
     if (timeline != null || deadline != null) data.timeline = timeline ?? deadline;
     if (description != null) data.description = description;
-    if (workMode != null) data.workMode = workMode;
+    if (workModeValue != null) data.workMode = workModeValue;
     if (level !== undefined) data.experienceLevel = level;
+    if (resolvedBudgetRange?.id) data.budgetRangeId = resolvedBudgetRange.id;
     if (attachments != null) data.attachments = serializeAttachments(attachments);
     if (status != null) data.status = status;
 

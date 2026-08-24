@@ -31,6 +31,15 @@ const splitIds = (raw?: string | null): string[] =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+type BudgetRangeRecord = {
+  id: string;
+  label: string | null;
+  value: string | null;
+  min: number | null;
+  max: number | null;
+  sortOrder: number | null;
+};
+
 /**
  * Enrich project rows with human-readable names (never expose raw IDs in display fields).
  */
@@ -55,13 +64,22 @@ export const shapeProjects = async (
         .filter((e: string) => e && uuidLike.test(e))
     ),
   ];
+  const workModeIds = [
+    ...new Set(
+      projects
+        .map((p) => p.workMode)
+        .filter((w: string) => w && uuidLike.test(w))
+    ),
+  ];
   const skillIds = [
     ...new Set(
       projects.flatMap((p) => splitIds(p.technology)).filter((id) => uuidLike.test(id))
     ),
   ];
 
-  const [clients, industries, experienceLevels, skills] = await Promise.all([
+  const budgetIds = [...new Set(projects.map((p) => p.budgetRangeId).filter(Boolean))];
+
+  const [clients, industries, experienceLevels, workModes, budgetRanges, skills] = await Promise.all([
     clientIds.length
       ? prisma.user.findMany({
         where: { id: { in: clientIds } },
@@ -80,6 +98,18 @@ export const shapeProjects = async (
         select: { id: true, name: true },
       }).catch(() => [])
       : Promise.resolve([]),
+    workModeIds.length
+      ? prisma.workMode.findMany({
+        where: { id: { in: workModeIds } },
+        select: { id: true, name: true },
+      }).catch(() => [])
+      : Promise.resolve([]),
+    budgetIds.length
+      ? (prisma as any).masterOption?.findMany({
+        where: { id: { in: budgetIds } },
+        select: { id: true, label: true, value: true, min: true, max: true, sortOrder: true }
+      }).catch(() => [])
+      : Promise.resolve([]),
     skillIds.length
       ? prisma.skill.findMany({
         where: { id: { in: skillIds } },
@@ -91,6 +121,10 @@ export const shapeProjects = async (
   const clientById = new Map(clients.map((c) => [c.id, c]));
   const industryById = new Map(industries.map((c) => [c.id, c.name]));
   const experienceLevelById = new Map(experienceLevels.map((c) => [c.id, c.name]));
+  const workModeById = new Map(workModes.map((c) => [c.id, c.name]));
+  const budgetRangeById = new Map<string, BudgetRangeRecord>(
+    (budgetRanges as BudgetRangeRecord[]).map((b) => [b.id, b])
+  );
   const skillById = new Map(skills.map((s) => [s.id, s.name]));
 
   const proposalCounts = await prisma.proposal.groupBy({
@@ -115,6 +149,10 @@ export const shapeProjects = async (
     const experienceLevelKey = String(project.experienceLevel || '').trim();
     const experienceLevelRecord = experienceLevelById.get(experienceLevelKey) || null;
     const experienceLevelName = experienceLevelRecord?.name || experienceLevelKey || 'intermediate';
+    const workModeKey = String(project.workMode || '').trim();
+    const workModeRecord = workModeById.get(workModeKey) || null;
+    const workModeName = workModeRecord?.name || workModeKey || 'Remote';
+    const budgetRangeRecord = budgetRangeById.get(String(project.budgetRangeId || '').trim()) || null;
 
     const formattedSkills = skillIdList.map((id, index) => ({
       skillId: id,
@@ -139,9 +177,22 @@ export const shapeProjects = async (
       budget: project.budget,
       budgetMin: project.budgetMin ?? project.budget,
       budgetMax: project.budgetMax ?? project.budget,
+      budgetRange: budgetRangeRecord
+        ? {
+            id: budgetRangeRecord.id,
+            label: budgetRangeRecord.label ?? '',
+            value: budgetRangeRecord.value ?? '',
+            min: budgetRangeRecord.min,
+            max: budgetRangeRecord.max,
+            sortOrder: budgetRangeRecord.sortOrder ?? 0,
+          }
+        : null,
       isHourly: false,
       timeline: project.timeline ?? '',
-      workMode: project.workMode ?? 'Remote',
+      workMode: {
+        id: workModeRecord?.id || '',
+        name: workModeName,
+      },
       experienceLevel: {
         id: experienceLevelRecord?.id || '',
         name: experienceLevelName,
