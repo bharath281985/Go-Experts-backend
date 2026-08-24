@@ -299,6 +299,8 @@ model Project {
   category        String
   technology      String
   timeline        String?
+  startDate       DateTime?   @map("start_date")
+  endDate         DateTime?   @map("end_date")
   description     String?     @db.Text
   workMode        String?     @map("work_mode")
   experienceLevel String?     @map("experience_level")

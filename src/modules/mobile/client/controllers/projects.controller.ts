@@ -41,6 +41,13 @@ const parseBudget = (body: any) => {
   };
 };
 
+const parseDateValue = (value: unknown): Date | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value == null || value === '') return null;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const technologyFromBody = (body: any) => {
   const rawSkillIds = body.skillIds ?? body.skills;
   if (Array.isArray(rawSkillIds)) return rawSkillIds.join(',');
@@ -179,6 +186,8 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       industryId,
       timeline,
       deadline,
+      startDate,
+      endDate,
       description,
       workMode,
       workModeId,
@@ -199,6 +208,8 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
     const budgetMaxValue = resolvedBudgetRange?.max ?? budgets.budgetMax;
     const budgetMinValue = resolvedBudgetRange?.min ?? budgets.budgetMin;
     const budgetValue = budgetMaxValue ?? budgets.budget;
+    const startDateValue = parseDateValue(startDate);
+    const endDateValue = parseDateValue(endDate);
 
     if (experienceLevel != null && experienceLevel !== '' && level === null) {
       return res.status(400).json(
@@ -229,6 +240,8 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
         budgetMin: budgetMinValue,
         budgetMax: budgetMaxValue,
         timeline: timeline || deadline || null,
+        startDate: startDateValue,
+        endDate: endDateValue,
         description: description || null,
         workMode: workModeValue,
         experienceLevel: level ?? 'intermediate',
@@ -304,6 +317,8 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
       industryId,
       timeline,
       deadline,
+      startDate,
+      endDate,
       description,
       workMode,
       workModeId,
@@ -328,6 +343,8 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     const budgetMaxValue = resolvedBudgetRange?.max ?? budgets.budgetMax;
     const budgetMinValue = resolvedBudgetRange?.min ?? budgets.budgetMin;
     const budgetValue = budgetMaxValue ?? budgets.budget;
+    const startDateValue = parseDateValue(startDate);
+    const endDateValue = parseDateValue(endDate);
 
     if ((experienceLevelId != null || experienceLevel != null) && level === null) {
       return res.status(400).json(
@@ -352,6 +369,8 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     if (budgetMinValue != null && !Number.isNaN(budgetMinValue)) data.budgetMin = budgetMinValue;
     if (budgetMaxValue != null && !Number.isNaN(budgetMaxValue)) data.budgetMax = budgetMaxValue;
     if (timeline != null || deadline != null) data.timeline = timeline ?? deadline;
+    if (startDateValue !== undefined) data.startDate = startDateValue;
+    if (endDateValue !== undefined) data.endDate = endDateValue;
     if (description != null) data.description = description;
     if (workModeValue != null) data.workMode = workModeValue;
     if (level !== undefined) data.experienceLevel = level;

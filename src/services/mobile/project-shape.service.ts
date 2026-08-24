@@ -189,6 +189,8 @@ export const shapeProjects = async (
         : null,
       isHourly: false,
       timeline: project.timeline ?? '',
+      startDate: project.startDate ? new Date(project.startDate).toISOString() : null,
+      endDate: project.endDate ? new Date(project.endDate).toISOString() : null,
       workMode: {
         id: workModeRecord?.id || '',
         name: workModeName,
