@@ -240,7 +240,6 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
         budgetMin: budgetMinValue,
         budgetMax: budgetMaxValue,
         timeline: timeline || deadline || null,
-        endDate: endDateValue,
         description: description || null,
         workMode: workModeValue,
         experienceLevel: level ?? 'intermediate',
