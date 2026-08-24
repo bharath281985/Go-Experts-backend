@@ -2187,6 +2187,7 @@ model ReferralRule {
   qualification String
   rewardAmount Float
   rewardType String? @map("reward_type")
+    industry String? @map("industry")
   campaign ReferralCampaign @relation(fields: [campaignId], references: [id])
   @@map("referral_rules")
 }
