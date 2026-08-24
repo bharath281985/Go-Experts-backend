@@ -16,7 +16,16 @@ import {
   shortlistProposal,
   offerProposal,
   rejectProposal,
-  interviewProposal
+  interviewProposal,
+  listSavedFreelancers,
+  toggleSavedFreelancer,
+  removeSavedFreelancer,
+  listClientInvitations,
+  listClientTeam,
+  addClientTeamMember,
+  updateClientTeamMember,
+  deleteClientTeamMember, listClientRoles,
+  listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead
 } from "../../controllers/client/client.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
@@ -87,9 +96,9 @@ router.get("/contracts", listClientContracts as any);
 
 // router.get("/analytics", getClientAnalytics as any);
 
-// router.get("/notifications", listClientNotifications as any);
-// router.patch("/notifications/read-all", markAllClientNotificationsRead as any);
-// router.patch("/notifications/:id/read", markClientNotificationRead as any);
+router.get("/notifications", listClientNotifications as any);
+router.patch("/notifications/read-all", markAllClientNotificationsRead as any);
+router.patch("/notifications/:id/read", markClientNotificationRead as any);
 
 // router.get("/settings", getClientSettings as any);
 // router.patch("/settings", updateClientSettings as any);
@@ -101,10 +110,12 @@ router.get("/contracts", listClientContracts as any);
 // router.post("/documents", addClientDocument as any);
 // router.delete("/documents/:id", deleteClientDocument as any);
 
-// router.get("/team", listClientTeam as any);
-// router.get("/invitations", listClientInvitations as any);
-// router.post("/team", addClientTeamMember as any);
-// router.delete("/team/:id", deleteClientTeamMember as any);
+router.get("/team", listClientTeam as any);
+router.get("/roles", listClientRoles as any);
+router.get("/invitations", listClientInvitations as any);
+router.post("/team", addClientTeamMember as any);
+router.put("/team/:id", updateClientTeamMember as any);
+router.delete("/team/:id", deleteClientTeamMember as any);
 
 // router.get("/pipeline", listClientPipeline as any);
 // router.get("/referrals", getClientReferrals as any);
@@ -117,9 +128,9 @@ router.get("/contracts", listClientContracts as any);
 router.post("/media/upload", upload.single("file"), uploadFile as any);
 
 // Saved freelancers (bookmark)
-// router.get("/freelancers/saved", listSavedFreelancers as any);
-// router.post("/freelancers/save", toggleSavedFreelancer as any);
-// router.delete("/freelancers/saved/:id", removeSavedFreelancer as any);
+router.get("/freelancers/saved", listSavedFreelancers as any);
+router.post("/freelancers/save", toggleSavedFreelancer as any);
+router.delete("/freelancers/saved/:id", removeSavedFreelancer as any);
 
 // Share freelancer (track)
 // router.post("/freelancers/share", shareFreelancer as any);

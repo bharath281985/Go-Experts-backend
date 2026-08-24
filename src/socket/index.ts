@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { socketAuth } from './auth.js';
 import { handlePresence } from './presence.js';
 import { handleChatEvents } from './chat.js';
+import { handleSupportEvents } from './support.js';
 
 let io: Server;
 
@@ -43,6 +44,7 @@ export const initSocket = (server: HttpServer) => {
 
     handlePresence(io, socket);
     handleChatEvents(io, socket);
+    handleSupportEvents(io, socket);
   });
 };
 

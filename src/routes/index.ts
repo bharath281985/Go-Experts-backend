@@ -46,6 +46,7 @@ import aboutRouter from "./admin/about.routes.js"; import adminReferralsRouter f
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
 import kycRouter from "./admin/kyc.routes.js";
+import adminSupportDeskRouter from "./admin/support-desk.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import subscriptionRoutes from "./subscription/subscription.routes.js";
@@ -164,6 +165,7 @@ router.use("/admin/system", systemRouter);
 router.use("/admin/settings", settingsRouter);
 router.use("/admin/developer", developerRouter);
 router.use("/admin/kyc", authMiddleware as any, kycRouter); router.use("/admin", adminReferralsRouter);
+router.use("/admin/support", adminSupportDeskRouter);
 router.use("/admin", workflowsRoutes);
 router.use("/admin/resume-templates", authMiddleware as any, resumeTemplateRouter);
 

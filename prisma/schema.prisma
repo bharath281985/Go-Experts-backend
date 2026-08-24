@@ -168,7 +168,8 @@ model User {
   reports Report[] @relation("Reporter")
   reported Report[] @relation("ReportedUser")
 
-
+  clientTeamMembers ClientTeamMember[] @relation("ClientOrganization")
+  teamMemberships   ClientTeamMember[] @relation("TeamMembership")
 }
 
 model AuthIdentity {
@@ -1213,21 +1214,63 @@ model Coupon {
 }
 
 model SupportTicket {
-  id         String    @id @default(uuid())
-  subject    String
-  user       String
-  category   String
-  priority   String    @default("Medium")
-  assignedTo String?   @map("assigned_to")
-  status     String    @default("Open")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
+  id              String                 @id @default(uuid())
+  ticketNumber    String                 @unique @default(cuid()) @map("ticket_number")
+  requesterId     String                 @map("requester_id")
+  requesterRole   String                 @map("requester_role")
+  subject         String
+  categoryId      String                 @map("category_id")
+  priority        String                 @default("Medium")
+  status          String                 @default("OPEN")
+  assignedToId    String?                @map("assigned_to_id")
+  companyId       String?                @map("company_id")
+  firstResponseAt DateTime?              @map("first_response_at")
+  slaDueAt        DateTime?              @map("sla_due_at")
+  resolvedAt      DateTime?              @map("resolved_at")
+  closedAt        DateTime?              @map("closed_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  deletedAt       DateTime?              @map("deleted_at")
 
+  messages        SupportTicketMessage[]
+
+  @@index([requesterId])
   @@index([status])
+  @@index([categoryId])
   @@index([priority])
   @@index([createdAt])
   @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id              String                    @id @default(uuid())
+  ticketId        String                    @map("ticket_id")
+  ticket          SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId        String                    @map("sender_id")
+  senderRole      String                    @map("sender_role")
+  message         String                    @db.LongText
+  isInternal      Boolean                   @default(false) @map("is_internal")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+
+  attachments     SupportTicketAttachment[]
+
+  @@index([ticketId])
+  @@map("support_ticket_messages")
+}
+
+model SupportTicketAttachment {
+  id              String               @id @default(uuid())
+  messageId       String               @map("message_id")
+  message         SupportTicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName        String               @map("file_name")
+  fileUrl         String               @map("file_url")
+  storageKey      String?              @map("storage_key")
+  mimeType        String?              @map("mime_type")
+  fileSize        Int?                 @map("file_size")
+  createdAt       DateTime             @default(now()) @map("created_at")
+
+  @@index([messageId])
+  @@map("support_ticket_attachments")
 }
 
 model Setting {
@@ -2250,5 +2293,24 @@ model ReferralReward {
   createdAt  DateTime @default(now())
   referral Referral @relation(fields: [referralId], references: [id])
   @@map("referral_rewards")
+}
+
+
+model ClientTeamMember {
+  id           String   @id @default(uuid())
+  clientId     String   @map("client_id")
+  client       User     @relation("ClientOrganization", fields: [clientId], references: [id])
+  userId       String?  @map("user_id")
+  user         User?    @relation("TeamMembership", fields: [userId], references: [id])
+  name         String
+  email        String
+  role         String   @default("Member")
+  department   String?
+  status       String   @default("Invited")
+  permissions  String?  @db.LongText
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("client_team_members")
 }
 
