@@ -102,6 +102,10 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
         skip,
         take: limit,
         orderBy,
+        include: {
+          milestones: true,
+          tasks: true,
+        },
       }),
       prisma.project.count({ where }),
     ]);
@@ -228,7 +232,6 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
         description: description || null,
         workMode: workModeValue,
         experienceLevel: level ?? 'intermediate',
-        budgetRangeId: resolvedBudgetRange?.id ?? null,
         attachments: serializeAttachments(attachments),
         status: 'draft',
       },
@@ -352,7 +355,6 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     if (description != null) data.description = description;
     if (workModeValue != null) data.workMode = workModeValue;
     if (level !== undefined) data.experienceLevel = level;
-    if (resolvedBudgetRange?.id) data.budgetRangeId = resolvedBudgetRange.id;
     if (attachments != null) data.attachments = serializeAttachments(attachments);
     if (status != null) data.status = status;
 
