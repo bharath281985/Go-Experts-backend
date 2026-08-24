@@ -48,13 +48,20 @@ export const shapeProjects = async (
         .filter((c: string) => c && uuidLike.test(c))
     ),
   ];
+  const experienceLevelIds = [
+    ...new Set(
+      projects
+        .map((p) => p.experienceLevel)
+        .filter((e: string) => e && uuidLike.test(e))
+    ),
+  ];
   const skillIds = [
     ...new Set(
       projects.flatMap((p) => splitIds(p.technology)).filter((id) => uuidLike.test(id))
     ),
   ];
 
-  const [clients, industries, skills] = await Promise.all([
+  const [clients, industries, experienceLevels, skills] = await Promise.all([
     clientIds.length
       ? prisma.user.findMany({
         where: { id: { in: clientIds } },
@@ -67,6 +74,12 @@ export const shapeProjects = async (
         select: { id: true, name: true },
       })
       : Promise.resolve([]),
+    experienceLevelIds.length
+      ? prisma.experienceLevel.findMany({
+        where: { id: { in: experienceLevelIds } },
+        select: { id: true, name: true },
+      }).catch(() => [])
+      : Promise.resolve([]),
     skillIds.length
       ? prisma.skill.findMany({
         where: { id: { in: skillIds } },
@@ -77,6 +90,7 @@ export const shapeProjects = async (
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
   const industryById = new Map(industries.map((c) => [c.id, c.name]));
+  const experienceLevelById = new Map(experienceLevels.map((c) => [c.id, c.name]));
   const skillById = new Map(skills.map((s) => [s.id, s.name]));
 
   const proposalCounts = await prisma.proposal.groupBy({
@@ -98,6 +112,9 @@ export const shapeProjects = async (
     const industryName = uuidLike.test(String(project.category || ''))
       ? industryById.get(project.category) ?? 'General'
       : project.category || 'General';
+    const experienceLevelKey = String(project.experienceLevel || '').trim();
+    const experienceLevelRecord = experienceLevelById.get(experienceLevelKey) || null;
+    const experienceLevelName = experienceLevelRecord?.name || experienceLevelKey || 'intermediate';
 
     const formattedSkills = skillIdList.map((id, index) => ({
       skillId: id,
@@ -125,14 +142,10 @@ export const shapeProjects = async (
       isHourly: false,
       timeline: project.timeline ?? '',
       workMode: project.workMode ?? 'Remote',
-      experienceLevel: (() => {
-        const raw = String(project.experienceLevel ?? 'intermediate')
-          .trim()
-          .toLowerCase();
-        if (raw === 'beginner' || raw === 'entry' || raw === 'junior') return 'beginner';
-        if (raw === 'expert' || raw === 'senior' || raw === 'advanced') return 'expert';
-        return 'intermediate';
-      })(),
+      experienceLevel: {
+        id: experienceLevelRecord?.id || '',
+        name: experienceLevelName,
+      },
       attachments: parseAttachments(project.attachments),
       status: project.status,
       createdAt: project.createdAt,

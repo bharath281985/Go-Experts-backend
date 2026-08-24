@@ -82,6 +82,79 @@ curl -X GET "$BASE_URL/client/dashboard" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
+### Client Project Details
+```bash
+curl -X GET "$BASE_URL/client/projects/acdb4887-b6c1-43df-882d-0873cdc2bac4" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Client Project Details Response
+```json
+{
+  "success": true,
+  "message": "Project details",
+  "data": {
+    "id": "acdb4887-b6c1-43df-882d-0873cdc2bac4",
+    "title": "Project Title",
+    "description": "Project description",
+    "clientId": "user-id",
+    "clientName": "Client Name",
+    "clientAvatar": null,
+    "clientVerified": true,
+    "industry": {
+      "id": "industry-uuid",
+      "name": "Software Development"
+    },
+    "skills": [
+      {
+        "skillId": "skill-id-1",
+        "skillName": "React"
+      },
+      {
+        "skillId": "skill-id-2",
+        "skillName": "Node.js"
+      }
+    ],
+    "techStack": ["React", "Node.js"],
+    "technology": "React, Node.js",
+    "budget": 60000,
+    "budgetMin": 50000,
+    "budgetMax": 60000,
+    "isHourly": false,
+    "timeline": "4 weeks",
+    "workMode": "Remote",
+    "experienceLevel": {
+      "id": "experience-level-uuid",
+      "name": "Intermediate"
+    },
+    "attachments": [],
+    "status": "draft",
+    "createdAt": "2026-08-24T09:00:00.000Z",
+    "updatedAt": "2026-08-24T09:00:00.000Z",
+    "proposalsCount": 0,
+    "shareCount": 0,
+    "isOwner": true,
+    "milestones": [],
+    "tasks": []
+  }
+}
+```
+
+### Update Client Project
+```bash
+curl -X PUT "$BASE_URL/client/projects/acdb4887-b6c1-43df-882d-0873cdc2bac4" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Updated Project Title",
+    "industryId": "industry-uuid",
+    "experienceLevelId": "experience-level-uuid",
+    "budget": 60000,
+    "timeline": "4 weeks",
+    "workMode": "Remote"
+  }'
+```
+
 ### Investor Dashboard
 ```bash
 curl -X GET "$BASE_URL/investor/dashboard" \

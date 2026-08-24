@@ -59,6 +59,16 @@ const resolveIndustryInput = async (raw: unknown): Promise<{ id: string; name: s
   return found ? { id: found.id, name: found.name } : { id: value, name: value };
 };
 
+const resolveExperienceLevelInput = async (raw: unknown): Promise<{ id: string; name: string } | null> => {
+  const value = String(raw ?? '').trim();
+  if (!value) return null;
+  const found = await prisma.experienceLevel.findFirst({
+    where: { OR: [{ id: value }, { name: value }] },
+    select: { id: true, name: true },
+  }).catch(() => null);
+  return found ? { id: found.id, name: found.name } : { id: value, name: value };
+};
+
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, {
@@ -143,7 +153,8 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
     const categoryValue = resolvedIndustry?.id || 'General';
     const technologyValue = technologyFromBody(req.body) || '';
     const budgets = parseBudget(req.body);
-    const level = normalizeExperienceLevel(experienceLevel);
+    const resolvedExperienceLevel = await resolveExperienceLevelInput(experienceLevel);
+    const level = resolvedExperienceLevel?.id || normalizeExperienceLevel(experienceLevel);
 
     if (experienceLevel != null && experienceLevel !== '' && level === null) {
       return res.status(400).json(
@@ -252,6 +263,7 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
       description,
       workMode,
       experienceLevel,
+      experienceLevelId,
       attachments,
       status,
     } = req.body;
@@ -260,9 +272,12 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     const categoryValue = resolvedIndustry?.id;
     const technologyValue = technologyFromBody(req.body);
     const budgets = parseBudget(req.body);
-    const level = normalizeExperienceLevel(experienceLevel);
+    const resolvedExperienceLevel = await resolveExperienceLevelInput(experienceLevelId ?? experienceLevel);
+    const level = resolvedExperienceLevel?.id
+      ? resolvedExperienceLevel.id
+      : normalizeExperienceLevel(experienceLevel);
 
-    if (experienceLevel != null && experienceLevel !== '' && level === null) {
+    if ((experienceLevelId != null || experienceLevel != null) && level === null) {
       return res.status(400).json(
         errorResponse(
           `experienceLevel must be one of: ${EXPERIENCE_LEVELS.join(', ')}`,

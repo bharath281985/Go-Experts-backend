@@ -142,7 +142,7 @@
 - **Endpoint:** `/client/projects`
 - **Full URL:** `http://localhost:3000/api/client/projects`
 - **Auth Required:** YES (Client Token)
-- **Request Body:** `{ "title": "Build Mobile App", "budget": 50000, "category": "Mobile Dev" }`
+- **Request Body:** `{ "title": "Build Mobile App", "budget": 50000, "industryId": "industry-uuid" }`
 - **Backend Route:** `/client/projects`
 - **Backend Controller:** `project.controller.ts`
 - **DB Model:** `Project`
