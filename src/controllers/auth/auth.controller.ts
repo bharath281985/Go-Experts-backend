@@ -325,6 +325,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       avatarUrl: user.avatarUrl,
       role: user.role,
       status: user.status,
+      onboardingStatus: user.onboardingStatus,
       country: user.country,
       state: user.state,
       city: user.city,
@@ -426,6 +427,26 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const registrationData = Object.keys(restData).length > 0 ? restData : undefined;
 
     const trialEndsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    
+    // Generate unique referral code for the new user
+    let baseCode = (fullName.split(' ')[0] || "USER").toUpperCase().replace(/[^A-Z]/g, '');
+    if (baseCode.length < 3) baseCode = "GEX" + baseCode;
+    const randStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const referralCode = `GOEXPERTS-${baseCode}${randStr}`;
+
+    const ref = req.body?.ref || req.query?.ref;
+    let referrer = null;
+    let referralClick = null;
+    if (ref) {
+      referrer = await prisma.user.findUnique({ where: { referralCode: String(ref) } });
+      if (!referrer) {
+        // Also check if ref is a clickId
+        referralClick = await prisma.referralClick.findUnique({ where: { id: String(ref) }, include: { referrer: true } });
+        if (referralClick) {
+          referrer = referralClick.referrer;
+        }
+      }
+    }
 
     const user = await prisma.$transaction(async (tx) => {
       const existing = await tx.user.findUnique({ where: { email } });
@@ -464,8 +485,33 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               city,
               bio,
               registrationData,
+              referralCode,
             },
           });
+
+      // Handle Referral Creation
+      if (referrer && created) {
+        // Find default campaign (if exists)
+        const campaign = await tx.referralCampaign.findFirst({ where: { status: "ACTIVE" } });
+        
+        const referral = await tx.referral.create({
+          data: {
+            referrerId: referrer.id,
+            refereeId: created.id,
+            campaignId: campaign?.id,
+            clickId: referralClick?.id,
+            status: "PENDING",
+          }
+        });
+
+        await tx.referralEvent.create({
+          data: {
+            referralId: referral.id,
+            eventType: "SIGNED_UP",
+            metadata: JSON.stringify({ role: created.role })
+          }
+        });
+      }
 
       if (role === "freelancer") {
         const skills = Array.isArray(req.body?.skills)
@@ -617,11 +663,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       return created;
     });
 
-<<<<<<< Updated upstream
-=======
     // Welcome email is NOT sent here — it is sent after all onboarding steps are completed
-
->>>>>>> Stashed changes
     const tokenPayload = { id: user.id, email: user.email, role: user.role, type: "portal" as const };
     const accessToken = signAccessToken(tokenPayload);
     const refreshToken = signRefreshToken(tokenPayload);
@@ -1819,7 +1861,6 @@ export const sendVerificationLink = async (req: Request, res: Response, next: Ne
       success: true,
       message: "Verification link sent to your email. Please check your inbox or Spam folder.",
       ...(process.env.NODE_ENV !== "production" ? { otp } : {}),
-<<<<<<< Updated upstream
     });
   } catch (err) {
     next(err);
@@ -1915,8 +1956,6 @@ export const selectSocialRole = async (req: AuthenticatedRequest, res: Response,
       refreshToken: signRefreshToken(payload),
       user,
       data: { user },
-=======
->>>>>>> Stashed changes
     });
   } catch (err) {
     next(err);

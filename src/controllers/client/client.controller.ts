@@ -22,6 +22,7 @@ import {
   listSubscriptionsForUser,
   money,
 } from "../../common/helpers/portal-shared.js";
+import { logActivityEvent } from "../../services/activity/activity.service.js";
 
 /** Resolve an industry string (name or id) to {id, name}, or null if empty */
 async function resolveIndustry(raw: string | null | undefined): Promise<{ id: string; name: string } | null> {
@@ -440,6 +441,16 @@ export const createClientProject = async (req: AuthenticatedRequest, res: Respon
       create: { userId, projectsPosted: 1 },
     });
 
+    // Log Activity & Trigger Qualification Engine
+    await logActivityEvent({
+      type: "PROJECT_CREATED",
+      actorId: userId,
+      actorType: "USER",
+      contextType: "PROJECT",
+      contextId: project.id,
+      metadata: { title: project.title, budget: project.budget },
+    });
+
     res.status(201).json({ success: true, message: "Project created", data: project });
   } catch (err) {
     handleError(err, res, next);
@@ -616,38 +627,11 @@ async function updateProposalStatusForClient(userId: string, proposalId: string,
   return updatedProposal;
 }
 
-export const acceptProposal = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = requireUser(req, res);
-    if (!userId) return;
-    const updated = await updateProposalStatusForClient(userId, req.params.id, "accepted");
-    res.json({ success: true, message: "Proposal accepted", data: updated });
-  } catch (err) {
-    handleError(err, res, next);
-  }
-};
 
-export const rejectProposal = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = requireUser(req, res);
-    if (!userId) return;
-    const updated = await updateProposalStatusForClient(userId, req.params.id, "rejected");
-    res.json({ success: true, message: "Proposal rejected", data: updated });
-  } catch (err) {
-    handleError(err, res, next);
-  }
-};
 
-export const interviewProposal = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = requireUser(req, res);
-    if (!userId) return;
-    const updated = await updateProposalStatusForClient(userId, req.params.id, "interview");
-    res.json({ success: true, message: "Proposal moved to interview", data: updated });
-  } catch (err) {
-    handleError(err, res, next);
-  }
-};
+
+
+
 
 // ==========================================
 // CONTRACTS / TASKS
@@ -1661,5 +1645,190 @@ export const shareFreelancer = async (req: AuthenticatedRequest, res: Response, 
     res.json({ success: true, url: shareUrl });
   } catch (err) {
     handleError(err, res, next);
+  }
+};
+
+
+// --- PHASE 1 REFACTOR: CLIENT STATE MACHINE ---
+export const shortlistProposal = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id } = req.params;
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const proposal = await tx.proposal.findFirst({
+        where: { id, deletedAt: null },
+        include: { project: true }
+      });
+      if (!proposal) throw new Error("Proposal not found");
+      
+      const clientProfile = await tx.clientProfile.findUnique({ where: { userId } });
+      const clientMatches = proposal.project.client === userId || (clientProfile && proposal.project.client === clientProfile.id) || proposal.project.client.includes(userId);
+      if (!clientMatches) throw new Error("Unauthorized");
+
+      if (proposal.status !== "SUBMITTED" && proposal.status !== "pending") {
+        throw new Error("Can only shortlist SUBMITTED proposals");
+      }
+
+      const updated = await tx.proposal.update({
+        where: { id },
+        data: { status: "SHORTLISTED" }
+      });
+
+      await tx.shortlist.upsert({
+        where: {
+          projectId_freelancerId: {
+            projectId: proposal.projectId,
+            freelancerId: proposal.freelancerId
+          }
+        },
+        create: {
+          projectId: proposal.projectId,
+          freelancerId: proposal.freelancerId,
+          clientId: clientProfile?.id || userId
+        },
+        update: {} // Idempotency
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: proposal.freelancerId,
+          type: "PROPOSAL_SHORTLISTED",
+          title: "You were Shortlisted!",
+          content: `Your proposal for "${proposal.project.title}" has been shortlisted by the client.`,
+          link: `/business/proposals`,
+        }
+      });
+      return updated;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const offerProposal = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id } = req.params;
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const proposal = await tx.proposal.findFirst({
+        where: { id, deletedAt: null },
+        include: { project: true }
+      });
+      if (!proposal) throw new Error("Proposal not found");
+      
+      const clientProfile = await tx.clientProfile.findUnique({ where: { userId } });
+      const clientMatches = proposal.project.client === userId || (clientProfile && proposal.project.client === clientProfile.id) || proposal.project.client.includes(userId);
+      if (!clientMatches) throw new Error("Unauthorized");
+
+      if (!["SHORTLISTED", "INTERVIEW", "NEGOTIATING"].includes(proposal.status)) {
+        throw new Error(`Cannot offer from state ${proposal.status}`);
+      }
+
+      const updated = await tx.proposal.update({
+        where: { id },
+        data: { status: "OFFERED" }
+      });
+
+      return updated;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const getClientProposal = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id } = req.params;
+
+    const proposal = await prisma.proposal.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        freelancer: true,
+        project: true
+      }
+    });
+
+    if (!proposal) return res.status(404).json({ success: false, message: "Not found" });
+
+    // Verify ownership
+    const clientProfile = await prisma.clientProfile.findUnique({ where: { userId } });
+    const clientMatches = proposal.project.client === userId || (clientProfile && proposal.project.client === clientProfile.id) || proposal.project.client.includes(userId);
+    if (!clientMatches) return res.status(403).json({ success: false, message: "Unauthorized" });
+
+    res.json(proposal);
+  } catch (err) { next(err); }
+};
+
+export const interviewProposal = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id } = req.params;
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const proposal = await tx.proposal.findFirst({ where: { id }, include: { project: true } });
+      if (!proposal) throw new Error("Proposal not found");
+      
+      const clientMatches = proposal.project.client === userId || proposal.project.client.includes(userId);
+      if (!clientMatches) throw new Error("Unauthorized");
+
+      const updated = await tx.proposal.update({ where: { id }, data: { status: "INTERVIEW" } });
+      await tx.notification.create({
+        data: {
+          userId: proposal.freelancerId,
+          type: "INTERVIEW_INVITE",
+          title: "Interview Requested",
+          content: `The client wants to interview you for "${proposal.project.title}".`,
+          link: `/business/proposals`,
+        }
+      });
+      return updated;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const rejectProposal = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id } = req.params;
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const proposal = await tx.proposal.findFirst({ where: { id }, include: { project: true } });
+      if (!proposal) throw new Error("Proposal not found");
+      
+      const clientMatches = proposal.project.client === userId || proposal.project.client.includes(userId);
+      if (!clientMatches) throw new Error("Unauthorized");
+
+      const updated = await tx.proposal.update({ where: { id }, data: { status: "REJECTED" } });
+      await tx.notification.create({
+        data: {
+          userId: proposal.freelancerId,
+          type: "PROPOSAL_REJECTED",
+          title: "Proposal Update",
+          content: `Your proposal for "${proposal.project.title}" was not selected.`,
+          link: `/business/proposals`,
+        }
+      });
+      return updated;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
   }
 };

@@ -1,10 +1,14 @@
 import { Router } from "express";
+import { respondToInvitation, listFreelancerInvitations } from "../../controllers/freelancer/freelancer-extra.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
 import { uploadFile } from "../../controllers/media/media.controller.js";
 import {
+  searchPublishedProjects,
+  acceptOffer,
+  withdrawProposal,
   getFreelancerDashboard,
   getFreelancerProfile,
   updateFreelancerProfile,
@@ -82,6 +86,8 @@ router.use(authMiddleware as any);
 router.use(requireOnboarding as any);
 router.use(portalRoleMiddleware(["freelancer", "client", "investor", "founder", "admin", "super_admin"]) as any);
 
+router.get("/projects", searchPublishedProjects as any);
+router.post("/projects/search", searchPublishedProjects as any);
 router.get("/dashboard", getFreelancerDashboard as any);
 router.get("/professional", getFreelancerProfile as any);
 router.patch("/professional", updateFreelancerProfile as any);
@@ -108,9 +114,13 @@ router.post("/portfolio", createFreelancerPortfolioItem as any);
 router.patch("/portfolio/:id", updateFreelancerPortfolioItem as any);
 router.delete("/portfolio/:id", deleteFreelancerPortfolioItem as any);
 
+router.get("/invitations", listFreelancerInvitations as any);
+router.post("/invitations/:id/respond", respondToInvitation as any);
 router.get("/proposals", listFreelancerProposals as any);
 router.post("/proposals", createFreelancerProposal as any);
-router.post("/proposals/:id/withdraw", withdrawFreelancerProposal as any);
+router.post("/proposals/:id/withdraw", withdrawProposal as any);
+router.post("/proposals/:id/accept-offer", acceptOffer as any);
+// , withdrawFreelancerProposal as any);
 
 router.get("/contracts", listFreelancerContracts as any);
 

@@ -90,13 +90,16 @@ export function initSocket(httpServer: HttpServer): Server {
           socket.join(room);
 
           let message: any = null;
+          let recipientId: string | null = null;
           try {
             const conversation = await prisma.conversation.findUnique({ where: { id: conversationId } });
             if (conversation) {
+              recipientId = conversation.userA === user.id ? conversation.userB : conversation.userA;
               const nowLabel = new Date().toLocaleTimeString();
               message = await prisma.message.create({
                 data: {
                   conversationId,
+                  senderId: user.id,
                   from: payload.from || "me",
                   text,
                   time: nowLabel,
@@ -104,7 +107,7 @@ export function initSocket(httpServer: HttpServer): Server {
               });
               await prisma.conversation.update({
                 where: { id: conversationId },
-                data: { msg: text, time: nowLabel },
+                data: { msg: text, time: nowLabel, unread: { increment: 1 } },
               });
             }
           } catch (persistErr) {
@@ -114,13 +117,19 @@ export function initSocket(httpServer: HttpServer): Server {
           const outbound = {
             conversationId,
             text,
-            from: payload.from || user.id,
+            from: payload.from || user.id, // We'll keep this for compatibility, but add senderId
+            senderId: user.id,
             userId: user.id,
             message,
             createdAt: new Date().toISOString(),
           };
 
-          if (io) io.to(room).emit("message:new", outbound);
+          let emitChain = socket.to(room);
+          if (recipientId) {
+            emitChain = emitChain.to(`user:${recipientId}`);
+          }
+          emitChain.emit("message:new", outbound);
+          
           ack?.({ success: true, data: outbound });
         } catch (e: any) {
           ack?.({ success: false, message: e.message });

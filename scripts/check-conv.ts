@@ -1,0 +1,1 @@
+import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); async function main() { const conv = await prisma.conversation.findUnique({ where: { id: 'b55f5483-28e9-4903-bcb1-c8c601c4d954' } }); console.log(conv); } main();

@@ -518,24 +518,12 @@ router.get("/experience_levels", async (req: Request, res: Response, next: NextF
   }
 });
 
-<<<<<<< Updated upstream
 const listPublicEducationLevels = async (_req: Request, res: Response, next: NextFunction) => {
-=======
-router.get("/education_levels", async (req: Request, res: Response, next: NextFunction) => {
->>>>>>> Stashed changes
   try {
     const dbLevels = await prisma.masterOption.findMany({
       where: { type: "education_level", status: "active" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     });
-<<<<<<< Updated upstream
-    const rows = dbLevels.map((level) => ({
-      id: level.id,
-      label: level.label,
-      value: level.value,
-    }));
-    return res.json({ success: true, data: rows, rows, total: rows.length });
-=======
 
     if (dbLevels.length > 0) {
       const rows = dbLevels.map((l) => ({ id: l.id, label: l.label, value: l.value }));
@@ -569,18 +557,13 @@ router.get("/education_levels", async (req: Request, res: Response, next: NextFu
     );
     const rows = created.map((l) => ({ id: l.id, label: l.label, value: l.value }));
     return res.json({ success: true, rows, total: rows.length });
->>>>>>> Stashed changes
   } catch (err) {
     return next(err);
   }
-<<<<<<< Updated upstream
 };
 
 router.get("/education_levels", listPublicEducationLevels);
 router.get("/education-levels", listPublicEducationLevels);
-=======
-});
->>>>>>> Stashed changes
 
 router.get("/freelancers/filters", async (_req: Request, res: Response, next: NextFunction) => {
   try {

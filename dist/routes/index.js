@@ -20,6 +20,7 @@ import reportsInsightsRouter from "./insights/reports-insights.routes.js";
 import analyticsInsightsRouter from "./insights/analytics-insights.routes.js";
 import marketingRouter from "./insights/marketing.routes.js";
 import developerRouter from "./developer/developer.routes.js";
+import referralRoutes from "./referral/referral.routes.js";
 import { parseCatalogListBody, parseSkillsListBody } from "../common/helpers/catalog-body.js";
 import { createCrudRouter } from "../common/helpers/crud-factory.js";
 import { isMissingColumnError, listFreelancersCompat, listSkillsCompat, parseSkillListFilters, getFreelancerByIdCompat, upsertFreelancerProfileCompat, } from "../common/helpers/prisma-compat.js";
@@ -35,6 +36,7 @@ import founderRoutes from "./founder/founder.routes.js";
 import paymentsRoutes from "./payments/payments.routes.js";
 import messagesRoutes from "./messages/messages.routes.js";
 import aboutRouter from "./admin/about.routes.js";
+import adminReferralsRouter from "./admin/referrals.routes.js";
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
 import kycRouter from "./admin/kyc.routes.js";
@@ -53,13 +55,20 @@ router.use("/v1/mobile", mobileRoutes);
 router.use("/mobile", mobileRoutes);
 // Subscription / Plan Activation Routes
 router.use("/subscription", subscriptionRoutes);
+import activityRoutes from "./activity/activity.routes.js";
+import supportRoutes from "./support/support.routes.js";
 // Shared Messages routes (real-time chat API for all roles)
 router.use("/messages", messagesRoutes);
+// Activity Timeline routes
+router.use("/activity", activityRoutes);
+// Support & Reports
+router.use("/support", supportRoutes);
 // Portal (role-scoped)
 router.use("/freelancer", freelancerRoutes);
 router.use("/client", clientRoutes);
 router.use("/investor", investorRoutes);
 router.use("/founder", founderRoutes);
+router.use("/referrals", referralRoutes);
 // Expose OpenAPI specs publicly
 import fs from "fs";
 import path from "path";
@@ -131,6 +140,7 @@ router.use("/admin/system", systemRouter);
 router.use("/admin/settings", settingsRouter);
 router.use("/admin/developer", developerRouter);
 router.use("/admin/kyc", authMiddleware, kycRouter);
+router.use("/admin", adminReferralsRouter);
 router.use("/admin", workflowsRoutes);
 router.use("/admin/resume-templates", authMiddleware, resumeTemplateRouter);
 import { getAdminContactPage, saveContactDraft, publishContactPage, listContactEnquiries, getContactEnquiryById, updateContactEnquiry, } from "../controllers/admin/contact.controller.js";

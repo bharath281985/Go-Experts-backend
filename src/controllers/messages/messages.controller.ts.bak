@@ -1,0 +1,195 @@
+import { Response, NextFunction } from "express";
+import { prisma } from "../../config/database.js";
+import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
+
+function requireUser(req: AuthenticatedRequest, res: Response): string | null {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, message: "Unauthorized" });
+    return null;
+  }
+  return req.user.id;
+}
+
+export const listConversations = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+
+    const convs = await prisma.conversation.findMany({
+      where: {
+        OR: [{ userA: userId }, { userB: userId }],
+      },
+      include: {
+        project: { select: { id: true, title: true } }
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const formatted = await Promise.all(convs.map(async (c: any) => {
+      const otherId = c.userA === userId ? c.userB : c.userA;
+      let otherUser = { fullName: "Unknown User", avatarUrl: null, headline: "User" };
+      if (otherId) {
+        const u = await prisma.user.findUnique({ where: { id: otherId } });
+        if (u) {
+          otherUser = {
+            fullName: u.fullName || u.email || "Unknown",
+            avatarUrl: u.avatarUrl,
+            headline: u.role || "User",
+          };
+        }
+      }
+      return {
+        id: c.id,
+        name: c.project?.title || otherUser.fullName, // Project title is better
+        projectId: c.projectId,
+        project: c.project,
+        role: otherUser.headline,
+        avatar: otherUser.avatarUrl,
+        preview: c.msg || "No messages yet",
+        lastMessageAt: c.updatedAt,
+        unread: c.unread,
+        online: c.online,
+        otherUser: otherUser,
+      };
+    }));
+
+    res.json({ success: true, rows: formatted, total: formatted.length });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getConversationMessages = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ success: false, message: "conversation id required" });
+
+    const conv = await prisma.conversation.findUnique({ 
+      where: { id },
+      include: { project: { select: { id: true, title: true, clientId: true } } }
+    });
+    
+    if (!conv) return res.status(404).json({ success: false, message: "Conversation not found" });
+    if (conv.userA !== userId && conv.userB !== userId) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const messages = await prisma.message.findMany({
+      where: { conversationId: id },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const formatted = messages.map(m => ({
+      id: m.id,
+      from: m.senderId === userId ? "me" : "them",
+      text: m.text,
+      time: m.time,
+      createdAt: m.createdAt,
+      read: !!m.readAt,
+      attachmentUrl: m.attachmentUrl,
+    }));
+
+    await prisma.conversation.update({
+      where: { id },
+      data: { unread: 0 },
+    });
+
+    res.json({ 
+      success: true, 
+      rows: formatted, 
+      total: formatted.length,
+      conversation: {
+        id: conv.id,
+        projectId: conv.projectId,
+        project: conv.project
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createOrFindConversation = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+
+    const { recipientId, initialMessage, title, projectId } = req.body;
+    if (!recipientId) return res.status(400).json({ success: false, message: "recipientId is required" });
+    if (!projectId) return res.status(400).json({ success: false, message: "projectId is required for contextual messaging" });
+
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) return res.status(404).json({ success: false, message: "Project not found" });
+
+    // Strict Authorization
+    let isAuthorized = false;
+    
+    if (project.clientId === userId) {
+      isAuthorized = true; 
+    } else if (project.clientId === recipientId) {
+      const hasProposal = await prisma.proposal.findFirst({ where: { projectId, freelancerId: userId } });
+      const hasInvitation = await prisma.invitation.findFirst({ where: { projectId, freelancerId: userId } });
+      
+      if (hasProposal || hasInvitation) isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: "Not authorized to create a conversation for this project" });
+    }
+
+    let conv = await prisma.conversation.findFirst({
+      where: {
+        projectId,
+        OR: [
+          { userA: userId, userB: recipientId },
+          { userA: recipientId, userB: userId },
+        ],
+      },
+    });
+
+    if (!conv) {
+      conv = await prisma.conversation.create({
+        data: {
+          name: title || project.title,
+          role: "Context",
+          userA: userId,
+          userB: recipientId,
+          projectId: projectId
+        },
+      });
+    }
+
+    if (initialMessage) {
+      await prisma.message.create({
+        data: {
+          conversationId: conv.id,
+          senderId: userId,
+          from: userId,
+          text: initialMessage,
+          time: new Date().toISOString(),
+        }
+      });
+      conv = await prisma.conversation.update({
+        where: { id: conv.id },
+        data: { msg: initialMessage, updatedAt: new Date(), unread: { increment: 1 } },
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: recipientId,
+          type: "MESSAGE_RECEIVED",
+          title: "New Message: " + project.title,
+          content: initialMessage.length > 50 ? initialMessage.substring(0, 50) + "..." : initialMessage,
+          link: "/business/messages?conv=" + conv.id
+        }
+      });
+    }
+
+    res.status(201).json({ success: true, conversation: conv });
+  } catch (err) {
+    next(err);
+  }
+};

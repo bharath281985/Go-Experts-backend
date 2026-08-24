@@ -1,0 +1,1 @@
+import { PrismaClient } from '@prisma/client'; const prisma = new PrismaClient(); async function main() { const users = await prisma.user.findMany({ where: { id: { in: ['010adca1-2198-4e52-a4fd-3363fbca6497', '0162e163-a042-4e6d-9030-66b8ec6a319a'] } }, select: { id: true, fullName: true, role: true } }); console.log(users); } main();

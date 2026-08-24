@@ -183,3 +183,636 @@ D:\goexperts\Go-Experts-backend\src\controllers\admin\sidebar-counts.controller.
 
 Invalid value for argument `by`. Expected ProjectScalarFieldEnum.
 
+[2026-08-23T03:08:25.244Z] PRISMA ERROR:
+
+Invalid `prisma.contract.findFirst()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\client\client.controller.ts:1688:44
+
+  1685 if (!user) return res.status(404).json({ success: false, message: "User not found" });
+  1686 
+  1687 const contractId = req.params.id;
+→ 1688 const contract = await prisma.contract.findFirst({
+         where: {
+           id: "1d6f8abd-f3f8-418e-8e4c-acc2a685c124",
+           project: {
+             clientId: undefined
+           }
+         },
+         include: {
+           project: true,
+           freelancer: true,
+           milestones: true,
+           ~~~~~~~~~~
+       ?   client?: true
+         }
+       })
+
+Unknown field `milestones` for include statement on model `Contract`. Available options are marked with ?.
+
+[2026-08-23T03:08:25.664Z] PRISMA ERROR:
+
+Invalid `prisma.contract.findFirst()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\client\client.controller.ts:1688:44
+
+  1685 if (!user) return res.status(404).json({ success: false, message: "User not found" });
+  1686 
+  1687 const contractId = req.params.id;
+→ 1688 const contract = await prisma.contract.findFirst({
+         where: {
+           id: "1d6f8abd-f3f8-418e-8e4c-acc2a685c124",
+           project: {
+             clientId: undefined
+           }
+         },
+         include: {
+           project: true,
+           freelancer: true,
+           milestones: true,
+           ~~~~~~~~~~
+       ?   client?: true
+         }
+       })
+
+Unknown field `milestones` for include statement on model `Contract`. Available options are marked with ?.
+
+[2026-08-23T05:07:27.598Z] PRISMA ERROR:
+
+Invalid `prisma.conversation.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\messages\messages.controller.ts:18:45
+
+  15 const userId = requireUser(req, res);
+  16 if (!userId) return;
+  17 
+→ 18 const convs = await prisma.conversation.findMany({
+       where: {
+         OR: [
+           {
+             userA: "8c7c55c5-6651-4955-a42e-86f35b55bb17"
+           },
+           {
+             userB: "8c7c55c5-6651-4955-a42e-86f35b55bb17"
+           }
+         ]
+       },
+       include: {
+         project: {
+         ~~~~~~~
+           select: {
+             id: true,
+             title: true
+           }
+         },
+     ?   messages?: true
+       },
+       orderBy: {
+         updatedAt: "desc"
+       }
+     })
+
+Unknown field `project` for include statement on model `Conversation`. Available options are marked with ?.
+
+[2026-08-23T05:07:27.679Z] PRISMA ERROR:
+
+Invalid `prisma.conversation.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\messages\messages.controller.ts:18:45
+
+  15 const userId = requireUser(req, res);
+  16 if (!userId) return;
+  17 
+→ 18 const convs = await prisma.conversation.findMany({
+       where: {
+         OR: [
+           {
+             userA: "8c7c55c5-6651-4955-a42e-86f35b55bb17"
+           },
+           {
+             userB: "8c7c55c5-6651-4955-a42e-86f35b55bb17"
+           }
+         ]
+       },
+       include: {
+         project: {
+         ~~~~~~~
+           select: {
+             id: true,
+             title: true
+           }
+         },
+     ?   messages?: true
+       },
+       orderBy: {
+         updatedAt: "desc"
+       }
+     })
+
+Unknown field `project` for include statement on model `Conversation`. Available options are marked with ?.
+
+[2026-08-23T08:25:40.331Z] PRISMA ERROR:
+
+Invalid `prisma.conversation.findUnique()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\messages\messages.controller.ts:104:44
+
+  101 const { id } = req.params;
+  102 if (!id) return res.status(400).json({ success: false, message: "conversation id required" });
+  103 
+→ 104 const conv = await prisma.conversation.findUnique({
+        where: {
+          id: "b55f5483-28e9-4903-bcb1-c8c601c4d954"
+        },
+        include: {
+          project: {
+            select: {
+              id: true,
+              title: true,
+              clientId: true,
+              ~~~~~~~~
+      ?       client?: true,
+      ?       freelancer?: true,
+      ?       budget?: true,
+      ?       budgetMin?: true,
+      ?       budgetMax?: true,
+      ?       category?: true,
+      ?       technology?: true,
+      ?       timeline?: true,
+      ?       description?: true,
+      ?       workMode?: true,
+      ?       experienceLevel?: true,
+      ?       attachments?: true,
+      ?       rawDetails?: true,
+      ?       shareCount?: true,
+      ?       status?: true,
+      ?       createdAt?: true,
+      ?       updatedAt?: true,
+      ?       deletedAt?: true,
+      ?       industryId?: true,
+      ?       contracts?: true,
+      ?       milestones?: true,
+      ?       proposals?: true,
+      ?       reviews?: true,
+      ?       tasks?: true,
+      ?       Invitation?: true,
+      ?       Shortlist?: true,
+      ?       Conversation?: true,
+      ?       _count?: true
+            }
+          }
+        }
+      })
+
+Unknown field `clientId` for select statement on model `Project`. Available options are marked with ?.
+
+[2026-08-23T17:24:58.455Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:25:06.367Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:25:07.235Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:31:14.296Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:31:14.371Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:35:49.132Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:35:49.270Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:36:24.268Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "010adca1-2198-4e52-a4fd-3363fbca6497"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:36:24.355Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "010adca1-2198-4e52-a4fd-3363fbca6497"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:36:45.714Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "010adca1-2198-4e52-a4fd-3363fbca6497"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:36:45.794Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "010adca1-2198-4e52-a4fd-3363fbca6497"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:37:02.350Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+
+[2026-08-23T17:37:06.656Z] PRISMA ERROR:
+
+Invalid `prisma.referral.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\referral\referral.controller.ts:63:45
+
+  60 const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
+  61 
+  62 // Get referrals
+→ 63 const referrals = await prisma.referral.findMany({
+       where: {
+         referrerId: "0162e163-a042-4e6d-9030-66b8ec6a319a"
+       },
+       include: {
+         referredUser: {
+         ~~~~~~~~~~~~
+           select: {
+             fullName: true,
+             createdAt: true
+           }
+         },
+         campaign: {
+           select: {
+             name: true
+           }
+         },
+     ?   events?: true,
+     ?   rewards?: true,
+     ?   click?: true,
+     ?   referee?: true,
+     ?   referrer?: true
+       }
+     })
+
+Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
+

@@ -1,5 +1,6 @@
 import { Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
+import { sendEmail } from "../../services/mobile/email.service.js";
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import {
   HttpError,
@@ -78,40 +79,108 @@ export const listFreelancerProposals = async (req: AuthenticatedRequest, res: Re
   }
 };
 
-export const createFreelancerProposal = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+
+export const createFreelancerProposal = async (req: any, res: any, next: any) => {
   try {
-    const userId = requireUser(req, res);
-    if (!userId) return;
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    
     const body = req.body || {};
     const projectId = String(body.projectId || "").trim();
     const bidAmount = Number(body.bidAmount);
+    
     if (!projectId || !Number.isFinite(bidAmount)) {
       return res.status(400).json({ success: false, message: "projectId and bidAmount are required" });
     }
 
-    const project = await prisma.project.findFirst({ where: { id: projectId, deletedAt: null } });
-    if (!project) return res.status(404).json({ success: false, message: "Project not found" });
+    const result = await prisma.$transaction(async (tx: any) => {
+      // 1. Validate Project Eligibility
+      const project = await tx.project.findFirst({ 
+        where: { id: projectId, deletedAt: null } 
+      });
+      
+      if (!project) throw new Error("Project not found");
+      if (project.status !== 'open') throw new Error("Project is no longer accepting proposals");
+      
+      // Prevent client from submitting proposal to their own project
+      const freelancerProfile = await tx.freelancerProfile.findUnique({ where: { userId }});
+      if (project.client === userId) throw new Error("Cannot bid on your own project");
 
-    const existing = await prisma.proposal.findFirst({
-      where: { projectId, freelancerId: userId, deletedAt: null, status: { notIn: ["withdrawn", "rejected"] } },
+      // 2. Validate Proposal Duplication (Rule: One ACTIVE proposal per project)
+      const existing = await tx.proposal.findFirst({
+        where: { 
+          projectId, 
+          freelancerId: userId, 
+          deletedAt: null, 
+          status: { notIn: ["WITHDRAWN", "REJECTED", "withdrawn", "rejected"] } 
+        },
+      });
+      
+      if (existing) throw new Error("You already have an active proposal for this project.");
+
+      // 3. Create Proposal
+      const proposal = await tx.proposal.create({
+        data: {
+          projectId,
+          freelancerId: userId,
+          bidAmount,
+          coverLetter: body.coverLetter ? String(body.coverLetter) : null,
+          status: "SUBMITTED",
+        }
+      });
+
+      // 4. Notification to Client
+      // Determine actual client user ID (project.client might be a profile ID or user ID)
+      let targetUserId = project.client;
+      const cProfile = await tx.clientProfile.findUnique({ where: { id: project.client } });
+      if (cProfile) targetUserId = cProfile.userId;
+
+      await tx.notification.create({
+        data: {
+          userId: targetUserId,
+          type: "PROPOSAL_RECEIVED",
+          title: "New Proposal Received",
+          message: `A freelancer has submitted a proposal for "${project.title}". Bid: ₹${bidAmount}`,
+          channel: "IN_APP",
+          actionUrl: `/business/applications?projectId=${projectId}`,
+          status: "delivered"
+        }
+      });
+
+      const targetUser = await tx.user.findUnique({ where: { id: targetUserId } });
+      if (targetUser?.email) {
+        try {
+          await sendEmail(
+            targetUser.email,
+            "New Proposal Received - Go Experts",
+            `<p>Hi ${targetUser.fullName || 'Client'},</p>
+            <p>A freelancer has submitted a new proposal for your project <strong>"${project.title}"</strong>.</p>
+            <p><strong>Bid Amount:</strong> ₹${bidAmount}</p>
+            <p><a href="${process.env.FRONTEND_URL || 'http://localhost:5175'}/business/applications?projectId=${projectId}" style="display:inline-block;padding:10px 20px;background:#ef4444;color:#fff;text-decoration:none;border-radius:5px;">View Proposal</a></p>`
+          );
+        } catch (err) {
+          console.error("Failed to send proposal email:", err);
+        }
+      }
+
+      // 5. Create Activity (Optional: Add if ProjectActivity table exists)
+      // Since it doesn't explicitly exist as ProjectActivity, we can just use the Admin ActivityLog for now 
+      // or rely on Notification/Status. I'll omit custom ProjectActivity table unless strictly required.
+
+      return proposal;
     });
-    if (existing) return res.status(409).json({ success: false, message: "You already applied to this project" });
 
-    const proposal = await prisma.proposal.create({
-      data: {
-        projectId,
-        freelancerId: userId,
-        bidAmount,
-        coverLetter: body.coverLetter ? String(body.coverLetter) : null,
-        status: "pending",
-      },
-    });
-
-    res.status(201).json({ success: true, message: "Proposal submitted", data: proposal });
-  } catch (err) {
-    handleError(err, res, next);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    // Determine 403 vs 400
+    const msg = err.message;
+    if (msg.includes("Project is no longer") || msg.includes("Cannot bid")) {
+      return res.status(403).json({ success: false, message: msg });
+    }
+    return res.status(400).json({ success: false, message: msg });
   }
 };
+
 
 export const withdrawFreelancerProposal = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
@@ -1510,5 +1579,79 @@ export const createFreelancerActivity = async (req: AuthenticatedRequest, res: R
     res.status(201).json({ success: true, message: "Activity logged", data: newEntry, rows: nextList });
   } catch (err) {
     handleError(err, res, next);
+  }
+};
+
+export const respondToInvitation = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id: invitationId } = req.params;
+    const { action } = req.body; // "ACCEPT" or "DECLINE"
+
+    if (!["ACCEPT", "DECLINE"].includes(action)) return res.status(400).json({ success: false, message: "Invalid action" });
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const inv = await tx.invitation.findUnique({ where: { id: invitationId }, include: { project: true } });
+      if (!inv) throw new Error("Invitation not found");
+
+      // Verify ownership (inv.freelancerId could be profile id or userId)
+      const fProfile = await tx.freelancerProfile.findUnique({ where: { userId } });
+      if (inv.freelancerId !== userId && (!fProfile || inv.freelancerId !== fProfile.id)) {
+        throw new Error("Unauthorized");
+      }
+
+      if (inv.status !== "PENDING") throw new Error(`Cannot respond to an invitation in ${inv.status} state`);
+
+      const newStatus = action === "ACCEPT" ? "ACCEPTED" : "DECLINED";
+
+      const updated = await tx.invitation.update({
+        where: { id: invitationId },
+        data: { status: newStatus, respondedAt: new Date() }
+      });
+
+      // Notify Client
+      let cUserId = inv.clientId;
+      const cProfile = await tx.clientProfile.findUnique({ where: { id: inv.clientId } });
+      if (cProfile) cUserId = cProfile.userId;
+
+      await tx.notification.create({
+        data: {
+          userId: cUserId,
+          type: "INVITATION_RESPONDED",
+          title: `Invitation ${newStatus === 'ACCEPTED' ? 'Accepted' : 'Declined'}`,
+          message: `A freelancer has ${newStatus.toLowerCase()} your invitation for "${inv.project.title}".`,
+          channel: "IN_APP",
+          actionUrl: `/business/projects/${inv.projectId}/talent`,
+        }
+      });
+
+      return updated;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    if (err.message === "Unauthorized") return res.status(403).json({ success: false, message: err.message });
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+export const listFreelancerInvitations = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    
+    const fProfile = await prisma.freelancerProfile.findUnique({ where: { userId } });
+    const profileId = fProfile ? fProfile.id : userId;
+
+    const invitations = await prisma.invitation.findMany({
+      where: { freelancerId: { in: [userId, profileId] } },
+      include: { project: true, client: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    res.json({ success: true, rows: invitations });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
   }
 };

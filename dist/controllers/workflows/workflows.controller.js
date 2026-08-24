@@ -391,10 +391,7 @@ export const acceptProposal = async (req, res, next) => {
             });
             // Find client user ID
             // If project has client name, look up user, or use system fallback
-            const clientUser = await tx.user.findFirst({
-                where: { fullName: proposal.project.client, role: "client" },
-            });
-            const clientId = clientUser?.id || proposal.freelancerId; // fallback to freelancer if no client found
+            const clientId = proposal.project.client;
             // 3. Create active/pending contract
             const contract = await tx.contract.create({
                 data: {
@@ -501,10 +498,7 @@ export const createContractFromProposal = async (req, res, next) => {
         if (!proposal)
             return res.status(404).json({ success: false, message: "Proposal not found" });
         const contractNumber = `CON-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const clientUser = await prisma.user.findFirst({
-            where: { fullName: proposal.project.client, role: "client" },
-        });
-        const clientId = clientUser?.id || proposal.freelancerId;
+        const clientId = proposal.project.client;
         const contract = await prisma.$transaction(async (tx) => {
             // Create contract
             const newContract = await tx.contract.create({

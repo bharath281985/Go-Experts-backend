@@ -1,6 +1,7 @@
 import { Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
+import { logActivityEvent } from "../../services/activity/activity.service.js";
 
 function money(n: number, currency = "USD") {
   const value = Number.isFinite(n) ? n : 0;
@@ -392,6 +393,7 @@ export const getFreelancerDashboard = async (
       openProjectRows,
       allProposals,
       reviewRows,
+      unreadMessages,
     ] = await Promise.all([
       prisma.proposal.count({ where: { freelancerId: userId, deletedAt: null } }),
       prisma.proposal.count({
@@ -492,6 +494,13 @@ export const getFreelancerDashboard = async (
         },
         orderBy: { createdAt: "desc" },
         take: 20,
+      }),
+      prisma.message.count({
+        where: {
+          conversation: { OR: [{ userA: userId }, { userB: userId }] },
+          senderId: { not: userId },
+          readAt: null,
+        }
       }),
     ]);
 
@@ -886,7 +895,7 @@ export const getFreelancerDashboard = async (
           notifications: unreadNotifications,
           projects: contractsActive,
           proposals: proposalsPending,
-          messages: 0,
+          messages: unreadMessages,
           openProjects,
         },
         meta: {
@@ -1760,5 +1769,133 @@ export const deleteFreelancerPortfolioItem = async (
     });
   } catch (err) {
     next(err);
+  }
+};
+
+
+// --- PHASE 1 REFACTOR: FIND PROJECTS & PROPOSAL STATE MACHINE ---
+export const searchPublishedProjects = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+
+    // Strict Auth: Only published projects, not deleted, not belonging to this freelancer
+    const { keyword, budgetMin, budgetMax, skills } = req.body || req.query || {};
+    
+    let where: any = {
+      status: "open", 
+      deletedAt: null
+    };
+
+    if (keyword) {
+      where.OR = [
+        { title: { contains: String(keyword) } },
+        { description: { contains: String(keyword) } }
+      ];
+    }
+    
+    // Pagination
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.max(Number(req.query.limit) || 10, 1);
+    const skip = (page - 1) * limit;
+
+    const [rows, total] = await Promise.all([
+      prisma.project.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true, title: true, description: true, budget: true, budgetMin: true, budgetMax: true,
+          technology: true, workMode: true, experienceLevel: true, createdAt: true, client: true
+        }
+      }),
+      prisma.project.count({ where })
+    ]);
+
+    res.json({ success: true, rows, total, page, limit });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const withdrawProposal = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id } = req.params;
+
+    const proposal = await prisma.proposal.findFirst({ where: { id, freelancerId: userId, deletedAt: null } });
+    if (!proposal) return res.status(404).json({ success: false, message: "Proposal not found" });
+
+    if (["ACCEPTED", "REJECTED", "WITHDRAWN"].includes(proposal.status)) {
+      return res.status(400).json({ success: false, message: `Cannot withdraw from state ${proposal.status}` });
+    }
+
+    await prisma.proposal.update({ where: { id }, data: { status: "WITHDRAWN" } });
+    res.json({ success: true, message: "Proposal withdrawn" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const acceptOffer = async (req: any, res: any, next: any) => {
+  try {
+    const userId = req.user?.id || req.userId;
+    if (!userId) return res.status(401).json({ success: false });
+    const { id } = req.params;
+
+    // Transaction to safely accept and create contract
+    const result = await prisma.$transaction(async (tx: any) => {
+      const proposal = await tx.proposal.findFirst({ where: { id, freelancerId: userId, deletedAt: null } });
+      if (!proposal) throw new Error("Proposal not found");
+      if (proposal.status !== "OFFERED") throw new Error("Only OFFERED proposals can be accepted");
+
+      const updated = await tx.proposal.update({
+        where: { id },
+        data: { status: "ACCEPTED" }
+      });
+
+      const proj = await tx.project.findUnique({where: {id: proposal.projectId}});
+      
+      const existingContract = await tx.contract.findFirst({
+        where: { proposalId: proposal.id }
+      });
+
+      let contract;
+      if (existingContract) {
+        contract = await tx.contract.update({
+          where: { id: existingContract.id },
+          data: { status: "active" }
+        });
+      } else {
+        contract = await tx.contract.create({
+          data: {
+            contractNumber: `CTR-${Date.now()}`,
+            projectId: proposal.projectId,
+            clientId: proj?.client || "",
+            freelancerId: userId,
+            proposalId: proposal.id,
+            status: "active",
+          }
+        });
+      }
+
+      return { proposal: updated, contract };
+    });
+
+    // Log Activity & Trigger Qualification Engine
+    await logActivityEvent({
+      type: "CONTRACT_STARTED",
+      actorId: userId,
+      actorType: "USER",
+      contextType: "CONTRACT",
+      contextId: result.contract.id,
+      metadata: { proposalId: result.proposal.id, projectId: result.contract.projectId },
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
   }
 };

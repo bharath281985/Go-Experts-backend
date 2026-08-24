@@ -407,6 +407,42 @@ async function main() {
   console.log(`  ✓ ${users.length} users created`);
 
   // ─────────────────────────────────────────
+  // 4b. FREELANCER PROFILES
+  // ─────────────────────────────────────────
+  console.log("Creating freelancer profiles...");
+  const experienceLevels = ["Entry", "Intermediate", "Expert", "Top-rated"];
+  const freelancerSkillSets = [
+    "JavaScript, React, Node.js",
+    "Python, Django, PostgreSQL",
+    "UI/UX Design, Figma, Adobe XD",
+    "Java, Spring Boot, Microservices",
+    "DevOps, Docker, Kubernetes",
+    "Data Science, Machine Learning, Python",
+    "React Native, Flutter, Mobile Development",
+    "Blockchain, Solidity, Web3",
+  ];
+  let profileCount = 0;
+  for (const u of users.filter((u: any) => u.role === "freelancer")) {
+    const existing = await prisma.freelancerProfile.findUnique({ where: { userId: u.id } });
+    if (!existing) {
+      await prisma.freelancerProfile.create({
+        data: {
+          userId: u.id,
+          experience: pick(experienceLevels),
+          industry: pick(industryNames),
+          hourlyRate: pick([25, 30, 40, 50, 60, 75, 100, 125, 150]),
+          rating: parseFloat((4.0 + Math.random()).toFixed(1)),
+          skills: pick(freelancerSkillSets),
+        },
+      });
+      profileCount++;
+    }
+  }
+  console.log(`  ✓ ${profileCount} freelancer profiles created`);
+
+
+
+  // ─────────────────────────────────────────
   // 5. WALLETS for all users
   // ─────────────────────────────────────────
   console.log("Creating wallets...");
