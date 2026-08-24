@@ -8,8 +8,8 @@ export const listTickets = async (req: AuthRequest, res: Response, next: NextFun
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
-    const tickets = await prisma.supportTicket.findMany({ where: { user: req.user.id }, skip, take: limit, orderBy: { createdAt: 'desc' } });
-    const total = await prisma.supportTicket.count({ where: { user: req.user.id } });
+    const tickets = await prisma.supportTicket.findMany({ where: { requesterId: req.user.id }, skip, take: limit, orderBy: { createdAt: 'desc' } });
+    const total = await prisma.supportTicket.count({ where: { requesterId: req.user.id } });
     return res.json(successResponse('Support tickets retrieved', tickets, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
@@ -17,14 +17,14 @@ export const listTickets = async (req: AuthRequest, res: Response, next: NextFun
 export const createTicket = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { subject, category, priority } = req.body;
-    const ticket = await prisma.supportTicket.create({ data: { subject, user: req.user.id, category, priority: priority || 'Medium', status: 'Open' } });
+    const ticket = await prisma.supportTicket.create({ data: { subject, requesterId: req.user.id, requesterRole: req.user.role || 'client', categoryId: category || 'General', priority: priority || 'Normal', status: 'OPEN' } });
     return res.status(201).json(successResponse('Support ticket created', ticket));
   } catch (error) { next(error); }
 };
 
 export const getTicket = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const ticket = await prisma.supportTicket.findFirst({ where: { id: req.params.id, user: req.user.id } });
+    const ticket = await prisma.supportTicket.findFirst({ where: { id: req.params.id, requesterId: req.user.id } });
     return res.json(successResponse('Ticket details', ticket));
   } catch (error) { next(error); }
 };
@@ -37,25 +37,21 @@ export const replyToTicket = async (req: AuthRequest, res: Response, next: NextF
       return res.status(400).json(errorResponse('Reply message is required', 'VALIDATION_ERROR'));
     }
     const ticket = await prisma.supportTicket.findFirst({
-      where: { id: req.params.id, user: req.user.id },
+      where: { id: req.params.id, requesterId: req.user.id },
     });
     if (!ticket) {
       return res.status(404).json(errorResponse('Ticket not found', 'NOT_FOUND'));
     }
-    const key = `support_replies:${ticket.id}`;
-    const existing = await prisma.setting.findUnique({ where: { key } });
-    const replies = existing?.value ? JSON.parse(existing.value) : [];
-    replies.push({
-      by: req.user.id,
-      text,
-      at: new Date().toISOString(),
+    const newMessage = await prisma.supportTicketMessage.create({
+      data: {
+        ticketId: ticket.id,
+        senderId: req.user.id,
+        senderRole: req.user.role || 'client',
+        message: text,
+        isInternal: false,
+      },
     });
-    await prisma.setting.upsert({
-      where: { key },
-      update: { value: JSON.stringify(replies), category: 'support' },
-      create: { key, value: JSON.stringify(replies), category: 'support' },
-    });
-    return res.json(successResponse('Reply sent', { replies }));
+    return res.json(successResponse('Reply sent', newMessage));
   } catch (error) {
     next(error);
   }
@@ -63,7 +59,7 @@ export const replyToTicket = async (req: AuthRequest, res: Response, next: NextF
 
 export const closeTicket = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    await prisma.supportTicket.updateMany({ where: { id: req.params.id, user: req.user.id }, data: { status: 'Closed' } });
+    await prisma.supportTicket.updateMany({ where: { id: req.params.id, requesterId: req.user.id }, data: { status: 'RESOLVED' } });
     return res.json(successResponse('Ticket closed'));
   } catch (error) { next(error); }
 };

@@ -1554,11 +1554,11 @@ router.post("/support_tickets", async (req: Request, res: Response, next: NextFu
     const created = await prisma.supportTicket.create({
       data: {
         subject,
-        user,
-        category: (typeof body.category === "string" && body.category.trim()) || "Website Guest Inquiry",
-        priority: (typeof body.priority === "string" && body.priority.trim()) || "Medium",
-        status: (typeof body.status === "string" && body.status.trim()) || "Open",
-        assignedTo: typeof body.assignedTo === "string" ? body.assignedTo : undefined,
+        requesterId: "guest",
+        requesterRole: "guest",
+        categoryId: (typeof body.category === "string" && body.category.trim()) || "Website Guest Inquiry",
+        priority: (typeof body.priority === "string" && body.priority.trim()) || "Normal",
+        status: "OPEN",
       },
     });
     res.status(201).json({ success: true, data: created });

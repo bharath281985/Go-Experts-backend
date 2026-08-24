@@ -477,7 +477,7 @@ export class AnalyticsService {
     });
 
     const categoryStats = await prisma.supportTicket.groupBy({
-      by: ["category"],
+      by: ["categoryId"],
       _count: true,
     });
 

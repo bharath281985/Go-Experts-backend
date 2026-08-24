@@ -84,7 +84,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       // All completed payments for spend calculations
       prisma.payment.findMany({ where: { userId, status: 'completed' } }),
       // Support tickets
-      prisma.supportTicket.count({ where: { user: userId, status: { not: 'Closed' } } }),
+      prisma.supportTicket.count({ where: { requesterId: userId, status: { not: 'RESOLVED' } } }),
     ]);
 
     // Populate target details for upcoming meetings

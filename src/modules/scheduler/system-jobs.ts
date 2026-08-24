@@ -230,8 +230,8 @@ export function registerSystemJobs() {
       console.log(`[SYSTEM JOB] Pending Urgent/High Ticket alert: "${ticket.subject}"`);
       await AutomationEngine.trigger("support_ticket_overdue", ticket.id, {
         subject: ticket.subject,
-        user: ticket.user,
-        category: ticket.category,
+        user: ticket.requesterId,
+        category: ticket.categoryId,
         priority: ticket.priority,
       });
     }
