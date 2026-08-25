@@ -218,19 +218,63 @@ function sanitizeModelData(modelName: string, data: any) {
     }
   });
 
-  // 6. UPDATE
-  router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const sanitized = sanitizeModelData(String(modelName), req.body);
-      const row = await db.update({
-        where: { id: req.params.id },
-        data: sanitized,
-      });
-      res.json({ success: true, data: row });
-    } catch (err) {
-      next(err);
-    }
-  });
+    // 6. UPDATE
+    router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const sanitized = sanitizeModelData(String(modelName), req.body);
+
+        // Fetch old user if this is a user update
+        let oldUser: any = null;
+        if (modelName === "user" || modelName === "client" || modelName === "freelancer" || modelName === "investor" || modelName === "founder") {
+            const actualModel = modelName === "user" ? "user" : "user"; // always fetch user
+            // If the model is not user, but the route is updating user (roles route alias), id is user id
+            oldUser = await prisma.user.findUnique({ where: { id: req.params.id }});
+        }
+
+        const row = await db.update({
+          where: { id: req.params.id },
+          data: sanitized,
+        });
+
+        // Trigger welcome email if onboardingStatus was just changed to COMPLETED by admin
+        if (oldUser && sanitized.onboardingStatus === "COMPLETED" && oldUser.onboardingStatus !== "COMPLETED") {
+          try {
+            const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
+            const emailAdapter = new EmailChannelAdapter();
+            const { renderEmailTemplate } = await import("./template-renderer.js");
+            
+            let parsedConfig = {};
+            const chanConfig = await prisma.communicationChannel.findUnique({ where: { name: "email" } }).catch(()=>null);
+            if (chanConfig?.config) parsedConfig = JSON.parse(chanConfig.config);
+            
+            const trialDateStr = (row.trialEndsAt || new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+            const welcomeRendered = await renderEmailTemplate("tpl_welcome", {
+              full_name: row.fullName || "User",
+              email: row.email,
+              role: (row.role || "user").toUpperCase(),
+              trial_days: "90",
+              trial_ends_at: trialDateStr,
+              selected_plan: "90-Day Free Trial",
+              app_url: process.env.CLIENT_URL || "https://goexperts.in",
+            });
+            
+            await emailAdapter.send({
+              to: row.email,
+              subject: welcomeRendered.subject,
+              body: welcomeRendered.html,
+              html: welcomeRendered.html,
+            }, parsedConfig);
+            console.log(`[ADMIN] Triggered welcome email for ${row.email} after manual onboarding completion.`);
+          } catch (err) {
+            console.warn("[ADMIN] Failed to trigger welcome email:", err);
+          }
+        }
+
+        res.json({ success: true, data: row });
+      } catch (err) {
+        next(err);
+      }
+    });
 
   // 7. STATUS UPDATE (PATCH)
   router.patch("/:id/status", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

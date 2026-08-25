@@ -680,6 +680,22 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     const sanitizedUser = sanitizeUserRecord(fullUser || user);
 
+    try {
+      const { getIO } = await import("../../modules/realtime/socket.js");
+      const io = getIO();
+      if (io) {
+        io.emit("admin:new_user", {
+          id: sanitizedUser.id,
+          fullName: sanitizedUser.fullName,
+          email: sanitizedUser.email,
+          role: sanitizedUser.role,
+          createdAt: sanitizedUser.createdAt
+        });
+      }
+    } catch (e) {
+      console.warn("Could not emit socket event for new user", e);
+    }
+
     return res.status(201).json({
       success: true,
       message: "Account created successfully.",
