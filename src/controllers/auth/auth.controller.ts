@@ -959,7 +959,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
 
       const kycReadiness = buildKycReadiness(user);
 
-      return res.json({
+        return res.json({
         success: true,
         user: {
           ...sanitized,
@@ -967,6 +967,9 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           isKycVerified: kycReadiness.verified,
           kycStatus: kycReadiness.status,
           kyc: kycReadiness,
+          profileCompletion: completion.profileCompletion,
+          profileCompletedPer: completion.profileCompletion,
+          profileCompletedPercentage: completion.profileCompletion,
           profileReadiness: {
             role: (user.role || "").toUpperCase(),
             profileCompletion: completion.profileCompletion,
@@ -1055,6 +1058,9 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
               isKycVerified: kycReadiness.verified,
               kycStatus: kycReadiness.status,
               kyc: kycReadiness,
+              profileCompletion: completion.profileCompletion,
+              profileCompletedPer: completion.profileCompletion,
+              profileCompletedPercentage: completion.profileCompletion,
               profileReadiness: {
                 role: (user.role || "").toUpperCase(),
                 profileCompletion: completion.profileCompletion,

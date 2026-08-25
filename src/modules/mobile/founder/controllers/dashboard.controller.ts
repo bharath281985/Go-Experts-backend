@@ -290,6 +290,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     return res.json(
       successResponse('Founder dashboard retrieved', {
         profileCompletion: completion.profileCompletion,
+        profileCompletedPer: completion.profileCompletion,
+        profileCompletedPercentage: completion.profileCompletion,
         isProfileComplete: completion.isProfileComplete,
         accountVerified: Boolean(authUser?.verified),
         verificationMissingCount: verStats.missingCount,

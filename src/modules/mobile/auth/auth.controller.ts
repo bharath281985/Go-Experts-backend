@@ -153,7 +153,7 @@ const buildAuthPayload = async (user: AuthUser) => {
   const accessToken = await createAccessToken(user);
   const refreshToken = await createRefreshToken(user);
 
-  let completion = { profileCompletion: 80, isProfileComplete: true };
+  let completion = { profileCompletion: 0, isProfileComplete: false };
   let subscriptionGate: any = { status: 'active', planId: 'Free_Trial', planName: 'Starter' };
   let isSocial = false;
 
