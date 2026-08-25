@@ -397,6 +397,9 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     if (budgetValue != null && !Number.isNaN(budgetValue)) data.budget = budgetValue;
     if (budgetMinValue != null && !Number.isNaN(budgetMinValue)) data.budgetMin = budgetMinValue;
     if (budgetMaxValue != null && !Number.isNaN(budgetMaxValue)) data.budgetMax = budgetMaxValue;
+    if (resolvedBudgetRange?.id || budgetRangeId || signupBudgetRangeId) {
+      data.budgetRangeId = resolvedBudgetRange?.id ?? budgetRangeId ?? signupBudgetRangeId;
+    }
     if (timeline != null || deadline != null) data.timeline = timeline ?? deadline;
     if (startDateValue !== undefined) data.startDate = startDateValue;
     if (endDateValue !== undefined) data.endDate = endDateValue;
