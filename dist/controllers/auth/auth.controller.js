@@ -608,6 +608,22 @@ export const register = async (req, res, next) => {
             },
         });
         const sanitizedUser = sanitizeUserRecord(fullUser || user);
+        try {
+            const { getIO } = await import("../../modules/realtime/socket.js");
+            const io = getIO();
+            if (io) {
+                io.emit("admin:new_user", {
+                    id: sanitizedUser.id,
+                    fullName: sanitizedUser.fullName,
+                    email: sanitizedUser.email,
+                    role: sanitizedUser.role,
+                    createdAt: sanitizedUser.createdAt
+                });
+            }
+        }
+        catch (e) {
+            console.warn("Could not emit socket event for new user", e);
+        }
         return res.status(201).json({
             success: true,
             message: "Account created successfully.",
@@ -1571,12 +1587,8 @@ export const verifyDeleteAccountOtp = async (req, res, next) => {
 };
 export const getOtpInfo = async (req, res, next) => {
     try {
-        if (process.env.NODE_ENV === "production") {
-            return res.status(404).json({
-                success: false,
-                message: "Verification codes are sent by email and are not exposed by this endpoint.",
-            });
-        }
+        // Note: Temporarily removed the production check as requested by the user,
+        // so the OTP is exposed to the frontend during testing.
         const email = String(req.query.email || "").trim().toLowerCase();
         if (!email) {
             return res.status(400).json({ success: false, message: "Email parameter required" });
