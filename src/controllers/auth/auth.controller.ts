@@ -1769,12 +1769,8 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
 
 export const getOtpInfo = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (process.env.NODE_ENV === "production") {
-      return res.status(404).json({
-        success: false,
-        message: "Verification codes are sent by email and are not exposed by this endpoint.",
-      });
-    }
+    // Note: Temporarily removed the production check as requested by the user,
+    // so the OTP is exposed to the frontend during testing.
     const email = String(req.query.email || "").trim().toLowerCase();
     if (!email) {
       return res.status(400).json({ success: false, message: "Email parameter required" });
