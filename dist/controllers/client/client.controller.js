@@ -1214,7 +1214,11 @@ export const listClientTeam = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        const rows = await getJsonSetting(userId, "team", []);
+        // @ts-ignore - Prisma client needs regeneration
+        const rows = await prisma.clientTeamMember.findMany({
+            where: { clientId: userId },
+            orderBy: { createdAt: "desc" }
+        });
         res.json({ success: true, rows, total: rows.length });
     }
     catch (err) {
@@ -1262,18 +1266,17 @@ export const addClientTeamMember = async (req, res, next) => {
         const name = String(body.name || "").trim();
         if (!name)
             return res.status(400).json({ success: false, message: "name is required" });
-        const rows = await getJsonSetting(userId, "team", []);
-        const member = {
-            id: `TM-${Date.now().toString(36).toUpperCase()}`,
-            name,
-            email: body.email || "",
-            role: body.role || "Member",
-            dept: body.dept || "Engineering",
-            status: "Invited",
-            createdAt: new Date().toISOString(),
-        };
-        const nextRows = [member, ...rows];
-        await setJsonSetting(userId, "team", nextRows);
+        // @ts-ignore - Prisma client needs regeneration
+        const member = await prisma.clientTeamMember.create({
+            data: {
+                clientId: userId,
+                name,
+                email: body.email || "",
+                role: body.role || "Member",
+                department: body.dept || "Engineering",
+                status: "Invited",
+            }
+        });
         // Get current client user details
         const user = await prisma.user.findUnique({ where: { id: userId } });
         const clientName = user?.fullName || "A client";
@@ -1286,7 +1289,7 @@ export const addClientTeamMember = async (req, res, next) => {
                 role: "client",
                 type: "team",
                 title: "Team Invitation Sent",
-                message: `Invitation email sent to ${member.email} for the role of ${member.role} (${member.dept}).`,
+                message: `Invitation email sent to ${member.email} for the role of ${member.role} (${member.department}).`,
                 channel: "in_app"
             });
             // 2) Send invite email to the new member
@@ -1294,7 +1297,7 @@ export const addClientTeamMember = async (req, res, next) => {
                 await NotificationService.enqueue({
                     type: "team",
                     title: `Invitation to join ${clientName}'s Team on Go Experts`,
-                    message: `Hi ${member.name},\n\nYou have been invited by ${clientName} to join their team as a ${member.role} in the ${member.dept} department.\n\nClick here to accept the invitation and join: ${process.env.CLIENT_URL || "https://goexperts.in"}/business/team-access\n\nBest regards,\nGo Experts Team`,
+                    message: `Hi ${member.name},\n\nYou have been invited by ${clientName} to join their team as a ${member.role} in the ${member.department} department.\n\nClick here to accept the invitation and join: ${process.env.CLIENT_URL || "https://goexperts.in"}/business/team-access\n\nBest regards,\nGo Experts Team`,
                     channel: "email",
                     metadata: { toEmail: member.email }
                 });
@@ -1303,7 +1306,7 @@ export const addClientTeamMember = async (req, res, next) => {
         catch (notifErr) {
             console.error("Failed to enqueue team invitation notifications:", notifErr);
         }
-        res.status(201).json({ success: true, message: "Team member added", data: member, rows: nextRows });
+        res.status(201).json({ success: true, message: "Team member added", data: member });
     }
     catch (err) {
         handleError(err, res, next);
@@ -1317,10 +1320,11 @@ export const deleteClientTeamMember = async (req, res, next) => {
         const { id } = req.params;
         if (!id)
             return res.status(400).json({ success: false, message: "id is required" });
-        const rows = await getJsonSetting(userId, "team", []);
-        const nextRows = rows.filter((r) => r.id !== id);
-        await setJsonSetting(userId, "team", nextRows);
-        res.json({ success: true, message: "Team member removed", rows: nextRows });
+        // @ts-ignore - Prisma client needs regeneration
+        await prisma.clientTeamMember.deleteMany({
+            where: { id, clientId: userId }
+        });
+        res.json({ success: true, message: "Team member removed" });
     }
     catch (err) {
         handleError(err, res, next);
@@ -1747,5 +1751,43 @@ export const rejectProposal = async (req, res, next) => {
     }
     catch (err) {
         res.status(400).json({ success: false, message: err.message });
+    }
+};
+export const updateClientTeamMember = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const { id } = req.params;
+        if (!id)
+            return res.status(400).json({ success: false, message: "id is required" });
+        const body = req.body || {};
+        // @ts-ignore - Prisma client needs regeneration
+        await prisma.clientTeamMember.updateMany({
+            where: { id, clientId: userId },
+            data: {
+                role: body.role !== undefined ? body.role : undefined,
+                permissions: body.permissions !== undefined ? JSON.stringify(body.permissions) : undefined,
+                status: body.status !== undefined ? body.status : undefined,
+            }
+        });
+        res.json({ success: true, message: "Team member updated" });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
+export const listClientRoles = async (req, res, next) => {
+    try {
+        const roles = await prisma.masterOption.findMany({
+            where: { status: "active", type: "client_role" },
+            orderBy: { sortOrder: "asc" }
+        });
+        // Map them back so the UI thinks it's { id, name }
+        const formattedRoles = roles.map(r => ({ id: r.id, name: r.label }));
+        res.json({ success: true, rows: formattedRoles, total: roles.length });
+    }
+    catch (err) {
+        handleError(err, res, next);
     }
 };

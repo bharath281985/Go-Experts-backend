@@ -14,6 +14,14 @@ export const SETTINGS_DEFAULTS = {
   branding: {
     primaryColor: "#E30613",
     sidebarColor: "#111111",
+    defaultFreelancerLogo: null,
+    defaultFreelancerBanner: null,
+    defaultInvestorLogo: null,
+    defaultInvestorBanner: null,
+    defaultStartupLogo: null,
+    defaultStartupBanner: null,
+    defaultClientLogo: null,
+    defaultClientBanner: null,
   },
   email: {
     provider: "Custom SMTP",

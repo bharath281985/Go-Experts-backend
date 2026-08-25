@@ -225,8 +225,9 @@ function sanitizeModelData(modelName: string, data: any) {
 
         // Fetch old user if this is a user update
         let oldUser: any = null;
-        if (modelName === "user" || modelName === "client" || modelName === "freelancer" || modelName === "investor" || modelName === "founder") {
-            const actualModel = modelName === "user" ? "user" : "user"; // always fetch user
+        const sModel = String(modelName);
+        if (sModel === "user" || sModel === "client" || sModel === "freelancer" || sModel === "investor" || sModel === "founder") {
+            const actualModel = sModel === "user" ? "user" : "user"; // always fetch user
             // If the model is not user, but the route is updating user (roles route alias), id is user id
             oldUser = await prisma.user.findUnique({ where: { id: req.params.id }});
         }
@@ -241,7 +242,7 @@ function sanitizeModelData(modelName: string, data: any) {
           try {
             const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
             const emailAdapter = new EmailChannelAdapter();
-            const { renderEmailTemplate } = await import("./template-renderer.js");
+            const { renderEmailTemplate } = await import("../../services/settings/settings.service.js");
             
             let parsedConfig = {};
             const chanConfig = await prisma.communicationChannel.findUnique({ where: { name: "email" } }).catch(()=>null);
