@@ -14,6 +14,10 @@ export const SETTINGS_DEFAULTS = {
   branding: {
     primaryColor: "#E30613",
     sidebarColor: "#111111",
+    lightLogoUrl: "https://goexperts.in/logo.png",
+    darkLogoUrl: "https://goexperts.in/logo.png",
+    faviconUrl: "https://goexperts.in/favicon.svg",
+    sidebarIconUrl: "https://goexperts.in/favicon.svg",
     defaultFreelancerLogo: null,
     defaultFreelancerBanner: null,
     defaultInvestorLogo: null,
