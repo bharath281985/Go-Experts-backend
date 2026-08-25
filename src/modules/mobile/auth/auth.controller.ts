@@ -527,7 +527,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     });
 
     const payload = await issueAuthResponse(user, { fcmToken, platform, deviceId, deviceName });
-    void sendWelcomeEmail(email, nameVal);
+    // Do not send welcome email here, wait for onboarding to complete
+    // void sendWelcomeEmail(email, nameVal);
     await AuditEngine.track(user.id, 'register', 'user', user.id, null, null, req);
 
     return res.status(201).json(

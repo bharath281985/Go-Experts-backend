@@ -152,10 +152,10 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
   if ((all || type === 'ticket') && userId) {
     results.tickets = await prisma.supportTicket.findMany({
       where: {
-        user: userId,
+        requesterId: userId,
         OR: [
           { subject: { contains: q, ...queryMode } },
-          { category: { contains: q, ...queryMode } }
+          { categoryId: { contains: q, ...queryMode } }
         ]
       },
       select: { id: true, subject: true, status: true, priority: true, createdAt: true },

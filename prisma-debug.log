@@ -816,3 +816,246 @@ C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\cont
 
 Unknown field `referredUser` for include statement on model `Referral`. Available options are marked with ?.
 
+[2026-08-25T03:54:42.410Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:54:42.432Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:54:52.397Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:55:03.256Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:55:13.257Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:55:23.249Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:55:30.566Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:55:41.249Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+
+[2026-08-25T03:55:51.254Z] PRISMA ERROR:
+
+Invalid `prisma.supportTicket.findMany()` invocation in
+C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\controllers\admin\support-desk.controller.ts:29:28
+
+  26 const take = Number(pageSize);
+  27 
+  28 const [tickets, total] = await Promise.all([
+→ 29   prisma.supportTicket.findMany({
+         where: {},
+         skip: 0,
+         take: 100,
+         orderBy: {
+           createdAt: "desc"
+         },
+         include: {
+           messages: {
+           ~~~~~~~~
+             orderBy: {
+               createdAt: "asc"
+             }
+           }
+         }
+       })
+
+Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
+

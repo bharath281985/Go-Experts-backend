@@ -46,6 +46,7 @@ import aboutRouter from "./admin/about.routes.js"; import adminReferralsRouter f
 import rolesRoutes, { permissionsRouter } from "./admin/roles.routes.js";
 import resumeTemplateRouter from "./admin/resume-template.routes.js";
 import kycRouter from "./admin/kyc.routes.js";
+import adminSupportDeskRouter from "./admin/support-desk.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import subscriptionRoutes from "./subscription/subscription.routes.js";
@@ -164,6 +165,7 @@ router.use("/admin/system", systemRouter);
 router.use("/admin/settings", settingsRouter);
 router.use("/admin/developer", developerRouter);
 router.use("/admin/kyc", authMiddleware as any, kycRouter); router.use("/admin", adminReferralsRouter);
+router.use("/admin/support", adminSupportDeskRouter);
 router.use("/admin", workflowsRoutes);
 router.use("/admin/resume-templates", authMiddleware as any, resumeTemplateRouter);
 
@@ -2154,8 +2156,61 @@ router.post("/admin/users/:id/remind-profile", authMiddleware as any, async (req
       `<p>Hi ${user.fullName || "User"},</p><p>Your profile is currently incomplete. To get the most out of Go Experts and start connecting with others, please take a moment to log in and complete your profile to at least 75%.</p><p>Thank you,<br>The Go Experts Team</p>`
     );
     res.json({ success: true, message: "Profile reminder sent" });
-  } catch (e) {
-    next(e);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/admin/users/:id/remind-onboarding", authMiddleware as any, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    const { EmailChannelAdapter } = await import("../modules/notifications/notification.service.js");
+    const emailAdapter = new EmailChannelAdapter();
+    let parsedConfig = {};
+    const chanConfig = await prisma.communicationChannel.findUnique({ where: { name: "email" } }).catch(() => null);
+    if (chanConfig?.config) parsedConfig = JSON.parse(chanConfig.config);
+
+    const clientHost = process.env.CLIENT_URL || "https://goexperts.in";
+    const loginLink = `${clientHost}/login`;
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748; background-color: #f9fafb; padding: 40px 20px; border-radius: 12px;">
+        <div style="background-color: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center;">
+          <h2 style="color: #1a202c; font-size: 24px; font-weight: 800; margin-bottom: 16px;">Complete Your Onboarding</h2>
+          <p style="font-size: 16px; color: #4a5568; line-height: 1.6; margin-bottom: 24px; text-align: left;">
+            Hi <strong>${user.fullName || "User"}</strong>,<br><br>
+            We noticed that you haven't fully completed your onboarding on <strong>Go Experts</strong>. 
+            Completing your profile is essential to unlock the full potential of our platform, whether you're looking to connect with top-tier talent, innovative startups, or verified investors.
+          </p>
+          <div style="background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin-bottom: 32px; text-align: left;">
+            <h4 style="margin: 0 0 12px 0; color: #1e293b; font-size: 16px;">Why complete onboarding?</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #475569; font-size: 14px; line-height: 1.6;">
+              <li>Gain instant access to matched opportunities.</li>
+              <li>Enhance your visibility within the Go Experts network.</li>
+              <li>Activate your account for communications and proposals.</li>
+            </ul>
+          </div>
+          <a href="${loginLink}" style="background-color: #E30613; color: #ffffff; padding: 14px 36px; border-radius: 8px; font-weight: 700; font-size: 16px; text-decoration: none; display: inline-block; box-shadow: 0 4px 12px rgba(227, 6, 19, 0.3);">
+            Resume Onboarding &rarr;
+          </a>
+          <p style="margin-top: 32px; font-size: 13px; color: #94a3b8; text-align: center;">
+            If you need any assistance, our support team is here to help. Just reply to this email.
+          </p>
+        </div>
+      </div>
+    `;
+
+    await emailAdapter.send({
+      to: user.email!,
+      subject: "Action Required: Complete Your Go Experts Onboarding",
+      body: `Hi ${user.fullName || "User"},\n\nWe noticed that you haven't fully completed your onboarding on Go Experts. Please log in and complete your profile to unlock all platform features.\n\nLogin here: ${loginLink}\n\nThank you,\nThe Go Experts Team`,
+      html,
+    }, parsedConfig);
+
+    res.json({ success: true, message: "Onboarding reminder sent successfully" });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -2166,11 +2221,28 @@ router.get("/admin/users/unread-counts", authMiddleware as any, (req, res) => {
   });
 });
 
-router.get("/admin/users/unread-list", authMiddleware as any, (req, res) => {
-  res.json({
-    success: true,
-    data: []
-  });
+router.get("/admin/users/unread-list", authMiddleware as any, async (req, res, next) => {
+  try {
+    const unreadUsers = await prisma.user.findMany({
+      where: { status: "pending" },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        status: true,
+      }
+    });
+    res.json({
+      success: true,
+      data: unreadUsers
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post("/admin/users/:id/mark-viewed", authMiddleware as any, (req, res) => {

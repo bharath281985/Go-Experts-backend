@@ -71,7 +71,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         where: { investor: userId },
       }),
       // Support tickets count
-      prisma.supportTicket.count({ where: { user: userId, status: { not: 'Closed' } } }),
+      prisma.supportTicket.count({ where: { requesterId: userId, status: { not: 'RESOLVED' } } }),
     ]);
 
     // Populate founder info for recommended startups

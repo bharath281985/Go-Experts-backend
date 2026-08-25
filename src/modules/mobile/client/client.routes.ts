@@ -69,7 +69,7 @@ router.post('/proposals/:id/message', messageFreelancer);
 // ─── Freelancer Discovery ───
 router.get('/freelancers', listFreelancers);
 router.get('/freelancers/recommended', getRecommendedFreelancers);
-router.get('/saved-freelancers', getSavedFreelancers);
+router.get('/freelancers/saved', getSavedFreelancers);
 router.get('/freelancers/:id', getFreelancer);
 router.post('/freelancers/:id/save', saveFreelancer);
 router.delete('/freelancers/:id/save', unsaveFreelancer);

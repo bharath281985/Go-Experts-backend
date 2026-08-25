@@ -42,9 +42,32 @@ export const authMiddleware = async (
 
     const userId = decoded.id || decoded.userId || decoded.sub;
     const userEmail = decoded.email;
+    const tokenType = decoded.type; // "admin" or "portal" or undefined
 
     if (!userId && !userEmail) {
       return res.status(401).json({ success: false, message: "Invalid token payload" });
+    }
+
+    // If token is explicitly for admin, check adminUser table FIRST
+    if (tokenType === "admin") {
+      const admin = await prisma.adminUser.findFirst({
+        where: { OR: [{ id: userId }, { email: userEmail }] },
+        include: { role: true },
+      });
+
+      if (admin) {
+        if (admin.status !== "active") {
+          return res.status(403).json({ success: false, message: "Admin account deactivated." });
+        }
+        req.user = {
+          id: admin.id,
+          email: admin.email,
+          role: admin.role?.name || "admin",
+          type: "admin",
+        };
+        return next();
+      }
+      return res.status(401).json({ success: false, message: "Admin user not found" });
     }
 
     // 1. Try finding portal user by ID or Email
@@ -75,18 +98,16 @@ export const authMiddleware = async (
       return next();
     }
 
-    // 2. Try finding admin user
+    // 2. Fallback: Try finding admin user (for tokens without explicit type)
     const admin = await prisma.adminUser.findFirst({
       where: { OR: [{ id: userId }, { email: userEmail }] },
       include: { role: true },
     });
 
     if (admin) {
-      // Admin Account Status Guard
       if (admin.status !== "active") {
         return res.status(403).json({ success: false, message: "Admin account deactivated." });
       }
-
       req.user = {
         id: admin.id,
         email: admin.email,

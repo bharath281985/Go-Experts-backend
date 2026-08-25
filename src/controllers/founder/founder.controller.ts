@@ -1024,3 +1024,16 @@ export const updateFounderSettings = async (req: AuthenticatedRequest, res: Resp
     handleError(err, res, next);
   }
 };
+
+export const listFounderRoles = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const roles = await prisma.masterOption.findMany({
+      where: { status: "active", type: "founder_role" },
+      orderBy: { sortOrder: "asc" }
+    });
+    const formattedRoles = roles.map(r => ({ id: r.id, name: r.label }));
+    res.json({ success: true, rows: formattedRoles, total: roles.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};

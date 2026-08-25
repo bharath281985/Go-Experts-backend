@@ -46,6 +46,7 @@ import {
   purchaseFounderSubscription,
   getFounderSettings,
   updateFounderSettings,
+  listFounderRoles,
 } from "../../controllers/founder/founder.controller.js";
 
 const router = Router();
@@ -85,6 +86,7 @@ router.get("/all-investors", listAllInvestors as any);
 router.get("/team", listFounderTeam as any);
 router.post("/team", addFounderTeamMember as any);
 router.delete("/team/:id", deleteFounderTeamMember as any);
+router.get("/roles", listFounderRoles as any);
 
 router.get("/documents", listFounderDocuments as any);
 router.post("/documents", addFounderDocument as any);

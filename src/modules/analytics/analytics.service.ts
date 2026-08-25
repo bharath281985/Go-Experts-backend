@@ -477,7 +477,7 @@ export class AnalyticsService {
     });
 
     const categoryStats = await prisma.supportTicket.groupBy({
-      by: ["category"],
+      by: ["categoryId"],
       _count: true,
     });
 
@@ -489,7 +489,7 @@ export class AnalyticsService {
       averageResponseTime: "4.2 Hours",
       averageResolutionTime: "18.5 Hours",
       priorityDistribution: priorityStats.map((item) => ({ name: item.priority, value: item._count })),
-      topCategories: categoryStats.map((item) => ({ name: item.category, value: item._count })),
+      topCategories: categoryStats.map((item) => ({ name: item.categoryId, value: item._count })),
     };
   }
 
