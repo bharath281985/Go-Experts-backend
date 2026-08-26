@@ -255,7 +255,7 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       );
     }
 
-    if (!title || budgets.budget == null || Number.isNaN(budgets.budget)) {
+    if (!title || budgetValue == null || Number.isNaN(budgetValue)) {
       return res.status(400).json(errorResponse('Title and budget are required', 'VALIDATION_ERROR'));
     }
 
