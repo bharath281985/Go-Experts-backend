@@ -188,6 +188,24 @@ router.post("/checkout", async (req: Request, res: Response) => {
       }
 
       const userId = await resolveCheckoutUserId(req, bodyUserId, req.body?.email);
+      
+      if (userId && (purpose || planId || "").toUpperCase().startsWith("SUB_")) {
+        try {
+          const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+          const { getVerificationStats } = await import("../../common/helpers/verification.js");
+          
+          const [completion, kyc] = await Promise.all([
+            resolveProfileCompletion(userId),
+            getVerificationStats(userId)
+          ]);
+          
+          if (!completion.isProfileComplete || !kyc.kycApproved) {
+            return res.status(403).json({ success: false, message: "Profile and KYC verification required before purchasing a subscription." });
+          }
+        } catch (err) {
+          console.error("KYC gate check failed:", err);
+        }
+      }
       const cur = (currency || "INR").toUpperCase();
       const metaNote = purpose || (metadata ? JSON.stringify(metadata).slice(0, 200) : undefined);
 

@@ -91,6 +91,28 @@ router.get("/settings/branding", async (req: Request, res: Response) => {
   res.json(result);
 });
 
+router.get("/settings/role-color", async (req: Request, res: Response) => {
+  const role = String(req.query.role || "").trim().toLowerCase();
+  if (!role) return res.json({ success: true, color: "#E30613" });
+  
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
+    if (!setting || !setting.value) return res.json({ success: true, color: "#E30613" });
+    const colors = JSON.parse(setting.value);
+    
+    let matchedColor = "#E30613";
+    for (const [key, color] of Object.entries(colors)) {
+      if (key.toLowerCase() === role || key.toLowerCase() === role + 's') {
+        matchedColor = String(color);
+        break;
+      }
+    }
+    res.json({ success: true, color: matchedColor });
+  } catch (err) {
+    res.json({ success: true, color: "#E30613" });
+  }
+});
+
 router.get("/settings/general", async (req: Request, res: Response) => {
   const result = await getSettingsSection("general");
   res.json(result);

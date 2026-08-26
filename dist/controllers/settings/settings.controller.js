@@ -329,3 +329,30 @@ export const deleteEmailTemplate = async (req, res, next) => {
         next(err);
     }
 };
+export const getIndustryColorsSettings = async (_req, res, next) => {
+    try {
+        const { prisma } = await import("../../config/database.js");
+        const doc = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
+        if (!doc)
+            return res.json({ success: true, data: null });
+        res.json({ success: true, data: JSON.parse(doc.value) });
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const saveIndustryColorsSettings = async (req, res, next) => {
+    try {
+        const { prisma } = await import("../../config/database.js");
+        const val = JSON.stringify(req.body);
+        const updated = await prisma.setting.upsert({
+            where: { key: "settings:industry_colors" },
+            update: { value: val },
+            create: { key: "settings:industry_colors", value: val, category: "branding" }
+        });
+        res.json({ success: true, message: "Role colors saved successfully.", data: JSON.parse(updated.value) });
+    }
+    catch (err) {
+        next(err);
+    }
+};

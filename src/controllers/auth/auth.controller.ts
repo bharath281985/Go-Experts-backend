@@ -114,6 +114,32 @@ function buildKycReadiness(user: any) {
   };
 }
 
+
+async function getRoleColor(user: any): Promise<string> {
+  const DEFAULT_COLOR = "#0f172a";
+  try {
+    const { prisma } = await import("../../config/database.js");
+    const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
+    if (!setting || !setting.value) return DEFAULT_COLOR;
+    const colors = JSON.parse(setting.value);
+    
+    // Match based on user role (case-insensitive)
+    const userRole = (user?.role || "").toLowerCase();
+    
+    // Find matching role color in the JSON keys
+    let matchedColor = DEFAULT_COLOR;
+    for (const [key, color] of Object.entries(colors)) {
+      if (key.toLowerCase() === userRole || key.toLowerCase() === userRole + 's') {
+        matchedColor = String(color);
+        break;
+      }
+    }
+    return matchedColor;
+  } catch (err) {
+    return DEFAULT_COLOR;
+  }
+}
+
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const inputEmail = req.body?.email ?? req.body?.identifier ?? req.body?.username ?? req.body?.emailId;
@@ -295,6 +321,22 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
+
+    // Save location data if provided during login
+    if (req.body?.latitude && req.body?.longitude) {
+      let currentRegData: any = {};
+      try {
+        currentRegData = typeof user.registrationData === 'string' 
+          ? JSON.parse(user.registrationData) 
+          : (user.registrationData || {});
+      } catch (e) {}
+      currentRegData.latitude = req.body.latitude;
+      currentRegData.longitude = req.body.longitude;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { registrationData: JSON.stringify(currentRegData) }
+      }).catch(() => {});
+    }
 
     prisma.loginAttempt
       .create({ data: { email, ipAddress, userAgent, success: true } })
@@ -1687,6 +1729,7 @@ export const sendDeleteAccountOtp = async (req: Request, res: Response, next: Ne
       return res.status(404).json({ success: false, message: "No active account found with this email address." });
     }
 
+    const brandColor = await getRoleColor(user);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const key = `del_${email}`;
     otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
@@ -1696,10 +1739,10 @@ export const sendDeleteAccountOtp = async (req: Request, res: Response, next: Ne
     // Dispatch real email via SMTP transporter
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e4e4e7; border-radius: 12px; background-color: #ffffff;">
-        <h2 style="color: #e11d48; margin-top: 0;">Go Experts — Delete Account Request</h2>
+        <h2 style="color: ${brandColor}; margin-top: 0;">Go Experts — Delete Account Request</h2>
         <p style="color: #3f3f46; font-size: 15px;">You have requested to delete your account registered on Go Experts (<strong>${email}</strong>).</p>
         <p style="color: #3f3f46; font-size: 15px;">Your 6-digit OTP verification code is:</p>
-        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 16px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #be123c; border-radius: 10px; margin: 20px 0;">
+        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 16px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: ${brandColor}; border-radius: 10px; margin: 20px 0;">
           ${otp}
         </div>
         <p style="color: #71717a; font-size: 13px;">This verification code is valid for 10 minutes. If you did not request account deletion, please ignore this email or contact support immediately.</p>
@@ -1808,8 +1851,9 @@ export const sendVerificationLink = async (req: Request, res: Response, next: Ne
       });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore.set(email, { otp, expiresAt: Date.now() + 15 * 60 * 1000 });
+    const brandColor = await getRoleColor(existingUser);
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      otpStore.set(email, { otp, expiresAt: Date.now() + 15 * 60 * 1000 });
 
     const clientHost = getClientHost(req);
     const verificationLink = `${clientHost}/verify-email?email=${encodeURIComponent(email)}&code=${otp}`;

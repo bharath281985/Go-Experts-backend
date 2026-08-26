@@ -2,12 +2,12 @@ import { prisma } from "../../config/database.js";
 import { resolveIndustryNameById } from "../../common/helpers/prisma-compat.js";
 function formatBudget(value) {
     if (value >= 1000)
-        return `$${Math.round(value / 1000)}k`;
-    return `$${Math.round(value)}`;
+        return `\u20B9${Math.round(value / 1000)}k`;
+    return `\u20B9${Math.round(value)}`;
 }
 function formatTimeline(timeline) {
     if (!timeline?.trim())
-        return "4–10 weeks";
+        return "4\u201310 weeks";
     return timeline;
 }
 export async function listPublicProjects(options) {

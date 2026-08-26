@@ -63,6 +63,28 @@ router.get("/settings/branding", async (req, res) => {
     const result = await getSettingsSection("branding");
     res.json(result);
 });
+router.get("/settings/role-color", async (req, res) => {
+    const role = String(req.query.role || "").trim().toLowerCase();
+    if (!role)
+        return res.json({ success: true, color: "#E30613" });
+    try {
+        const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
+        if (!setting || !setting.value)
+            return res.json({ success: true, color: "#E30613" });
+        const colors = JSON.parse(setting.value);
+        let matchedColor = "#E30613";
+        for (const [key, color] of Object.entries(colors)) {
+            if (key.toLowerCase() === role || key.toLowerCase() === role + 's') {
+                matchedColor = String(color);
+                break;
+            }
+        }
+        res.json({ success: true, color: matchedColor });
+    }
+    catch (err) {
+        res.json({ success: true, color: "#E30613" });
+    }
+});
 router.get("/settings/general", async (req, res) => {
     const result = await getSettingsSection("general");
     res.json(result);
@@ -1395,11 +1417,11 @@ router.post("/support_tickets", async (req, res, next) => {
         const created = await prisma.supportTicket.create({
             data: {
                 subject,
-                user,
-                category: (typeof body.category === "string" && body.category.trim()) || "Website Guest Inquiry",
-                priority: (typeof body.priority === "string" && body.priority.trim()) || "Medium",
-                status: (typeof body.status === "string" && body.status.trim()) || "Open",
-                assignedTo: typeof body.assignedTo === "string" ? body.assignedTo : undefined,
+                requesterId: "guest",
+                requesterRole: "guest",
+                categoryId: (typeof body.category === "string" && body.category.trim()) || "Website Guest Inquiry",
+                priority: (typeof body.priority === "string" && body.priority.trim()) || "Normal",
+                status: "OPEN",
             },
         });
         res.status(201).json({ success: true, data: created });

@@ -38,6 +38,8 @@ import {
   getEmailTemplates,
   saveEmailTemplate,
   deleteEmailTemplate,
+  getIndustryColorsSettings,
+  saveIndustryColorsSettings,
 } from "../../controllers/settings/settings.controller.js";
 
 const router = Router();
@@ -47,6 +49,10 @@ router.use(authMiddleware as any);
 // General Workspace
 router.get("/general", getGeneralSettings);
 router.put("/general", saveGeneralSettings);
+
+// Role Colors
+router.get("/industry-colors", getIndustryColorsSettings);
+router.put("/industry-colors", saveIndustryColorsSettings);
 
 // Branding
 router.get("/branding", getBrandingSettings);

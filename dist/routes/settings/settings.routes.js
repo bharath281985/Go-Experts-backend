@@ -1,11 +1,14 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
-import { createBackupSettings, deleteBackupSettings, getApiKeysSettings, saveApiKeysSettings, getAppsSettings, saveAppsSettings, getAuditTrailsSettings, getBackupsSettings, getBrandingSettings, getCountrySettings, getCurrencySettings, getEmailSettings, getEnvironmentSettings, getGeneralSettings, getGoogleMapsSettings, getPaymentsSettings, getRolesSettings, getSecuritySettings, getSmsSettings, getSystemLogsSettings, getWhatsappSettings, saveBrandingSettings, saveCountrySettings, saveCurrencySettings, saveEmailSettings, saveEnvironmentSettings, saveGeneralSettings, saveGoogleMapsSettings, savePaymentsSettings, saveSecuritySettings, saveSmsSettings, saveWhatsappSettings, sendTestEmailHandler, testIntegrationConnection, getEmailTemplates, saveEmailTemplate, deleteEmailTemplate, } from "../../controllers/settings/settings.controller.js";
+import { createBackupSettings, deleteBackupSettings, getApiKeysSettings, saveApiKeysSettings, getAppsSettings, saveAppsSettings, getAuditTrailsSettings, getBackupsSettings, getBrandingSettings, getCountrySettings, getCurrencySettings, getEmailSettings, getEnvironmentSettings, getGeneralSettings, getGoogleMapsSettings, getPaymentsSettings, getRolesSettings, getSecuritySettings, getSmsSettings, getSystemLogsSettings, getWhatsappSettings, saveBrandingSettings, saveCountrySettings, saveCurrencySettings, saveEmailSettings, saveEnvironmentSettings, saveGeneralSettings, saveGoogleMapsSettings, savePaymentsSettings, saveSecuritySettings, saveSmsSettings, saveWhatsappSettings, sendTestEmailHandler, testIntegrationConnection, getEmailTemplates, saveEmailTemplate, deleteEmailTemplate, getIndustryColorsSettings, saveIndustryColorsSettings, } from "../../controllers/settings/settings.controller.js";
 const router = Router();
 router.use(authMiddleware);
 // General Workspace
 router.get("/general", getGeneralSettings);
 router.put("/general", saveGeneralSettings);
+// Role Colors
+router.get("/industry-colors", getIndustryColorsSettings);
+router.put("/industry-colors", saveIndustryColorsSettings);
 // Branding
 router.get("/branding", getBrandingSettings);
 router.put("/branding", saveBrandingSettings);
