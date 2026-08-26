@@ -155,6 +155,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
 
     const data = {
       profileCompletion: completion.profileCompletion,
+      profileCompletedPer: completion.profileCompletion,
+      profileCompletedPercentage: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
       accountVerified: Boolean(authUser?.verified),
       verificationMissingCount: verStats.missingCount,

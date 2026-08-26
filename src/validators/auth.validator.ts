@@ -26,6 +26,8 @@ export const registerSchema = z.object({
     role: z.enum(['freelancer', 'client', 'investor', 'founder']),
     phone: z.string().min(6, 'Phone number is too short').optional(),
     countryCode: z.string().min(2, 'Country code is invalid').optional(),
+    latitude: z.union([z.coerce.number(), z.string().min(1)]).optional(),
+    longitude: z.union([z.coerce.number(), z.string().min(1)]).optional(),
     deviceId: z.string().optional(),
     deviceName: z.string().optional(),
     platform: z.enum(['android', 'ios', 'macos', 'web']).optional(),

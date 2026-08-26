@@ -111,6 +111,8 @@ model User {
   country                 String?
   state                   String?
   city                    String?
+  latitude                Float?
+  longitude               Float?
   bio                     String?
   referralCode            String?                 @unique @map("referral_code")
   createdAt               DateTime                @default(now()) @map("created_at")
@@ -203,6 +205,8 @@ model FreelancerProfile {
   websiteUrl         String?  @map("website_url")
   githubUrl          String?  @map("github_url")
   dribbbleUrl        String?  @map("dribbble_url")
+  bannerUrl          String?  @map("banner_url")
+  logoUrl            String?  @map("logo_url")
   industry           String?  @db.Text
   workMode           String?  @map("work_mode")
   createdAt          DateTime @default(now()) @map("created_at")
@@ -297,6 +301,7 @@ model Project {
   budget          Float
   budgetMin       Float?      @map("budget_min")
   budgetMax       Float?      @map("budget_max")
+  budgetRangeId   String?     @map("budget_range_id")
   category        String
   technology      String
   timeline        String?
@@ -1215,11 +1220,11 @@ model Coupon {
 
 model SupportTicket {
   id              String                 @id @default(uuid())
-  ticketNumber    String                 @unique @default(cuid()) @map("ticket_number")
-  requesterId     String                 @map("requester_id")
-  requesterRole   String                 @map("requester_role")
+  ticketNumber    String?                @unique @default(cuid()) @map("ticket_number")
+  requesterId     String?                @map("requester_id")
+  requesterRole   String?                @map("requester_role")
   subject         String
-  categoryId      String                 @map("category_id")
+  categoryId      String?                @map("category_id")
   priority        String                 @default("Medium")
   status          String                 @default("OPEN")
   assignedToId    String?                @map("assigned_to_id")
@@ -1951,7 +1956,7 @@ model JobOpening {
   openings                Int                 @default(1)
   salaryMin               Float?              @map("salary_min")
   salaryMax               Float?              @map("salary_max")
-  currency                String              @default("USD")
+  currency                String              @default("INR")
   salaryVisibility        Boolean             @default(false) @map("salary_visibility")
   applicationDeadline     DateTime?           @map("application_deadline")
   hiringManager           String?             @map("hiring_manager")

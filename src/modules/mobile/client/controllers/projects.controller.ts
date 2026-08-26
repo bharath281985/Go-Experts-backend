@@ -96,6 +96,34 @@ const resolveBudgetRangeInput = async (raw: unknown): Promise<{ id: string; labe
   return found ? found : { id: value, label: value, value, min: null, max: null };
 };
 
+const getSignupBudgetRangeId = async (userId: string): Promise<string | null> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      registrationData: true,
+      clientProfile: {
+        select: {
+          projectHireBudget: true,
+        },
+      },
+    },
+  }).catch(() => null);
+
+  const profileBudget = user?.clientProfile?.projectHireBudget;
+  if (profileBudget) return String(profileBudget).trim();
+
+  const regData = user?.registrationData;
+  if (!regData) return null;
+
+  try {
+    const parsed = typeof regData === 'string' ? JSON.parse(regData) : regData;
+    const fallback = parsed?.projectHireBudgetId ?? parsed?.projectHireBudget ?? parsed?.budget;
+    return fallback ? String(fallback).trim() : null;
+  } catch {
+    return null;
+  }
+};
+
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, {
@@ -204,7 +232,8 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
     const level = resolvedExperienceLevel?.id || normalizeExperienceLevel(experienceLevel);
     const resolvedWorkMode = await resolveWorkModeInput(workModeId ?? workMode);
     const workModeValue = resolvedWorkMode?.id || workMode || null;
-    const resolvedBudgetRange = await resolveBudgetRangeInput(budgetRangeId);
+    const signupBudgetRangeId = budgetRangeId ? null : await getSignupBudgetRangeId(req.user.id);
+    const resolvedBudgetRange = await resolveBudgetRangeInput(budgetRangeId ?? signupBudgetRangeId);
     const budgetMaxValue = resolvedBudgetRange?.max ?? budgets.budgetMax;
     const budgetMinValue = resolvedBudgetRange?.min ?? budgets.budgetMin;
     const budgetValue = budgetMaxValue ?? budgets.budget;
@@ -239,6 +268,7 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
         budget: budgetValue ?? budgets.budget,
         budgetMin: budgetMinValue,
         budgetMax: budgetMaxValue,
+        budgetRangeId: resolvedBudgetRange?.id ?? budgetRangeId ?? null,
         timeline: timeline || deadline || null,
         description: description || null,
         workMode: workModeValue,
@@ -337,7 +367,8 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
       : normalizeExperienceLevel(experienceLevel);
     const resolvedWorkMode = await resolveWorkModeInput(workModeId ?? workMode);
     const workModeValue = resolvedWorkMode?.id || workMode;
-    const resolvedBudgetRange = await resolveBudgetRangeInput(budgetRangeId);
+    const signupBudgetRangeId = budgetRangeId ? null : await getSignupBudgetRangeId(req.user.id);
+    const resolvedBudgetRange = await resolveBudgetRangeInput(budgetRangeId ?? signupBudgetRangeId);
     const budgetMaxValue = resolvedBudgetRange?.max ?? budgets.budgetMax;
     const budgetMinValue = resolvedBudgetRange?.min ?? budgets.budgetMin;
     const budgetValue = budgetMaxValue ?? budgets.budget;
@@ -366,6 +397,9 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
     if (budgetValue != null && !Number.isNaN(budgetValue)) data.budget = budgetValue;
     if (budgetMinValue != null && !Number.isNaN(budgetMinValue)) data.budgetMin = budgetMinValue;
     if (budgetMaxValue != null && !Number.isNaN(budgetMaxValue)) data.budgetMax = budgetMaxValue;
+    if (resolvedBudgetRange?.id || budgetRangeId || signupBudgetRangeId) {
+      data.budgetRangeId = resolvedBudgetRange?.id ?? budgetRangeId ?? signupBudgetRangeId;
+    }
     if (timeline != null || deadline != null) data.timeline = timeline ?? deadline;
     if (startDateValue !== undefined) data.startDate = startDateValue;
     if (endDateValue !== undefined) data.endDate = endDateValue;

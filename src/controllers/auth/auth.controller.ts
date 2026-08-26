@@ -463,6 +463,14 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const country = req.body?.country ? String(req.body.country) : null;
     const state = req.body?.state ? String(req.body.state) : null;
     const city = req.body?.city ? String(req.body.city) : null;
+    const latitudeRaw = req.body?.latitude;
+    const longitudeRaw = req.body?.longitude;
+    const latitude = latitudeRaw === undefined || latitudeRaw === null || latitudeRaw === ""
+      ? null
+      : Number(latitudeRaw);
+    const longitude = longitudeRaw === undefined || longitudeRaw === null || longitudeRaw === ""
+      ? null
+      : Number(longitudeRaw);
     const bio = req.body?.bio ? String(req.body.bio) : null;
 
     const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, state: _state, city: _city, bio: _bio, ...restData } = req.body || {};
@@ -505,6 +513,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               country,
               state,
               city,
+              latitude: Number.isFinite(latitude as number) ? latitude : null,
+              longitude: Number.isFinite(longitude as number) ? longitude : null,
               bio,
               registrationData,
               // IMPORTANT: Clear soft-delete so the account is restored/visible
@@ -525,6 +535,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               country,
               state,
               city,
+              latitude: Number.isFinite(latitude as number) ? latitude : null,
+              longitude: Number.isFinite(longitude as number) ? longitude : null,
               bio,
               registrationData,
               referralCode,
@@ -989,7 +1001,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
 
       const kycReadiness = buildKycReadiness(user);
 
-      return res.json({
+        return res.json({
         success: true,
         user: {
           ...sanitized,
@@ -997,6 +1009,9 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           isKycVerified: kycReadiness.verified,
           kycStatus: kycReadiness.status,
           kyc: kycReadiness,
+          profileCompletion: completion.profileCompletion,
+          profileCompletedPer: completion.profileCompletion,
+          profileCompletedPercentage: completion.profileCompletion,
           profileReadiness: {
             role: (user.role || "").toUpperCase(),
             profileCompletion: completion.profileCompletion,
@@ -1085,6 +1100,9 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
               isKycVerified: kycReadiness.verified,
               kycStatus: kycReadiness.status,
               kyc: kycReadiness,
+              profileCompletion: completion.profileCompletion,
+              profileCompletedPer: completion.profileCompletion,
+              profileCompletedPercentage: completion.profileCompletion,
               profileReadiness: {
                 role: (user.role || "").toUpperCase(),
                 profileCompletion: completion.profileCompletion,
@@ -1812,12 +1830,8 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
 
 export const getOtpInfo = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (process.env.NODE_ENV === "production") {
-      return res.status(404).json({
-        success: false,
-        message: "Verification codes are sent by email and are not exposed by this endpoint.",
-      });
-    }
+    // Note: Temporarily removed the production check as requested by the user,
+    // so the OTP is exposed to the frontend during testing.
     const email = String(req.query.email || "").trim().toLowerCase();
     if (!email) {
       return res.status(400).json({ success: false, message: "Email parameter required" });

@@ -153,7 +153,7 @@ const buildAuthPayload = async (user: AuthUser) => {
   const accessToken = await createAccessToken(user);
   const refreshToken = await createRefreshToken(user);
 
-  let completion = { profileCompletion: 80, isProfileComplete: true };
+  let completion = { profileCompletion: 0, isProfileComplete: false };
   let subscriptionGate: any = { status: 'active', planId: 'Free_Trial', planName: 'Starter' };
   let isSocial = false;
 
@@ -301,6 +301,14 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const cityVal = b.city || null;
     const stateVal = b.state || b.stateId || null;
     const countryVal = b.country || b.countryId || null;
+    const latitudeRaw = b.latitude;
+    const longitudeRaw = b.longitude;
+    const latitudeVal = latitudeRaw === undefined || latitudeRaw === null || latitudeRaw === ''
+      ? null
+      : Number(latitudeRaw);
+    const longitudeVal = longitudeRaw === undefined || longitudeRaw === null || longitudeRaw === ''
+      ? null
+      : Number(longitudeRaw);
     const avatarUrlVal = b.avatarUrl || b.avatar || b.logo || null;
     const isEmailVerified = Boolean(b.verification?.emailVerified ?? b.isVerified ?? b.emailVerified);
 
@@ -326,6 +334,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           city: cityVal ? String(cityVal).trim() : null,
           state: stateVal ? String(stateVal).trim() : null,
           country: countryVal ? String(countryVal).trim() : null,
+          latitude: Number.isFinite(latitudeVal) ? latitudeVal : null,
+          longitude: Number.isFinite(longitudeVal) ? longitudeVal : null,
           bio: bioVal ? String(bioVal).trim() : null,
           avatarUrl: avatarUrlVal ? String(avatarUrlVal).trim() : null,
           isVerified: isEmailVerified,
