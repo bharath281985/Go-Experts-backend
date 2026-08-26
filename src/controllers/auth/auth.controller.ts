@@ -261,8 +261,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     let user: any = null;
     try {
       const userWhere = rawEmail && email && rawEmail !== email
-        ? { deletedAt: null, OR: [{ email: rawEmail }, { email }] }
-        : { deletedAt: null, email };
+        ? { OR: [{ email: rawEmail }, { email }] }
+        : { email };
 
       user = await prisma.user.findFirst({
         where: userWhere,
@@ -282,6 +282,13 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Email not found" } })
         .catch(() => {});
       return res.status(400).json({ success: false, message: "Invalid email or password" });
+    }
+
+    if (user.deletedAt) {
+      prisma.loginAttempt
+        .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Account deleted" } })
+        .catch(() => {});
+      return res.status(403).json({ success: false, message: "Your account is suspended. Please contact support." });
     }
 
     if (!user.password) {
