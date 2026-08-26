@@ -1736,6 +1736,11 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
         return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
       }
 
+      const existingUser = await prisma.user.findFirst({ where: { email, deletedAt: null } });
+      if (existingUser) {
+        return res.status(409).json(errorResponse('Email is already registered. Please login.', 'EMAIL_ALREADY_EXISTS'));
+      }
+
       const { code } = await issueEmailOtp(email);
       const emailSent = await sendVerificationEmail(email, code);
 
@@ -1749,6 +1754,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
           id: otpId,
           email,
           expiresInSeconds: 600,
+          otp: code,
           devOtpCode: code // Displaying explicitly for testing
         })
       );
@@ -1763,6 +1769,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
             id: otpId,
             phone: phoneNumber,
             expiresInSeconds: 300,
+            otp: code,
             devOtpCode: code // Displaying explicitly for testing
           })
         );
@@ -1787,6 +1794,11 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
         return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
       }
 
+      const existingUser = await prisma.user.findFirst({ where: { email, deletedAt: null } });
+      if (existingUser) {
+        return res.status(409).json(errorResponse('Email is already registered. Please login.', 'EMAIL_ALREADY_EXISTS'));
+      }
+
       const { code } = await issueEmailOtp(email);
       const emailSent = await sendVerificationEmail(email, code);
 
@@ -1800,6 +1812,7 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
           id: otpId,
           email,
           expiresInSeconds: 600,
+          otp: code,
           devOtpCode: code
         })
       );
@@ -1812,6 +1825,7 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
           successResponse('OTP resent successfully', {
             phone: phoneNumber,
             expiresInSeconds: 300,
+            otp: code,
             devOtpCode: code
           })
         );
