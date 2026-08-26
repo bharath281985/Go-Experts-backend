@@ -1666,6 +1666,7 @@ model Proposal {
   projectId    String    @map("project_id")
   freelancerId String    @map("freelancer_id")
   bidAmount    Float     @map("bid_amount")
+  deliveryTime Int?      @map("delivery_time")
   coverLetter  String?   @map("cover_letter")
   status       String    @default("pending")
   createdAt    DateTime  @default(now()) @map("created_at")

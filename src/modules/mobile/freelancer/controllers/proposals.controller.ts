@@ -31,18 +31,22 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
   try {
     const { projectId, bidAmount, coverLetter, deliveryTime } = req.body;
     const proposal = await prisma.proposal.create({
-      data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, status: 'pending' }
+      data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, deliveryTime, status: 'pending' }
     });
 
     const project = await prisma.project.findUnique({ where: { id: projectId } });
     if (project && project.client) {
-      await NotificationEngine.queueNotification({
-        userId: project.client,
-        type: 'new_proposal',
-        title: 'New Freelancer Proposal',
-        message: `${req.user.fullName || 'A freelancer'} has submitted a proposal for your project!`,
-        channel: 'all'
-      });
+      try {
+        await NotificationEngine.queueNotification({
+          userId: project.client,
+          type: 'new_proposal',
+          title: 'New Freelancer Proposal',
+          message: `${req.user.fullName || 'A freelancer'} has submitted a proposal for your project!`,
+          channel: 'all'
+        });
+      } catch (notifError) {
+        console.error('Failed to queue notification for proposal:', notifError);
+      }
     }
 
     return res.status(201).json(successResponse('Proposal created', proposal));
@@ -89,13 +93,17 @@ export const withdrawProposal = async (req: AuthRequest, res: Response, next: Ne
 
       const project = await prisma.project.findUnique({ where: { id: proposal.projectId } });
       if (project && project.client) {
-        await NotificationEngine.queueNotification({
-          userId: project.client,
-          type: 'proposal_withdrawn',
-          title: 'Proposal Withdrawn',
-          message: `${req.user.fullName || 'A freelancer'} has withdrawn their proposal on your project.`,
-          channel: 'all'
-        });
+        try {
+          await NotificationEngine.queueNotification({
+            userId: project.client,
+            type: 'proposal_withdrawn',
+            title: 'Proposal Withdrawn',
+            message: `${req.user.fullName || 'A freelancer'} has withdrawn their proposal on your project.`,
+            channel: 'all'
+          });
+        } catch (notifError) {
+          console.error('Failed to queue notification for proposal withdrawal:', notifError);
+        }
       }
     }
 

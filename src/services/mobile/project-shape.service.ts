@@ -139,7 +139,9 @@ export const shapeProjects = async (
     proposalCounts.map((row) => [row.projectId, row._count.id] as [string, number])
   );
 
-  return projects.map((project) => {
+  return projects
+    .filter((project) => clientById.has(project.client))
+    .map((project) => {
     const client: any = clientById.get(project.client);
     const skillIdList = splitIds(project.technology);
     const skillNames = skillIdList.map((id) => skillById.get(id) ?? id);
