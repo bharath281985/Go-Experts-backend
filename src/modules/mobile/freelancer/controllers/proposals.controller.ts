@@ -29,7 +29,7 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
 
 export const createProposal = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { projectId, bidAmount, coverLetter } = req.body;
+    const { projectId, bidAmount, coverLetter, deliveryTime } = req.body;
     const proposal = await prisma.proposal.create({
       data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, deliveryTime, status: 'pending' }
     });
