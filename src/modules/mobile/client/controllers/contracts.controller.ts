@@ -21,8 +21,35 @@ export const listContracts = async (req: AuthRequest, res: Response, next: NextF
 
 export const getContract = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const contract = await prisma.contract.findFirst({ where: { id: req.params.id, clientId: req.user.id } });
-    return res.json(successResponse('Contract details', contract));
+    const contract = await prisma.contract.findFirst({
+      where: { id: req.params.id, clientId: req.user.id },
+      include: {
+        freelancer: {
+          select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true }
+        },
+        project: {
+          select: { id: true, title: true, status: true }
+        }
+      }
+    });
+
+    if (!contract) {
+      return res.status(404).json(successResponse('Contract not found', null));
+    }
+
+    let proposal = null;
+    if (contract.proposalId) {
+      proposal = await prisma.proposal.findUnique({
+        where: { id: contract.proposalId }
+      });
+    }
+
+    return res.json(
+      successResponse('Contract details', {
+        ...contract,
+        proposal: proposal
+      })
+    );
   } catch (error) { next(error); }
 };
 
