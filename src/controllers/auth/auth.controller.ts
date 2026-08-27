@@ -2166,7 +2166,7 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       lastStep: step !== undefined ? step : (currentRegData as any).lastStep,
     };
 
-    const isCompleted = req.body.completed === true;
+    const isCompleted = req.body.completed === true || req.body.onboardingComplete === true;
     const progress = calculateOnboardingProgress(user.role, step || 0, isCompleted);
 
     // Update User model basic fields
