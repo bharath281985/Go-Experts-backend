@@ -30,9 +30,22 @@ export const listProjectProposals = async (req: AuthRequest, res: Response, next
       }),
       prisma.proposal.count({ where: { projectId: req.params.projectId, project: { client: req.user.id } } })
     ]);
+    const proposalIds = proposals.map(p => p.id);
+    const contracts = await prisma.contract.findMany({
+      where: { proposalId: { in: proposalIds } },
+      select: { id: true, proposalId: true }
+    });
+    const contractMap = new Map();
+    contracts.forEach(c => {
+      if (c.proposalId) {
+        contractMap.set(c.proposalId, c.id);
+      }
+    });
+
     const shaped = proposals.map((p) => ({
       ...p,
       freelancerId: p.freelancerId || p.freelancer?.id,
+      contractId: contractMap.get(p.id) || null,
     }));
     return res.json(successResponse('Project proposals', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
@@ -45,10 +58,17 @@ export const getProposal = async (req: AuthRequest, res: Response, next: NextFun
       include: { freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } } }
     });
     if (!proposal) return res.status(404).json(errorResponse('Proposal not found', 'NOT_FOUND'));
+
+    const contract = await prisma.contract.findFirst({
+      where: { proposalId: proposal.id },
+      select: { id: true }
+    });
+
     return res.json(
       successResponse('Proposal details', {
         ...proposal,
         freelancerId: proposal.freelancerId || proposal.freelancer?.id,
+        contractId: contract?.id || null,
       })
     );
   } catch (error) { next(error); }
