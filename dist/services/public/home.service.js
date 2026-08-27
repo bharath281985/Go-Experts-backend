@@ -46,12 +46,22 @@ export async function getHomeCmsContent() {
 }
 export async function getPublicPlatformStats() {
     try {
+        const activeFounders = await prisma.user.findMany({
+            where: { deletedAt: null, role: "founder" },
+            select: { id: true },
+        });
+        const activeFounderIds = activeFounders.map((u) => u.id);
+        const activeClients = await prisma.user.findMany({
+            where: { deletedAt: null, role: "client" },
+            select: { id: true },
+        });
+        const activeClientIds = activeClients.map((u) => u.id);
         const [freelancers, clients, investors, startupIdeas, projects,] = await Promise.all([
             prisma.user.count({ where: { role: "freelancer", deletedAt: null } }),
             prisma.user.count({ where: { role: "client", deletedAt: null } }),
             prisma.user.count({ where: { role: "investor", deletedAt: null } }),
-            prisma.startupIdea.count({ where: { status: "active" } }),
-            prisma.project.count(),
+            prisma.startupIdea.count({ where: { status: "active", founder: { in: activeFounderIds } } }),
+            prisma.project.count({ where: { deletedAt: null, client: { in: activeClientIds } } }),
         ]);
         return {
             freelancers,

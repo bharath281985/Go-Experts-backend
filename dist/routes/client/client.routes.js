@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getClientDashboard, getClientProfile, updateClientProfile, listClientProjects, getClientPipeline, createClientProject, getClientProject, updateClientProject, deleteClientProject, listProjectApplications, listClientApplications, listClientContracts, getClientProposal, shortlistProposal, offerProposal, rejectProposal, interviewProposal, listSavedFreelancers, toggleSavedFreelancer, removeSavedFreelancer, listClientInvitations, listClientTeam, addClientTeamMember, updateClientTeamMember, deleteClientTeamMember, listClientRoles, listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead } from "../../controllers/client/client.controller.js";
+import { getClientDashboard, listClientReviews, getClientProfile, updateClientProfile, listClientProjects, getClientPipeline, createClientProject, getClientProject, updateClientProject, deleteClientProject, listProjectApplications, listClientApplications, listClientContracts, getClientProposal, shortlistProposal, offerProposal, rejectProposal, interviewProposal, listSavedFreelancers, toggleSavedFreelancer, removeSavedFreelancer, listClientInvitations, listClientTeam, addClientTeamMember, updateClientTeamMember, deleteClientTeamMember, listClientRoles, listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead } from "../../controllers/client/client.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
@@ -50,7 +50,7 @@ router.get("/contracts", listClientContracts);
 // router.post("/wallet/withdraw", withdrawClientWallet as any);
 // router.get("/invoices", listClientInvoices as any);
 // router.get("/payments", listClientPayments as any);
-// router.get("/reviews", listClientReviews as any);
+router.get("/reviews", listClientReviews);
 // router.post("/reviews", createClientReview as any);
 // router.get("/analytics", getClientAnalytics as any);
 router.get("/notifications", listClientNotifications);

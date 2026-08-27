@@ -17,9 +17,16 @@ export async function listPublicProjects(options) {
         const search = options?.search?.trim();
         const categoryName = (await resolveIndustryNameById(options?.categoryId, options?.category)) ??
             options?.category;
+        // Only show projects whose owning client has NOT been soft-deleted
+        const activeClients = await prisma.user.findMany({
+            where: { deletedAt: null, role: "client" },
+            select: { id: true },
+        });
+        const activeClientIds = activeClients.map((u) => u.id);
         const where = {
             deletedAt: null,
             status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active"] },
+            client: { in: activeClientIds },
         };
         if (categoryName)
             where.category = categoryName;
@@ -53,7 +60,7 @@ export async function listPublicProjects(options) {
         });
         const clientIds = [...new Set(rows.map((r) => r.client).filter(Boolean))];
         const clients = await prisma.user.findMany({
-            where: { id: { in: clientIds } },
+            where: { id: { in: clientIds }, deletedAt: null },
             select: { id: true, fullName: true, avatarUrl: true, country: true, isVerified: true, verified: true },
         });
         const clientMap = new Map(clients.map((c) => [c.id, {
@@ -104,19 +111,24 @@ export async function listPublicProjects(options) {
 }
 export async function getPostProjectStats() {
     try {
+        const activeClients = await prisma.user.findMany({
+            where: { deletedAt: null, role: "client" },
+            select: { id: true },
+        });
+        const activeClientIds = activeClients.map((u) => u.id);
         const [projects, freelancers, proposals] = await Promise.all([
-            prisma.project.count({ where: { deletedAt: null } }),
+            prisma.project.count({ where: { deletedAt: null, client: { in: activeClientIds } } }),
             prisma.user.count({ where: { role: "freelancer", deletedAt: null } }),
             prisma.proposal.count(),
         ]);
         const avgProposals = projects > 0 ? Math.max(1, Math.round(proposals / projects)) : 12;
         const budgets = await prisma.project.aggregate({
-            where: { deletedAt: null },
+            where: { deletedAt: null, client: { in: activeClientIds } },
             _min: { budget: true },
             _max: { budget: true },
         });
         const timelines = await prisma.project.findMany({
-            where: { deletedAt: null, timeline: { not: null } },
+            where: { deletedAt: null, timeline: { not: null }, client: { in: activeClientIds } },
             select: { timeline: true },
             distinct: ["timeline"],
             take: 10,

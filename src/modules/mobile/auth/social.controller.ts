@@ -49,7 +49,7 @@ const getRedirectTo = (role: string) => {
 };
 
 const issueAuthResponse = async (
-  user: { id: string; email: string; fullName: string; role: string; avatarUrl: string | null; status: string; isVerified: boolean },
+  user: { id: string; email: string; fullName: string; role: string; avatarUrl: string | null; status: string; isVerified: boolean; onboardingStatus?: string | null },
   deviceId?: string,
   fcmToken?: string,
   platform?: string,
@@ -78,6 +78,7 @@ const issueAuthResponse = async (
     status: user.status,
     isVerified: user.isVerified,
     isSocialLogin: isSocial,
+    onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
     profileCompletion: completion.profileCompletion,
     isProfileComplete: completion.isProfileComplete,
     subscriptionPlan: hasActiveSubscription,

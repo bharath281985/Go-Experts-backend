@@ -174,7 +174,7 @@ const buildAuthPayload = async (user: AuthUser) => {
 
   const hasActiveSubscription = subscriptionGate.status === 'active';
 
-  return {
+    return {
     accessToken,
     refreshToken,
     token: accessToken,
@@ -194,6 +194,7 @@ const buildAuthPayload = async (user: AuthUser) => {
       status: user.status,
       isVerified: user.isVerified,
       isSocialLogin: isSocial,
+      onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
       profileCompletion: completion.profileCompletion,
       profileCompletedPer: completion.profileCompletion,
       profileCompletedPercentage: completion.profileCompletion,
@@ -1004,7 +1005,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       referralCode: activeUser.referralCode,
       createdAt: activeUser.createdAt,
       updatedAt: activeUser.updatedAt,
-      onboardingStatus: activeUser.onboardingStatus,
+      onboardingStatus: activeUser.onboardingStatus ?? 'COMPLETED',
       completionPercentage: activeUser.completionPercentage,
 
       // Role specific profile details

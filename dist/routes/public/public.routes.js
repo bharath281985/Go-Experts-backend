@@ -1045,6 +1045,16 @@ router.get("/projects/:slug", async (req, res, next) => {
         if (!project) {
             return res.status(404).json({ success: false, message: "Project not found" });
         }
+        // Verify the owning client has not been soft-deleted
+        if (project.client) {
+            const clientUser = await prisma.user.findFirst({
+                where: { id: project.client, deletedAt: null },
+                select: { id: true },
+            });
+            if (!clientUser) {
+                return res.status(404).json({ success: false, message: "Project not found" });
+            }
+        }
         res.json({ success: true, data: project });
     }
     catch (err) {
@@ -1192,22 +1202,54 @@ router.get("/investor_goals", async (_req, res) => {
     return res.json({ success: true, data: goals, rows: goals });
 });
 router.get("/startup_ideas", async (req, res, next) => {
-    await listModel({
-        req,
-        res,
-        next,
-        modelName: "StartupIdea",
-        searchColumns: ["startup", "founder", "industry"],
-        defaultWhere: { status: "active", visibility: "Public" },
-    });
+    try {
+        const { page, pageSize, search, orderBy, ascending } = parseListParams(req);
+        // Fetch only non-deleted founder user IDs to filter out deleted founders' ideas
+        const activeFounders = await prisma.user.findMany({
+            where: { deletedAt: null, role: "founder" },
+            select: { id: true },
+        });
+        const activeFounderIds = activeFounders.map((u) => u.id);
+        const where = {
+            deletedAt: null,
+            status: "active",
+            visibility: "Public",
+            founder: { in: activeFounderIds },
+        };
+        if (search) {
+            where.OR = [
+                { startup: { contains: search } },
+                { industry: { contains: search } },
+            ];
+        }
+        const db = prisma.startupIdea;
+        const total = await db.count({ where });
+        const rows = await db.findMany({
+            where,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            orderBy: orderBy ? { [orderBy]: ascending ? "asc" : "desc" } : { createdAt: "desc" },
+        });
+        res.json({ success: true, rows, total });
+    }
+    catch (err) {
+        next(err);
+    }
 });
 router.get("/startup_ideas/:id", async (req, res, next) => {
     try {
         const idOrSlug = String(req.params.id || "").trim();
+        // Fetch non-deleted founder IDs so we never expose deleted founders' ideas
+        const activeFounders = await prisma.user.findMany({
+            where: { deletedAt: null, role: "founder" },
+            select: { id: true },
+        });
+        const activeFounderIds = activeFounders.map((u) => u.id);
         const row = await prisma.startupIdea.findFirst({
             where: {
                 deletedAt: null,
                 status: "active",
+                founder: { in: activeFounderIds },
                 OR: [
                     { id: idOrSlug },
                     { startup: { equals: idOrSlug } },
@@ -1283,6 +1325,11 @@ router.get("/search", async (req, res, next) => {
             prisma.project.findMany({
                 where: {
                     deletedAt: null,
+                    client: {
+                        in: await prisma.user
+                            .findMany({ where: { deletedAt: null, role: "client" }, select: { id: true } })
+                            .then((us) => us.map((u) => u.id)),
+                    },
                     OR: [
                         { title: { contains: q } },
                         { category: { contains: q } },
@@ -1295,6 +1342,11 @@ router.get("/search", async (req, res, next) => {
                 where: {
                     deletedAt: null,
                     status: "active",
+                    founder: {
+                        in: await prisma.user
+                            .findMany({ where: { deletedAt: null, role: "founder" }, select: { id: true } })
+                            .then((us) => us.map((u) => u.id)),
+                    },
                     OR: [
                         { startup: { contains: q } },
                         { founder: { contains: q } },

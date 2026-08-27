@@ -222,8 +222,8 @@ export const login = async (req, res, next) => {
         let user = null;
         try {
             const userWhere = rawEmail && email && rawEmail !== email
-                ? { deletedAt: null, OR: [{ email: rawEmail }, { email }] }
-                : { deletedAt: null, email };
+                ? { OR: [{ email: rawEmail }, { email }] }
+                : { email };
             user = await prisma.user.findFirst({
                 where: userWhere,
                 include: {
@@ -242,6 +242,12 @@ export const login = async (req, res, next) => {
                 .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Email not found" } })
                 .catch(() => { });
             return res.status(400).json({ success: false, message: "Invalid email or password" });
+        }
+        if (user.deletedAt) {
+            prisma.loginAttempt
+                .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Account deleted" } })
+                .catch(() => { });
+            return res.status(403).json({ success: false, message: "Your account is suspended. Please contact support." });
         }
         if (!user.password) {
             prisma.loginAttempt
@@ -319,7 +325,7 @@ export const login = async (req, res, next) => {
             avatarUrl: user.avatarUrl,
             role: user.role,
             status: user.status,
-            onboardingStatus: user.onboardingStatus,
+            onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
             country: user.country,
             state: user.state,
             city: user.city,
@@ -409,6 +415,14 @@ export const register = async (req, res, next) => {
         const country = req.body?.country ? String(req.body.country) : null;
         const state = req.body?.state ? String(req.body.state) : null;
         const city = req.body?.city ? String(req.body.city) : null;
+        const latitudeRaw = req.body?.latitude;
+        const longitudeRaw = req.body?.longitude;
+        const latitude = latitudeRaw === undefined || latitudeRaw === null || latitudeRaw === ""
+            ? null
+            : Number(latitudeRaw);
+        const longitude = longitudeRaw === undefined || longitudeRaw === null || longitudeRaw === ""
+            ? null
+            : Number(longitudeRaw);
         const bio = req.body?.bio ? String(req.body.bio) : null;
         const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, state: _state, city: _city, bio: _bio, ...restData } = req.body || {};
         const registrationData = Object.keys(restData).length > 0 ? restData : undefined;
@@ -447,6 +461,8 @@ export const register = async (req, res, next) => {
                         country,
                         state,
                         city,
+                        latitude: Number.isFinite(latitude) ? latitude : null,
+                        longitude: Number.isFinite(longitude) ? longitude : null,
                         bio,
                         registrationData,
                         // IMPORTANT: Clear soft-delete so the account is restored/visible
@@ -467,6 +483,8 @@ export const register = async (req, res, next) => {
                         country,
                         state,
                         city,
+                        latitude: Number.isFinite(latitude) ? latitude : null,
+                        longitude: Number.isFinite(longitude) ? longitude : null,
                         bio,
                         registrationData,
                         referralCode,
@@ -906,6 +924,9 @@ export const me = async (req, res, next) => {
                     isKycVerified: kycReadiness.verified,
                     kycStatus: kycReadiness.status,
                     kyc: kycReadiness,
+                    profileCompletion: completion.profileCompletion,
+                    profileCompletedPer: completion.profileCompletion,
+                    profileCompletedPercentage: completion.profileCompletion,
                     profileReadiness: {
                         role: (user.role || "").toUpperCase(),
                         profileCompletion: completion.profileCompletion,
@@ -990,6 +1011,9 @@ export const me = async (req, res, next) => {
                         isKycVerified: kycReadiness.verified,
                         kycStatus: kycReadiness.status,
                         kyc: kycReadiness,
+                        profileCompletion: completion.profileCompletion,
+                        profileCompletedPer: completion.profileCompletion,
+                        profileCompletedPercentage: completion.profileCompletion,
                         profileReadiness: {
                             role: (user.role || "").toUpperCase(),
                             profileCompletion: completion.profileCompletion,
@@ -1895,7 +1919,7 @@ export const saveOnboardingDraft = async (req, res, next) => {
             ...req.body,
             lastStep: step !== undefined ? step : currentRegData.lastStep,
         };
-        const isCompleted = req.body.completed === true;
+        const isCompleted = req.body.completed === true || req.body.onboardingComplete === true;
         const progress = calculateOnboardingProgress(user.role, step || 0, isCompleted);
         // Update User model basic fields
         const userUpdate = {

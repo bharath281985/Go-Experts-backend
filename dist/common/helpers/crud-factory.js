@@ -201,14 +201,9 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
             const sanitized = sanitizeModelData(String(modelName), req.body);
             // Fetch old user if this is a user update
             let oldUser = null;
-<<<<<<< HEAD
-            if (modelName === "user" || modelName === "client" || modelName === "freelancer" || modelName === "investor" || modelName === "founder") {
-                const actualModel = modelName === "user" ? "user" : "user"; // always fetch user
-=======
             const sModel = String(modelName);
             if (sModel === "user" || sModel === "client" || sModel === "freelancer" || sModel === "investor" || sModel === "founder") {
                 const actualModel = sModel === "user" ? "user" : "user"; // always fetch user
->>>>>>> ef25fab188dea5f67fad711babe08c052d41f545
                 // If the model is not user, but the route is updating user (roles route alias), id is user id
                 oldUser = await prisma.user.findUnique({ where: { id: req.params.id } });
             }
@@ -221,11 +216,7 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                 try {
                     const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
                     const emailAdapter = new EmailChannelAdapter();
-<<<<<<< HEAD
-                    const { renderEmailTemplate } = await import("./template-renderer.js");
-=======
                     const { renderEmailTemplate } = await import("../../services/settings/settings.service.js");
->>>>>>> ef25fab188dea5f67fad711babe08c052d41f545
                     let parsedConfig = {};
                     const chanConfig = await prisma.communicationChannel.findUnique({ where: { name: "email" } }).catch(() => null);
                     if (chanConfig?.config)

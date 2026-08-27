@@ -374,7 +374,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       avatarUrl: user.avatarUrl,
       role: user.role,
       status: user.status,
-      onboardingStatus: user.onboardingStatus,
+      onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
       country: user.country,
       state: user.state,
       city: user.city,

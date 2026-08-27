@@ -1016,3 +1016,19 @@ export const listFounderRoles = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+export const listFounderReviews = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const rows = await prisma.review.findMany({
+            where: { revieweeId: userId },
+            include: { reviewer: { select: { fullName: true, avatarUrl: true } }, project: { select: { title: true } } },
+            orderBy: { createdAt: "desc" },
+        });
+        res.json({ success: true, rows, total: rows.length });
+    }
+    catch (err) {
+        next(err);
+    }
+};
