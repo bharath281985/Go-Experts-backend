@@ -221,11 +221,12 @@ export const listFreelancerContracts = async (req: AuthenticatedRequest, res: Re
 // TASKS
 // ==========================================
 
-function freelancerTaskWhere(user: { fullName: string; email: string }) {
+function freelancerTaskWhere(user: { id?: string; fullName: string; email: string }) {
   const needles = freelancerNeedles(user);
   return {
     deletedAt: null,
     OR: [
+      ...(user.id ? [{ assignedTo: user.id }] : []),
       ...needles.map((n) => ({ assignedTo: { contains: n } })),
       ...needles.map((n) => ({ project: { is: { freelancer: { contains: n } } } })),
     ],
@@ -245,6 +246,34 @@ export const listFreelancerTasks = async (req: AuthenticatedRequest, res: Respon
       orderBy: { createdAt: "desc" },
     });
     res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
+
+export const addFreelancerTask = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    
+    const { title, projectId, priority, dueDate, status, progress } = req.body;
+    if (!title || !projectId) {
+      return res.status(400).json({ success: false, message: "Title and Project are required" });
+    }
+
+    const task = await prisma.task.create({
+      data: {
+        title,
+        projectId,
+        priority: priority || "Medium",
+        status: status || "To Do",
+        progress: progress ? Number(progress) : 0,
+        dueDate: dueDate || null,
+        assignedTo: userId,
+      }
+    });
+    res.status(201).json({ success: true, task });
   } catch (err) {
     handleError(err, res, next);
   }

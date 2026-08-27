@@ -22,7 +22,7 @@ export function canCreateConversation(
 
   const rolePair = [userRole, targetRole].sort().join("-");
 
-  if (rolePair === "client-freelancer") {
+  if (rolePair === "client-freelancer" || rolePair === "founder-freelancer") {
     return ["PROJECT", "PROPOSAL", "INVITATION"].includes(contextType || "") && !!contextId;
   }
 

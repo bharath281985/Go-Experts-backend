@@ -28,6 +28,7 @@ import {
   withdrawFreelancerProposal,
   listFreelancerContracts,
   listFreelancerTasks,
+  addFreelancerTask,
   updateFreelancerTask,
   listFreelancerMeetings,
   createFreelancerMeeting,
@@ -125,6 +126,7 @@ router.post("/proposals/:id/accept-offer", acceptOffer as any);
 router.get("/contracts", listFreelancerContracts as any);
 
 router.get("/tasks", listFreelancerTasks as any);
+router.post("/tasks", addFreelancerTask as any);
 router.patch("/tasks/:id", updateFreelancerTask as any);
 
 router.get("/meetings", listFreelancerMeetings as any);

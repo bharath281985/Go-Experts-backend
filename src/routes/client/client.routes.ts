@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { 
   getClientDashboard,
+  listClientReviews,
   getClientProfile,
   updateClientProfile,
   listClientProjects,
@@ -91,7 +92,7 @@ router.get("/contracts", listClientContracts as any);
 // router.get("/invoices", listClientInvoices as any);
 // router.get("/payments", listClientPayments as any);
 
-// router.get("/reviews", listClientReviews as any);
+router.get("/reviews", listClientReviews as any);
 // router.post("/reviews", createClientReview as any);
 
 // router.get("/analytics", getClientAnalytics as any);
