@@ -1000,6 +1000,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       referralCode: activeUser.referralCode,
       createdAt: activeUser.createdAt,
       updatedAt: activeUser.updatedAt,
+      onboardingStatus: activeUser.onboardingStatus,
+      completionPercentage: activeUser.completionPercentage,
 
       // Role specific profile details
       profile: formattedProfile,
