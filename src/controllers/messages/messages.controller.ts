@@ -61,7 +61,7 @@ export const listConversations = async (req: AuthenticatedRequest, res: Response
       }
       
       let convTitle = (c.name && c.name !== "Conversation") ? c.name : otherUser.fullName;
-      if (c.contextType === "PROJECT" && c.project) convTitle = c.project.title;
+      // if (c.contextType === "PROJECT" && c.project) convTitle = c.project.title; // Keep client name instead
       if (c.contextType === "SUPPORT") convTitle = `Support: ${c.name}`;
 
       return {

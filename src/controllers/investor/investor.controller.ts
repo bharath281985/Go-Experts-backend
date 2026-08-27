@@ -771,3 +771,18 @@ export const listAllFounders = async (req: AuthenticatedRequest, res: Response, 
   }
 };
 
+
+export const listInvestorReviews = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const rows = await prisma.review.findMany({
+      where: { revieweeId: userId },
+      include: { reviewer: { select: { fullName: true, avatarUrl: true } }, project: { select: { title: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ success: true, rows, total: rows.length });
+  } catch (err) {
+    next(err);
+  }
+};

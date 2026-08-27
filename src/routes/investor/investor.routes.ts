@@ -35,6 +35,7 @@ import {
   getInvestorSettings,
   updateInvestorSettings,
   listAllFounders,
+  listInvestorReviews,
 } from "../../controllers/investor/investor.controller.js";
 
 const router = Router();
@@ -96,3 +97,5 @@ router.post("/media/upload", upload.single("file"), uploadFile as any);
 
 export default router;
 
+
+router.get("/reviews", listInvestorReviews as any);

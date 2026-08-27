@@ -47,6 +47,7 @@ import {
   getFounderSettings,
   updateFounderSettings,
   listFounderRoles,
+  listFounderReviews,
 } from "../../controllers/founder/founder.controller.js";
 
 const router = Router();
@@ -125,3 +126,5 @@ router.post("/media/upload", upload.single("file"), uploadFile as any);
 
 export default router;
 
+
+router.get("/reviews", listFounderReviews as any);
