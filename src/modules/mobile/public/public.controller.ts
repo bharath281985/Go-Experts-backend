@@ -1487,6 +1487,16 @@ export const getById = (modelName: string) => async (req: Request, res: Response
           where: { type: 'experience_level', status: 'active', OR: [{ id: rawExp }, { value: rawExp }, { label: rawExp }] },
           select: { id: true, label: true, value: true }
         }).catch(() => null);
+
+        if (!expOption) {
+          const dbExp = await prisma.experienceLevel.findFirst({
+            where: { status: 'active', OR: [{ id: rawExp }, { name: rawExp }] },
+            select: { id: true, name: true }
+          }).catch(() => null);
+          if (dbExp) {
+            expOption = { id: dbExp.id, label: dbExp.name, value: dbExp.name };
+          }
+        }
       }
 
       return res.json(successResponse('Details retrieved for freelancer', {
