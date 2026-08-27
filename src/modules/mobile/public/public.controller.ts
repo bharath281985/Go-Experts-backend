@@ -1480,6 +1480,15 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const workModeMap = new Map<string, string>(dbWorkModes.map((row): [string, string] => [row.id, row.name]));
       const wmNames = wmArr.map((id: string) => workModeMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id));
 
+      const rawExp = user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "";
+      let expOption = null;
+      if (rawExp) {
+        expOption = await (prisma as any).masterOption?.findFirst({
+          where: { type: 'experience_level', status: 'active', OR: [{ id: rawExp }, { value: rawExp }, { label: rawExp }] },
+          select: { id: true, label: true, value: true }
+        }).catch(() => null);
+      }
+
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
         userId: user.id,
@@ -1501,22 +1510,34 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         stateId: stId,
 
         Skills: sklArr.map((id: string, idx: number) => ({
+          id: id,
+          name: sklNames[idx] || id,
           skillId: id,
           skillName: sklNames[idx] || ''
         })),
 
         Industry: oneOrMany(indArr.map((id: string, idx: number) => ({
+          id: id,
+          name: indNames[idx] || id,
           industryId: id,
           industryName: indNames[idx] || ''
         }))),
 
         WorkMode: oneOrMany(wmArr.map((id: string, idx: number) => ({
+          id: id,
+          name: wmNames[idx] || id,
           workModeId: id,
           workModeName: wmNames[idx] || ''
         }))),
         hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
-        experience: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
-        experienceLevel: user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "",
+        experience: rawExp,
+        experienceLevel: rawExp,
+        ExperienceLevel: rawExp ? {
+          id: expOption?.id || rawExp,
+          name: expOption?.label || expOption?.value || rawExp,
+          experienceLevelId: expOption?.id || rawExp,
+          experienceLevelName: expOption?.label || expOption?.value || rawExp
+        } : null,
         yearsOfExperience: user.freelancerProfile?.yearsOfExperience || reg.yearsOfExperience || reg.yearsExperience || reg.years || null,
         portfolioUrl: user.freelancerProfile?.portfolioUrl || reg.portfolioUrl || reg.portfolio || reg.websiteUrl || null,
         linkedInUrl: user.freelancerProfile?.linkedInUrl || reg.linkedInUrl || reg.linkedin || null,
