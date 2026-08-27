@@ -199,7 +199,6 @@ const buildAuthPayload = async (user: AuthUser) => {
       profileCompletedPer: completion.profileCompletion,
       profileCompletedPercentage: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
-      onboardingStatus: user.onboardingStatus,
       completionPercentage: user.completionPercentage,
       subscriptionPlan: hasActiveSubscription,
       hasSubscription: hasActiveSubscription,
