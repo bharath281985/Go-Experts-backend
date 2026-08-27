@@ -86,6 +86,8 @@ type AuthUser = {
   avatarUrl: string | null;
   status: string;
   isVerified: boolean;
+  onboardingStatus?: string | null;
+  completionPercentage?: number | null;
 };
 
 const buildPhoneNumber = (phone?: string, countryCode?: string) => {
@@ -196,6 +198,8 @@ const buildAuthPayload = async (user: AuthUser) => {
       profileCompletedPer: completion.profileCompletion,
       profileCompletedPercentage: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
+      onboardingStatus: user.onboardingStatus,
+      completionPercentage: user.completionPercentage,
       subscriptionPlan: hasActiveSubscription,
       hasSubscription: hasActiveSubscription,
       isSubscribed: hasActiveSubscription,
