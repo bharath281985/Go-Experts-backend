@@ -790,8 +790,8 @@ export const withdrawFounderWallet = async (req, res, next) => {
         if (!userId)
             return;
         const body = req.body || {};
-        const result = await debitWalletForSelf(userId, Number(body.amount), "debit", body.description || "Wallet withdrawal");
-        res.status(201).json({ success: true, message: "Withdrawal successful", data: result });
+        const result = await debitWalletForSelf(userId, Number(body.amount), "withdrawal", body.description || "Wallet withdrawal", "pending");
+        res.status(201).json({ success: true, message: "Withdrawal request submitted", data: result });
     }
     catch (err) {
         handleError(err, res, next);

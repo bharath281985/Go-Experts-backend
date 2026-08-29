@@ -87,9 +87,9 @@ export const initiateEasebuzzPayment = async (
   const email = cleanEasebuzzEmail(metadata.email);
   const phone = cleanEasebuzzPhone(metadata.phone);
   const isProd = easeEnv === 'live' || easeEnv === 'prod' || easeEnv === 'production';
-  const apiHost = isProd
+  const apiHost = process.env.API_BASE_URL || (isProd
     ? 'https://apiai.goexperts.in/api'
-    : process.env.API_BASE_URL || 'http://localhost:3000/api';
+    : 'http://localhost:5001/api');
   const surl = String(metadata.successUrl || process.env.EASEBUZZ_SUCCESS_URL || `${apiHost}/payments/webhooks/easebuzz`);
   const furl = String(metadata.failureUrl || process.env.EASEBUZZ_FAILURE_URL || `${apiHost}/payments/webhooks/easebuzz`);
 

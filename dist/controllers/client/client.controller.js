@@ -495,6 +495,89 @@ export const deleteClientProject = async (req, res, next) => {
         handleError(err, res, next);
     }
 };
+export const inviteFreelancer = async (req, res, next) => {
+    try {
+        const userId = requireUser(req, res);
+        if (!userId)
+            return;
+        const projectId = req.params.id;
+        const body = req.body || {};
+        const freelancerId = body.freelancerId;
+        if (!freelancerId) {
+            return res.status(400).json({ success: false, message: "freelancerId is required" });
+        }
+        const project = await findOwnedProject(userId, projectId);
+        if (!project)
+            return res.status(404).json({ success: false, message: "Project not found" });
+        // Check if proposal already exists
+        const existingProposal = await prisma.proposal.findFirst({
+            where: { projectId: project.id, freelancerId, deletedAt: null }
+        });
+        if (existingProposal) {
+            return res.status(400).json({ success: false, message: "Freelancer has already been invited or applied to this project." });
+        }
+        // Create a new Proposal with status "invited"
+        const proposal = await prisma.proposal.create({
+            data: {
+                projectId: project.id,
+                freelancerId,
+                bidAmount: project.budget || 0,
+                status: "invited",
+            }
+        });
+        // Create a conversation for the invitation
+        const baseMessageText = body.message || `I would like to invite you to submit a proposal for my project: ${project.title}.`;
+        const messageText = `${baseMessageText}\n\nProject Details:\nTitle: ${project.title}\nBudget: ₹${project.budget || "Negotiable"}`;
+        // Check if conversation already exists for this project + freelancer
+        const existingConv = await prisma.conversation.findFirst({
+            where: {
+                contextType: "PROJECT",
+                projectId: project.id,
+                OR: [
+                    { userA: userId, userB: freelancerId },
+                    { userA: freelancerId, userB: userId }
+                ]
+            }
+        });
+        let convId = existingConv?.id;
+        if (!convId) {
+            const conv = await prisma.conversation.create({
+                data: {
+                    name: `Project Invitation: ${project.title}`,
+                    contextType: "PROJECT",
+                    role: "PROJECT",
+                    projectId: project.id,
+                    userA: userId,
+                    userB: freelancerId
+                }
+            });
+            convId = conv.id;
+        }
+        // Send the first message
+        await prisma.message.create({
+            data: {
+                conversationId: convId,
+                senderId: userId,
+                from: userId,
+                text: messageText,
+                time: new Date().toISOString()
+            }
+        });
+        // Fire & forget event log (doesn't fail request if it errors)
+        logActivityEvent({
+            type: "PROPOSAL_CREATED",
+            actorId: userId,
+            actorType: "USER",
+            contextType: "PROPOSAL",
+            contextId: proposal.id,
+            metadata: { description: `Client invited freelancer to project: ${project.title}` },
+        }).catch(() => { });
+        res.json({ success: true, message: "Invitation sent successfully", proposalId: proposal.id });
+    }
+    catch (err) {
+        handleError(err, res, next);
+    }
+};
 export const listProjectApplications = async (req, res, next) => {
     try {
         const userId = requireUser(req, res);
@@ -915,8 +998,8 @@ export const withdrawClientWallet = async (req, res, next) => {
         if (!amount || amount < 1000) {
             return res.status(400).json({ success: false, message: "Minimum withdrawal amount is ₹1,000" });
         }
-        const result = await debitWalletForSelf(userId, amount, "debit", body.description || "Wallet withdrawal");
-        res.status(201).json({ success: true, message: "Withdrawal successful", data: result });
+        const result = await debitWalletForSelf(userId, amount, "withdrawal", body.description || "Wallet withdrawal", "pending");
+        res.status(201).json({ success: true, message: "Withdrawal request submitted", data: result });
     }
     catch (err) {
         handleError(err, res, next);

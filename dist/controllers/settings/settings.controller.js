@@ -1,4 +1,5 @@
 import { createBackupSnapshot, deleteBackupSnapshot, getApiKeysList, getAuditTrails, getBackupsList, getSettingsSection, getSystemLogs, getTeamRoles, saveSettingsSection, renderEmailTemplate, } from "../../services/settings/settings.service.js";
+import { SETTINGS_DEFAULTS } from "../../services/settings/settings.defaults.js";
 const jsonSection = (section) => async (_req, res, next) => {
     try {
         const result = await getSettingsSection(section);
@@ -333,9 +334,15 @@ export const getIndustryColorsSettings = async (_req, res, next) => {
     try {
         const { prisma } = await import("../../config/database.js");
         const doc = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
-        if (!doc)
-            return res.json({ success: true, data: null });
-        res.json({ success: true, data: JSON.parse(doc.value) });
+        if (!doc?.value) {
+            return res.json({ success: true, data: SETTINGS_DEFAULTS.industry_colors });
+        }
+        try {
+            res.json({ success: true, data: JSON.parse(doc.value) });
+        }
+        catch {
+            res.json({ success: true, data: SETTINGS_DEFAULTS.industry_colors });
+        }
     }
     catch (err) {
         next(err);

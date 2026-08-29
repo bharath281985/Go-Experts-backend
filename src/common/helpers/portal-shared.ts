@@ -153,7 +153,7 @@ export async function creditWalletForSelf(userId: string, amount: number, type: 
   });
 }
 
-export async function debitWalletForSelf(userId: string, amount: number, type: string, description?: string) {
+export async function debitWalletForSelf(userId: string, amount: number, type: string, description?: string, status?: string) {
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) throw new HttpError("A valid positive amount is required");
 
@@ -174,6 +174,7 @@ export async function debitWalletForSelf(userId: string, amount: number, type: s
         direction: "debit",
         description: description || `${type} debit`,
         balanceAfter: updated.balance,
+        status: status || "completed",
       },
     });
 
@@ -811,11 +812,22 @@ export async function purchaseSubscriptionForSelf(
   const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
   if (!plan || plan.status !== "active") throw new HttpError("Plan not available", 404);
 
+  const gst = calcGST(plan.amount);
+  const total = parseFloat((plan.amount + gst).toFixed(2));
+
+  if (gateway !== "wallet") {
+    const { initiatePaymentService } = await import("../../modules/mobile/payments/payments.service.js");
+    const result = await initiatePaymentService(userId, gateway, total, plan.currency || "INR", {
+      purpose: "subscription",
+      planId,
+      billingCycle: plan.duration
+    });
+    return result; // contains paymentUrl
+  }
+
   return prisma.$transaction(async (tx) => {
     await tx.subscription.updateMany({ where: { userId, status: "active" }, data: { status: "expired" } });
 
-    const gst = calcGST(plan.amount);
-    const total = parseFloat((plan.amount + gst).toFixed(2));
     const now = new Date();
     const endDate = addDuration(now, plan.duration);
 

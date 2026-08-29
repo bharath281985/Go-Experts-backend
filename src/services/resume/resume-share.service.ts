@@ -37,7 +37,7 @@ export class ResumeShareService {
         templateId: configInfo.templateId,
         templateVersion: configInfo.templateVersion,
         configVersion: configInfo.configVersion,
-        snapshotData,
+        snapshotData: typeof snapshotData === 'string' ? snapshotData : JSON.stringify(snapshotData),
       }
     });
 

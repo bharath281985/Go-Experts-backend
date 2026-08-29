@@ -41,7 +41,7 @@ export async function listPublicProjects(options?: {
       OR?: Array<Record<string, unknown>>;
     } = {
       deletedAt: null,
-      status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active"] },
+      status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active", "closed", "Closed", "completed", "Completed"] },
       client: { in: activeClientIds },
     };
 

@@ -31,7 +31,7 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
   try {
     const { projectId, bidAmount, coverLetter, deliveryTime } = req.body;
     const proposal = await prisma.proposal.create({
-      data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, deliveryTime, status: 'pending' }
+      data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, status: 'pending' }
     });
 
     const project = await prisma.project.findUnique({ where: { id: projectId } });

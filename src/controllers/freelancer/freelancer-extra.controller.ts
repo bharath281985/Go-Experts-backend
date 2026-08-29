@@ -521,8 +521,8 @@ export const withdrawFreelancerWallet = async (req: AuthenticatedRequest, res: R
     const userId = requireUser(req, res);
     if (!userId) return;
     const body = req.body || {};
-    const result = await debitWalletForSelf(userId, Number(body.amount), "debit", body.description || "Freelancer withdrawal");
-    res.status(201).json({ success: true, message: "Withdrawal successful", data: result });
+    const result = await debitWalletForSelf(userId, Number(body.amount), "withdrawal", body.description || "Freelancer withdrawal", "pending");
+    res.status(201).json({ success: true, message: "Withdrawal request submitted", data: result });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -1375,8 +1375,19 @@ export const putFreelancerResume = async (req: AuthenticatedRequest, res: Respon
     const safeName = (user?.fullName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '_');
     const mockPdfUrl = `https://apiai.goexperts.in/uploads/mock_resume_${safeName}.pdf`;
 
-    const existing = await getJsonSetting(userId, "resume", {});
-    const merged = { ...existing, ...(req.body || {}) };
+    const existing = await getJsonSetting(userId, "resume", {}) as any;
+    const incomingBody = req.body || {};
+    
+    // Auto-increment configVersion so share snapshots detect updates
+    const oldVersion = existing.configVersion || (existing.config && existing.config.configVersion) || 1;
+    const newVersion = oldVersion + 1;
+    
+    if (incomingBody.config) {
+      incomingBody.config.configVersion = newVersion;
+    }
+    incomingBody.configVersion = newVersion;
+
+    const merged = { ...existing, ...incomingBody };
     await setJsonSetting(userId, "resume", merged);
 
     let currentReg = {};

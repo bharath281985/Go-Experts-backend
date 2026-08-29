@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import { listFreelancersCompat } from "../../common/helpers/prisma-compat.js";
+import { SETTINGS_DEFAULTS } from "../../services/settings/settings.defaults.js";
 import {
   getHomeCmsContent,
   getHomePagePayload,
@@ -93,14 +94,14 @@ router.get("/settings/branding", async (req: Request, res: Response) => {
 
 router.get("/settings/role-color", async (req: Request, res: Response) => {
   const role = String(req.query.role || "").trim().toLowerCase();
-  if (!role) return res.json({ success: true, color: "#E30613" });
+  const DEFAULT_COLOR = "#0f172a";
+  if (!role) return res.json({ success: true, color: DEFAULT_COLOR });
   
   try {
     const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
-    if (!setting || !setting.value) return res.json({ success: true, color: "#E30613" });
-    const colors = JSON.parse(setting.value);
+    const colors = setting?.value ? JSON.parse(setting.value) : SETTINGS_DEFAULTS.industry_colors;
     
-    let matchedColor = "#E30613";
+    let matchedColor = DEFAULT_COLOR;
     for (const [key, color] of Object.entries(colors)) {
       if (key.toLowerCase() === role || key.toLowerCase() === role + 's') {
         matchedColor = String(color);

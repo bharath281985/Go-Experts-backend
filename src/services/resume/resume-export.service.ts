@@ -30,11 +30,10 @@ export class ResumeExportService {
   static async loadExportContext(userId: string): Promise<ExportContext> {
     // 1. Get user profile
     const profile = await prisma.freelancerProfile.findUnique({ where: { userId } });
-    if (!profile) throw new Error("Freelancer profile not found");
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
-    const mergedProfile = { ...user, ...profile };
+    const mergedProfile = { ...user, ...(profile || {}) };
 
     // 2. Get resume config
     const setting = await prisma.setting.findUnique({ where: { key: `resume:${userId}` } });

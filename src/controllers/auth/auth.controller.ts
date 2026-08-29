@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { env } from "../../config/env.js";
 import { prisma } from "../../config/database.js";
+import { SETTINGS_DEFAULTS } from "../../services/settings/settings.defaults.js";
 import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { SmsChannelAdapter } from "../../modules/notifications/notification.service.js";
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
@@ -120,8 +121,7 @@ async function getRoleColor(user: any): Promise<string> {
   try {
     const { prisma } = await import("../../config/database.js");
     const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
-    if (!setting || !setting.value) return DEFAULT_COLOR;
-    const colors = JSON.parse(setting.value);
+    const colors = setting?.value ? JSON.parse(setting.value) : SETTINGS_DEFAULTS.industry_colors;
     
     // Match based on user role (case-insensitive)
     const userRole = (user?.role || "").toLowerCase();

@@ -182,8 +182,6 @@ function evaluateClient(user: any, cp: any) {
   };
 
   const publishMissing = [];
-  if (!fields.country) publishMissing.push({ key: 'location', label: 'Location Details', sectionKey: 'location' });
-  if (!fields.industry) publishMissing.push({ key: 'industry', label: 'Industry', sectionKey: 'company' });
   
   if (publishMissing.length > 0) {
     capabilities.publishProject = {

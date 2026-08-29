@@ -27,6 +27,12 @@ export const SETTINGS_DEFAULTS = {
     defaultClientLogo: null,
     defaultClientBanner: null,
   },
+  industry_colors: {
+    Founder: "#10b981",
+    Freelancer: "#8b5cf6",
+    Investor: "#3b82f6",
+    Client: "#f59e0b",
+  },
   email: {
     provider: "Custom SMTP",
     apiKey: "Goexperts@2025",

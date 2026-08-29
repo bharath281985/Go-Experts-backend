@@ -492,36 +492,27 @@ router.post("/webhooks/razorpay", async (req, res) => {
 // POST /webhooks/easebuzz
 router.post("/webhooks/easebuzz", async (req, res) => {
     try {
-        const body = req.body || {};
-        const txnid = body.txnid || body.txnId || body.transaction_id;
-        const statusRaw = String(body.status || body.udf1 || "").toLowerCase();
+        const { txnid, amount, status, hash, email, firstname, productinfo } = req.body || {};
+        const statusRaw = String(status || req.body?.udf1 || "").toLowerCase();
         const isBrowser = req.headers.accept?.includes("text/html");
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5175";
         if (txnid) {
-            const payment = await prisma.payment.findFirst({ where: { transactionId: String(txnid) } });
-            if (payment) {
-                let status = payment.status;
-                if (["success", "successful", "completed", "paid"].includes(statusRaw)) {
-                    status = "completed";
-                    // Check if this was a subscription payment (indicated in productinfo)
-                    if (body.productinfo?.startsWith("SUB_")) {
-                        const planId = body.productinfo?.replace("SUB_", "");
-                        if (planId) {
-                            // Activate subscription
-                            const { purchaseSubscriptionForSelf } = await import("../../common/helpers/portal-shared.js");
-                            await purchaseSubscriptionForSelf(payment.userId, planId, "easebuzz", String(txnid)).catch(console.error);
-                        }
-                    }
+            const { verifyEasebuzzReverseHash } = await import("../../modules/mobile/payments/gateways/easebuzz.gateway.js");
+            const { completePaymentFromWebhook } = await import("../../modules/mobile/payments/payments.service.js");
+            const valid = verifyEasebuzzReverseHash(String(txnid || ""), String(amount || ""), String(status || ""), String(hash || ""), String(email || ""), String(firstname || ""), String(productinfo || ""));
+            if (valid && ["success", "successful", "completed", "paid"].includes(statusRaw)) {
+                await completePaymentFromWebhook(String(txnid), String(productinfo || ""));
+            }
+            else if (valid) {
+                // Mark as failed if valid hash but not success status
+                const payment = await prisma.payment.findFirst({ where: { transactionId: String(txnid) } });
+                if (payment) {
+                    await prisma.payment.update({ where: { id: payment.id }, data: { status: "failed" } });
                 }
-                else if (["failure", "failed", "userCancelled", "bounced"].includes(statusRaw))
-                    status = "failed";
-                else if (statusRaw)
-                    status = statusRaw;
-                await prisma.payment.update({ where: { id: payment.id }, data: { status } });
             }
         }
         if (isBrowser) {
-            return res.redirect(`${frontendUrl}/dashboard/subscriptions?status=${statusRaw}`);
+            return res.redirect(`${frontendUrl}/pricing?status=${statusRaw}`);
         }
         return res.json({ success: true, received: true });
     }

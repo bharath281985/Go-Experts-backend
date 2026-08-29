@@ -11,7 +11,7 @@ import {
   saveSettingsSection,
   renderEmailTemplate,
 } from "../../services/settings/settings.service.js";
-import type { SettingsSection } from "../../services/settings/settings.defaults.js";
+import { SETTINGS_DEFAULTS, type SettingsSection } from "../../services/settings/settings.defaults.js";
 
 const jsonSection =
   <T extends SettingsSection>(section: T) =>
@@ -379,8 +379,15 @@ export const getIndustryColorsSettings = async (_req: any, res: Response, next: 
   try {
     const { prisma } = await import("../../config/database.js");
     const doc = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
-    if (!doc) return res.json({ success: true, data: null });
-    res.json({ success: true, data: JSON.parse(doc.value) });
+    if (!doc?.value) {
+      return res.json({ success: true, data: SETTINGS_DEFAULTS.industry_colors });
+    }
+
+    try {
+      res.json({ success: true, data: JSON.parse(doc.value) });
+    } catch {
+      res.json({ success: true, data: SETTINGS_DEFAULTS.industry_colors });
+    }
   } catch (err) { next(err); }
 };
 

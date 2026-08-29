@@ -25,7 +25,7 @@ export async function listPublicProjects(options) {
         const activeClientIds = activeClients.map((u) => u.id);
         const where = {
             deletedAt: null,
-            status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active"] },
+            status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active", "closed", "Closed", "completed", "Completed"] },
             client: { in: activeClientIds },
         };
         if (categoryName)

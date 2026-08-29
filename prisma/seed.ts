@@ -201,6 +201,30 @@ async function main() {
     },
   });
 
+  console.log("Seeding role colors...");
+  await prisma.setting.upsert({
+    where: { key: "settings:industry_colors" },
+    update: {
+      value: JSON.stringify({
+        Founder: "#10b981",
+        Freelancer: "#8b5cf6",
+        Investor: "#3b82f6",
+        Client: "#f59e0b",
+      }),
+      category: "branding",
+    },
+    create: {
+      key: "settings:industry_colors",
+      value: JSON.stringify({
+        Founder: "#10b981",
+        Freelancer: "#8b5cf6",
+        Investor: "#3b82f6",
+        Client: "#f59e0b",
+      }),
+      category: "branding",
+    },
+  });
+
   // ─────────────────────────────────────────
   // 2. MASTER DATA
   // ─────────────────────────────────────────
@@ -771,7 +795,7 @@ async function main() {
       const p = await prisma.project.create({
         data: {
           title: `${pick(["Build", "Design", "Develop", "Create"])} ${pick(["E-Commerce App", "SaaS Platform", "Mobile App", "API Service", "Dashboard"])}`,
-          client: client.fullName,
+          client: client.id,
           freelancer: null,
           category: pick(["Web Development", "Mobile App", "AI/ML", "DevOps", "UI/UX Design", "Data Science"]),
           technology: pick(["React", "Node.js", "Python", "Flutter", "TypeScript", "Django"]),

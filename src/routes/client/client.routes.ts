@@ -18,6 +18,7 @@ import {
   offerProposal,
   rejectProposal,
   interviewProposal,
+  inviteFreelancer,
   listSavedFreelancers,
   toggleSavedFreelancer,
   removeSavedFreelancer,
@@ -26,7 +27,8 @@ import {
   addClientTeamMember,
   updateClientTeamMember,
   deleteClientTeamMember, listClientRoles,
-  listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead
+  listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead,
+  getClientAnalytics
 } from "../../controllers/client/client.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
@@ -62,7 +64,7 @@ router.get("/projects/:id/applications", listProjectApplications as any);
 
 router.get("/applications", listClientApplications as any);
 
-// router.post("/projects/:id/invite", inviteFreelancer as any);
+router.post("/projects/:id/invite", inviteFreelancer as any);
 //   router.get("/projects/:id/invitations", listProjectInvitations as any);
   router.get("/projects/:id/proposals", listProjectApplications as any);
   router.get("/proposals/:id", getClientProposal as any);
@@ -95,7 +97,7 @@ router.get("/contracts", listClientContracts as any);
 router.get("/reviews", listClientReviews as any);
 // router.post("/reviews", createClientReview as any);
 
-// router.get("/analytics", getClientAnalytics as any);
+router.get("/analytics", getClientAnalytics as any);
 
 router.get("/notifications", listClientNotifications as any);
 router.patch("/notifications/read-all", markAllClientNotificationsRead as any);
