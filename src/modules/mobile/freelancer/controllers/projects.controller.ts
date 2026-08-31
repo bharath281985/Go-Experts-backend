@@ -91,15 +91,25 @@ export const savedProjects = async (req: AuthRequest, res: Response, next: NextF
       where: { id: { in: saved }, deletedAt: null },
       include: { 
         milestones: true, 
-        tasks: true,
-        client: {
-          select: { id: true, fullName: true, avatar: true }
-        }
+        tasks: true
       }
     });
     
-    // Sort to keep the saved order, if desired, or just return as is
-    res.json(successResponse('Saved projects', projects));
+    // Fetch client details for these projects
+    const clientIds = [...new Set(projects.map((p) => p.client).filter(Boolean))];
+    const clients = await prisma.user.findMany({
+      where: { id: { in: clientIds } },
+      select: { id: true, fullName: true, avatarUrl: true }
+    });
+    const clientMap = new Map(clients.map((c) => [c.id, c]));
+    
+    // Map projects to include the client object
+    const populatedProjects = projects.map((project) => ({
+      ...project,
+      clientDetails: clientMap.get(project.client) || null
+    }));
+    
+    res.json(successResponse('Saved projects', populatedProjects));
   } catch (err) { next(err); }
 };
 export const recommendedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => res.json(successResponse('Recommended projects', []));
