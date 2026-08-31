@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { getJsonSetting, setJsonSetting } from '../../../../common/helpers/portal-shared.js';
 
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -48,6 +49,51 @@ export const searchProjects = async (req: AuthRequest, res: Response, next: Next
 
 export const appliedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => res.json(successResponse('Applied projects', []));
 export const invitedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => res.json(successResponse('Invited projects', []));
-export const savedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => res.json(successResponse('Saved projects', []));
+
+export const saveProject = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user.id;
+    const projectId = req.params.id;
+    if (!projectId) return res.status(400).json(errorResponse('Project ID is required'));
+
+    const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
+    if (!saved.includes(projectId)) saved.push(projectId);
+    await setJsonSetting(userId, 'saved-projects', saved);
+
+    res.status(201).json(successResponse('Project saved'));
+  } catch (err) { next(err); }
+};
+
+export const unsaveProject = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user.id;
+    const projectId = req.params.id;
+    if (!projectId) return res.status(400).json(errorResponse('Project ID is required'));
+
+    const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
+    const nextSaved = saved.filter((id) => id !== projectId);
+    await setJsonSetting(userId, 'saved-projects', nextSaved);
+
+    res.json(successResponse('Project removed from saved list'));
+  } catch (err) { next(err); }
+};
+
+export const savedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user.id;
+    const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
+    
+    if (saved.length === 0) {
+      return res.json(successResponse('Saved projects', []));
+    }
+    
+    const projects = await prisma.project.findMany({
+      where: { id: { in: saved }, deletedAt: null },
+      include: { milestones: true, tasks: true }
+    });
+    
+    res.json(successResponse('Saved projects', projects));
+  } catch (err) { next(err); }
+};
 export const recommendedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => res.json(successResponse('Recommended projects', []));
 export const nearbyProjects = async (req: AuthRequest, res: Response, next: NextFunction) => res.json(successResponse('Nearby projects', []));

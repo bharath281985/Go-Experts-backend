@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { getJsonSetting, setJsonSetting } from '../../../../common/helpers/portal-shared.js';
 
 export const listFreelancers = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -39,13 +40,55 @@ export const getRecommendedFreelancers = async (req: AuthRequest, res: Response,
 };
 
 export const saveFreelancer = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try { return res.json(successResponse('Freelancer saved')); } catch (error) { next(error); }
+  try {
+    const userId = req.user.id;
+    const freelancerId = req.params.id;
+
+    const rows: any[] = await getJsonSetting(userId, 'savedFreelancers', []);
+    const existing = rows.findIndex((r: any) => r.freelancerId === freelancerId);
+
+    let saved = true;
+    let nextRows = rows;
+    if (existing >= 0) {
+      saved = true;
+    } else {
+      const entry = {
+        id: `sf-${Date.now()}`,
+        freelancerId,
+        slug: freelancerId,
+        name: 'Freelancer',
+        headline: '',
+        avatar: '',
+        rate: 0,
+        rating: 5,
+        location: '',
+        savedAt: new Date().toISOString(),
+      };
+      nextRows = [...rows, entry];
+      await setJsonSetting(userId, 'savedFreelancers', nextRows);
+    }
+
+    return res.json(successResponse('Freelancer saved', { saved, rows: nextRows }));
+  } catch (error) { next(error); }
 };
 
 export const unsaveFreelancer = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try { return res.json(successResponse('Freelancer removed from saved')); } catch (error) { next(error); }
+  try {
+    const userId = req.user.id;
+    const freelancerId = req.params.id;
+
+    const rows: any[] = await getJsonSetting(userId, 'savedFreelancers', []);
+    const nextRows = rows.filter((r: any) => r.id !== freelancerId && r.freelancerId !== freelancerId);
+    
+    await setJsonSetting(userId, 'savedFreelancers', nextRows);
+    return res.json(successResponse('Freelancer removed from saved', { rows: nextRows }));
+  } catch (error) { next(error); }
 };
 
 export const getSavedFreelancers = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try { return res.json(successResponse('Saved freelancers', [])); } catch (error) { next(error); }
+  try {
+    const userId = req.user.id;
+    const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+    return res.json(successResponse('Saved freelancers', rows));
+  } catch (error) { next(error); }
 };

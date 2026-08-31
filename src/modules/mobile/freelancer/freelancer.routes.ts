@@ -5,7 +5,7 @@ import { authorizeRole } from '../../../middlewares/auth.js';
 // Controllers
 import { getDashboard } from './controllers/dashboard.controller.js';
 import { getProfile, updateProfile, uploadAvatar, uploadCoverImage, uploadResume, uploadKyc } from './controllers/profile.controller.js';
-import { listProjects, getProjectDetails, searchProjects, appliedProjects, invitedProjects, savedProjects, recommendedProjects, nearbyProjects } from './controllers/projects.controller.js';
+import { listProjects, getProjectDetails, searchProjects, appliedProjects, invitedProjects, savedProjects, recommendedProjects, nearbyProjects, saveProject, unsaveProject } from './controllers/projects.controller.js';
 import { listProposals, createProposal, getProposalDetails, updateProposal, withdrawProposal } from './controllers/proposals.controller.js';
 import { listContracts, getContractDetails, acceptContract, rejectContract, getContractMilestones, getContractTimeline, getContractDocuments } from './controllers/contracts.controller.js';
 import { listTasks, getTaskDetails, updateTaskStatus, startTimer, stopTimer, manualTimeLog } from './controllers/tasks.controller.js';
@@ -137,6 +137,8 @@ router.get('/projects', listProjects);
 router.get('/projects/applied', appliedProjects);
 router.get('/projects/invited', invitedProjects);
 router.get('/projects/saved', savedProjects);
+router.post('/projects/:id/save', saveProject);
+router.delete('/projects/:id/save', unsaveProject);
 router.get('/projects/recommended', recommendedProjects);
 router.get('/projects/nearby', nearbyProjects);
 router.get('/projects/search', searchProjects);
