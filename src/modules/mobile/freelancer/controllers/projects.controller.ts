@@ -89,9 +89,16 @@ export const savedProjects = async (req: AuthRequest, res: Response, next: NextF
     
     const projects = await prisma.project.findMany({
       where: { id: { in: saved }, deletedAt: null },
-      include: { milestones: true, tasks: true }
+      include: { 
+        milestones: true, 
+        tasks: true,
+        client: {
+          select: { id: true, fullName: true, avatar: true }
+        }
+      }
     });
     
+    // Sort to keep the saved order, if desired, or just return as is
     res.json(successResponse('Saved projects', projects));
   } catch (err) { next(err); }
 };

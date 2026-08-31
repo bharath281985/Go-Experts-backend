@@ -102,7 +102,25 @@ export const getSavedFreelancers = async (req: AuthRequest, res: Response, next:
     
     // Maintain the order and mapping, or just return the full details directly
     const rowMap = new Map(freelancers.map((f) => [f.id, f]));
-    const populated = freelancerIds.map((id: string) => rowMap.get(id)).filter(Boolean);
+    // Map to a clean, flat object format expected by the app
+    const populated = rows.map((savedItem: any) => {
+      const f = rowMap.get(savedItem.freelancerId);
+      if (!f) return savedItem;
+      
+      const profile = f.freelancerProfile;
+      return {
+        id: savedItem.id, // The save id
+        freelancerId: f.id,
+        slug: f.id, // Or use a real slug if you have one
+        name: f.fullName || savedItem.name,
+        headline: profile?.titleHeadline || savedItem.headline || '',
+        avatar: f.avatarUrl || savedItem.avatar || '',
+        rate: profile?.hourlyRate || savedItem.rate || 0,
+        rating: profile?.rating || savedItem.rating || 0,
+        location: f.city ? `${f.city}, ${f.country || ''}` : savedItem.location || '',
+        savedAt: savedItem.savedAt,
+      };
+    });
     
     return res.json(successResponse('Saved freelancers', populated));
   } catch (error) { next(error); }
