@@ -435,14 +435,29 @@ export const createClientProject = async (req: AuthenticatedRequest, res: Respon
       }
     }
 
+    const budgetMin = Number.isFinite(Number(body.budgetMin)) ? Number(body.budgetMin) : null;
+    const budgetMax = Number.isFinite(Number(body.budgetMax)) ? Number(body.budgetMax) : null;
+    const budgetRangeId = body.budgetRangeId ? String(body.budgetRangeId) : null;
+
+    const parseDateValue = (val: any) => {
+      if (val === undefined || val === null || val === "") return null;
+      const d = new Date(val);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
     const project = await prisma.project.create({
       data: {
         title,
         client: userId,
         budget,
+        budgetMin,
+        budgetMax,
+        budgetRangeId,
         category,
         technology,
         timeline: body.timeline ? String(body.timeline) : null,
+        startDate: parseDateValue(body.startDate),
+        endDate: parseDateValue(body.endDate),
         status: requestedStatus,
         description: body.description ? String(body.description) : null,
         industryId: body.industry ? String(body.industry) : null,
@@ -529,6 +544,14 @@ export const updateClientProject = async (req: AuthenticatedRequest, res: Respon
     if (body.category != null) data.category = String(body.category).trim();
     if (body.technology != null) data.technology = String(body.technology).trim();
     if (body.timeline != null) data.timeline = String(body.timeline).trim() || null;
+    if (body.startDate !== undefined) {
+      const d = new Date(body.startDate);
+      data.startDate = (body.startDate === null || body.startDate === "" || Number.isNaN(d.getTime())) ? null : d;
+    }
+    if (body.endDate !== undefined) {
+      const d = new Date(body.endDate);
+      data.endDate = (body.endDate === null || body.endDate === "" || Number.isNaN(d.getTime())) ? null : d;
+    }
     if (body.status != null) data.status = String(body.status).trim();
     if (body.freelancer != null) data.freelancer = String(body.freelancer).trim() || null;
 
