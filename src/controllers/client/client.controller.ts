@@ -324,13 +324,30 @@ export const listClientProjects = async (req: AuthenticatedRequest, res: Respons
       prisma.project.count({ where }),
     ]);
 
+    const budgetRangeIds = [...new Set(rows.map(r => r.budgetRangeId).filter(Boolean))];
+    let budgetRanges: any[] = [];
+    if (budgetRangeIds.length > 0) {
+      budgetRanges = await (prisma as any).masterOption?.findMany({
+        where: { id: { in: budgetRangeIds as string[] } },
+        select: { id: true, label: true, value: true, min: true, max: true }
+      }).catch(() => []);
+    }
+
+    const enrichedRows = rows.map(r => {
+      const br = budgetRanges.find(b => b.id === r.budgetRangeId);
+      return {
+        ...r,
+        budgetRange: br ? { id: br.id, label: br.label, min: br.min, max: br.max, value: br.value } : null
+      };
+    });
+
     const totalPages = Math.ceil(total / limit);
 
     res.json({
       success: true,
       message: "Projects retrieved successfully",
-      rows,
-      data: rows,
+      rows: enrichedRows,
+      data: enrichedRows,
       total,
       meta: {
         page,
@@ -483,7 +500,15 @@ export const getClientProject = async (req: AuthenticatedRequest, res: Response,
       prisma.contract.findMany({ where: { projectId: project.id, deletedAt: null } }),
     ]);
 
-    res.json({ success: true, data: { ...project, tasks, proposals, contracts } });
+    let budgetRange = null;
+    if (project.budgetRangeId) {
+      budgetRange = await (prisma as any).masterOption?.findUnique({
+        where: { id: project.budgetRangeId },
+        select: { id: true, label: true, value: true, min: true, max: true }
+      }).catch(() => null);
+    }
+
+    res.json({ success: true, data: { ...project, budgetRange, tasks, proposals, contracts } });
   } catch (err) {
     handleError(err, res, next);
   }
@@ -554,7 +579,7 @@ export const inviteFreelancer = async (req: AuthenticatedRequest, res: Response,
     const projectId = req.params.id;
     const body = req.body || {};
     const freelancerId = body.freelancerId;
-    
+
     if (!freelancerId) {
       return res.status(400).json({ success: false, message: "freelancerId is required" });
     }
@@ -584,7 +609,7 @@ export const inviteFreelancer = async (req: AuthenticatedRequest, res: Response,
     // Create a conversation for the invitation
     const baseMessageText = body.message || `I would like to invite you to submit a proposal for my project: ${project.title}.`;
     const messageText = `${baseMessageText}\n\nProject Details:\nTitle: ${project.title}\nBudget: ₹${project.budget || "Negotiable"}`;
-    
+
     // Check if conversation already exists for this project + freelancer
     const existingConv = await prisma.conversation.findFirst({
       where: {
@@ -631,7 +656,7 @@ export const inviteFreelancer = async (req: AuthenticatedRequest, res: Response,
       contextType: "PROPOSAL",
       contextId: proposal.id,
       metadata: { description: `Client invited freelancer to project: ${project.title}` },
-    }).catch(() => {});
+    }).catch(() => { });
 
     res.json({ success: true, message: "Invitation sent successfully", proposalId: proposal.id });
   } catch (err) {
@@ -671,9 +696,9 @@ export const listClientApplications = async (req: AuthenticatedRequest, res: Res
 
     const rows = await prisma.proposal.findMany({
       where: { project: { is: projWhere }, deletedAt: null },
-      include: { 
+      include: {
         project: { select: { id: true, title: true } },
-        freelancer: { select: { id: true, fullName: true, email: true, avatarUrl: true, bio: true } } 
+        freelancer: { select: { id: true, fullName: true, email: true, avatarUrl: true, bio: true } }
       },
       orderBy: { createdAt: "desc" },
     });
@@ -1378,7 +1403,7 @@ export const listClientTeam = async (req: AuthenticatedRequest, res: Response, n
     const userId = requireUser(req, res);
     if (!userId) return;
     // @ts-ignore - Prisma client needs regeneration
-    const rows = await prisma.clientTeamMember.findMany({ 
+    const rows = await prisma.clientTeamMember.findMany({
       where: { clientId: userId },
       orderBy: { createdAt: "desc" }
     });
@@ -1392,17 +1417,17 @@ export const listClientInvitations = async (req: AuthenticatedRequest, res: Resp
   try {
     const userId = requireUser(req, res);
     if (!userId) return;
-    
+
     // 1. Get manual team invites
     const manualInvites = await getJsonSetting(userId, "team", [] as any[]);
-    
+
     // 2. Get project invites from Conversations
     const user = await loadClientUser(userId);
     let projectInvites: any[] = [];
     if (user) {
       const conversations = await listConversationsForUser({ id: user.id, fullName: user.fullName, email: user.email, role: user.role });
       const inviteConvs = conversations.filter(c => c.name && c.name.startsWith("Project Invitation"));
-      
+
       projectInvites = inviteConvs.map(c => ({
         id: c.id,
         name: c.name.replace("Project Invitation for ", "").replace("Project Invitation", "").trim() || "Freelancer",
@@ -1451,7 +1476,7 @@ export const addClientTeamMember = async (req: AuthenticatedRequest, res: Respon
     // Trigger Notifications
     try {
       const { NotificationService } = await import("../../modules/notifications/notification.service.js");
-      
+
       // 1) Notify the inviting client (in-app)
       await NotificationService.enqueue({
         userId: userId,
@@ -1760,7 +1785,7 @@ export const shortlistProposal = async (req: any, res: any, next: any) => {
         include: { project: true }
       });
       if (!proposal) throw new Error("Proposal not found");
-      
+
       const clientProfile = await tx.clientProfile.findUnique({ where: { userId } });
       const clientMatches = proposal.project.client === userId || (clientProfile && proposal.project.client === clientProfile.id) || proposal.project.client.includes(userId);
       if (!clientMatches) throw new Error("Unauthorized");
@@ -1819,7 +1844,7 @@ export const offerProposal = async (req: any, res: any, next: any) => {
         include: { project: true }
       });
       if (!proposal) throw new Error("Proposal not found");
-      
+
       const clientProfile = await tx.clientProfile.findUnique({ where: { userId } });
       const clientMatches = proposal.project.client === userId || (clientProfile && proposal.project.client === clientProfile.id) || proposal.project.client.includes(userId);
       if (!clientMatches) throw new Error("Unauthorized");
@@ -1876,7 +1901,7 @@ export const interviewProposal = async (req: any, res: any, next: any) => {
     const result = await prisma.$transaction(async (tx: any) => {
       const proposal = await tx.proposal.findFirst({ where: { id }, include: { project: true } });
       if (!proposal) throw new Error("Proposal not found");
-      
+
       const clientMatches = proposal.project.client === userId || proposal.project.client.includes(userId);
       if (!clientMatches) throw new Error("Unauthorized");
 
@@ -1908,7 +1933,7 @@ export const rejectProposal = async (req: any, res: any, next: any) => {
     const result = await prisma.$transaction(async (tx: any) => {
       const proposal = await tx.proposal.findFirst({ where: { id }, include: { project: true } });
       if (!proposal) throw new Error("Proposal not found");
-      
+
       const clientMatches = proposal.project.client === userId || proposal.project.client.includes(userId);
       if (!clientMatches) throw new Error("Unauthorized");
 
@@ -1939,7 +1964,7 @@ export const updateClientTeamMember = async (req: AuthenticatedRequest, res: Res
     if (!id) return res.status(400).json({ success: false, message: "id is required" });
 
     const body = req.body || {};
-    
+
     // @ts-ignore - Prisma client needs regeneration
     await prisma.clientTeamMember.updateMany({
       where: { id, clientId: userId },
