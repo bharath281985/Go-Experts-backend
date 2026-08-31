@@ -789,12 +789,12 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
 
     const [dbSkills, dbExps, masterExps] = await Promise.all([
       allSkillIds.size ? prisma.skill.findMany({ where: { id: { in: Array.from(allSkillIds) } }, select: { id: true, name: true } }).catch(() => []) : [],
-      allExpStrs.size ? prisma.experienceLevel.findMany({ where: { OR: [ { id: { in: Array.from(allExpStrs) } }, { name: { in: Array.from(allExpStrs) } } ] }, select: { id: true, name: true } }).catch(() => []) : [],
-      allExpStrs.size ? (prisma as any).masterOption?.findMany({ where: { type: 'experience_level', status: 'active', OR: [ { id: { in: Array.from(allExpStrs) } }, { value: { in: Array.from(allExpStrs) } }, { label: { in: Array.from(allExpStrs) } } ] }, select: { id: true, label: true, value: true } }).catch(() => []) : []
+      allExpStrs.size ? prisma.experienceLevel.findMany({ where: { OR: [{ id: { in: Array.from(allExpStrs) } }, { name: { in: Array.from(allExpStrs) } }] }, select: { id: true, name: true } }).catch(() => []) : [],
+      allExpStrs.size ? (prisma as any).masterOption?.findMany({ where: { type: 'experience_level', status: 'active', OR: [{ id: { in: Array.from(allExpStrs) } }, { value: { in: Array.from(allExpStrs) } }, { label: { in: Array.from(allExpStrs) } }] }, select: { id: true, label: true, value: true } }).catch(() => []) : []
     ]);
 
     const skillMap = new Map<string, string>((dbSkills as any[]).map(s => [s.id, s.name]));
-    
+
     rows = rows.map((r: any) => {
       let mappedSkills = r.freelancerProfile?.skills || "";
       if (r.freelancerProfile?.skills) {
@@ -806,12 +806,12 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
 
       let mappedExp = r.freelancerProfile?.experience || "";
       if (mappedExp) {
-         const me = (masterExps as any[]).find(e => e.id === mappedExp || e.value === mappedExp || e.label === mappedExp);
-         if (me) mappedExp = me.label || me.value;
-         else {
-           const de = (dbExps as any[]).find(e => e.id === mappedExp || e.name === mappedExp);
-           if (de) mappedExp = de.name;
-         }
+        const me = (masterExps as any[]).find(e => e.id === mappedExp || e.value === mappedExp || e.label === mappedExp);
+        if (me) mappedExp = me.label || me.value;
+        else {
+          const de = (dbExps as any[]).find(e => e.id === mappedExp || e.name === mappedExp);
+          if (de) mappedExp = de.name;
+        }
       }
 
       return {
@@ -1606,6 +1606,20 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         }
       }
 
+      let isSaved = false;
+      const viewingUserId = (req as any).user?.id;
+      if (viewingUserId) {
+        try {
+          const row = await prisma.setting.findUnique({ where: { key: `savedFreelancers:${viewingUserId}` } });
+          if (row?.value) {
+            const list = JSON.parse(row.value);
+            if (Array.isArray(list) && list.some((i: any) => i.freelancerId === id || i.id === id || i === id)) {
+              isSaved = true;
+            }
+          }
+        } catch { }
+      }
+
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
         userId: user.id,
@@ -1664,8 +1678,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         verified: Boolean(user.isVerified || user.verified),
         role: user.role || 'freelancer',
         registrationData: reg,
-        savedData: true,
-        isSaved: true
+        savedData: Boolean(user.freelancerProfile || Object.keys(reg).length > 0),
+        isSaved: isSaved
       }));
     }
 
@@ -1742,6 +1756,20 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         } catch { /* names remain empty */ }
       }
 
+      let isSaved = false;
+      const viewingUserId = (req as any).user?.id;
+      if (viewingUserId) {
+        try {
+          const row = await prisma.setting.findUnique({ where: { key: `savedClients:${viewingUserId}` } });
+          if (row?.value) {
+            const list = JSON.parse(row.value);
+            if (Array.isArray(list) && list.some((i: any) => i.clientId === id || i.id === id || i === id)) {
+              isSaved = true;
+            }
+          }
+        } catch { }
+      }
+
       return res.json(successResponse('Details retrieved for client', {
         id: user.id,
         userId: user.id,
@@ -1782,8 +1810,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         verified: Boolean(user.isVerified || (user as any).verified),
         role: user.role || 'client',
         registrationData: reg,
-        savedData: true,
-        isSaved: true,
+        savedData: Boolean(user.clientProfile || Object.keys(reg).length > 0),
+        isSaved: isSaved,
       }));
     }
 

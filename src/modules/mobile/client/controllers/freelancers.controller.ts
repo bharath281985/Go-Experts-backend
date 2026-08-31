@@ -90,16 +90,20 @@ export const saveFreelancer = async (req: AuthRequest, res: Response, next: Next
     if (existing >= 0) {
       saved = true;
     } else {
+      const fUser = await prisma.user.findUnique({
+        where: { id: freelancerId },
+        include: { freelancerProfile: true }
+      });
       const entry = {
         id: `sf-${Date.now()}`,
         freelancerId,
         slug: freelancerId,
-        name: 'Freelancer',
-        headline: '',
-        avatar: '',
-        rate: 0,
-        rating: 5,
-        location: '',
+        name: fUser?.fullName || 'Freelancer',
+        headline: fUser?.freelancerProfile?.titleHeadline || '',
+        avatar: fUser?.avatarUrl || '',
+        rate: fUser?.freelancerProfile?.hourlyRate || 0,
+        rating: fUser?.freelancerProfile?.rating || 5,
+        location: fUser?.city ? `${fUser.city}, ${fUser.country || ''}` : '',
         savedAt: new Date().toISOString(),
       };
       nextRows = [...rows, entry];
