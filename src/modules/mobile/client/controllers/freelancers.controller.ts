@@ -94,33 +94,42 @@ export const getSavedFreelancers = async (req: AuthRequest, res: Response, next:
       return res.json(successResponse('Saved freelancers', []));
     }
     
-    const freelancerIds = rows.map((r: any) => r.freelancerId).filter(Boolean);
+    // Extract actual freelancer IDs from whatever format is in the DB
+    const freelancerIds = rows.map((r: any) => {
+      if (typeof r === 'string') return r;
+      return r.freelancerId || r.id;
+    }).filter(Boolean);
+    
     const freelancers = await prisma.user.findMany({
       where: { id: { in: freelancerIds }, role: 'freelancer', deletedAt: null },
       include: { freelancerProfile: true }
     });
     
-    // Maintain the order and mapping, or just return the full details directly
     const rowMap = new Map(freelancers.map((f) => [f.id, f]));
+    
     // Map to a clean, flat object format expected by the app
     const populated = rows.map((savedItem: any) => {
-      const f = rowMap.get(savedItem.freelancerId);
-      if (!f) return savedItem;
+      const extractedId = typeof savedItem === 'string' ? savedItem : (savedItem.freelancerId || savedItem.id);
+      const f = rowMap.get(extractedId);
+      
+      if (!f) return null; // Drop if user doesn't exist anymore
       
       const profile = f.freelancerProfile;
+      const isObject = typeof savedItem === 'object';
+      
       return {
-        id: savedItem.id, // The save id
+        id: (isObject && savedItem.id !== f.id) ? savedItem.id : `sf-${f.id}`,
         freelancerId: f.id,
-        slug: f.id, // Or use a real slug if you have one
-        name: f.fullName || savedItem.name,
-        headline: profile?.titleHeadline || savedItem.headline || '',
-        avatar: f.avatarUrl || savedItem.avatar || '',
-        rate: profile?.hourlyRate || savedItem.rate || 0,
-        rating: profile?.rating || savedItem.rating || 0,
-        location: f.city ? `${f.city}, ${f.country || ''}` : savedItem.location || '',
-        savedAt: savedItem.savedAt,
+        slug: f.id, 
+        name: f.fullName || (isObject ? savedItem.name : ''),
+        headline: profile?.titleHeadline || (isObject ? savedItem.headline : '') || '',
+        avatar: f.avatarUrl || (isObject ? savedItem.avatar : '') || '',
+        rate: profile?.hourlyRate || (isObject ? savedItem.rate : 0) || 0,
+        rating: profile?.rating || (isObject ? savedItem.rating : 0) || 0,
+        location: f.city ? `${f.city}, ${f.country || ''}` : (isObject ? savedItem.location : '') || '',
+        savedAt: (isObject && savedItem.savedAt) ? savedItem.savedAt : new Date().toISOString(),
       };
-    });
+    }).filter(Boolean);
     
     return res.json(successResponse('Saved freelancers', populated));
   } catch (error) { next(error); }
