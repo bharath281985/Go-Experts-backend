@@ -501,20 +501,39 @@ async function listModel({
   }
 }
 
-router.get("/freelancers", async (req: Request, res: Response, next: NextFunction) => {
+import { authenticateOptional } from "../../middleware/auth.js";
+import { getJsonSetting } from "../../common/helpers/portal-shared.js";
+
+router.get("/freelancers", authenticateOptional, async (req: any, res: Response, next: NextFunction) => {
   try {
     const body = parseFreelancerQueryFilters(req);
-    const { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+    let { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+    
+    const userId = req.user?.id;
+    if (userId) {
+      const savedRows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+      const savedIds = new Set(savedRows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean));
+      rows = rows.map((r: any) => ({ ...r, isSaved: savedIds.has(r.id) }));
+    }
+
     res.json({ success: true, rows, total, degraded, categoryId });
   } catch (err) {
     next(err);
   }
 });
 
-router.post("/freelancers", async (req: Request, res: Response, next: NextFunction) => {
+router.post("/freelancers", authenticateOptional, async (req: any, res: Response, next: NextFunction) => {
   try {
     const body = parseFreelancersListBody(req.body ?? {});
-    const { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+    let { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+    
+    const userId = req.user?.id;
+    if (userId) {
+      const savedRows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+      const savedIds = new Set(savedRows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean));
+      rows = rows.map((r: any) => ({ ...r, isSaved: savedIds.has(r.id) }));
+    }
+
     res.json({ success: true, rows, total, degraded, categoryId });
   } catch (err) {
     next(err);
@@ -1103,7 +1122,7 @@ router.post("/post-project", async (_req: Request, res: Response, next: NextFunc
   }
 });
 
-router.get("/projects", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/projects", authenticateOptional, async (req: any, res: Response, next: NextFunction) => {
   try {
     const body = parseCatalogListBody({
       page: req.query.page,
@@ -1111,36 +1130,54 @@ router.get("/projects", async (req: Request, res: Response, next: NextFunction) 
       search: req.query.search,
     });
     const category = typeof req.query.category === "string" ? req.query.category : undefined;
-    const { rows, total } = await listPublicProjects({
+    let { rows, total } = await listPublicProjects({
       page: body.page,
       pageSize: body.pageSize,
       search: body.search,
       category,
     });
+    
+    const userId = req.user?.id;
+    if (userId) {
+      const savedRows = await getJsonSetting(userId, 'saved-projects', [] as string[]);
+      const savedIds = new Set(savedRows);
+      rows = rows.map((r: any) => ({ ...r, isSaved: savedIds.has(r.id) }));
+    }
+
     res.json({ success: true, rows, total });
   } catch (err) {
     next(err);
   }
 });
 
-router.post("/projects", async (req: Request, res: Response, next: NextFunction) => {
+router.post("/projects", authenticateOptional, async (req: any, res: Response, next: NextFunction) => {
   try {
     const body = parseCatalogListBody(req.body ?? {});
     const category =
       typeof req.body?.category === "string"
         ? req.body.category
         : undefined;
+
     const categoryId =
       typeof req.body?.categoryId === "string"
         ? req.body.categoryId
         : undefined;
-    const { rows, total } = await listPublicProjects({
+
+    let { rows, total } = await listPublicProjects({
       page: body.page,
       pageSize: body.pageSize,
       search: body.search,
       category,
       categoryId,
     });
+    
+    const userId = req.user?.id;
+    if (userId) {
+      const savedRows = await getJsonSetting(userId, 'saved-projects', [] as string[]);
+      const savedIds = new Set(savedRows);
+      rows = rows.map((r: any) => ({ ...r, isSaved: savedIds.has(r.id) }));
+    }
+
     res.json({ success: true, rows, total });
   } catch (err) {
     next(err);
