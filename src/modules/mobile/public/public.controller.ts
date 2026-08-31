@@ -837,14 +837,62 @@ export const getClients = async (req: Request, res: Response, next: NextFunction
 
     const [clients, total] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'client', status: 'active' },
+        where: { role: 'client', status: 'active', deletedAt: null },
         include: { clientProfile: true },
         skip, take: limit
       }),
-      prisma.user.count({ where: { role: 'client', status: 'active' } })
+      prisma.user.count({ where: { role: 'client', status: 'active', deletedAt: null } })
     ]);
 
-    return res.json(successResponse('Clients retrieved', clients, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    const allIndIds = new Set<string>();
+    const allHgIds = new Set<string>();
+
+    clients.forEach((c) => {
+      if (c.clientProfile?.industry) {
+        String(c.clientProfile.industry).split(',').map(s => s.trim()).filter(Boolean).forEach(id => allIndIds.add(id));
+      }
+      if (c.clientProfile?.hiringGoal) {
+        String(c.clientProfile.hiringGoal).split(',').map(s => s.trim()).filter(Boolean).forEach(id => allHgIds.add(id));
+      }
+    });
+
+    const [dbInds, dbHgs] = await Promise.all([
+      allIndIds.size ? prisma.industry.findMany({ where: { id: { in: Array.from(allIndIds) } }, select: { id: true, name: true } }).catch(() => []) : [],
+      allHgIds.size ? (prisma as any).masterOption?.findMany({ where: { id: { in: Array.from(allHgIds) } }, select: { id: true, label: true } }).catch(() => []) : []
+    ]);
+
+    const indMap = new Map<string, string>((dbInds as any[]).map(r => [r.id, r.name]));
+    const hgMap = new Map<string, string>((dbHgs as any[]).map(r => [r.id, r.label]));
+
+    const formattedClients = clients.map((c: any) => {
+      let formattedInds: any[] = [];
+      let formattedHgs: any[] = [];
+
+      if (c.clientProfile?.industry) {
+        formattedInds = String(c.clientProfile.industry).split(',').map(s => s.trim()).filter(Boolean).map(id => ({
+          industryId: id,
+          industryName: indMap.get(id) || id
+        }));
+      }
+
+      if (c.clientProfile?.hiringGoal) {
+        formattedHgs = String(c.clientProfile.hiringGoal).split(',').map(s => s.trim()).filter(Boolean).map(id => ({
+          hiringGoalId: id,
+          hiringGoalName: hgMap.get(id) || id
+        }));
+      }
+
+      return {
+        ...c,
+        clientProfile: c.clientProfile ? {
+          ...c.clientProfile,
+          Industry: formattedInds,
+          HiringGoal: formattedHgs
+        } : null
+      };
+    });
+
+    return res.json(successResponse('Clients retrieved', formattedClients, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
