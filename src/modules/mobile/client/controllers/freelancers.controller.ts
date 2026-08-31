@@ -18,7 +18,20 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
       prisma.user.findMany({ where, include: { freelancerProfile: true }, skip, take: limit }),
       prisma.user.count({ where })
     ]);
-    return res.json(successResponse('Freelancers retrieved', freelancers, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    const userId = req.user?.id;
+    let savedIds = new Set<string>();
+    if (userId) {
+      const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+      const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
+      savedIds = new Set(ids);
+    }
+    
+    const mapped = freelancers.map(f => ({
+      ...f,
+      isSaved: savedIds.has(f.id)
+    }));
+    
+    return res.json(successResponse('Freelancers retrieved', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
@@ -28,14 +41,39 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
       where: { id: req.params.id, role: 'freelancer' },
       include: { freelancerProfile: true, reviewsReceived: { take: 5 } }
     });
-    return res.json(successResponse('Freelancer details', freelancer));
+    if (!freelancer) {
+      return res.status(404).json({ success: false, message: 'Freelancer not found' });
+    }
+    
+    const userId = req.user?.id;
+    let isSaved = false;
+    if (userId) {
+      const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+      const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
+      isSaved = ids.includes(freelancer.id);
+    }
+    
+    return res.json(successResponse('Freelancer details', { ...freelancer, isSaved }));
   } catch (error) { next(error); }
 };
 
 export const getRecommendedFreelancers = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const freelancers = await prisma.user.findMany({ where: { role: 'freelancer', status: 'active' }, take: 10, include: { freelancerProfile: true } });
-    return res.json(successResponse('Recommended freelancers', freelancers));
+    const userId = req.user?.id;
+    let savedIds = new Set<string>();
+    if (userId) {
+      const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+      const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
+      savedIds = new Set(ids);
+    }
+    
+    const mapped = freelancers.map(f => ({
+      ...f,
+      isSaved: savedIds.has(f.id)
+    }));
+    
+    return res.json(successResponse('Recommended freelancers', mapped));
   } catch (error) { next(error); }
 };
 

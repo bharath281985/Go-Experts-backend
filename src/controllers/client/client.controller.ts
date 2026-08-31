@@ -1707,7 +1707,45 @@ export const listSavedFreelancers = async (req: AuthenticatedRequest, res: Respo
     const userId = requireUser(req, res);
     if (!userId) return;
     const rows = await getJsonSetting(userId, "savedFreelancers", [] as any[]);
-    res.json({ success: true, rows, total: rows.length });
+    
+    // Extract actual freelancer IDs from whatever format is in the DB
+    const freelancerIds = rows.map((r: any) => {
+      if (typeof r === 'string') return r;
+      return r.freelancerId || r.id;
+    }).filter(Boolean);
+    
+    const freelancers = await prisma.user.findMany({
+      where: { id: { in: freelancerIds }, role: 'freelancer', deletedAt: null },
+      include: { freelancerProfile: true }
+    });
+    
+    const rowMap = new Map(freelancers.map((f) => [f.id, f]));
+    
+    // Map to a clean, flat object format expected by the app/web
+    const populated = rows.map((savedItem: any) => {
+      const extractedId = typeof savedItem === 'string' ? savedItem : (savedItem.freelancerId || savedItem.id);
+      const f = rowMap.get(extractedId);
+      
+      if (!f) return null;
+      
+      const profile = f.freelancerProfile;
+      const isObject = typeof savedItem === 'object';
+      
+      return {
+        id: (isObject && savedItem.id !== f.id) ? savedItem.id : `sf-${f.id}`,
+        freelancerId: f.id,
+        slug: f.id, 
+        name: f.fullName || (isObject ? savedItem.name : ''),
+        headline: profile?.titleHeadline || (isObject ? savedItem.headline : '') || '',
+        avatar: f.avatarUrl || (isObject ? savedItem.avatar : '') || '',
+        rate: profile?.hourlyRate || (isObject ? savedItem.rate : 0) || 0,
+        rating: profile?.rating || (isObject ? savedItem.rating : 0) || 0,
+        location: f.city ? `${f.city}, ${f.country || ''}` : (isObject ? savedItem.location : '') || '',
+        savedAt: (isObject && savedItem.savedAt) ? savedItem.savedAt : new Date().toISOString(),
+      };
+    }).filter(Boolean);
+
+    res.json({ success: true, rows: populated, total: populated.length });
   } catch (err) {
     handleError(err, res, next);
   }
