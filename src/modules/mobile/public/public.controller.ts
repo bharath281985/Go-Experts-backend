@@ -771,8 +771,9 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
     let savedIds = new Set<string>();
     if (userId) {
       const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
-      const savedRows = await getJsonSetting(userId, 'saved-freelancers', [] as string[]);
-      savedIds = new Set(savedRows);
+      const savedRows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+      const ids = savedRows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
+      savedIds = new Set(ids);
     }
 
     const allSkillIds = new Set<string>();
