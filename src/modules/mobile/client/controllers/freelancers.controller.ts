@@ -89,6 +89,21 @@ export const getSavedFreelancers = async (req: AuthRequest, res: Response, next:
   try {
     const userId = req.user.id;
     const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
-    return res.json(successResponse('Saved freelancers', rows));
+    
+    if (rows.length === 0) {
+      return res.json(successResponse('Saved freelancers', []));
+    }
+    
+    const freelancerIds = rows.map((r: any) => r.freelancerId).filter(Boolean);
+    const freelancers = await prisma.user.findMany({
+      where: { id: { in: freelancerIds }, role: 'freelancer', deletedAt: null },
+      include: { freelancerProfile: true }
+    });
+    
+    // Maintain the order and mapping, or just return the full details directly
+    const rowMap = new Map(freelancers.map((f) => [f.id, f]));
+    const populated = freelancerIds.map((id: string) => rowMap.get(id)).filter(Boolean);
+    
+    return res.json(successResponse('Saved freelancers', populated));
   } catch (error) { next(error); }
 };
