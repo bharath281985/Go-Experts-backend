@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database.js';
+import { getJsonSetting } from '../../common/helpers/portal-shared.js';
 
 const uuidLike =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -139,6 +140,12 @@ export const shapeProjects = async (
     proposalCounts.map((row) => [row.projectId, row._count.id] as [string, number])
   );
 
+  let savedIds = new Set<string>();
+  if (viewerUserId) {
+    const savedRows = await getJsonSetting(viewerUserId, 'saved-projects', [] as string[]);
+    savedIds = new Set(savedRows);
+  }
+
   return projects
     .filter((project) => clientById.has(project.client))
     .map((project) => {
@@ -211,6 +218,7 @@ export const shapeProjects = async (
       milestones: project.milestones,
       tasks: project.tasks,
       proposals: undefined,
+      isSaved: savedIds.has(project.id),
     };
   });
 };

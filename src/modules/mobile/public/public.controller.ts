@@ -766,7 +766,65 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
       prisma.user.count({ where: { role: 'freelancer', status: 'active', deletedAt: null } })
     ]);
 
-    return res.json(successResponse('Freelancers retrieved', freelancers, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    let rows: any[] = freelancers;
+    const userId = (req as any).user?.id;
+    let savedIds = new Set<string>();
+    if (userId) {
+      const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
+      const savedRows = await getJsonSetting(userId, 'saved-freelancers', [] as string[]);
+      savedIds = new Set(savedRows);
+    }
+
+    const allSkillIds = new Set<string>();
+    const allExpStrs = new Set<string>();
+    rows.forEach(r => {
+      if (r.freelancerProfile?.skills) {
+        String(r.freelancerProfile.skills).split(',').map(s => s.trim()).filter(s => /^[0-9a-f-]{36}$/i.test(s)).forEach(id => allSkillIds.add(id));
+      }
+      if (r.freelancerProfile?.experience) {
+        allExpStrs.add(String(r.freelancerProfile.experience).trim());
+      }
+    });
+
+    const [dbSkills, dbExps, masterExps] = await Promise.all([
+      allSkillIds.size ? prisma.skill.findMany({ where: { id: { in: Array.from(allSkillIds) } }, select: { id: true, name: true } }).catch(() => []) : [],
+      allExpStrs.size ? prisma.experienceLevel.findMany({ where: { OR: [ { id: { in: Array.from(allExpStrs) } }, { name: { in: Array.from(allExpStrs) } } ] }, select: { id: true, name: true } }).catch(() => []) : [],
+      allExpStrs.size ? (prisma as any).masterOption?.findMany({ where: { type: 'experience_level', status: 'active', OR: [ { id: { in: Array.from(allExpStrs) } }, { value: { in: Array.from(allExpStrs) } }, { label: { in: Array.from(allExpStrs) } } ] }, select: { id: true, label: true, value: true } }).catch(() => []) : []
+    ]);
+
+    const skillMap = new Map<string, string>((dbSkills as any[]).map(s => [s.id, s.name]));
+    
+    rows = rows.map((r: any) => {
+      let mappedSkills = r.freelancerProfile?.skills || "";
+      if (r.freelancerProfile?.skills) {
+        mappedSkills = String(r.freelancerProfile.skills).split(',').map(s => {
+          const trimmed = s.trim();
+          return skillMap.get(trimmed) || (/^[0-9a-f-]{36}$/i.test(trimmed) ? '' : trimmed);
+        }).filter(Boolean).join(', ');
+      }
+
+      let mappedExp = r.freelancerProfile?.experience || "";
+      if (mappedExp) {
+         const me = (masterExps as any[]).find(e => e.id === mappedExp || e.value === mappedExp || e.label === mappedExp);
+         if (me) mappedExp = me.label || me.value;
+         else {
+           const de = (dbExps as any[]).find(e => e.id === mappedExp || e.name === mappedExp);
+           if (de) mappedExp = de.name;
+         }
+      }
+
+      return {
+        ...r,
+        freelancerProfile: r.freelancerProfile ? {
+          ...r.freelancerProfile,
+          skills: mappedSkills,
+          experience: mappedExp
+        } : null,
+        isSaved: savedIds.has(r.id)
+      };
+    });
+
+    return res.json(successResponse('Freelancers retrieved', rows, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
