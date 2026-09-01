@@ -467,9 +467,12 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     const hashed = await bcrypt.hash(password, 10);
     const phone = req.body?.phone ? String(req.body.phone) : null;
-    const country = req.body?.country ? String(req.body.country) : null;
-    const state = req.body?.state ? String(req.body.state) : null;
-    const city = req.body?.city ? String(req.body.city) : null;
+    const countryRaw = req.body?.countryId || req.body?.country;
+    const country = countryRaw ? String(countryRaw) : null;
+    const stateRaw = req.body?.stateId || req.body?.state;
+    const state = stateRaw ? String(stateRaw) : null;
+    const cityRaw = req.body?.cityId || req.body?.city;
+    const city = cityRaw ? String(cityRaw) : null;
     const latitudeRaw = req.body?.latitude;
     const longitudeRaw = req.body?.longitude;
     const latitude = latitudeRaw === undefined || latitudeRaw === null || latitudeRaw === ""
@@ -480,7 +483,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       : Number(longitudeRaw);
     const bio = req.body?.bio ? String(req.body.bio) : null;
 
-    const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, state: _state, city: _city, bio: _bio, ...restData } = req.body || {};
+    const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, state: _state, city: _city, bio: _bio, latitude: _lat, longitude: _lng, countryId: _countryId, stateId: _stateId, cityId: _cityId, ...restData } = req.body || {};
     const registrationData = Object.keys(restData).length > 0 ? restData : undefined;
 
     const trialEndsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
@@ -2110,8 +2113,11 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       bio,
       phone,
       country,
+      countryId,
       state,
+      stateId,
       city,
+      cityId,
       // Freelancer fields
       titleHeadline,
       skills,
@@ -2189,9 +2195,13 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
 
     if (bio !== undefined) userUpdate.bio = getStringVal(bio);
     if (phone !== undefined) userUpdate.phone = getStringVal(phone);
-    if (country !== undefined) userUpdate.country = getStringVal(country);
-    if (state !== undefined) userUpdate.state = getStringVal(state);
-    if (city !== undefined) userUpdate.city = getStringVal(city);
+    const finalCountry = countryId ?? country;
+    const finalState = stateId ?? state;
+    const finalCity = cityId ?? city;
+
+    if (finalCountry !== undefined) userUpdate.country = getStringVal(finalCountry);
+    if (finalState !== undefined) userUpdate.state = getStringVal(finalState);
+    if (finalCity !== undefined) userUpdate.city = getStringVal(finalCity);
 
     await prisma.user.update({
       where: { id: userId },
