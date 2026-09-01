@@ -55,33 +55,20 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       }).catch(() => null)
     ]);
 
-    let startup = idea;
-    if (!startup) {
-      startup = await prisma.startupIdea.create({
-        data: {
-          founder: req.user.id,
-          startup: profile?.startupName || (user?.fullName ? `${user.fullName}'s Startup` : 'My Startup'),
-          industry: profile?.industry || 'Technology',
-          category: 'General',
-          stage: profile?.stage || 'Idea',
-          funding: profile?.raised || 0,
-          equity: 0,
-          visibility: 'Public',
-          status: 'active'
-        }
-      }).catch(() => null);
+    if (!idea) {
+      return res.json(successResponse('No startup details found', null));
     }
 
+    const startup = idea;
+
     let rawBids: any[] = [];
-    if (startup) {
-      try {
-        rawBids = await prisma.investment.findMany({
-          where: { startup: startup.id, deletedAt: null },
-          orderBy: { createdAt: 'desc' }
-        });
-      } catch {
-        rawBids = [];
-      }
+    try {
+      rawBids = await prisma.investment.findMany({
+        where: { startup: startup.id, deletedAt: null },
+        orderBy: { createdAt: 'desc' }
+      });
+    } catch {
+      rawBids = [];
     }
 
     const startupDetails = await getJsonSetting(req.user.id, "startup-details", {});
@@ -93,7 +80,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       ...founderDetails
     };
 
-        const countryId = await resolveId(user?.country || reg.country || "", "Country");
+    const countryId = await resolveId(user?.country || reg.country || "", "Country");
     const userObj = {
       id: user?.id,
       email: user?.email,
@@ -108,10 +95,13 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       registrationData: reg
     };
 
-    const documents = [
-      { id: "doc_bp", name: "Business Plan", url: startup?.businessPlan || profile?.businessPlan || reg.businessPlan || "https://apiai.goexperts.in/uploads/business_plan.pdf", type: "pdf" },
-      { id: "doc_pd", name: "Pitch Deck", url: startup?.pitchDeck || profile?.pitchDeck || reg.pitchDeck || "https://apiai.goexperts.in/uploads/pitch_deck.pdf", type: "pdf" }
-    ];
+    const documents = [];
+    if (startup.businessPlan) {
+      documents.push({ id: "doc_bp", name: "Business Plan", url: startup.businessPlan, type: "pdf" });
+    }
+    if (startup.pitchDeck) {
+      documents.push({ id: "doc_pd", name: "Pitch Deck", url: startup.pitchDeck, type: "pdf" });
+    }
 
     const [resolvedStartupStage, resolvedStartupCat] = await Promise.all([
       resolveMasterOptionsInput(startup?.stage, 'startup_stage'),
@@ -125,7 +115,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       stageId: resolvedStartupStage.ids[0] || startup?.stage,
       documents,
       teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
-      description: reg.description || reg.pitch || user?.bio || "",
+      description: startup.description || reg.description || reg.pitch || user?.bio || "",
       problemStatement: reg.problemStatement || "",
       solution: reg.solution || "",
       targetCustomers: reg.targetCustomers || "",
@@ -137,10 +127,6 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       user: userObj,
       bids: rawBids
     };
-
-    delete result.industry;
-    delete result.category;
-    delete result.stage;
 
     return res.json(successResponse('Startup details retrieved', result));
   } catch (error) { next(error); }
