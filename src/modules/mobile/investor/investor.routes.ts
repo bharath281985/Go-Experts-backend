@@ -23,13 +23,16 @@ import { getSettings, updateSettings } from './controllers/settings.controller.j
 import { listReviews, getAverageRating, getRatingBreakdown } from './controllers/reviews.controller.js';
 import { globalSearch } from './controllers/search.controller.js';
 import { getWatchlist as getWatchlistFounder, addToWatchlist as addToWatchlistFounder, removeFromWatchlist as removeFromWatchlistFounder, updateWatchlistNotes as updateWatchlistNotesFounder, updateWatchlistPriority as updateWatchlistPriorityFounder } from '../founder/controllers/watchlist.controller.js';
+import { listProjects as listClientProjects, createProject, updateProject, deleteProject, updateProjectStatus, getProjectDetails } from '../client/controllers/projects.controller.js';
+import { listProjectProposals } from '../client/controllers/proposals.controller.js';
+import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
 
 const router = Router();
 
 // Auth + Role guard on all investor routes
 router.use(authenticate);
 
-// ─── Watchlist (Accessible by both investor and founder) ───
+// ─── Dual-Personality Watchlist Routes (Investor or Founder payload depending on logged in user) ───
 router.get('/watchlist', (req: AuthRequest, res, next) => {
   if (req.user?.role === 'founder') return getWatchlistFounder(req, res, next);
   return getWatchlist(req, res, next);
@@ -55,6 +58,24 @@ router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
 
 // ─── Dashboard ───
 router.get('/dashboard', getDashboard);
+
+// ─── Projects (Universal Access) ───
+router.get('/projects', listClientProjects);
+router.post('/projects', createProject);
+router.get('/projects/:id', getProjectDetails);
+router.get('/projects/:projectId/proposals', listProjectProposals);
+router.put('/projects/:id', updateProject);
+router.delete('/projects/:id', deleteProject);
+router.patch('/projects/:id/status', updateProjectStatus);
+
+// ─── Startups / Ideas (Universal Access) ───
+router.get('/ideas', listIdeas);
+router.post('/ideas', createIdea);
+router.get('/ideas/:id', getIdeaDetails);
+router.put('/ideas/:id', updateIdea);
+router.delete('/ideas/:id', deleteIdea);
+router.post('/startups', createIdea);
+router.get('/startups/my-startups', listIdeas);
 
 router.get('/profile', getProfile);
 router.put('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);

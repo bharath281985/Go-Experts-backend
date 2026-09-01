@@ -299,6 +299,7 @@ export const listStartups = async (req: AuthRequest, res: Response, next: NextFu
     const stage = req.query.stage as string;
 
     const where: any = { status: 'active', deletedAt: null };
+    if (req.user?.id) where.founder = { not: req.user.id };
     if (q) where.startup = { contains: q };
     if (industry) where.industry = industry;
     if (stage) where.stage = stage;
@@ -360,7 +361,7 @@ export const getRecommendedStartups = async (req: AuthRequest, res: Response, ne
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null },
+        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
         take: 10, orderBy: { createdAt: 'desc' }
       }),
       readList(req.user.id),
@@ -383,7 +384,7 @@ export const getTrendingStartups = async (req: AuthRequest, res: Response, next:
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null },
+        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
         take: 10, orderBy: { views: 'desc' }
       }),
       readList(req.user.id),
@@ -406,7 +407,7 @@ export const getFeaturedStartups = async (req: AuthRequest, res: Response, next:
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null },
+        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
         take: 5, orderBy: { interestedInvestors: 'desc' }
       }),
       readList(req.user.id),

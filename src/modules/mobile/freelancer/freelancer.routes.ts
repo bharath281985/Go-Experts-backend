@@ -6,6 +6,9 @@ import { authorizeRole } from '../../../middlewares/auth.js';
 import { getDashboard } from './controllers/dashboard.controller.js';
 import { getProfile, updateProfile, uploadAvatar, uploadCoverImage, uploadResume, uploadKyc } from './controllers/profile.controller.js';
 import { listProjects, getProjectDetails, searchProjects, appliedProjects, invitedProjects, savedProjects, recommendedProjects, nearbyProjects, saveProject, unsaveProject } from './controllers/projects.controller.js';
+import { createProject, updateProject, deleteProject, updateProjectStatus } from '../client/controllers/projects.controller.js';
+import { listProjectProposals } from '../client/controllers/proposals.controller.js';
+import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
 import { listProposals, createProposal, getProposalDetails, updateProposal, withdrawProposal } from './controllers/proposals.controller.js';
 import { listContracts, getContractDetails, acceptContract, rejectContract, getContractMilestones, getContractTimeline, getContractDocuments } from './controllers/contracts.controller.js';
 import { listTasks, getTaskDetails, updateTaskStatus, startTimer, stopTimer, manualTimeLog } from './controllers/tasks.controller.js';
@@ -134,6 +137,7 @@ router.delete('/resume/share', deleteFreelancerResumeShare as any);
 
 // ─── Projects ───
 router.get('/projects', listProjects);
+router.post('/projects', createProject);
 router.get('/projects/applied', appliedProjects);
 router.get('/projects/invited', invitedProjects);
 router.get('/projects/saved', savedProjects);
@@ -143,6 +147,19 @@ router.get('/projects/recommended', recommendedProjects);
 router.get('/projects/nearby', nearbyProjects);
 router.get('/projects/search', searchProjects);
 router.get('/projects/:id', getProjectDetails);
+router.get('/projects/:projectId/proposals', listProjectProposals);
+router.put('/projects/:id', updateProject);
+router.delete('/projects/:id', deleteProject);
+router.patch('/projects/:id/status', updateProjectStatus);
+
+// ─── Startups / Ideas (Universal Access) ───
+router.get('/ideas', listIdeas);
+router.post('/ideas', createIdea);
+router.get('/ideas/:id', getIdeaDetails);
+router.put('/ideas/:id', updateIdea);
+router.delete('/ideas/:id', deleteIdea);
+router.post('/startups', createIdea);
+router.get('/startups/my-startups', listIdeas);
 
 // ─── Proposals ───
 router.get('/proposals', listProposals);

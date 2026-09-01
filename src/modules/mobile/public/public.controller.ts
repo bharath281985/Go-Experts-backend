@@ -752,10 +752,16 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
+    const userId = (req as any).user?.id as string | undefined;
+
+    const where: any = { role: 'freelancer', status: 'active', deletedAt: null };
+    if (userId) {
+      where.id = { not: userId };
+    }
 
     const [freelancers, total] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'freelancer', status: 'active', deletedAt: null },
+        where,
         select: {
           id: true, fullName: true, avatarUrl: true, city: true, isVerified: true,
           freelancerProfile: { select: { skills: true, hourlyRate: true, experience: true } }
@@ -763,11 +769,10 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
         orderBy: { createdAt: 'desc' },
         skip, take: limit
       }),
-      prisma.user.count({ where: { role: 'freelancer', status: 'active', deletedAt: null } })
+      prisma.user.count({ where })
     ]);
 
     let rows: any[] = freelancers;
-    const userId = (req as any).user?.id;
     let savedIds = new Set<string>();
     if (userId) {
       const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
@@ -1226,14 +1231,20 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
+    const userId = (req as any).user?.id as string | undefined;
+
+    const where: any = { status: 'active', deletedAt: null };
+    if (userId) {
+      where.founder = { not: userId };
+    }
 
     const [ideas, total] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null },
+        where,
         orderBy: { createdAt: 'desc' },
         skip, take: limit
       }),
-      prisma.startupIdea.count({ where: { status: 'active', deletedAt: null } })
+      prisma.startupIdea.count({ where })
     ]);
 
     const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(ideas);

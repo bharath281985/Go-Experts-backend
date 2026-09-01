@@ -64,6 +64,10 @@ export const parseProjectListQuery = (req: Request, scope: ProjectListScope) => 
 
   if (scope.kind === 'public' || scope.kind === 'freelancer_browse') {
     where.status = { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] };
+    const viewerId = (req as any).user?.id as string | undefined;
+    if (viewerId) {
+      where.client = { not: viewerId };
+    }
   } else if (scope.kind === 'client') {
     where.client = scope.clientId;
     if (status) where.status = status;

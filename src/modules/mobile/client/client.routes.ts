@@ -23,6 +23,7 @@ import { getCurrentPlan, getPlans, purchasePlan, renewPlan, upgradePlan, cancelP
 import { listTickets, createTicket, getTicket, replyToTicket, closeTicket } from './controllers/support.controller.js';
 import { listDocuments, uploadDocument, getDocument, downloadDocument, deleteDocument } from './controllers/documents.controller.js';
 import { getTeam, inviteTeamMember, updateTeamMemberRole, removeTeamMember } from './controllers/team.controller.js';
+import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
 import { getAnalytics, getReports, getSpendReport, getProjectsReport, getFreelancersReport, exportReport } from './controllers/analytics.controller.js';
 
 const router = Router();
@@ -56,6 +57,15 @@ router.post('/projects/:id/attachments', addAttachment);
 router.get('/projects/:id/timeline', getProjectTimeline);
 router.post('/projects/:id/share', shareProject);
 router.get('/projects/:projectId/proposals', listProjectProposals);
+
+// ─── Startups / Ideas (Universal Access) ───
+router.get('/ideas', listIdeas);
+router.post('/ideas', createIdea);
+router.get('/ideas/:id', getIdeaDetails);
+router.put('/ideas/:id', updateIdea);
+router.delete('/ideas/:id', deleteIdea);
+router.post('/startups', createIdea);
+router.get('/startups/my-startups', listIdeas);
 
 // ─── Proposals ───
 router.get('/proposals', listProposals);

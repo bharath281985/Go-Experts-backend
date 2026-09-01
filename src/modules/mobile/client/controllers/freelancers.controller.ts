@@ -11,7 +11,8 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
     const skip = (page - 1) * limit;
     const q = req.query.q as string;
 
-    const where: any = { role: 'freelancer', status: 'active' };
+    const where: any = { role: 'freelancer', status: 'active', deletedAt: null };
+    if (req.user?.id) where.id = { not: req.user.id };
     if (q) where.fullName = { contains: q };
 
     const [freelancers, total] = await Promise.all([
@@ -59,7 +60,9 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
 
 export const getRecommendedFreelancers = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const freelancers = await prisma.user.findMany({ where: { role: 'freelancer', status: 'active' }, take: 10, include: { freelancerProfile: true } });
+    const where: any = { role: 'freelancer', status: 'active', deletedAt: null };
+    if (req.user?.id) where.id = { not: req.user.id };
+    const freelancers = await prisma.user.findMany({ where, take: 10, include: { freelancerProfile: true } });
     const userId = req.user?.id;
     let savedIds = new Set<string>();
     if (userId) {

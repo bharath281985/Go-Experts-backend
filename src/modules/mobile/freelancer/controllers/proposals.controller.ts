@@ -30,12 +30,19 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
 export const createProposal = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { projectId, bidAmount, coverLetter, deliveryTime } = req.body;
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) {
+      return res.status(404).json(errorResponse('Project not found', 'NOT_FOUND'));
+    }
+    if (project.client === req.user.id) {
+      return res.status(400).json(errorResponse('You cannot submit a proposal to your own project.', 'INVALID_OPERATION'));
+    }
+
     const proposal = await prisma.proposal.create({
       data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, status: 'pending' }
     });
 
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
-    if (project && project.client) {
+    if (project.client) {
       try {
         await NotificationEngine.queueNotification({
           userId: project.client,

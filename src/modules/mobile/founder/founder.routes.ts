@@ -26,6 +26,8 @@ import { globalSearch } from './controllers/search.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from './controllers/ideas.controller.js';
 import { getReceivedReviews, getAverageRating, getRatingBreakdown, replyToReview } from './controllers/reviews.controller.js';
 import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority } from './controllers/watchlist.controller.js';
+import { listProjects as listClientProjects, createProject, updateProject, deleteProject, updateProjectStatus, getProjectDetails } from '../client/controllers/projects.controller.js';
+import { listProjectProposals } from '../client/controllers/proposals.controller.js';
 
 const router = Router();
 
@@ -36,6 +38,15 @@ router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
 // Dashboard
 router.get('/dashboard', getDashboard);
 
+// Projects (Universal Access)
+router.get('/projects', listClientProjects);
+router.post('/projects', createProject);
+router.get('/projects/:id', getProjectDetails);
+router.get('/projects/:projectId/proposals', listProjectProposals);
+router.put('/projects/:id', updateProject);
+router.delete('/projects/:id', deleteProject);
+router.patch('/projects/:id/status', updateProjectStatus);
+
 // Startup Ideas
 router.get('/ideas', listIdeas);
 router.post('/ideas', createIdea);
@@ -43,7 +54,7 @@ router.get('/ideas/:id', getIdeaDetails);
 router.put('/ideas/:id', updateIdea);
 router.delete('/ideas/:id', deleteIdea);
 
-// Profile (mobile uses /profile; /startup kept for startup views)
+// Profile
 router.get('/profile', getProfile);
 router.put('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
 router.patch('/profile', upload.single('file'), handleUploadError, rejectLocalFilePaths, updateProfile);
@@ -154,10 +165,13 @@ router.get('/invoices/:id/download', downloadInvoice);
 
 // Settings
 router.get('/settings', getSettings);
+router.put('/settings', updateSettings);
+
 // Reviews
 router.get('/reviews', getReceivedReviews);
 router.get('/reviews/average', getAverageRating);
 router.get('/reviews/breakdown', getRatingBreakdown);
+
 // Watchlist
 router.get('/watchlist', getWatchlist);
 router.post('/watchlist', addToWatchlist);
@@ -168,7 +182,7 @@ router.patch('/watchlist/:id/priority', updateWatchlistPriority);
 // Search
 router.get('/search', globalSearch);
 
-// ─── Verification ───
+// Verification
 router.get('/verification', getMyVerification as any);
 router.patch('/verification', updateMyVerification as any);
 router.delete('/verification', deleteMyVerification as any);
