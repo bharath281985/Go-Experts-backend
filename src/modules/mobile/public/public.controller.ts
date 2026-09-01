@@ -1678,7 +1678,6 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         verified: Boolean(user.isVerified || user.verified),
         role: user.role || 'freelancer',
         registrationData: reg,
-        savedData: Boolean(user.freelancerProfile || Object.keys(reg).length > 0),
         isSaved: isSaved
       }));
     }
@@ -1810,7 +1809,6 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         verified: Boolean(user.isVerified || (user as any).verified),
         role: user.role || 'client',
         registrationData: reg,
-        savedData: Boolean(user.clientProfile || Object.keys(reg).length > 0),
         isSaved: isSaved,
       }));
     }
@@ -1976,7 +1974,6 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         verified: Boolean(user.isVerified || (user as any).verified),
         role: user.role || 'investor',
         registrationData: reg,
-        savedData,
         isSaved,
       }));
     }
