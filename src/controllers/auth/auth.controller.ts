@@ -2113,8 +2113,11 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
       bio,
       phone,
       country,
+      countryId,
       state,
+      stateId,
       city,
+      cityId,
       // Freelancer fields
       titleHeadline,
       skills,
@@ -2192,9 +2195,13 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
 
     if (bio !== undefined) userUpdate.bio = getStringVal(bio);
     if (phone !== undefined) userUpdate.phone = getStringVal(phone);
-    if (country !== undefined) userUpdate.country = getStringVal(country);
-    if (state !== undefined) userUpdate.state = getStringVal(state);
-    if (city !== undefined) userUpdate.city = getStringVal(city);
+    const finalCountry = countryId ?? country;
+    const finalState = stateId ?? state;
+    const finalCity = cityId ?? city;
+
+    if (finalCountry !== undefined) userUpdate.country = getStringVal(finalCountry);
+    if (finalState !== undefined) userUpdate.state = getStringVal(finalState);
+    if (finalCity !== undefined) userUpdate.city = getStringVal(finalCity);
 
     await prisma.user.update({
       where: { id: userId },
