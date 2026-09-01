@@ -1610,11 +1610,19 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const viewingUserId = (req as any).user?.id;
       if (viewingUserId) {
         try {
-          const row = await prisma.setting.findUnique({ where: { key: `savedFreelancers:${viewingUserId}` } });
-          if (row?.value) {
-            const list = JSON.parse(row.value);
-            if (Array.isArray(list) && list.some((i: any) => i.freelancerId === id || i.id === id || i === id)) {
-              isSaved = true;
+          const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
+          const savedRows = await getJsonSetting(viewingUserId, 'savedFreelancers', [] as any[]);
+          const list = Array.isArray(savedRows) ? savedRows : [];
+          if (list.some((i: any) => i.freelancerId === id || i.id === id || i === id)) {
+            isSaved = true;
+          }
+          if (!isSaved) {
+            const row = await prisma.setting.findUnique({ where: { key: `savedFreelancers:${viewingUserId}` } });
+            if (row?.value) {
+              const legacyList = JSON.parse(row.value);
+              if (Array.isArray(legacyList) && legacyList.some((i: any) => i.freelancerId === id || i.id === id || i === id)) {
+                isSaved = true;
+              }
             }
           }
         } catch { }
@@ -1759,11 +1767,19 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const viewingUserId = (req as any).user?.id;
       if (viewingUserId) {
         try {
-          const row = await prisma.setting.findUnique({ where: { key: `savedClients:${viewingUserId}` } });
-          if (row?.value) {
-            const list = JSON.parse(row.value);
-            if (Array.isArray(list) && list.some((i: any) => i.clientId === id || i.id === id || i === id)) {
-              isSaved = true;
+          const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
+          const savedRows = await getJsonSetting(viewingUserId, 'savedClients', [] as any[]);
+          const list = Array.isArray(savedRows) ? savedRows : [];
+          if (list.some((i: any) => i.clientId === id || i.id === id || i === id)) {
+            isSaved = true;
+          }
+          if (!isSaved) {
+            const row = await prisma.setting.findUnique({ where: { key: `savedClients:${viewingUserId}` } });
+            if (row?.value) {
+              const legacyList = JSON.parse(row.value);
+              if (Array.isArray(legacyList) && legacyList.some((i: any) => i.clientId === id || i.id === id || i === id)) {
+                isSaved = true;
+              }
             }
           }
         } catch { }

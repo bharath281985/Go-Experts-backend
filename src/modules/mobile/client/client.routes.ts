@@ -29,7 +29,7 @@ const router = Router();
 
 // Auth + Role guard on all client routes
 router.use(authenticate);
-router.use(authorizeRole('client'));
+router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
 
 // ─── Dashboard ───
 router.get('/dashboard', getDashboard);

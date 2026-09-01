@@ -31,7 +31,7 @@ const router = Router();
 
 // Auth + Role guard on all founder routes
 router.use(authenticate);
-router.use(authorizeRole('founder'));
+router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
 
 // Dashboard
 router.get('/dashboard', getDashboard);

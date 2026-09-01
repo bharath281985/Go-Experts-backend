@@ -78,7 +78,7 @@ const router = Router();
 
 // Apply auth + role guard to all freelancer routes
 router.use(authenticate);
-router.use(authorizeRole('freelancer'));
+router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
 
 // ─── Dashboard ───
 router.get('/dashboard', getDashboard);

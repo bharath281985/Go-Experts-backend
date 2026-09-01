@@ -51,7 +51,7 @@ router.patch('/watchlist/:id/priority', (req: AuthRequest, res, next) => {
   return updateWatchlistPriority(req, res, next);
 });
 
-router.use(authorizeRole('investor'));
+router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
 
 // ─── Dashboard ───
 router.get('/dashboard', getDashboard);
