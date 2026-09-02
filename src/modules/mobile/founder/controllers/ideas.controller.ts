@@ -4,6 +4,26 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 import { isSchemaDriftError } from '../../../../common/helpers/prisma-compat.js';
+import { resolveLabelOrName } from '../../../../utils/array-option-resolver.js';
+
+async function enrichIdea(idea: any) {
+  if (!idea) return null;
+  const [stageName, industryName, categoryName] = await Promise.all([
+    resolveLabelOrName(idea.stage),
+    resolveLabelOrName(idea.industry),
+    resolveLabelOrName(idea.category),
+  ]);
+
+  return {
+    ...idea,
+    stage: stageName || idea.stage,
+    stageId: idea.stage,
+    industry: industryName || idea.industry,
+    industryId: idea.industry,
+    category: categoryName || idea.category,
+    categoryId: idea.category,
+  };
+}
 
 export const createIdea = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -12,15 +32,19 @@ export const createIdea = async (req: AuthRequest, res: Response, next: NextFunc
     const parsedFunding = parseFloat(String(funding ?? 0));
     const parsedEquity = parseFloat(String(equity ?? 0));
 
+    if (!startup || !String(startup).trim()) {
+      return res.status(400).json(errorResponse('Startup name is required', 'VALIDATION_ERROR'));
+    }
+
     let idea = null;
     try {
       idea = await prisma.startupIdea.create({
         data: {
           founder: req.user.id,
-          startup: startup || 'My Startup Idea',
-          industry: industry || 'Tech',
-          category: category || 'General',
-          stage: stage || 'Idea',
+          startup: String(startup).trim(),
+          industry: industry ? String(industry).trim() : null,
+          category: category ? String(category).trim() : null,
+          stage: stage ? String(stage).trim() : null,
           funding: isNaN(parsedFunding) ? 0 : parsedFunding,
           equity: isNaN(parsedEquity) ? 0 : parsedEquity,
           visibility: visibility || 'Public',
@@ -35,9 +59,9 @@ export const createIdea = async (req: AuthRequest, res: Response, next: NextFunc
         const id = `idea_${Date.now()}`;
         await prisma.$executeRawUnsafe(
           `INSERT INTO startup_ideas (id, founder, startup, industry, category, stage, funding, equity, visibility, logo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-          id, req.user.id, startup || 'My Startup Idea', industry || 'Tech', category || 'General', stage || 'Idea', isNaN(parsedFunding) ? 0 : parsedFunding, isNaN(parsedEquity) ? 0 : parsedEquity, visibility || 'Public', logo || null
+          id, req.user.id, String(startup).trim(), industry || null, category || null, stage || null, isNaN(parsedFunding) ? 0 : parsedFunding, isNaN(parsedEquity) ? 0 : parsedEquity, visibility || 'Public', logo || null
         );
-        idea = { id, founder: req.user.id, startup: startup || 'My Startup Idea', industry: industry || 'Tech', category: category || 'General', stage: stage || 'Idea', funding: isNaN(parsedFunding) ? 0 : parsedFunding, equity: isNaN(parsedEquity) ? 0 : parsedEquity, visibility: visibility || 'Public', logo: logo || null, pitchDeck: null };
+        idea = { id, founder: req.user.id, startup: String(startup).trim(), industry: industry || null, category: category || null, stage: stage || null, funding: isNaN(parsedFunding) ? 0 : parsedFunding, equity: isNaN(parsedEquity) ? 0 : parsedEquity, visibility: visibility || 'Public', logo: logo || null, pitchDeck: null };
       } else {
         throw err;
       }
@@ -74,7 +98,7 @@ export const createIdea = async (req: AuthRequest, res: Response, next: NextFunc
       }
     });
 
-    return res.status(201).json(successResponse('Startup idea created successfully', idea));
+    return res.status(201).json(successResponse('Startup idea created successfully', await enrichIdea(idea)));
   } catch (error) {
     next(error);
   }
@@ -91,10 +115,7 @@ export const listIdeas = async (req: AuthRequest, res: Response, next: NextFunct
 
     try {
       const founderFilter = {
-        OR: [
-          { founder: req.user.id },
-          ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
-        ],
+        founder: req.user.id,
         deletedAt: null
       };
 
@@ -132,6 +153,7 @@ export const listIdeas = async (req: AuthRequest, res: Response, next: NextFunct
     let responseData: any = null;
 
     if (singleIdea) {
+      const enriched = await enrichIdea(singleIdea);
       let bids: any[] = [];
       try {
         bids = await prisma.investment.findMany({
@@ -177,7 +199,7 @@ export const listIdeas = async (req: AuthRequest, res: Response, next: NextFunct
       }));
 
       responseData = {
-        ...singleIdea,
+        ...enriched,
         interestedInvestors: bids.length,
         interestedInvestorsList
       };
@@ -201,10 +223,7 @@ export const getIdeaDetails = async (req: AuthRequest, res: Response, next: Next
         where: {
           id: req.params.id,
           deletedAt: null,
-          OR: [
-            { founder: req.user.id },
-            ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
-          ]
+          founder: req.user.id,
         }
       });
     } catch (err) {
@@ -223,7 +242,7 @@ export const getIdeaDetails = async (req: AuthRequest, res: Response, next: Next
       return res.status(404).json(errorResponse('Startup idea not found', 'NOT_FOUND'));
     }
 
-    return res.json(successResponse('Startup idea details', idea));
+    return res.json(successResponse('Startup idea details', await enrichIdea(idea)));
   } catch (error) {
     next(error);
   }
@@ -237,10 +256,7 @@ export const updateIdea = async (req: AuthRequest, res: Response, next: NextFunc
       where: {
         id: req.params.id,
         deletedAt: null,
-        OR: [
-          { founder: req.user.id },
-          ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
-        ]
+        founder: req.user.id,
       }
     });
 
@@ -268,7 +284,7 @@ export const updateIdea = async (req: AuthRequest, res: Response, next: NextFunc
       }
     });
 
-    return res.json(successResponse('Startup idea updated successfully', updated));
+    return res.json(successResponse('Startup idea updated successfully', await enrichIdea(updated)));
   } catch (error) {
     next(error);
   }
@@ -280,10 +296,7 @@ export const deleteIdea = async (req: AuthRequest, res: Response, next: NextFunc
       where: {
         id: req.params.id,
         deletedAt: null,
-        OR: [
-          { founder: req.user.id },
-          ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
-        ]
+        founder: req.user.id,
       }
     });
 

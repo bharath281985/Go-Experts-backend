@@ -115,11 +115,17 @@ export const authenticateOptional = async (req: AuthRequest, _res: Response, nex
 export const authorizeRole = (roles: string | string[]) => {
   const allowed = Array.isArray(roles) ? roles : [roles];
   return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !allowed.includes(req.user.role)) {
-      return res.status(403).json(
-        errorResponse('You do not have permission to access this resource.', 'FORBIDDEN')
-      );
+    if (!req.user) {
+      return res.status(401).json(errorResponse('Invalid session. Please login again.', 'INVALID_TOKEN'));
     }
+    // For portal (mobile) users, allow any role
+    if (req.user.type === 'portal') {
+      return next();
+    }
+    if (!allowed.includes(req.user.role)) {
+      return res.status(403).json(errorResponse('You do not have permission to access this resource.', 'FORBIDDEN'));
+    }
+    next();
     next();
   };
 };

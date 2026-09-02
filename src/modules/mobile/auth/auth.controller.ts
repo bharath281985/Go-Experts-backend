@@ -373,52 +373,56 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         });
       } else if (targetRole === 'founder') {
         const startupObj = typeof b.startup === 'object' ? b.startup : {};
-        const startupNameVal = startupObj.name || b.startupName || b.startup || b.title || (nameVal ? `${nameVal}'s Startup` : 'My Startup');
-        const industryVal = b.industryId || b.industry || b.taxonomy?.primaryCategoryId || 'Technology';
-        const stageVal = startupObj.stageId || b.stage || b.fundingStage || 'Idea';
-        const teamSizeRaw = b.teamSizeId || b.teamSize;
-        const teamSizeVal = teamSizeRaw ? (parseInt(String(teamSizeRaw).replace(/[^\d]/g, '')) || 1) : 1;
-        const fundingReqRaw = startupObj.fundingRequired || b.fundingRequired || b.raised || b.funding;
-        const raisedVal = fundingReqRaw != null ? (parseFloat(String(fundingReqRaw).replace(/[^\d.]/g, '')) || 0) : 0;
-        const equityOfferedRaw = startupObj.equityOffered || b.equityOffered || b.equity;
-        const equityVal = equityOfferedRaw != null ? (parseFloat(String(equityOfferedRaw).replace(/[^\d.]/g, '')) || 0) : 0;
-        const pitchDeckVal = startupObj.pitchDeck || b.pitchDeck || b.pitchDeckUrl || null;
+        const explicitStartupName = startupObj.name || b.startupName || (typeof b.startup === 'string' ? b.startup : null);
+        
+        if (explicitStartupName && String(explicitStartupName).trim().length > 0) {
+          const startupNameVal = String(explicitStartupName).trim();
+          const industryVal = b.industryId || b.industry || b.taxonomy?.primaryCategoryId || null;
+          const stageVal = startupObj.stageId || b.stage || b.fundingStage || null;
+          const teamSizeRaw = b.teamSizeId || b.teamSize;
+          const teamSizeVal = teamSizeRaw ? (parseInt(String(teamSizeRaw).replace(/[^\d]/g, '')) || 1) : 1;
+          const fundingReqRaw = startupObj.fundingRequired || b.fundingRequired || b.raised || b.funding;
+          const raisedVal = fundingReqRaw != null ? (parseFloat(String(fundingReqRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+          const equityOfferedRaw = startupObj.equityOffered || b.equityOffered || b.equity;
+          const equityVal = equityOfferedRaw != null ? (parseFloat(String(equityOfferedRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+          const pitchDeckVal = startupObj.pitchDeck || b.pitchDeck || b.pitchDeckUrl || null;
 
-        await tx.founderProfile.upsert({
-          where: { userId: created.id },
-          update: {
-            startupName: String(startupNameVal).trim(),
-            industry: String(industryVal).trim(),
-            stage: String(stageVal).trim(),
-            teamSize: teamSizeVal,
-            raised: raisedVal,
-          },
-          create: {
-            userId: created.id,
-            startupName: String(startupNameVal).trim(),
-            industry: String(industryVal).trim(),
-            stage: String(stageVal).trim(),
-            teamSize: teamSizeVal,
-            raised: raisedVal,
-          }
-        });
+          await tx.founderProfile.upsert({
+            where: { userId: created.id },
+            update: {
+              startupName: startupNameVal,
+              industry: industryVal ? String(industryVal).trim() : null,
+              stage: stageVal ? String(stageVal).trim() : null,
+              teamSize: teamSizeVal,
+              raised: raisedVal,
+            },
+            create: {
+              userId: created.id,
+              startupName: startupNameVal,
+              industry: industryVal ? String(industryVal).trim() : null,
+              stage: stageVal ? String(stageVal).trim() : null,
+              teamSize: teamSizeVal,
+              raised: raisedVal,
+            }
+          });
 
-        await tx.startupIdea.create({
-          data: {
-            founder: created.id,
-            startup: String(startupNameVal).trim(),
-            industry: String(industryVal).trim(),
-            category: b.profileCategoryId || b.categoryId || b.taxonomy?.primaryCategoryId || 'General',
-            stage: String(stageVal).trim(),
-            funding: raisedVal,
-            equity: equityVal,
-            visibility: b.visibility || 'Public',
-            pitchDeck: pitchDeckVal,
-            businessPlan: b.businessPlan || b.businessPlanUrl || null,
-            logo: avatarUrlVal || null,
-            status: 'active'
-          }
-        }).catch(() => null);
+          await tx.startupIdea.create({
+            data: {
+              founder: created.id,
+              startup: startupNameVal,
+              industry: industryVal ? String(industryVal).trim() : null,
+              category: b.profileCategoryId || b.categoryId || b.taxonomy?.primaryCategoryId || null,
+              stage: stageVal ? String(stageVal).trim() : null,
+              funding: raisedVal,
+              equity: equityVal,
+              visibility: b.visibility || 'Public',
+              pitchDeck: pitchDeckVal,
+              businessPlan: b.businessPlan || b.businessPlanUrl || null,
+              logo: avatarUrlVal || null,
+              status: 'active'
+            }
+          }).catch(() => null);
+        }
       } else if (targetRole === 'client') {
         const companyVal = b.businessName || b.company || b.companyName || null;
         const industryVal = b.industryId || b.industry || null;
