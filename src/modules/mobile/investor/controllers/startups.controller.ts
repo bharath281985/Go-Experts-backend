@@ -483,20 +483,27 @@ export const saveStartup = async (req: AuthRequest, res: Response, next: NextFun
 
     const { notes, priority } = req.body || {};
     const items = await readList(req.user.id);
-    const exists = items.find(i => i.startupId === startupId);
-    if (exists) return res.status(409).json(errorResponse('Startup already saved to watchlist', 'CONFLICT'));
+    const existingIndex = items.findIndex(i => i.startupId === startupId);
 
+    const checkInvestment = await prisma.investment.findFirst({
+      where: { investor: req.user.id, startup: startupId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+    });
+
+    if (existingIndex >= 0) {
+      // Toggle off: remove from watchlist
+      items.splice(existingIndex, 1);
+      await writeList(req.user.id, items);
+      return res.json(successResponse('Startup removed from watchlist', { isSaved: false, hasInvested: !!checkInvestment }));
+    }
+
+    // Toggle on: add to watchlist
     const now = new Date().toISOString();
     const entry: WatchlistEntry = { id: randomUUID(), startupId, notes: notes || '', priority: priority || 'medium', savedAt: now, updatedAt: now };
 
     items.unshift(entry);
     await writeList(req.user.id, items);
 
-    const checkInvestment = await prisma.investment.findFirst({
-      where: { investor: req.user.id, startup: startupId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
-    });
-
-    return res.status(201).json(successResponse('Startup saved to watchlist', { ...entry, isSaved: true, hasInvested: !!checkInvestment }));
+    return res.status(200).json(successResponse('Startup saved to watchlist', { ...entry, isSaved: true, hasInvested: !!checkInvestment }));
   } catch (error) { next(error); }
 };
 
@@ -516,9 +523,7 @@ export const unsaveStartup = async (req: AuthRequest, res: Response, next: NextF
 
     const items = await readList(req.user.id);
     const filtered = items.filter(i => i.startupId !== startupId);
-    if (filtered.length === items.length) return res.status(404).json(errorResponse('Startup not in watchlist', 'NOT_FOUND'));
-
     await writeList(req.user.id, filtered);
-    return res.json(successResponse('Startup removed from watchlist'));
+    return res.json(successResponse('Startup removed from watchlist', { isSaved: false }));
   } catch (error) { next(error); }
 };

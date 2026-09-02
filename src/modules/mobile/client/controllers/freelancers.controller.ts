@@ -86,34 +86,34 @@ export const saveFreelancer = async (req: AuthRequest, res: Response, next: Next
     const freelancerId = req.params.id;
 
     const rows: any[] = await getJsonSetting(userId, 'savedFreelancers', []);
-    const existing = rows.findIndex((r: any) => r.freelancerId === freelancerId);
+    const existing = rows.findIndex((r: any) => r.freelancerId === freelancerId || r.id === freelancerId || r === freelancerId);
 
-    let saved = true;
-    let nextRows = rows;
     if (existing >= 0) {
-      saved = true;
-    } else {
-      const fUser = await prisma.user.findUnique({
-        where: { id: freelancerId },
-        include: { freelancerProfile: true }
-      });
-      const entry = {
-        id: `sf-${Date.now()}`,
-        freelancerId,
-        slug: freelancerId,
-        name: fUser?.fullName || 'Freelancer',
-        headline: fUser?.freelancerProfile?.titleHeadline || '',
-        avatar: fUser?.avatarUrl || '',
-        rate: fUser?.freelancerProfile?.hourlyRate || 0,
-        rating: fUser?.freelancerProfile?.rating || 5,
-        location: fUser?.city ? `${fUser.city}, ${fUser.country || ''}` : '',
-        savedAt: new Date().toISOString(),
-      };
-      nextRows = [...rows, entry];
+      const nextRows = rows.filter((r: any) => r.freelancerId !== freelancerId && r.id !== freelancerId && r !== freelancerId);
       await setJsonSetting(userId, 'savedFreelancers', nextRows);
+      return res.json(successResponse('Freelancer removed from saved', { isSaved: false, rows: nextRows }));
     }
 
-    return res.json(successResponse('Freelancer saved', { saved, rows: nextRows }));
+    const fUser = await prisma.user.findUnique({
+      where: { id: freelancerId },
+      include: { freelancerProfile: true }
+    });
+    const entry = {
+      id: `sf-${Date.now()}`,
+      freelancerId,
+      slug: freelancerId,
+      name: fUser?.fullName || 'Freelancer',
+      headline: fUser?.freelancerProfile?.titleHeadline || '',
+      avatar: fUser?.avatarUrl || '',
+      rate: fUser?.freelancerProfile?.hourlyRate || 0,
+      rating: fUser?.freelancerProfile?.rating || 5,
+      location: fUser?.city ? `${fUser.city}, ${fUser.country || ''}` : '',
+      savedAt: new Date().toISOString(),
+    };
+    const nextRows = [...rows, entry];
+    await setJsonSetting(userId, 'savedFreelancers', nextRows);
+
+    return res.json(successResponse('Freelancer saved', { isSaved: true, rows: nextRows }));
   } catch (error) { next(error); }
 };
 
@@ -123,10 +123,10 @@ export const unsaveFreelancer = async (req: AuthRequest, res: Response, next: Ne
     const freelancerId = req.params.id;
 
     const rows: any[] = await getJsonSetting(userId, 'savedFreelancers', []);
-    const nextRows = rows.filter((r: any) => r.id !== freelancerId && r.freelancerId !== freelancerId);
+    const nextRows = rows.filter((r: any) => r.id !== freelancerId && r.freelancerId !== freelancerId && r !== freelancerId);
     
     await setJsonSetting(userId, 'savedFreelancers', nextRows);
-    return res.json(successResponse('Freelancer removed from saved', { rows: nextRows }));
+    return res.json(successResponse('Freelancer removed from saved', { isSaved: false, rows: nextRows }));
   } catch (error) { next(error); }
 };
 

@@ -992,7 +992,9 @@ const formatStartupResponse = (
   industryMap: Map<string, string>,
   optionMap: Map<string, string>,
   isDetailed: boolean = false,
-  platformRaisedMap?: Map<string, number>
+  platformRaisedMap?: Map<string, number>,
+  savedIds?: Set<string>,
+  investedIds?: Set<string>
 ) => {
   if (!idea) return null;
 
@@ -1072,6 +1074,9 @@ const formatStartupResponse = (
 
   const additionalCount = gallery.length > 4 ? gallery.length - 4 : 0;
 
+  const isSaved = savedIds ? (savedIds.has(idea.id) || (idea.founder && savedIds.has(idea.founder))) : false;
+  const hasInvested = investedIds ? (investedIds.has(idea.id) || (idea.founder && investedIds.has(idea.founder))) : false;
+
   const baseResult: any = {
     id: idea.id,
     startup: idea.startup,
@@ -1119,8 +1124,8 @@ const formatStartupResponse = (
     updatedAt: idea.updatedAt,
 
     user: userObj ? { ...userObj, isVerified: user?.isVerified || false } : null,
-    isSaved: false, // Public has no user attached
-    hasInvested: false
+    isSaved,
+    hasInvested
   };
 
   if (!isDetailed) {
@@ -1275,9 +1280,42 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
 
     const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(ideas);
 
+    let savedIds = new Set<string>();
+    let investedIds = new Set<string>();
+    if (userId) {
+      const row = await prisma.setting.findUnique({ where: { key: `investor_watchlist:${userId}` } });
+      if (row?.value) {
+        try {
+          const list = JSON.parse(row.value);
+          if (Array.isArray(list)) {
+            list.forEach((item: any) => {
+              if (item.startupId) savedIds.add(item.startupId);
+            });
+          }
+        } catch { }
+      }
+      const investments = await prisma.investment.findMany({
+        where: { investor: userId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } },
+        select: { startup: true }
+      });
+      investments.forEach((inv) => {
+        if (inv.startup) investedIds.add(inv.startup);
+      });
+    }
+
     const data = ideas.map(idea => {
       // isDetailed = false
-      return formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, false, platformRaisedMap);
+      return formatStartupResponse(
+        idea,
+        userMap.get(idea.founder),
+        fpMap.get(idea.founder),
+        industryMap,
+        optionMap,
+        false,
+        platformRaisedMap,
+        savedIds,
+        investedIds
+      );
     }).filter(Boolean);
 
     return res.json(successResponse('Startups retrieved', data, { page, limit, total, totalPages: Math.ceil(total / limit) }));

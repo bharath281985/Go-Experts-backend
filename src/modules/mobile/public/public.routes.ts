@@ -35,6 +35,7 @@ import { getMyVerification, updateMyVerification, deleteMyVerification } from '.
 import { saveFreelancer, unsaveFreelancer, getSavedFreelancers } from '../client/controllers/freelancers.controller.js';
 import { saveStartup, unsaveStartup } from '../investor/controllers/startups.controller.js';
 import { saveFounder, unsaveFounder, getFounderWatchlist } from '../investor/controllers/watchlist.controller.js';
+import { saveProject, unsaveProject, savedProjects } from '../freelancer/controllers/projects.controller.js';
 
 const router = Router();
 
@@ -142,6 +143,9 @@ router.get('/projects', authenticateOptional, directoryCache, getProjects);
 router.post('/projects', authenticate, createProject);
 router.get('/projects/:id', authenticateOptional, directoryCache, getById('project'));
 router.get('/projects/:projectId/proposals', authenticate, listProjectProposals);
+router.post('/projects/:id/save', authenticate, saveProject);
+router.delete('/projects/:id/save', authenticate, unsaveProject);
+router.get('/projects/saved', authenticate, savedProjects);
 router.put('/projects/:id', authenticate, updateProject);
 router.delete('/projects/:id', authenticate, deleteProject);
 router.patch('/projects/:id/status', authenticate, updateProjectStatus);

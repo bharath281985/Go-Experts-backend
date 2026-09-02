@@ -404,8 +404,22 @@ export const saveFounder = async (req: AuthRequest, res: Response, next: NextFun
     const founderId = req.params.id;
     const { notes, priority } = req.body || {};
     const items = await readFounderList(req.user.id);
-    const exists = items.find(i => i.startupId === founderId);
-    if (exists) return res.status(409).json(errorResponse('Founder already saved to watchlist', 'CONFLICT'));
+    const existingIndex = items.findIndex(i => i.startupId === founderId);
+
+    const idea = await prisma.startupIdea.findFirst({ where: { founder: founderId, deletedAt: null }, orderBy: { createdAt: 'desc' } });
+    let hasInvested = false;
+    if (idea) {
+      const checkInvestment = await prisma.investment.findFirst({
+        where: { investor: req.user.id, startup: idea.id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+      });
+      hasInvested = !!checkInvestment;
+    }
+
+    if (existingIndex >= 0) {
+      items.splice(existingIndex, 1);
+      await writeFounderList(req.user.id, items);
+      return res.json(successResponse('Founder removed from watchlist', { isSaved: false, hasInvested }));
+    }
 
     // Validate founder exists
     const user = await prisma.user.findFirst({ where: { id: founderId } }).catch(() => null);
@@ -417,16 +431,7 @@ export const saveFounder = async (req: AuthRequest, res: Response, next: NextFun
     items.unshift(entry);
     await writeFounderList(req.user.id, items);
 
-    const idea = await prisma.startupIdea.findFirst({ where: { founder: founderId, deletedAt: null }, orderBy: { createdAt: 'desc' } });
-    let hasInvested = false;
-    if (idea) {
-      const checkInvestment = await prisma.investment.findFirst({
-        where: { investor: req.user.id, startup: idea.id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
-      });
-      hasInvested = !!checkInvestment;
-    }
-
-    return res.status(201).json(successResponse('Founder saved to watchlist', { ...entry, isSaved: true, hasInvested }));
+    return res.status(200).json(successResponse('Founder saved to watchlist', { ...entry, isSaved: true, hasInvested }));
   } catch (error) { next(error); }
 };
 
@@ -435,8 +440,7 @@ export const unsaveFounder = async (req: AuthRequest, res: Response, next: NextF
     const founderId = req.params.id;
     const items = await readFounderList(req.user.id);
     const filtered = items.filter(i => i.startupId !== founderId);
-    if (filtered.length === items.length) return res.status(404).json(errorResponse('Founder not in watchlist', 'NOT_FOUND'));
     await writeFounderList(req.user.id, filtered);
-    return res.json(successResponse('Founder removed from watchlist'));
+    return res.json(successResponse('Founder removed from watchlist', { isSaved: false }));
   } catch (error) { next(error); }
 };

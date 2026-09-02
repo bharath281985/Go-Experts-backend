@@ -59,10 +59,16 @@ export const saveProject = async (req: AuthRequest, res: Response, next: NextFun
     if (!projectId) return res.status(400).json(errorResponse('Project ID is required'));
 
     const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
-    if (!saved.includes(projectId)) saved.push(projectId);
+    if (saved.includes(projectId)) {
+      const nextSaved = saved.filter((id) => id !== projectId);
+      await setJsonSetting(userId, 'saved-projects', nextSaved);
+      return res.json(successResponse('Project removed from saved list', { isSaved: false }));
+    }
+
+    saved.push(projectId);
     await setJsonSetting(userId, 'saved-projects', saved);
 
-    res.status(201).json(successResponse('Project saved'));
+    res.status(200).json(successResponse('Project saved', { isSaved: true }));
   } catch (err) { next(err); }
 };
 
@@ -76,7 +82,7 @@ export const unsaveProject = async (req: AuthRequest, res: Response, next: NextF
     const nextSaved = saved.filter((id) => id !== projectId);
     await setJsonSetting(userId, 'saved-projects', nextSaved);
 
-    res.json(successResponse('Project removed from saved list'));
+    res.json(successResponse('Project removed from saved list', { isSaved: false }));
   } catch (err) { next(err); }
 };
 
