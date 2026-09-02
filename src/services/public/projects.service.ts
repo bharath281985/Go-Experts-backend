@@ -28,7 +28,7 @@ export async function listPublicProjects(options?: {
 
     // Only show projects whose owning client has NOT been soft-deleted
     const activeClients = await prisma.user.findMany({
-      where: { deletedAt: null, role: "client" },
+      where: { deletedAt: null },
       select: { id: true },
     });
     const activeClientIds = activeClients.map((u) => u.id);
@@ -134,7 +134,7 @@ export async function listPublicProjects(options?: {
 export async function getPostProjectStats() {
   try {
     const activeClients = await prisma.user.findMany({
-      where: { deletedAt: null, role: "client" },
+      where: { deletedAt: null },
       select: { id: true },
     });
     const activeClientIds = activeClients.map((u) => u.id);
