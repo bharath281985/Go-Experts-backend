@@ -115,11 +115,24 @@ export const authenticateOptional = async (req: AuthRequest, _res: Response, nex
 export const authorizeRole = (roles: string | string[]) => {
   const allowed = Array.isArray(roles) ? roles : [roles];
   return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !allowed.includes(req.user.role)) {
-      return res.status(403).json(
-        errorResponse('You do not have permission to access this resource.', 'FORBIDDEN')
-      );
+    const isMobile = req.originalUrl?.includes('/mobile/');
+    
+    if (isMobile) {
+      if (!req.user || !allowed.includes(req.user.role)) {
+        return res.status(403).json(
+          errorResponse('You do not have permission to access this resource.', 'FORBIDDEN')
+        );
+      }
+    } else {
+      // WEBSITE BYPASS: Allow any authenticated user to access any web endpoint
+      if (!req.user) {
+        return res.status(403).json(
+          errorResponse('You do not have permission to access this resource.', 'FORBIDDEN')
+        );
+      }
+      // Explicitly skipping: !allowed.includes(req.user.role)
     }
+    
     next();
   };
 };
