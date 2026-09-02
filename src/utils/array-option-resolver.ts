@@ -165,3 +165,48 @@ export async function resolveMasterOptionsInput(inputVal: any, type?: string): P
     list: finalList
   };
 }
+
+export async function resolveLabelOrName(val: any): Promise<string> {
+  if (!val || typeof val !== 'string') return '';
+  const trimmed = val.trim();
+  if (!trimmed) return '';
+
+  const isUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed);
+  if (!isUuidPattern && !trimmed.startsWith('opt_') && !trimmed.startsWith('stg_') && !trimmed.startsWith('ind_')) {
+    return trimmed;
+  }
+
+  try {
+    // 1. Check industry
+    const ind = await prisma.industry.findFirst({
+      where: { OR: [{ id: trimmed }, { name: trimmed }] },
+      select: { name: true }
+    }).catch(() => null);
+    if (ind?.name) return ind.name;
+
+    // 2. Check startupStage
+    const stg = await prisma.startupStage.findFirst({
+      where: { OR: [{ id: trimmed }, { name: trimmed }] },
+      select: { name: true }
+    }).catch(() => null);
+    if (stg?.name) return stg.name;
+
+    // 3. Check masterOption
+    const opt = await (prisma as any).masterOption?.findFirst({
+      where: { OR: [{ id: trimmed }, { value: trimmed }, { label: trimmed }] },
+      select: { label: true, value: true }
+    }).catch(() => null);
+    if (opt?.label) return opt.label;
+    if (opt?.value) return opt.value;
+
+    // 4. Check skillCategory
+    const cat = await (prisma as any).skillCategory?.findFirst({
+      where: { OR: [{ id: trimmed }, { name: trimmed }] },
+      select: { name: true }
+    }).catch(() => null);
+    if (cat?.name) return cat.name;
+  } catch {}
+
+  return trimmed;
+}
+

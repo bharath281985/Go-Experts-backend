@@ -4,6 +4,26 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 import { isSchemaDriftError } from '../../../../common/helpers/prisma-compat.js';
+import { resolveLabelOrName } from '../../../../utils/array-option-resolver.js';
+
+async function enrichIdea(idea: any) {
+  if (!idea) return null;
+  const [stageName, industryName, categoryName] = await Promise.all([
+    resolveLabelOrName(idea.stage),
+    resolveLabelOrName(idea.industry),
+    resolveLabelOrName(idea.category),
+  ]);
+
+  return {
+    ...idea,
+    stage: stageName || idea.stage,
+    stageId: idea.stage,
+    industry: industryName || idea.industry,
+    industryId: idea.industry,
+    category: categoryName || idea.category,
+    categoryId: idea.category,
+  };
+}
 
 export const createIdea = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -78,7 +98,7 @@ export const createIdea = async (req: AuthRequest, res: Response, next: NextFunc
       }
     });
 
-    return res.status(201).json(successResponse('Startup idea created successfully', idea));
+    return res.status(201).json(successResponse('Startup idea created successfully', await enrichIdea(idea)));
   } catch (error) {
     next(error);
   }
@@ -133,6 +153,7 @@ export const listIdeas = async (req: AuthRequest, res: Response, next: NextFunct
     let responseData: any = null;
 
     if (singleIdea) {
+      const enriched = await enrichIdea(singleIdea);
       let bids: any[] = [];
       try {
         bids = await prisma.investment.findMany({
@@ -178,7 +199,7 @@ export const listIdeas = async (req: AuthRequest, res: Response, next: NextFunct
       }));
 
       responseData = {
-        ...singleIdea,
+        ...enriched,
         interestedInvestors: bids.length,
         interestedInvestorsList
       };
@@ -221,7 +242,7 @@ export const getIdeaDetails = async (req: AuthRequest, res: Response, next: Next
       return res.status(404).json(errorResponse('Startup idea not found', 'NOT_FOUND'));
     }
 
-    return res.json(successResponse('Startup idea details', idea));
+    return res.json(successResponse('Startup idea details', await enrichIdea(idea)));
   } catch (error) {
     next(error);
   }
@@ -263,7 +284,7 @@ export const updateIdea = async (req: AuthRequest, res: Response, next: NextFunc
       }
     });
 
-    return res.json(successResponse('Startup idea updated successfully', updated));
+    return res.json(successResponse('Startup idea updated successfully', await enrichIdea(updated)));
   } catch (error) {
     next(error);
   }
