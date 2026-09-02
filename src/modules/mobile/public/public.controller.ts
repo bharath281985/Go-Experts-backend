@@ -5,6 +5,7 @@ import { shapeProjects, shapeProject } from '../../../services/mobile/project-sh
 import {
   parsePagination,
   parseProjectListQuery,
+  parseStartupListQuery,
 } from '../../../services/mobile/project-list-query.service.js';
 
 const oneOrMany = <T>(items: T[]): T | T[] => items.length === 1 ? items[0] : items;
@@ -1251,28 +1252,13 @@ const loadRelatedDataForIdeas = async (ideas: any[]) => {
 
 export const getStartups = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-    const skip = (page - 1) * limit;
+    const { where, orderBy, page, limit, skip } = parseStartupListQuery(req);
     const userId = (req as any).user?.id as string | undefined;
-
-    const where: any = {
-      status: 'active',
-      deletedAt: null,
-      NOT: [
-        { startup: { contains: "'s Startup" } },
-        { startup: { contains: "’s Startup" } },
-        { startup: '' }
-      ]
-    };
-    if (userId) {
-      where.founder = { not: userId };
-    }
 
     const [ideas, total] = await Promise.all([
       prisma.startupIdea.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip, take: limit
       }),
       prisma.startupIdea.count({ where })
@@ -1304,10 +1290,15 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
     }
 
     const data = ideas.map(idea => {
+      const founderUser = userMap.get(idea.founder);
+      // Exclude startup if founder account is inactive or deleted
+      if (!founderUser || founderUser.deletedAt || (founderUser.status && founderUser.status !== 'active')) {
+        return null;
+      }
       // isDetailed = false
       return formatStartupResponse(
         idea,
-        userMap.get(idea.founder),
+        founderUser,
         fpMap.get(idea.founder),
         industryMap,
         optionMap,

@@ -67,7 +67,7 @@ export const shapeProjects = async (
   const [clients, industries, skillCategories, experienceLevels, workModes, budgetRanges, skills, masterOptions] = await Promise.all([
     clientIds.length
       ? prisma.user.findMany({
-        where: { id: { in: clientIds } },
+        where: { id: { in: clientIds }, status: 'active', deletedAt: null },
         select: { id: true, fullName: true, avatarUrl: true, isVerified: true },
       }).catch(() => [])
       : Promise.resolve([]),

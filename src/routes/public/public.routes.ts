@@ -5,7 +5,7 @@ import { SETTINGS_DEFAULTS } from "../../services/settings/settings.defaults.js"
 import {
   getHomeCmsContent,
   getHomePagePayload,
-    getPublicCategories,
+  getPublicCategories,
   getPublicPlatformStats,
   getPublicSkills,
 } from "../../services/public/home.service.js";
@@ -96,11 +96,11 @@ router.get("/settings/role-color", async (req: Request, res: Response) => {
   const role = String(req.query.role || "").trim().toLowerCase();
   const DEFAULT_COLOR = "#0f172a";
   if (!role) return res.json({ success: true, color: DEFAULT_COLOR });
-  
+
   try {
     const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
     const colors = setting?.value ? JSON.parse(setting.value) : SETTINGS_DEFAULTS.industry_colors;
-    
+
     let matchedColor = DEFAULT_COLOR;
     for (const [key, color] of Object.entries(colors)) {
       if (key.toLowerCase() === role || key.toLowerCase() === role + 's') {
@@ -508,7 +508,7 @@ router.get("/freelancers", authenticateOptional, async (req: any, res: Response,
   try {
     const body = parseFreelancerQueryFilters(req);
     let { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
-    
+
     const userId = req.user?.id;
     if (userId) {
       const savedRows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
@@ -526,7 +526,7 @@ router.post("/freelancers", authenticateOptional, async (req: any, res: Response
   try {
     const body = parseFreelancersListBody(req.body ?? {});
     let { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
-    
+
     const userId = req.user?.id;
     if (userId) {
       const savedRows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
@@ -783,8 +783,8 @@ const getPublicHelpCenter = async (req: Request, res: Response, next: NextFuncti
 
     if (pageConfig?.content) {
       try {
-        const parsed = typeof pageConfig.content === "string" 
-          ? JSON.parse(pageConfig.content) 
+        const parsed = typeof pageConfig.content === "string"
+          ? JSON.parse(pageConfig.content)
           : pageConfig.content;
         settings = { ...settings, ...parsed };
       } catch (e) {
@@ -962,13 +962,13 @@ router.post("/delete-requests/:id/permanent-delete", async (req: Request, res: R
     const { id } = req.params;
 
     // Clean up dependent child profiles to satisfy foreign key constraints
-    await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.notificationLog.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.notificationPreference.deleteMany({ where: { userId: id } }).catch(() => {});
+    await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.notificationLog.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.notificationPreference.deleteMany({ where: { userId: id } }).catch(() => { });
 
     // Permanently remove the user from database
     const user = await prisma.user.delete({
@@ -984,11 +984,11 @@ router.post("/delete-requests/:id/permanent-delete", async (req: Request, res: R
 router.delete("/delete-requests/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => {});
-    await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => {});
+    await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => { });
 
     const user = await prisma.user.delete({
       where: { id },
@@ -1136,7 +1136,7 @@ router.get("/projects", authenticateOptional, async (req: any, res: Response, ne
       search: body.search,
       category,
     });
-    
+
     const userId = req.user?.id;
     if (userId) {
       const savedRows = await getJsonSetting(userId, 'saved-projects', [] as string[]);
@@ -1170,7 +1170,7 @@ router.post("/projects", authenticateOptional, async (req: any, res: Response, n
       category,
       categoryId,
     });
-    
+
     const userId = req.user?.id;
     if (userId) {
       const savedRows = await getJsonSetting(userId, 'saved-projects', [] as string[]);
@@ -1282,17 +1282,17 @@ async function fetchMasterOptions(type: string | string[]): Promise<Array<{ id: 
 
 router.get("/business-types", async (_req: Request, res: Response) => {
   const types = await fetchMasterOptions("business_type");
-  return res.json({ success: true, data: types});
+  return res.json({ success: true, data: types });
 });
 
 router.get("/business_types", async (_req: Request, res: Response) => {
   const types = await fetchMasterOptions("business_type");
-  return res.json({ success: true, data: types});
+  return res.json({ success: true, data: types });
 });
 
 router.get("/team-sizes", async (_req: Request, res: Response) => {
   const sizes = await fetchMasterOptions("team_size");
-  return res.json({ success: true, data: sizes});
+  return res.json({ success: true, data: sizes });
 });
 
 router.get("/team_sizes", async (_req: Request, res: Response) => {
@@ -1396,17 +1396,20 @@ router.get("/startup_ideas", async (req: Request, res: Response, next: NextFunct
       status: "active",
       visibility: "Public",
       founder: { in: activeFounderIds },
-      NOT: [
-        { startup: { contains: "'s Startup" } },
-        { startup: { contains: "’s Startup" } },
-        { startup: "" },
-      ],
     };
+
+    const category = req.query.category || req.query.categoryId;
+    const industry = req.query.industry || req.query.industryId;
+    const stage = req.query.stage || req.query.stageId;
+    if (category) where.category = category;
+    if (industry) where.industry = industry;
+    if (stage) where.stage = stage;
 
     if (search) {
       where.OR = [
         { startup: { contains: search } },
         { industry: { contains: search } },
+        { category: { contains: search } },
       ];
     }
 
@@ -1453,7 +1456,7 @@ router.get("/startup_ideas/:id", async (req: Request, res: Response, next: NextF
     await prisma.startupIdea.update({
       where: { id: row.id },
       data: { views: { increment: 1 } },
-    }).catch(() => {});
+    }).catch(() => { });
     res.json({ success: true, data: row });
   } catch (err) {
     next(err);
@@ -1625,7 +1628,7 @@ router.post("/projects/create", async (req: Request, res: Response, next: NextFu
       await prisma.clientProfile.updateMany({
         where: { userId },
         data: { projectsPosted: { increment: 1 } },
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     res.status(201).json({ success: true, data: project, message: "Project created" });
