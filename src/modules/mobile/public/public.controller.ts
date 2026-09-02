@@ -156,32 +156,29 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
 
     let indId: string | undefined = undefined;
     let indName: string | undefined = undefined;
+    const targetFilter = reqIndustryId || reqCategoryId;
 
-    if (reqCategoryId) {
-      where.categoryId = reqCategoryId;
-    } else if (reqIndustryId) {
+    if (targetFilter) {
       const targetIndustry = await prisma.industry.findFirst({
         where: {
           OR: [
-            { id: reqIndustryId },
-            { name: reqIndustryId },
-            { name: { contains: reqIndustryId } }
+            { id: targetFilter },
+            { name: targetFilter },
+            { name: { contains: targetFilter } }
           ]
         }
       }).catch(() => null);
 
-      indId = targetIndustry?.id || reqIndustryId;
-      indName = targetIndustry?.name || reqIndustryId;
+      indId = targetIndustry?.id || targetFilter;
+      indName = targetIndustry?.name || targetFilter;
 
-      if (indId || indName) {
-        where.OR = [
-          { industry: indId },
-          { industry: indName },
-          { categoryId: indId },
-          { category: { is: { industryId: indId } } },
-          { category: { is: { name: { contains: indName } } } }
-        ];
-      }
+      where.OR = [
+        { categoryId: targetFilter },
+        { industry: indId },
+        { industry: indName },
+        { category: { is: { industryId: indId } } },
+        { category: { is: { name: { contains: indName } } } }
+      ];
     }
 
     let [skills, total]: [any[], number] = await Promise.all([
