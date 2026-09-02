@@ -26,10 +26,7 @@ export const getProjectDetails = async (req: AuthRequest, res: Response, next: N
     const project = await prisma.project.findFirst({
       where: {
         id: req.params.id,
-        OR: [
-          { freelancer: req.user.id },
-          { status: 'open' }
-        ]
+        deletedAt: null
       },
       include: { milestones: true, tasks: true }
     });

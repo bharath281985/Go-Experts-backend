@@ -309,7 +309,7 @@ export const deleteIdea = async (req: AuthRequest, res: Response, next: NextFunc
 
     await prisma.startupIdea.update({
       where: { id: req.params.id },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: new Date(), status: 'inactive' }
     });
 
     return res.json(successResponse('Startup idea deleted successfully'));

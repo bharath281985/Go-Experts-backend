@@ -21,7 +21,7 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
 
 export const getProjectDetails = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const project = await prisma.project.findFirst({ where: { id: req.params.id, freelancer: req.user.id }, include: { milestones: true, tasks: true } });
+    const project = await prisma.project.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { milestones: true, tasks: true } });
     if (!project) {
       return res.status(404).json(errorResponse('Project not found', 'NOT_FOUND'));
     }

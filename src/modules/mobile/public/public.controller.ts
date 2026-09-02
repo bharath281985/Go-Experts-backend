@@ -839,14 +839,20 @@ export const getClients = async (req: Request, res: Response, next: NextFunction
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
+    const userId = (req as any).user?.id as string | undefined;
+
+    const where: any = { role: 'client', status: 'active', deletedAt: null };
+    if (userId) {
+      where.id = { not: userId };
+    }
 
     const [clients, total] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'client', status: 'active', deletedAt: null },
+        where,
         include: { clientProfile: true },
         skip, take: limit
       }),
-      prisma.user.count({ where: { role: 'client', status: 'active', deletedAt: null } })
+      prisma.user.count({ where })
     ]);
 
     const allIndIds = new Set<string>();
@@ -906,10 +912,16 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
+    const userId = (req as any).user?.id as string | undefined;
+
+    const where: any = { role: 'investor', status: 'active', deletedAt: null };
+    if (userId) {
+      where.id = { not: userId };
+    }
 
     const [investors, total] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'investor', status: 'active', deletedAt: null },
+        where,
         select: {
           id: true, fullName: true, avatarUrl: true, city: true, isVerified: true,
           investorProfile: { select: { focusAreas: true, ticketMin: true, ticketMax: true, deals: true } }
@@ -917,7 +929,7 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
         orderBy: { createdAt: 'desc' },
         skip, take: limit
       }),
-      prisma.user.count({ where: { role: 'investor', status: 'active', deletedAt: null } })
+      prisma.user.count({ where })
     ]);
 
     const focusAreaIds = [...new Set(investors.flatMap((investor) =>
@@ -1275,13 +1287,29 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, { kind: 'public' });
+    const viewerId = (req as any).user?.id as string | undefined;
+
+    if (viewerId) {
+      const userExclusions = [
+        { client: viewerId },
+        { freelancer: viewerId }
+      ];
+      if (where.NOT) {
+        if (Array.isArray(where.NOT)) {
+          where.NOT.push(...userExclusions);
+        } else {
+          where.NOT = [where.NOT, ...userExclusions];
+        }
+      } else {
+        where.NOT = userExclusions;
+      }
+    }
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({ where, skip, take: limit, orderBy }),
       prisma.project.count({ where }),
     ]);
 
-    const viewerId = (req as any).user?.id as string | undefined;
     const shaped = await shapeProjects(projects, viewerId);
     return res.json(successResponse('Projects retrieved', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
