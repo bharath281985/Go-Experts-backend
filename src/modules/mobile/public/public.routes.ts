@@ -91,7 +91,7 @@ router.get('/clients/:id', directoryCache, getById('client'));
 router.get('/investors', directoryCache, getInvestors);
 router.get('/investors/:id', authenticateOptional, getById('investor'));
 router.get('/startups', authenticateOptional, getStartups);
-router.get('/startups/my-startups', authenticate, listIdeas);
+router.get('/startups/my-startups', authenticate, listIdeas);   
 router.post('/startups', authenticate, createIdea);
 router.get('/startups/:id', authenticateOptional, getById('startup'));
 router.post('/startups/:id/save', authenticate, saveStartup);

@@ -90,15 +90,23 @@ export const listIdeas = async (req: AuthRequest, res: Response, next: NextFunct
     let total = 0;
 
     try {
+      const founderFilter = {
+        OR: [
+          { founder: req.user.id },
+          ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
+        ],
+        deletedAt: null
+      };
+
       [ideas, total] = await Promise.all([
         prisma.startupIdea.findMany({
-          where: { founder: req.user.id, deletedAt: null },
+          where: founderFilter,
           skip,
           take: limit,
           orderBy: { createdAt: 'desc' }
         }),
         prisma.startupIdea.count({
-          where: { founder: req.user.id, deletedAt: null }
+          where: founderFilter
         })
       ]);
     } catch {
@@ -190,7 +198,14 @@ export const getIdeaDetails = async (req: AuthRequest, res: Response, next: Next
     let idea: any = null;
     try {
       idea = await prisma.startupIdea.findFirst({
-        where: { id: req.params.id, founder: req.user.id, deletedAt: null }
+        where: {
+          id: req.params.id,
+          deletedAt: null,
+          OR: [
+            { founder: req.user.id },
+            ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
+          ]
+        }
       });
     } catch (err) {
       if (isSchemaDriftError(err)) {
@@ -219,7 +234,14 @@ export const updateIdea = async (req: AuthRequest, res: Response, next: NextFunc
     const { startup, industry, category, stage, funding, equity, visibility, pitchDeck, businessPlan, logo, coverUrl } = req.body;
 
     const idea = await prisma.startupIdea.findFirst({
-      where: { id: req.params.id, founder: req.user.id, deletedAt: null }
+      where: {
+        id: req.params.id,
+        deletedAt: null,
+        OR: [
+          { founder: req.user.id },
+          ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
+        ]
+      }
     });
 
     if (!idea) {
@@ -255,7 +277,14 @@ export const updateIdea = async (req: AuthRequest, res: Response, next: NextFunc
 export const deleteIdea = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const idea = await prisma.startupIdea.findFirst({
-      where: { id: req.params.id, founder: req.user.id, deletedAt: null }
+      where: {
+        id: req.params.id,
+        deletedAt: null,
+        OR: [
+          { founder: req.user.id },
+          ...(req.user.fullName ? [{ founder: req.user.fullName }] : [])
+        ]
+      }
     });
 
     if (!idea) {

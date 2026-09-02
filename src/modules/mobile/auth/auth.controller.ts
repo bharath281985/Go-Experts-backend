@@ -174,7 +174,7 @@ const buildAuthPayload = async (user: AuthUser) => {
 
   const hasActiveSubscription = subscriptionGate.status === 'active';
 
-    return {
+  return {
     accessToken,
     refreshToken,
     token: accessToken,
