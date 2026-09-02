@@ -8,3 +8,5 @@ dist/
 uploads/
 .DS_Store
 *.local
+*.sql
+*.db
