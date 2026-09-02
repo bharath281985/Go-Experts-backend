@@ -45,10 +45,7 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       prisma.founderProfile.findUnique({ where: { userId: req.user.id } }).catch(() => null),
       prisma.startupIdea.findFirst({
         where: {
-          OR: [
-            { founder: req.user.id },
-            { founder: user?.fullName || '__none__' }
-          ],
+          founder: req.user.id,
           deletedAt: null
         },
         orderBy: { createdAt: 'desc' }
