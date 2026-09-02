@@ -59,11 +59,25 @@ const technologyFromBody = (body: any) => {
 const resolveIndustryInput = async (raw: unknown): Promise<{ id: string; name: string } | null> => {
   const value = String(raw ?? '').trim();
   if (!value) return null;
-  const found = await prisma.industry.findFirst({
+  const ind = await prisma.industry.findFirst({
     where: { OR: [{ id: value }, { name: value }] },
     select: { id: true, name: true },
   }).catch(() => null);
-  return found ? { id: found.id, name: found.name } : { id: value, name: value };
+  if (ind) return ind;
+
+  const cat = await (prisma as any).skillCategory?.findFirst({
+    where: { OR: [{ id: value }, { name: value }] },
+    select: { id: true, name: true },
+  }).catch(() => null);
+  if (cat) return cat;
+
+  const opt = await (prisma as any).masterOption?.findFirst({
+    where: { OR: [{ id: value }, { value }, { label: value }] },
+    select: { id: true, label: true, value: true },
+  }).catch(() => null);
+  if (opt) return { id: opt.id, name: opt.label || opt.value };
+
+  return { id: value, name: value };
 };
 
 const resolveExperienceLevelInput = async (raw: unknown): Promise<{ id: string; name: string } | null> => {
@@ -73,7 +87,15 @@ const resolveExperienceLevelInput = async (raw: unknown): Promise<{ id: string; 
     where: { OR: [{ id: value }, { name: value }] },
     select: { id: true, name: true },
   }).catch(() => null);
-  return found ? { id: found.id, name: found.name } : { id: value, name: value };
+  if (found) return found;
+
+  const opt = await (prisma as any).masterOption?.findFirst({
+    where: { OR: [{ id: value }, { value }, { label: value }], type: 'experience_level' },
+    select: { id: true, label: true, value: true },
+  }).catch(() => null);
+  if (opt) return { id: opt.id, name: opt.label || opt.value };
+
+  return { id: value, name: value };
 };
 
 const resolveWorkModeInput = async (raw: unknown): Promise<{ id: string; name: string } | null> => {
@@ -83,7 +105,15 @@ const resolveWorkModeInput = async (raw: unknown): Promise<{ id: string; name: s
     where: { OR: [{ id: value }, { name: value }] },
     select: { id: true, name: true },
   }).catch(() => null);
-  return found ? { id: found.id, name: found.name } : { id: value, name: value };
+  if (found) return found;
+
+  const opt = await (prisma as any).masterOption?.findFirst({
+    where: { OR: [{ id: value }, { value }, { label: value }], type: 'work_mode' },
+    select: { id: true, label: true, value: true },
+  }).catch(() => null);
+  if (opt) return { id: opt.id, name: opt.label || opt.value };
+
+  return { id: value, name: value };
 };
 
 const resolveBudgetRangeInput = async (raw: unknown): Promise<{ id: string; label: string; value: string; min: number | null; max: number | null } | null> => {

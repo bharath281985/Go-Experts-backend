@@ -49,7 +49,7 @@ export const formatStartupResponse = (
 
   if (user) {
     reg = parseRegData(user.registrationData);
-        // Minimal user fields for list view
+    // Minimal user fields for list view
     userObj = {
       id: user.id,
       fullName: user.fullName,
@@ -69,7 +69,7 @@ export const formatStartupResponse = (
     }
   } else {
     const fallbackName = idea.founder || idea.startup || "Founder";
-        userObj = {
+    userObj = {
       id: idea.founder || idea.id,
       fullName: fallbackName,
       avatarUrl: idea.logo || null,
@@ -130,9 +130,15 @@ export const formatStartupResponse = (
     logo: idea.logo,
     coverUrl: idea.coverUrl,
 
-    industry: industryValue,
-    category: categoryValue,
-    stage: stageValue,
+    industry: { id: idea.industry || '', name: industryValue },
+    industryId: idea.industry || '',
+    industryName: industryValue,
+    category: { id: idea.category || '', name: categoryValue },
+    categoryId: idea.category || '',
+    categoryName: categoryValue,
+    stage: { id: idea.stage || '', name: stageValue },
+    stageId: idea.stage || '',
+    stageName: stageValue,
 
     metrics: {
       fundingGoal: goal,
@@ -165,7 +171,6 @@ export const formatStartupResponse = (
     hasInvested: investedIds.has(idea.id)
   };
 
-  // If not detailed, return the stripped down version
   if (!isDetailed) {
     return baseResult;
   }
@@ -298,7 +303,15 @@ export const listStartups = async (req: AuthRequest, res: Response, next: NextFu
     const industry = req.query.industry as string;
     const stage = req.query.stage as string;
 
-    const where: any = { status: 'active', deletedAt: null };
+    const where: any = {
+      status: 'active',
+      deletedAt: null,
+      NOT: [
+        { startup: { contains: "'s Startup" } },
+        { startup: { contains: "’s Startup" } },
+        { startup: '' }
+      ]
+    };
     if (req.user?.id) where.founder = { not: req.user.id };
     if (q) where.startup = { contains: q };
     if (industry) where.industry = industry;
@@ -361,7 +374,16 @@ export const getRecommendedStartups = async (req: AuthRequest, res: Response, ne
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
+        where: {
+          status: 'active',
+          deletedAt: null,
+          NOT: [
+            { startup: { contains: "'s Startup" } },
+            { startup: { contains: "’s Startup" } },
+            { startup: '' }
+          ],
+          ...(req.user?.id ? { founder: { not: req.user.id } } : {})
+        },
         take: 10, orderBy: { createdAt: 'desc' }
       }),
       readList(req.user.id),
@@ -384,7 +406,16 @@ export const getTrendingStartups = async (req: AuthRequest, res: Response, next:
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
+        where: {
+          status: 'active',
+          deletedAt: null,
+          NOT: [
+            { startup: { contains: "'s Startup" } },
+            { startup: { contains: "’s Startup" } },
+            { startup: '' }
+          ],
+          ...(req.user?.id ? { founder: { not: req.user.id } } : {})
+        },
         take: 10, orderBy: { views: 'desc' }
       }),
       readList(req.user.id),
@@ -407,7 +438,16 @@ export const getFeaturedStartups = async (req: AuthRequest, res: Response, next:
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
+        where: {
+          status: 'active',
+          deletedAt: null,
+          NOT: [
+            { startup: { contains: "'s Startup" } },
+            { startup: { contains: "’s Startup" } },
+            { startup: '' }
+          ],
+          ...(req.user?.id ? { founder: { not: req.user.id } } : {})
+        },
         take: 5, orderBy: { interestedInvestors: 'desc' }
       }),
       readList(req.user.id),

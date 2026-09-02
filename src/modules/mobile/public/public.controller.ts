@@ -1070,9 +1070,15 @@ const formatStartupResponse = (
     logo: idea.logo,
     coverUrl: idea.coverUrl,
 
-    industry: industryValue,
-    category: categoryValue,
-    stage: stageValue,
+    industry: { id: idea.industry || '', name: industryValue },
+    industryId: idea.industry || '',
+    industryName: industryValue,
+    category: { id: idea.category || '', name: categoryValue },
+    categoryId: idea.category || '',
+    categoryName: categoryValue,
+    stage: { id: idea.stage || '', name: stageValue },
+    stageId: idea.stage || '',
+    stageName: stageValue,
 
     metrics: {
       fundingGoal: goal,
@@ -1233,7 +1239,15 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
 
-    const where: any = { status: 'active', deletedAt: null };
+    const where: any = {
+      status: 'active',
+      deletedAt: null,
+      NOT: [
+        { startup: { contains: "'s Startup" } },
+        { startup: { contains: "’s Startup" } },
+        { startup: '' }
+      ]
+    };
     if (userId) {
       where.founder = { not: userId };
     }

@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { getJsonSetting, setJsonSetting } from '../../../../common/helpers/portal-shared.js';
+import { shapeProject, shapeProjects } from '../../../../services/mobile/project-shape.service.js';
 
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -14,19 +15,8 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
       prisma.project.findMany({ where: { freelancer: req.user.id }, skip, take: limit }),
       prisma.project.count({ where: { freelancer: req.user.id } })
     ]);
-    
-    const userId = req.user?.id;
-    let savedIds = new Set<string>();
-    if (userId) {
-      const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
-      savedIds = new Set(saved);
-    }
-    
-    const mapped = projects.map(p => ({
-      ...p,
-      isSaved: savedIds.has(p.id)
-    }));
-    
+
+    const mapped = await shapeProjects(projects, req.user?.id);
     return res.json(successResponse('Projects retrieved', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
@@ -48,14 +38,8 @@ export const getProjectDetails = async (req: AuthRequest, res: Response, next: N
       return res.status(404).json(errorResponse('Project not found', 'NOT_FOUND'));
     }
     
-    const userId = req.user?.id;
-    let isSaved = false;
-    if (userId) {
-      const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
-      isSaved = saved.includes(project.id);
-    }
-    
-    return res.json(successResponse('Project details retrieved', { ...project, isSaved }));
+    const shaped = await shapeProject(project, req.user?.id);
+    return res.json(successResponse('Project details retrieved', shaped));
   } catch (error) { next(error); }
 };
 
@@ -63,19 +47,7 @@ export const searchProjects = async (req: AuthRequest, res: Response, next: Next
   try {
     const query = (req.query.q as string) || '';
     const projects = await prisma.project.findMany({ where: { status: 'open', title: { contains: query } }, take: 20 });
-    
-    const userId = req.user?.id;
-    let savedIds = new Set<string>();
-    if (userId) {
-      const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
-      savedIds = new Set(saved);
-    }
-    
-    const mapped = projects.map(p => ({
-      ...p,
-      isSaved: savedIds.has(p.id)
-    }));
-    
+    const mapped = await shapeProjects(projects, req.user?.id);
     return res.json(successResponse('Search results', mapped));
   } catch (error) { next(error); }
 };

@@ -1,7 +1,8 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
-import { successResponse } from '../../../../core/response.js';
+import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { shapeProject, shapeProjects } from '../../../../services/mobile/project-shape.service.js';
 
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -13,14 +14,19 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
       prisma.project.findMany({ where: { freelancer: req.user.id }, skip, take: limit }),
       prisma.project.count({ where: { freelancer: req.user.id } })
     ]);
-    return res.json(successResponse('Projects retrieved', projects, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    const mapped = await shapeProjects(projects, req.user?.id);
+    return res.json(successResponse('Projects retrieved', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
 export const getProjectDetails = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const project = await prisma.project.findFirst({ where: { id: req.params.id, freelancer: req.user.id }, include: { milestones: true, tasks: true } });
-    return res.json(successResponse('Project details retrieved', project));
+    if (!project) {
+      return res.status(404).json(errorResponse('Project not found', 'NOT_FOUND'));
+    }
+    const shaped = await shapeProject(project, req.user?.id);
+    return res.json(successResponse('Project details retrieved', shaped));
   } catch (error) { next(error); }
 };
 
@@ -28,7 +34,8 @@ export const searchProjects = async (req: AuthRequest, res: Response, next: Next
   try {
     const query = (req.query.q as string) || '';
     const projects = await prisma.project.findMany({ where: { status: 'open', title: { contains: query } }, take: 20 });
-    return res.json(successResponse('Search results', projects));
+    const mapped = await shapeProjects(projects, req.user?.id);
+    return res.json(successResponse('Search results', mapped));
   } catch (error) { next(error); }
 };
 
