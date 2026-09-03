@@ -965,9 +965,10 @@ export const getFreelancerProfile = async (
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
-
     const profile = user.freelancerProfile as any;
-    let skills = parseSkills(profile?.skills);
+    const rawSkills = parseSkills(profile?.skills);
+    let skills = [...rawSkills];
+    let skillItems: Array<{ id: string; name: string; skillId: string; skillName: string }> = [];
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     let title = profile?.titleHeadline || profile?.industry || "";
@@ -1025,9 +1026,27 @@ export const getFreelancerProfile = async (
       regMap.forEach((v, k) => resolvedMap.set(k, v));
       Object.entries(SKILL_NAME_MAP).forEach(([k, v]) => resolvedMap.set(k, v));
 
-      skills = skills.map((s) => resolvedMap.get(s) || s);
+      skillItems = rawSkills.map((s) => {
+        const name = resolvedMap.get(s) || s;
+        return {
+          id: s,
+          name: name,
+          skillId: s,
+          skillName: name,
+        };
+      });
+      skills = skillItems.map(item => item.name);
       title = resolvedMap.get(title) || title;
       industry = resolvedMap.get(industry) || industry;
+    }
+
+    if (skillItems.length === 0 && rawSkills.length > 0) {
+      skillItems = rawSkills.map((s) => ({
+        id: s,
+        name: s,
+        skillId: s,
+        skillName: s,
+      }));
     }
 
     const completion: any = profileCompletion(user, profile);
