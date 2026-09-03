@@ -1395,7 +1395,6 @@ router.get("/startup_ideas", async (req: Request, res: Response, next: NextFunct
       deletedAt: null,
       status: "active",
       visibility: "Public",
-      founder: { in: activeFounderIds },
     };
 
     if (search) {
