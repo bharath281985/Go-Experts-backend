@@ -89,8 +89,16 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
       }
     }
     
+    const rawSkills = freelancer.freelancerProfile?.skills;
+    const skillList = Array.isArray(rawSkills)
+      ? rawSkills
+      : (typeof rawSkills === 'string'
+          ? rawSkills.split(',').map(s => s.trim()).filter(Boolean)
+          : []);
+
     return res.json(successResponse('Freelancer details', {
       ...freelancer,
+      skills: skillList,
       isSaved,
       isInvited,
       invitedProjectIds,
