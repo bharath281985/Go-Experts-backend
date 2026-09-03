@@ -80,28 +80,64 @@ function cleanDesc(val: string | null | undefined, fallback: string = ''): strin
   return parts.length > 0 ? parts.join(', ') : fallback;
 }
 
+async function getActiveStartupIdeas(limit: number = 5, excludeUserId?: string) {
+  const activeFounders = await prisma.user.findMany({
+    where: { role: 'founder', status: 'active', deletedAt: null },
+    select: { id: true },
+  }).catch(() => []);
+  const activeFounderIds = activeFounders.map((f) => f.id);
+  if (activeFounderIds.length === 0) return [];
+
+  return prisma.startupIdea.findMany({
+    where: {
+      deletedAt: null,
+      founder: { in: activeFounderIds },
+      NOT: [
+        { startup: '' },
+        { startup: { contains: "'s Startup" } },
+        { startup: { contains: "’s Startup" } },
+        { startup: { contains: "s Startup" } },
+      ],
+      ...(excludeUserId ? { founder: { not: excludeUserId } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  }).catch(() => []);
+}
+
+async function getActiveProjects(limit: number = 5, excludeUserId?: string) {
+  const activeClients = await prisma.user.findMany({
+    where: { role: 'client', status: 'active', deletedAt: null },
+    select: { id: true },
+  }).catch(() => []);
+  const activeClientIds = activeClients.map((c) => c.id);
+
+  return prisma.project.findMany({
+    where: {
+      status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
+      deletedAt: null,
+      ...(activeClientIds.length > 0 ? { client: { in: activeClientIds } } : {}),
+      ...(excludeUserId ? { client: { not: excludeUserId } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  }).catch(() => []);
+}
+
 async function buildRecommendationItems(role: string, userId: string) {
   const limit = 5;
 
   try {
     if (role === 'freelancer') {
       const [projects, clients, startups] = await Promise.all([
-        prisma.project.findMany({
-          where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] }, deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-        }).catch(() => []),
+        getActiveProjects(limit, userId),
         prisma.user.findMany({
-          where: { role: 'client', status: 'active', deletedAt: null },
+          where: { role: 'client', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
           include: { clientProfile: true },
           orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
-        prisma.startupIdea.findMany({
-          where: { deletedAt: null, NOT: [{ startup: '' }] },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-        }).catch(() => []),
+        getActiveStartupIdeas(limit, userId),
       ]);
 
       return {
@@ -114,18 +150,14 @@ async function buildRecommendationItems(role: string, userId: string) {
     if (role === 'client') {
       const [freelancers, projects, investors] = await Promise.all([
         prisma.user.findMany({
-          where: { role: 'freelancer', status: 'active', deletedAt: null },
+          where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
           include: { freelancerProfile: true },
           orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
-        prisma.project.findMany({
-          where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] }, deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-        }).catch(() => []),
+        getActiveProjects(limit, userId),
         prisma.user.findMany({
-          where: { role: 'investor', status: 'active', deletedAt: null },
+          where: { role: 'investor', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
           include: { investorProfile: true },
           orderBy: { createdAt: 'desc' },
           take: limit,
@@ -140,21 +172,10 @@ async function buildRecommendationItems(role: string, userId: string) {
 
     if (role === 'investor') {
       const [startups, projects, freelancers] = await Promise.all([
-        prisma.startupIdea.findMany({
-          where: {
-            deletedAt: null,
-            NOT: [{ startup: '' }]
-          },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-        }).catch(() => []),
-        prisma.project.findMany({
-          where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] }, deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-        }).catch(() => []),
+        getActiveStartupIdeas(limit, userId),
+        getActiveProjects(limit, userId),
         prisma.user.findMany({
-          where: { role: 'freelancer', status: 'active', deletedAt: null },
+          where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
           include: { freelancerProfile: true },
           orderBy: { createdAt: 'desc' },
           take: limit,
@@ -168,9 +189,9 @@ async function buildRecommendationItems(role: string, userId: string) {
     }
 
     const [investors, freelancers, clients] = await Promise.all([
-      prisma.user.findMany({ where: { role: 'investor', status: 'active', deletedAt: null }, include: { investorProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
-      prisma.user.findMany({ where: { role: 'freelancer', status: 'active', deletedAt: null }, include: { freelancerProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
-      prisma.user.findMany({ where: { role: 'client', status: 'active', deletedAt: null }, include: { clientProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'investor', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { investorProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { freelancerProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'client', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { clientProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
     ]);
 
     return {
@@ -183,8 +204,8 @@ async function buildRecommendationItems(role: string, userId: string) {
       freelancers: [],
       projects: [],
       investors: [],
-      clients: [],
       startups: [],
+      clients: [],
       founders: [],
     };
   }
