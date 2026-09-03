@@ -563,3 +563,98 @@ export const shareProject = async (req: AuthRequest, res: Response, next: NextFu
     next(error);
   }
 };
+
+/** Invite a freelancer to submit a proposal for a project */
+export const inviteFreelancer = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user.id;
+    const projectId = req.params.id;
+    const body = req.body || {};
+    const freelancerId = body.freelancerId;
+
+    if (!freelancerId) {
+      return res.status(400).json(errorResponse('freelancerId is required', 'VALIDATION_ERROR'));
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, client: userId, deletedAt: null },
+    });
+    if (!project) {
+      return res.status(404).json(errorResponse('Project not found or not owned by you', 'NOT_FOUND'));
+    }
+
+    // Check if proposal already exists
+    const existingProposal = await prisma.proposal.findFirst({
+      where: { projectId: project.id, freelancerId, deletedAt: null },
+    });
+
+    if (existingProposal) {
+      return res.status(400).json(errorResponse('Freelancer has already been invited or applied to this project.', 'ALREADY_EXISTS'));
+    }
+
+    // Create a new Proposal with status "invited"
+    const proposal = await prisma.proposal.create({
+      data: {
+        projectId: project.id,
+        freelancerId,
+        bidAmount: project.budget || 0,
+        status: 'invited',
+      },
+    });
+
+    // Create or find conversation for the invitation
+    const baseMessageText = body.message || `I would like to invite you to submit a proposal for my project: ${project.title}.`;
+    const messageText = `${baseMessageText}\n\nProject Details:\nTitle: ${project.title}\nBudget: ₹${project.budget || 'Negotiable'}`;
+
+    let conv = await prisma.conversation.findFirst({
+      where: {
+        projectId: project.id,
+        OR: [
+          { userA: userId, userB: freelancerId },
+          { userA: freelancerId, userB: userId },
+        ],
+      },
+    });
+
+    if (!conv) {
+      conv = await prisma.conversation.create({
+        data: {
+          userA: userId,
+          userB: freelancerId,
+          projectId: project.id,
+          name: `Project Invitation: ${project.title}`,
+          contextType: 'PROJECT',
+        } as any,
+      });
+    }
+
+    if (conv) {
+      await prisma.message.create({
+        data: {
+          conversationId: conv.id,
+          senderId: userId,
+          from: req.user?.fullName || 'Client',
+          text: messageText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      });
+    }
+
+    // Send Notification to Freelancer
+    try {
+      await NotificationEngine.queueNotification({
+        userId: freelancerId,
+        type: 'PROJECT_INVITATION',
+        title: 'Project Invitation',
+        message: `You have been invited to submit a proposal for project: ${project.title}`,
+        channel: 'all',
+        payload: { projectId: project.id, proposalId: proposal.id },
+      });
+    } catch (_) {}
+
+    return res.status(201).json(successResponse('Invitation sent successfully', { proposal, conversationId: conv?.id }));
+  } catch (error) {
+    next(error);
+  }
+};
+
