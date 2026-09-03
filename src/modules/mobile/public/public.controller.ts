@@ -1471,8 +1471,18 @@ export const getById = (modelName: string) => async (req: Request, res: Response
     if (modelName === 'startup') {
       const id = req.params.id;
 
-      const idea = await prisma.startupIdea.findUnique({ where: { id } }).catch(() => null);
-      if (!idea || idea.deletedAt) {
+      let idea = await prisma.startupIdea.findFirst({
+        where: { id, deletedAt: null }
+      }).catch(() => null);
+
+      if (!idea) {
+        idea = await prisma.startupIdea.findFirst({
+          where: { founder: id, deletedAt: null },
+          orderBy: { createdAt: 'desc' }
+        }).catch(() => null);
+      }
+
+      if (!idea) {
         return res.status(404).json({ success: false, message: 'Startup not found' });
       }
 

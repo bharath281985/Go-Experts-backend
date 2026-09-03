@@ -139,15 +139,17 @@ async function buildRecommendationItems(role: string, userId: string) {
     }
 
     if (role === 'investor') {
-      const [startups, founders, freelancers] = await Promise.all([
+      const [startups, projects, freelancers] = await Promise.all([
         prisma.startupIdea.findMany({
-          where: { deletedAt: null },
+          where: {
+            deletedAt: null,
+            NOT: [{ title: '' }]
+          },
           orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
-        prisma.user.findMany({
-          where: { role: 'founder', status: 'active', deletedAt: null },
-          include: { founderProfile: true },
+        prisma.project.findMany({
+          where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] }, deletedAt: null },
           orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
@@ -160,7 +162,7 @@ async function buildRecommendationItems(role: string, userId: string) {
       ]);
       return {
         startups: (startups || []).map((s) => ({ id: s.id, title: s.title, subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry ?? s.location, '') })),
-        founders: (founders || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.founderProfile?.stage ?? f.founderProfile?.startupName, 'Founder'), description: cleanDesc(f.founderProfile?.industry ?? f.city, '') })),
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
         freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
       };
     }
