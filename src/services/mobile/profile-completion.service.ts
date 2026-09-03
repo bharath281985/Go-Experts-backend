@@ -252,6 +252,7 @@ function evaluateInvestor(user: any, ip: any) {
   const capabilities: Record<string, any> = {
     browseStartups: { allowed: true },
     expressInterest: { allowed: true, missing: [] },
+    publishProject: { allowed: true, missing: [] },
   };
 
   const interestMissing = [];
@@ -332,6 +333,7 @@ function evaluateFounder(user: any, fp: any) {
   const capabilities: Record<string, any> = {
     browseInvestors: { allowed: true },
     contactInvestor: { allowed: true, missing: [] },
+    publishProject: { allowed: true, missing: [] },
   };
 
   const contactMissing = [];
