@@ -4,6 +4,114 @@ import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { getJsonSetting, setJsonSetting } from '../../../../common/helpers/portal-shared.js';
 
+async function shapeFreelancersList(freelancers: any[], userId?: string | null) {
+  if (!freelancers.length) return [];
+
+  let savedIds = new Set<string>();
+  let invitedIds = new Set<string>();
+
+  if (userId) {
+    const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
+    const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
+    savedIds = new Set(ids);
+
+    const fIds = freelancers.map(f => f.id);
+    if (fIds.length > 0) {
+      const invites = await prisma.proposal.findMany({
+        where: {
+          freelancerId: { in: fIds },
+          status: 'invited',
+          deletedAt: null,
+          project: { client: userId }
+        },
+        select: { freelancerId: true }
+      }).catch(() => []);
+      invitedIds = new Set(invites.map(i => i.freelancerId));
+    }
+  }
+
+  // Extract all IDs across list
+  const allSkillIds: string[] = [];
+  const allIndIds: string[] = [];
+  const allWmIds: string[] = [];
+
+  for (const f of freelancers) {
+    const rawSkills = f.freelancerProfile?.skills;
+    if (Array.isArray(rawSkills)) allSkillIds.push(...rawSkills.map(String));
+    else if (typeof rawSkills === 'string') allSkillIds.push(...rawSkills.split(',').map((s: string) => s.trim()).filter(Boolean));
+
+    const rawInd = f.freelancerProfile?.industry;
+    if (Array.isArray(rawInd)) allIndIds.push(...rawInd.map(String));
+    else if (typeof rawInd === 'string') allIndIds.push(...rawInd.split(',').map((s: string) => s.trim()).filter(Boolean));
+
+    const rawWm = f.freelancerProfile?.workMode;
+    if (Array.isArray(rawWm)) allWmIds.push(...rawWm.map(String));
+    else if (typeof rawWm === 'string') allWmIds.push(...rawWm.split(',').map((s: string) => s.trim()).filter(Boolean));
+  }
+
+  const [dbSkills, dbIndustries, dbWorkModes] = await Promise.all([
+    allSkillIds.length > 0
+      ? prisma.skill.findMany({ where: { OR: [{ id: { in: allSkillIds } }, { name: { in: allSkillIds } }] }, select: { id: true, name: true } }).catch(() => [])
+      : Promise.resolve([]),
+    allIndIds.length > 0
+      ? prisma.industry.findMany({ where: { OR: [{ id: { in: allIndIds } }, { name: { in: allIndIds } }] }, select: { id: true, name: true } }).catch(() => [])
+      : Promise.resolve([]),
+    allWmIds.length > 0
+      ? prisma.workMode.findMany({ where: { OR: [{ id: { in: allWmIds } }, { name: { in: allWmIds } }] }, select: { id: true, name: true } }).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  const skillMap = new Map<string, string>();
+  dbSkills.forEach((s: any) => {
+    skillMap.set(s.id, s.name);
+    skillMap.set(s.name, s.name);
+  });
+
+  const indMap = new Map<string, string>();
+  dbIndustries.forEach((i: any) => {
+    indMap.set(i.id, i.name);
+    indMap.set(i.name, i.name);
+  });
+
+  const wmMap = new Map<string, string>();
+  dbWorkModes.forEach((w: any) => {
+    wmMap.set(w.id, w.name);
+    wmMap.set(w.name, w.name);
+  });
+
+  return freelancers.map(f => {
+    const rawSkills = f.freelancerProfile?.skills;
+    const sklArr: string[] = Array.isArray(rawSkills)
+      ? rawSkills.map(String)
+      : (typeof rawSkills === 'string' ? rawSkills.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const rawInd = f.freelancerProfile?.industry;
+    const indArr: string[] = Array.isArray(rawInd)
+      ? rawInd.map(String)
+      : (typeof rawInd === 'string' ? rawInd.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const rawWm = f.freelancerProfile?.workMode;
+    const wmArr: string[] = Array.isArray(rawWm)
+      ? rawWm.map(String)
+      : (typeof rawWm === 'string' ? rawWm.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const formattedSkills = sklArr.map(id => skillMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id)).filter(Boolean);
+    const formattedInd = indArr.map(id => indMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id)).filter(Boolean);
+    const formattedWm = wmArr.map(id => wmMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id)).filter(Boolean);
+
+    return {
+      ...f,
+      skills: formattedSkills.length > 0 ? formattedSkills : sklArr,
+      industry: formattedInd[0] || f.freelancerProfile?.industry || 'General',
+      industryName: formattedInd[0] || 'General',
+      workMode: formattedWm[0] || f.freelancerProfile?.workMode || 'Remote',
+      workModeName: formattedWm[0] || 'Remote',
+      isSaved: savedIds.has(f.id),
+      isInvited: invitedIds.has(f.id),
+    };
+  });
+}
+
 export const listFreelancers = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -19,35 +127,8 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
       prisma.user.findMany({ where, include: { freelancerProfile: true }, skip, take: limit }),
       prisma.user.count({ where })
     ]);
-    const userId = req.user?.id;
-    let savedIds = new Set<string>();
-    let invitedIds = new Set<string>();
 
-    if (userId) {
-      const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
-      const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
-      savedIds = new Set(ids);
-
-      const fIds = freelancers.map(f => f.id);
-      if (fIds.length > 0) {
-        const invites = await prisma.proposal.findMany({
-          where: {
-            freelancerId: { in: fIds },
-            status: 'invited',
-            deletedAt: null,
-            project: { client: userId }
-          },
-          select: { freelancerId: true }
-        }).catch(() => []);
-        invitedIds = new Set(invites.map(i => i.freelancerId));
-      }
-    }
-    
-    const mapped = freelancers.map(f => ({
-      ...f,
-      isSaved: savedIds.has(f.id),
-      isInvited: invitedIds.has(f.id),
-    }));
+    const mapped = await shapeFreelancersList(freelancers, req.user?.id);
     
     return res.json(successResponse('Freelancers retrieved', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
@@ -88,17 +169,182 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
         invitedProjectIds = invites.map(i => i.projectId);
       }
     }
-    
-    const rawSkills = freelancer.freelancerProfile?.skills;
-    const skillList = Array.isArray(rawSkills)
-      ? rawSkills
-      : (typeof rawSkills === 'string'
-          ? rawSkills.split(',').map(s => s.trim()).filter(Boolean)
-          : []);
+
+    let reg: any = {};
+    if (freelancer.registrationData) {
+      try {
+        reg = typeof freelancer.registrationData === 'string'
+          ? JSON.parse(freelancer.registrationData)
+          : freelancer.registrationData;
+      } catch {
+        reg = {};
+      }
+    }
+
+    // Parse raw array or comma separated fields
+    const rawSkills = freelancer.freelancerProfile?.skills || reg.skills || reg.skillsIds || reg.skillIds || [];
+    const sklArr: string[] = Array.isArray(rawSkills)
+      ? rawSkills.map(String)
+      : (typeof rawSkills === 'string' ? rawSkills.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const rawInd = freelancer.freelancerProfile?.industry || reg.industry || reg.industryIds || [];
+    const indArr: string[] = Array.isArray(rawInd)
+      ? rawInd.map(String)
+      : (typeof rawInd === 'string' ? rawInd.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const rawWm = freelancer.freelancerProfile?.workMode || reg.workMode || reg.workModeIds || [];
+    const wmArr: string[] = Array.isArray(rawWm)
+      ? rawWm.map(String)
+      : (typeof rawWm === 'string' ? rawWm.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const rawExp = freelancer.freelancerProfile?.experience || reg.experienceLevel || reg.experience || '';
+    const rawCountry = freelancer.country || reg.country || reg.countryId || '';
+    const rawState = freelancer.state || reg.state || reg.stateId || '';
+
+    // Parallel DB lookups for all UUIDs
+    const [dbSkills, dbIndustries, dbWorkModes, dbCountry, dbState, dbExp] = await Promise.all([
+      sklArr.length > 0
+        ? prisma.skill.findMany({ where: { OR: [{ id: { in: sklArr } }, { name: { in: sklArr } }] }, select: { id: true, name: true } }).catch(() => [])
+        : Promise.resolve([]),
+      indArr.length > 0
+        ? prisma.industry.findMany({ where: { OR: [{ id: { in: indArr } }, { name: { in: indArr } }] }, select: { id: true, name: true } }).catch(() => [])
+        : Promise.resolve([]),
+      wmArr.length > 0
+        ? prisma.workMode.findMany({ where: { OR: [{ id: { in: wmArr } }, { name: { in: wmArr } }] }, select: { id: true, name: true } }).catch(() => [])
+        : Promise.resolve([]),
+      rawCountry
+        ? prisma.country.findFirst({ where: { OR: [{ id: rawCountry }, { code: rawCountry.toUpperCase() }, { name: rawCountry }] }, select: { id: true, name: true } }).catch(() => null)
+        : Promise.resolve(null),
+      rawState
+        ? (prisma as any).state?.findFirst({ where: { OR: [{ id: rawState }, { name: rawState }] }, select: { id: true, name: true } }).catch(() => null)
+        : Promise.resolve(null),
+      rawExp
+        ? prisma.experienceLevel.findFirst({ where: { OR: [{ id: rawExp }, { name: rawExp }] }, select: { id: true, name: true } }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    const skillIdMap = new Map<string, any>();
+    const skillNameMap = new Map<string, any>();
+    dbSkills.forEach((s: any) => {
+      skillIdMap.set(s.id, s);
+      skillNameMap.set(s.name.toLowerCase().trim(), s);
+    });
+
+    const indIdMap = new Map<string, any>();
+    const indNameMap = new Map<string, any>();
+    dbIndustries.forEach((i: any) => {
+      indIdMap.set(i.id, i);
+      indNameMap.set(i.name.toLowerCase().trim(), i);
+    });
+
+    const wmIdMap = new Map<string, any>();
+    const wmNameMap = new Map<string, any>();
+    dbWorkModes.forEach((w: any) => {
+      wmIdMap.set(w.id, w);
+      wmNameMap.set(w.name.toLowerCase().trim(), w);
+    });
+
+    // Formatted Skill arrays
+    const formattedSkillObjects = sklArr.map((key: string) => {
+      const found = skillIdMap.get(key) || skillNameMap.get(key.toLowerCase().trim());
+      const realId = found ? found.id : key;
+      const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+      return {
+        id: realId,
+        name: realName || 'Skill',
+        skillId: realId,
+        skillName: realName || 'Skill',
+      };
+    });
+
+    const skillNames = formattedSkillObjects.map(s => s.name);
+
+    // Formatted Industry
+    const formattedIndustryObjects = indArr.map((key: string) => {
+      const found = indIdMap.get(key) || indNameMap.get(key.toLowerCase().trim());
+      const realId = found ? found.id : key;
+      const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+      return {
+        id: realId,
+        name: realName || 'General',
+        industryId: realId,
+        industryName: realName || 'General',
+      };
+    });
+    const primaryIndustry = formattedIndustryObjects[0] || { id: '', name: 'General', industryId: '', industryName: 'General' };
+
+    // Formatted WorkMode
+    const formattedWorkModeObjects = wmArr.map((key: string) => {
+      const found = wmIdMap.get(key) || wmNameMap.get(key.toLowerCase().trim());
+      const realId = found ? found.id : key;
+      const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+      return {
+        id: realId,
+        name: realName || 'Remote',
+        workModeId: realId,
+        workModeName: realName || 'Remote',
+      };
+    });
+    const primaryWorkMode = formattedWorkModeObjects[0] || { id: '', name: 'Remote', workModeId: '', workModeName: 'Remote' };
+
+    // Formatted Experience Level
+    const expName = dbExp?.name || (/^[0-9a-f-]{36}$/i.test(rawExp) ? 'Intermediate' : (rawExp || 'Intermediate'));
+    const expObj = {
+      id: dbExp?.id || rawExp,
+      name: expName,
+      experienceLevelId: dbExp?.id || rawExp,
+      experienceLevelName: expName,
+    };
+
+    // Formatted Location
+    const countryName = dbCountry?.name || (rawCountry.length === 2 ? rawCountry.toUpperCase() : rawCountry);
+    const stateName = dbState?.name || rawState;
+    const cityName = freelancer.city || reg.city || '';
+    let locationStr = cityName;
+    if (stateName) locationStr = locationStr ? `${locationStr}, ${stateName}` : stateName;
+    if (countryName) locationStr = locationStr ? `${locationStr}, ${countryName}` : countryName;
 
     return res.json(successResponse('Freelancer details', {
       ...freelancer,
-      skills: skillList,
+      country: countryName || freelancer.country,
+      countryId: dbCountry?.id || rawCountry,
+      countryName: countryName || '',
+      state: stateName || freelancer.state,
+      stateId: dbState?.id || rawState,
+      stateName: stateName || '',
+      city: cityName,
+      location: locationStr || 'Remote',
+
+      // Skills: Both structured list of objects and array of string names
+      Skills: formattedSkillObjects,
+      skills: skillNames.length > 0 ? skillNames : sklArr,
+
+      // Industry: Objects, array, and flat strings
+      Industry: formattedIndustryObjects,
+      industry: primaryIndustry,
+      industryId: primaryIndustry.id,
+      industryName: primaryIndustry.name,
+
+      // WorkMode: Objects, array, and flat strings
+      WorkMode: formattedWorkModeObjects,
+      workMode: primaryWorkMode,
+      workModeId: primaryWorkMode.id,
+      workModeName: primaryWorkMode.name,
+
+      // Experience Level
+      ExperienceLevel: expObj,
+      experienceLevel: expObj,
+      experienceLevelId: expObj.id,
+      experienceLevelName: expObj.name,
+      experience: expName,
+
+      // Headline and bio fallbacks
+      titleHeadline: freelancer.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || 'Freelancer',
+      bio: freelancer.bio || (freelancer.freelancerProfile as any)?.bio || reg.bio || reg.overview || '',
+      hourlyRate: freelancer.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? 0,
+      rating: freelancer.freelancerProfile?.rating ?? 5.0,
+      reviewsCount: (freelancer as any).reviewsReceived?.length ?? 0,
+
       isSaved,
       isInvited,
       invitedProjectIds,
@@ -111,36 +357,8 @@ export const getRecommendedFreelancers = async (req: AuthRequest, res: Response,
     const where: any = { role: 'freelancer', status: 'active', deletedAt: null };
     if (req.user?.id) where.id = { not: req.user.id };
     const freelancers = await prisma.user.findMany({ where, take: 10, include: { freelancerProfile: true } });
-    const userId = req.user?.id;
-    let savedIds = new Set<string>();
-    let invitedIds = new Set<string>();
-
-    if (userId) {
-      const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
-      const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
-      savedIds = new Set(ids);
-
-      const fIds = freelancers.map(f => f.id);
-      if (fIds.length > 0) {
-        const invites = await prisma.proposal.findMany({
-          where: {
-            freelancerId: { in: fIds },
-            status: 'invited',
-            deletedAt: null,
-            project: { client: userId }
-          },
-          select: { freelancerId: true }
-        }).catch(() => []);
-        invitedIds = new Set(invites.map(i => i.freelancerId));
-      }
-    }
     
-    const mapped = freelancers.map(f => ({
-      ...f,
-      isSaved: savedIds.has(f.id),
-      isInvited: invitedIds.has(f.id),
-    }));
-    
+    const mapped = await shapeFreelancersList(freelancers, req.user?.id);
     return res.json(successResponse('Recommended freelancers', mapped));
   } catch (error) { next(error); }
 };

@@ -1714,20 +1714,77 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const rawC = reg.countryId || user.country || reg.country || "";
       const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
 
-      const dbSkills = await prisma.skill.findMany({ where: { id: { in: sklArr } } }).catch(() => []);
-      const skillMap = new Map<string, string>(dbSkills.map((row): [string, string] => [row.id, row.name]));
-      const sklNames = sklArr.map((id: string) => skillMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id));
+      const dbSkills = await prisma.skill.findMany({
+        where: { OR: [{ id: { in: sklArr } }, { name: { in: sklArr } }] }
+      }).catch(() => []);
+      const skillIdMap = new Map<string, any>();
+      const skillNameMap = new Map<string, any>();
+      dbSkills.forEach((row: any) => {
+        skillIdMap.set(row.id, row);
+        skillNameMap.set(row.name.toLowerCase().trim(), row);
+      });
 
-      const dbIndustries = await prisma.industry.findMany({ where: { id: { in: indArr } } }).catch(() => []);
-      const industryMap = new Map<string, string>(dbIndustries.map((row): [string, string] => [row.id, row.name]));
-      const indNames = indArr.map((id: string) => industryMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id));
+      const formattedSkills = sklArr.map((key: string) => {
+        const found = skillIdMap.get(key) || skillNameMap.get(key.toLowerCase().trim());
+        const realId = found ? found.id : key;
+        const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+        return {
+          id: realId,
+          name: realName || 'Skill',
+          skillId: realId,
+          skillName: realName || 'Skill'
+        };
+      });
+      const skillNames = formattedSkills.map(s => s.name);
 
-      const dbWorkModes = await prisma.workMode.findMany({ where: { id: { in: wmArr } } }).catch(() => []);
-      const workModeMap = new Map<string, string>(dbWorkModes.map((row): [string, string] => [row.id, row.name]));
-      const wmNames = wmArr.map((id: string) => workModeMap.get(id) || (/^[0-9a-f-]{36}$/i.test(id) ? '' : id));
+      const dbIndustries = await prisma.industry.findMany({
+        where: { OR: [{ id: { in: indArr } }, { name: { in: indArr } }] }
+      }).catch(() => []);
+      const indIdMap = new Map<string, any>();
+      const indNameMap = new Map<string, any>();
+      dbIndustries.forEach((row: any) => {
+        indIdMap.set(row.id, row);
+        indNameMap.set(row.name.toLowerCase().trim(), row);
+      });
+
+      const formattedIndustries = indArr.map((key: string) => {
+        const found = indIdMap.get(key) || indNameMap.get(key.toLowerCase().trim());
+        const realId = found ? found.id : key;
+        const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+        return {
+          id: realId,
+          name: realName || 'General',
+          industryId: realId,
+          industryName: realName || 'General'
+        };
+      });
+      const primaryInd = formattedIndustries[0] || { id: '', name: 'General', industryId: '', industryName: 'General' };
+
+      const dbWorkModes = await prisma.workMode.findMany({
+        where: { OR: [{ id: { in: wmArr } }, { name: { in: wmArr } }] }
+      }).catch(() => []);
+      const wmIdMap = new Map<string, any>();
+      const wmNameMap = new Map<string, any>();
+      dbWorkModes.forEach((row: any) => {
+        wmIdMap.set(row.id, row);
+        wmNameMap.set(row.name.toLowerCase().trim(), row);
+      });
+
+      const formattedWorkModes = wmArr.map((key: string) => {
+        const found = wmIdMap.get(key) || wmNameMap.get(key.toLowerCase().trim());
+        const realId = found ? found.id : key;
+        const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+        return {
+          id: realId,
+          name: realName || 'Remote',
+          workModeId: realId,
+          workModeName: realName || 'Remote'
+        };
+      });
+      const primaryWm = formattedWorkModes[0] || { id: '', name: 'Remote', workModeId: '', workModeName: 'Remote' };
 
       const rawExp = user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "";
-      let expOption = null;
+      let expOption: any = null;
       if (rawExp) {
         expOption = await (prisma as any).masterOption?.findFirst({
           where: { type: 'experience_level', status: 'active', OR: [{ id: rawExp }, { value: rawExp }, { label: rawExp }] },
@@ -1744,6 +1801,37 @@ export const getById = (modelName: string) => async (req: Request, res: Response
           }
         }
       }
+      const expId = expOption?.id || rawExp;
+      const expName = expOption?.label || expOption?.value || (/^[0-9a-f-]{36}$/i.test(rawExp) ? 'Intermediate' : (rawExp || 'Intermediate'));
+      const expObj = {
+        id: expId,
+        name: expName,
+        experienceLevelId: expId,
+        experienceLevelName: expName
+      };
+
+      // Country and State
+      let resolvedCountry = null;
+      if (rawC) {
+        resolvedCountry = await prisma.country.findFirst({
+          where: { OR: [{ id: rawC }, { code: rawC.toUpperCase() }, { name: rawC }] },
+          select: { id: true, name: true, code: true }
+        }).catch(() => null);
+      }
+      let resolvedState = null;
+      if (stId) {
+        resolvedState = await (prisma as any).state?.findFirst({
+          where: { OR: [{ id: stId }, { name: stId }] },
+          select: { id: true, name: true }
+        }).catch(() => null);
+      }
+
+      const countryName = resolvedCountry?.name || (rawC.length === 2 ? rawC.toUpperCase() : rawC);
+      const stateName = resolvedState?.name || stId;
+      const cityName = user.city || reg.city || "";
+      let locationStr = cityName;
+      if (stateName) locationStr = locationStr ? `${locationStr}, ${stateName}` : stateName;
+      if (countryName) locationStr = locationStr ? `${locationStr}, ${countryName}` : countryName;
 
       let isSaved = false;
       const viewingUserId = (req as any).user?.id;
@@ -1781,41 +1869,35 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         professionalTitle: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Freelancer",
         bio: user.bio || reg.bio || reg.overview || "",
         overview: user.bio || reg.bio || reg.overview || "",
-        city: user.city || reg.city || "",
-        country: user.country || reg.country || "",
-        countryId: cntryId,
-        state: user.state || reg.state || "",
-        stateId: stId,
+        city: cityName,
+        country: countryName || user.country || reg.country || "",
+        countryId: resolvedCountry?.id || cntryId,
+        countryName: countryName || '',
+        state: stateName || user.state || reg.state || "",
+        stateId: resolvedState?.id || stId,
+        stateName: stateName || '',
+        location: locationStr || 'Remote',
 
-        Skills: sklArr.map((id: string, idx: number) => ({
-          id: id,
-          name: sklNames[idx] || id,
-          skillId: id,
-          skillName: sklNames[idx] || ''
-        })),
+        Skills: formattedSkills,
+        skills: skillNames.length > 0 ? skillNames : sklArr,
 
-        Industry: oneOrMany(indArr.map((id: string, idx: number) => ({
-          id: id,
-          name: indNames[idx] || id,
-          industryId: id,
-          industryName: indNames[idx] || ''
-        }))),
+        Industry: oneOrMany(formattedIndustries),
+        industry: primaryInd,
+        industryId: primaryInd.id,
+        industryName: primaryInd.name,
 
-        WorkMode: oneOrMany(wmArr.map((id: string, idx: number) => ({
-          id: id,
-          name: wmNames[idx] || id,
-          workModeId: id,
-          workModeName: wmNames[idx] || ''
-        }))),
+        WorkMode: oneOrMany(formattedWorkModes),
+        workMode: primaryWm,
+        workModeId: primaryWm.id,
+        workModeName: primaryWm.name,
+
         hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
-        experience: rawExp,
-        experienceLevel: rawExp,
-        ExperienceLevel: rawExp ? {
-          id: expOption?.id || rawExp,
-          name: expOption?.label || expOption?.value || rawExp,
-          experienceLevelId: expOption?.id || rawExp,
-          experienceLevelName: expOption?.label || expOption?.value || rawExp
-        } : null,
+        experience: expName,
+        experienceLevel: expObj,
+        ExperienceLevel: expObj,
+        experienceLevelId: expObj.id,
+        experienceLevelName: expObj.name,
+
         yearsOfExperience: user.freelancerProfile?.yearsOfExperience || reg.yearsOfExperience || reg.yearsExperience || reg.years || null,
         portfolioUrl: user.freelancerProfile?.portfolioUrl || reg.portfolioUrl || reg.portfolio || reg.websiteUrl || null,
         linkedInUrl: user.freelancerProfile?.linkedInUrl || reg.linkedInUrl || reg.linkedin || null,
