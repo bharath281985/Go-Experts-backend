@@ -61,14 +61,23 @@ async function shapeFreelancersList(freelancers: any[], userId?: string | null) 
       : Promise.resolve([]),
   ]);
 
-  const skillMap = new Map(dbSkills.map((s: any) => [s.id, s.name]));
-  dbSkills.forEach((s: any) => skillMap.set(s.name, s.name));
+  const skillMap = new Map<string, string>();
+  dbSkills.forEach((s: any) => {
+    skillMap.set(s.id, s.name);
+    skillMap.set(s.name, s.name);
+  });
 
-  const indMap = new Map(dbIndustries.map((i: any) => [i.id, i.name]));
-  dbIndustries.forEach((i: any) => indMap.set(i.name, i.name));
+  const indMap = new Map<string, string>();
+  dbIndustries.forEach((i: any) => {
+    indMap.set(i.id, i.name);
+    indMap.set(i.name, i.name);
+  });
 
-  const wmMap = new Map(dbWorkModes.map((w: any) => [w.id, w.name]));
-  dbWorkModes.forEach((w: any) => wmMap.set(w.name, w.name));
+  const wmMap = new Map<string, string>();
+  dbWorkModes.forEach((w: any) => {
+    wmMap.set(w.id, w.name);
+    wmMap.set(w.name, w.name);
+  });
 
   return freelancers.map(f => {
     const rawSkills = f.freelancerProfile?.skills;
@@ -207,7 +216,7 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
         ? prisma.country.findFirst({ where: { OR: [{ id: rawCountry }, { code: rawCountry.toUpperCase() }, { name: rawCountry }] }, select: { id: true, name: true } }).catch(() => null)
         : Promise.resolve(null),
       rawState
-        ? prisma.state.findFirst({ where: { OR: [{ id: rawState }, { name: rawState }] }, select: { id: true, name: true } }).catch(() => null)
+        ? (prisma as any).state?.findFirst({ where: { OR: [{ id: rawState }, { name: rawState }] }, select: { id: true, name: true } }).catch(() => null)
         : Promise.resolve(null),
       rawExp
         ? prisma.experienceLevel.findFirst({ where: { OR: [{ id: rawExp }, { name: rawExp }] }, select: { id: true, name: true } }).catch(() => null)
@@ -331,7 +340,7 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
 
       // Headline and bio fallbacks
       titleHeadline: freelancer.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || 'Freelancer',
-      bio: freelancer.bio || freelancer.freelancerProfile?.bio || reg.bio || reg.overview || '',
+      bio: freelancer.bio || (freelancer.freelancerProfile as any)?.bio || reg.bio || reg.overview || '',
       hourlyRate: freelancer.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? 0,
       rating: freelancer.freelancerProfile?.rating ?? 5.0,
       reviewsCount: (freelancer as any).reviewsReceived?.length ?? 0,

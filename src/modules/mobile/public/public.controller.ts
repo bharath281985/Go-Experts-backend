@@ -1820,7 +1820,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
       let resolvedState = null;
       if (stId) {
-        resolvedState = await prisma.state.findFirst({
+        resolvedState = await (prisma as any).state?.findFirst({
           where: { OR: [{ id: stId }, { name: stId }] },
           select: { id: true, name: true }
         }).catch(() => null);
