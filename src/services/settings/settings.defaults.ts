@@ -150,6 +150,7 @@ export const SETTINGS_DEFAULTS = {
         accent: "#7C3AED",
       },
     ],
+  },
   email: {
     provider: "Custom SMTP",
     apiKey: "Goexperts@2025",
