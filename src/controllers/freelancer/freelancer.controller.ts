@@ -740,11 +740,19 @@ export const getFreelancerDashboard = async (
       },
       {
         key: "proposals",
-        label: "Pending Proposals",
-        value: String(proposalsPending),
-        delta: proposalsAll ? `${responseRate}% settled rate` : "No proposals yet",
+        label: "Proposals Sent",
+        value: String(proposalsAll),
+        delta: `${proposalsPending} pending`,
         trend: "flat",
         accent: "info",
+      },
+      {
+        key: "contracts",
+        label: "Total Projects",
+        value: String(contractsAll),
+        delta: `${contractsActive} active`,
+        trend: contractsAll > 0 ? "up" : "flat",
+        accent: "warning",
       },
       {
         key: "tasks",

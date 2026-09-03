@@ -110,12 +110,15 @@ export const getFounderDashboard = async (req: AuthenticatedRequest, res: Respon
           messages: 0,
         },
         kpis: [
-          { key: "requests", label: "Investor Requests", value: String(investorRequests) },
-          { key: "pending", label: "Pending", value: String(pendingRequests) },
-          { key: "accepted", label: "Accepted", value: String(acceptedRequests) },
-          { key: "raised", label: "Total Raised", value: money(raised) },
-          { key: "team", label: "Team Size", value: String(user.founderProfile?.teamSize ?? 1) },
-          { key: "balance", label: "Wallet Balance", value: money(wallet.balance, wallet.currency) },
+          { key: "startupProfile", label: "Startup Profile Status", value: startup?.id ? "Active" : "Incomplete" },
+          { key: "pitchViews", label: "Investor Views", value: String(startup?.views ?? 0) },
+          { key: "investorInterests", label: "Investor Interests", value: String(investorRequests) },
+          { key: "contactRequests", label: "Contact Requests", value: "0" },
+          { key: "deckDownloads", label: "Pitch Deck Downloads", value: "0" },
+          { key: "unreadMessages", label: "Unread Messages", value: "0" }, // Will be updated by frontend fetch
+          { key: "pendingMeetings", label: "Scheduled Meetings", value: "0" }, // Will be updated by frontend fetch
+          { key: "subscriptionStatus", label: "Subscription Status", value: "Free Founder Plan" },
+          { key: "profileCompletion", label: "Profile Strength Score", value: "0%" }, // Updated by frontend
         ],
         wallet,
       },
