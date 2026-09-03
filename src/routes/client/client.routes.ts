@@ -69,8 +69,21 @@ router.patch("/verification", updateMyVerification as any);
 router.delete("/verification", deleteMyVerification as any);
 
 router.get("/pipeline", getClientPipeline as any);
-router.get("/applications", listClientApplications as any);
 
+// --- Original Project Routes (Now moved to Multi-Role section above) ---
+// router.get("/projects", listClientProjects as any);
+// router.post("/projects/search", listClientProjects as any);
+// router.post("/projects", createClientProject as any);
+// router.get("/projects/:id", getClientProject as any);
+// router.patch("/projects/:id", updateClientProject as any);
+// router.put("/projects/:id", updateClientProject as any);
+// router.delete("/projects/:id", deleteClientProject as any);
+// router.get("/projects/:id/applications", listProjectApplications as any);
+// router.post("/projects/:id/invite", inviteFreelancer as any);
+// // router.get("/projects/:id/invitations", listProjectInvitations as any);
+// router.get("/projects/:id/proposals", listProjectApplications as any);
+
+router.get("/applications", listClientApplications as any);
 router.get("/proposals/:id", getClientProposal as any);
 router.post("/proposals/:id/shortlist", shortlistProposal as any);
 router.post("/proposals/:id/offer", offerProposal as any);
