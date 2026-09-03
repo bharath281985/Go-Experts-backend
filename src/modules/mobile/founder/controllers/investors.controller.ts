@@ -58,7 +58,69 @@ const resolveLabels = async (values: string[], type?: string) => {
   return values.map((value) => labelMap.get(value) || (/^[0-9a-f-]{36}$/i.test(value) ? '' : value));
 };
 
-const mapInvestorAsync = async (investor: any) => {
+async function getSavedInvestorIds(viewerId?: string): Promise<Set<string>> {
+  const savedSet = new Set<string>();
+  if (!viewerId) return savedSet;
+
+  try {
+    const { getJsonSetting } = await import('../../../../common/helpers/portal-shared.js');
+    const [founderWatchlist, genericFavorites, savedInvestors, portalSaved] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: `founder_investor_watchlist:${viewerId}` }, select: { value: true } }).catch(() => null),
+      prisma.setting.findUnique({ where: { key: `favorites:${viewerId}` }, select: { value: true } }).catch(() => null),
+      prisma.setting.findUnique({ where: { key: `savedInvestors:${viewerId}` }, select: { value: true } }).catch(() => null),
+      getJsonSetting(viewerId, 'savedInvestors', [] as any[]).catch(() => []),
+    ]);
+
+    if (founderWatchlist?.value) {
+      try {
+        const items = JSON.parse(founderWatchlist.value);
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            const id = typeof item === 'string' ? item : (item.investorId || item.id || item.entityId);
+            if (id) savedSet.add(id);
+          });
+        }
+      } catch {}
+    }
+
+    if (genericFavorites?.value) {
+      try {
+        const items = JSON.parse(genericFavorites.value);
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            if (item.entityType === 'investor' || !item.entityType) {
+              const id = typeof item === 'string' ? item : (item.entityId || item.investorId || item.id);
+              if (id) savedSet.add(id);
+            }
+          });
+        }
+      } catch {}
+    }
+
+    if (savedInvestors?.value) {
+      try {
+        const items = JSON.parse(savedInvestors.value);
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            const id = typeof item === 'string' ? item : (item.investorId || item.id || item.entityId);
+            if (id) savedSet.add(id);
+          });
+        }
+      } catch {}
+    }
+
+    if (Array.isArray(portalSaved)) {
+      portalSaved.forEach((item: any) => {
+        const id = typeof item === 'string' ? item : (item.investorId || item.id || item.entityId);
+        if (id) savedSet.add(id);
+      });
+    }
+  } catch {}
+
+  return savedSet;
+}
+
+const mapInvestorAsync = async (investor: any, savedIds?: Set<string>) => {
   const profile = investor?.investorProfile;
   const focusAreaValues = parseOptionValues(profile?.focusAreas);
   const preferredStageValues = parseOptionValues(profile?.preferredStage);
@@ -102,6 +164,7 @@ const mapInvestorAsync = async (investor: any) => {
     verified: Boolean(investor.isVerified || investor.verified),
     createdAt: investor.createdAt,
     updatedAt: investor.updatedAt,
+    isSaved: savedIds ? (savedIds.has(investor.id) || (profile?.id && savedIds.has(profile.id)) || false) : false,
   };
 };
 
@@ -138,7 +201,7 @@ export const listInvestors = async (req: AuthRequest, res: Response, next: NextF
       OR: [{ isVerified: true }, { verified: true }],
     };
 
-    const [investors, total] = await Promise.all([
+    const [investors, total, savedIds] = await Promise.all([
       prisma.user.findMany({
         where,
         include: { investorProfile: true },
@@ -147,9 +210,10 @@ export const listInvestors = async (req: AuthRequest, res: Response, next: NextF
         orderBy: { createdAt: orderDirection },
       }),
       prisma.user.count({ where }),
+      getSavedInvestorIds(req.user?.id),
     ]);
 
-    const mappedInvestors = await Promise.all(investors.map(mapInvestorAsync));
+    const mappedInvestors = await Promise.all(investors.map((inv) => mapInvestorAsync(inv, savedIds)));
     return res.json(successResponse('Investors retrieved', mappedInvestors, {
       page,
       limit,
@@ -172,7 +236,8 @@ export const getInvestor = async (req: AuthRequest, res: Response, next: NextFun
       return res.status(404).json(errorResponse('Investor not found', 'NOT_FOUND'));
     }
 
-    const data = await mapInvestorAsync(investor);
+    const savedIds = await getSavedInvestorIds(req.user?.id);
+    const data = await mapInvestorAsync(investor, savedIds);
     return res.json(successResponse('Details retrieved for investor', data));
   } catch (error) {
     next(error);
@@ -181,19 +246,22 @@ export const getInvestor = async (req: AuthRequest, res: Response, next: NextFun
 
 export const getRecommendedInvestors = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investors = await prisma.user.findMany({
-      where: {
-        role: 'investor',
-        status: 'active',
-        deletedAt: null,
-        OR: [{ isVerified: true }, { verified: true }],
-      },
-      include: { investorProfile: true },
-      orderBy: [{ investorProfile: { deals: 'desc' } }, { createdAt: 'desc' }],
-      take: 10,
-    });
+    const [investors, savedIds] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          role: 'investor',
+          status: 'active',
+          deletedAt: null,
+          OR: [{ isVerified: true }, { verified: true }],
+        },
+        include: { investorProfile: true },
+        orderBy: [{ investorProfile: { deals: 'desc' } }, { createdAt: 'desc' }],
+        take: 10,
+      }),
+      getSavedInvestorIds(req.user?.id),
+    ]);
 
-    const mapped = await Promise.all(investors.map(mapInvestorAsync));
+    const mapped = await Promise.all(investors.map((inv) => mapInvestorAsync(inv, savedIds)));
     return res.json(successResponse('Recommended investors', mapped));
   } catch (error) {
     next(error);

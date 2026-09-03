@@ -965,6 +965,68 @@ export const getClients = async (req: Request, res: Response, next: NextFunction
   } catch (error) { next(error); }
 };
 
+async function getSavedInvestorIds(viewerId?: string): Promise<Set<string>> {
+  const savedSet = new Set<string>();
+  if (!viewerId) return savedSet;
+
+  try {
+    const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
+    const [founderWatchlist, genericFavorites, savedInvestors, portalSaved] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: `founder_investor_watchlist:${viewerId}` }, select: { value: true } }).catch(() => null),
+      prisma.setting.findUnique({ where: { key: `favorites:${viewerId}` }, select: { value: true } }).catch(() => null),
+      prisma.setting.findUnique({ where: { key: `savedInvestors:${viewerId}` }, select: { value: true } }).catch(() => null),
+      getJsonSetting(viewerId, 'savedInvestors', [] as any[]).catch(() => []),
+    ]);
+
+    if (founderWatchlist?.value) {
+      try {
+        const items = JSON.parse(founderWatchlist.value);
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            const id = typeof item === 'string' ? item : (item.investorId || item.id || item.entityId);
+            if (id) savedSet.add(id);
+          });
+        }
+      } catch {}
+    }
+
+    if (genericFavorites?.value) {
+      try {
+        const items = JSON.parse(genericFavorites.value);
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            if (item.entityType === 'investor' || !item.entityType) {
+              const id = typeof item === 'string' ? item : (item.entityId || item.investorId || item.id);
+              if (id) savedSet.add(id);
+            }
+          });
+        }
+      } catch {}
+    }
+
+    if (savedInvestors?.value) {
+      try {
+        const items = JSON.parse(savedInvestors.value);
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            const id = typeof item === 'string' ? item : (item.investorId || item.id || item.entityId);
+            if (id) savedSet.add(id);
+          });
+        }
+      } catch {}
+    }
+
+    if (Array.isArray(portalSaved)) {
+      portalSaved.forEach((item: any) => {
+        const id = typeof item === 'string' ? item : (item.investorId || item.id || item.entityId);
+        if (id) savedSet.add(id);
+      });
+    }
+  } catch {}
+
+  return savedSet;
+}
+
 export const getInvestors = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -998,7 +1060,7 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     const focusAreaIds = [...new Set(investors.flatMap((investor) =>
       String(investor.investorProfile?.focusAreas || '').split(',').map((value) => value.trim()).filter(Boolean)
     ))];
-    const [focusOptions, focusIndustries] = await Promise.all([
+    const [focusOptions, focusIndustries, savedIds] = await Promise.all([
       (prisma as any).masterOption.findMany({
         where: { id: { in: focusAreaIds } },
         select: { id: true, label: true },
@@ -1007,6 +1069,7 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
         where: { id: { in: focusAreaIds } },
         select: { id: true, name: true },
       }).catch(() => []),
+      getSavedInvestorIds(userId),
     ]);
     const focusAreaNameMap = new Map<string, string>([
       ...focusOptions.map((item: any): [string, string] => [item.id, item.label || '']),
@@ -1014,6 +1077,7 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     ]);
     const formattedInvestors = investors.map((investor) => ({
       ...investor,
+      isSaved: savedIds.has(investor.id) || (investor.investorProfile?.id && savedIds.has(investor.investorProfile.id)) || false,
       investorProfile: investor.investorProfile ? {
         ticketMin: investor.investorProfile.ticketMin,
         ticketMax: investor.investorProfile.ticketMax,
@@ -2180,28 +2244,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         }
       }
       const viewerId = (req as any).user?.id as string | undefined;
-      let isSaved = false;
-      if (viewerId) {
-        const [founderWatchlist, genericFavorites] = await Promise.all([
-          prisma.setting.findUnique({ where: { key: `founder_investor_watchlist:${viewerId}` }, select: { value: true } }).catch(() => null),
-          prisma.setting.findUnique({ where: { key: `favorites:${viewerId}` }, select: { value: true } }).catch(() => null),
-        ]);
-        try {
-          const items = JSON.parse(founderWatchlist?.value || '[]');
-          isSaved = Array.isArray(items) && items.some((item: any) =>
-            item.investorId === user.id || item.investorId === user.investorProfile?.id
-          );
-        } catch { /* ignore invalid legacy setting */ }
-        if (!isSaved) {
-          try {
-            const items = JSON.parse(genericFavorites?.value || '[]');
-            isSaved = Array.isArray(items) && items.some((item: any) =>
-              item.entityType === 'investor'
-              && (item.entityId === user.id || item.entityId === user.investorProfile?.id)
-            );
-          } catch { /* ignore invalid legacy setting */ }
-        }
-      }
+      const savedIds = await getSavedInvestorIds(viewerId);
+      const isSaved = savedIds.has(user.id) || (user.investorProfile?.id && savedIds.has(user.investorProfile.id)) || false;
       const savedData = Boolean(user.investorProfile || Object.keys(reg).length > 0);
 
       return res.json(successResponse('Details retrieved for investor', {
