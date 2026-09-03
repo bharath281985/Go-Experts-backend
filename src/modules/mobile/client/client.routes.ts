@@ -5,7 +5,7 @@ import { authenticate, authorizeRole } from '../../../middlewares/auth.js';
 // Controllers
 import { getDashboard } from './controllers/dashboard.controller.js';
 import { getProfile, updateProfile, uploadLogo, uploadCover, uploadDocuments, getProfileCompletion, uploadKyc } from './controllers/profile.controller.js';
-import { listProjects, createProject, getProjectDetails, updateProject, deleteProject, updateProjectStatus, addAttachment, getProjectTimeline, shareProject } from './controllers/projects.controller.js';
+import { listProjects, createProject, getProjectDetails, updateProject, deleteProject, updateProjectStatus, addAttachment, getProjectTimeline, shareProject, inviteFreelancer } from './controllers/projects.controller.js';
 import { listProposals, listProjectProposals, getProposal, shortlistProposal, rejectProposal, interviewProposal, acceptProposal, messageFreelancer } from './controllers/proposals.controller.js';
 import { listFreelancers, getFreelancer, getRecommendedFreelancers, saveFreelancer, unsaveFreelancer, getSavedFreelancers } from './controllers/freelancers.controller.js';
 import { listContracts, getContract, createContract, activateContract, completeContract, cancelContract, getContractMilestones, addContractMilestone } from './controllers/contracts.controller.js';
@@ -53,6 +53,7 @@ router.get('/projects/:id', getProjectDetails);
 router.put('/projects/:id', updateProject);
 router.delete('/projects/:id', deleteProject);
 router.patch('/projects/:id/status', updateProjectStatus);
+router.post('/projects/:id/invite', inviteFreelancer);
 router.post('/projects/:id/attachments', addAttachment);
 router.get('/projects/:id/timeline', getProjectTimeline);
 router.post('/projects/:id/share', shareProject);

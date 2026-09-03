@@ -34,6 +34,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       completedMeetings,
       recentFiles,
       pendingDocumentsCount,
+      referralsCount,
     ] = await Promise.all([
       prisma.founderProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -84,7 +85,11 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       // Pending documents
       prisma.mediaFile.count({
         where: { uploadedBy: userId, status: 'pending' },
-      })
+      }),
+      // Referrals count
+      prisma.referral.count({
+        where: { referrerId: userId },
+      }),
     ]);
 
     const recommendedFocusAreaIds = [...new Set(rawRecommendedInvestors.flatMap((user) =>
@@ -285,7 +290,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       where: { id: userId },
       include: { founderProfile: true },
     });
-    const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
+    const verStats = authUser ? getVerificationStats(authUser) : {
+      missingCount: 0,
+      pendingCount: 0,
+      verifiedCount: 0,
+      kycStatus: 'PENDING',
+      trustScore: 0,
+    };
 
     return res.json(
       successResponse('Founder dashboard retrieved', {
@@ -296,6 +307,11 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         accountVerified: Boolean(authUser?.verified),
         verificationMissingCount: verStats.missingCount,
         verificationTrustScore: verStats.trustScore,
+        missingCount: verStats.missingCount,
+        pendingCount: verStats.pendingCount,
+        verifiedCount: verStats.verifiedCount,
+        kycStatus: verStats.kycStatus,
+        trustScore: verStats.trustScore,
         startupCompletion,
         startupVerificationStatus,
         subscription: subscription
@@ -306,6 +322,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           }
           : null,
         walletBalance: wallet?.balance || 0,
+        referralsCount: referralsCount || 0,
+        referralCount: referralsCount || 0,
         fundingGoal,
         fundingRaised,
         fundingRemaining,

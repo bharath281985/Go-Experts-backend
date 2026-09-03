@@ -27,6 +27,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       trendingStartups,
       allInvestments,
       supportTicketsCount,
+      referralsCount,
     ] = await Promise.all([
       prisma.investorProfile.findUnique({ where: { userId } }),
       prisma.subscription.findFirst({
@@ -72,6 +73,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       }),
       // Support tickets count
       prisma.supportTicket.count({ where: { requesterId: userId, status: { not: 'RESOLVED' } } }),
+      // Referrals count
+      prisma.referral.count({ where: { referrerId: userId } }),
     ]);
 
     // Populate founder info for recommended startups
@@ -227,7 +230,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       where: { id: userId },
       include: { investorProfile: true },
     });
-    const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
+    const verStats = authUser ? getVerificationStats(authUser) : {
+      missingCount: 0,
+      pendingCount: 0,
+      verifiedCount: 0,
+      kycStatus: 'PENDING',
+      trustScore: 0,
+    };
 
     return res.json(
       successResponse('Investor dashboard retrieved', {
@@ -238,6 +247,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         accountVerified: Boolean(authUser?.verified),
         verificationMissingCount: verStats.missingCount,
         verificationTrustScore: verStats.trustScore,
+        missingCount: verStats.missingCount,
+        pendingCount: verStats.pendingCount,
+        verifiedCount: verStats.verifiedCount,
+        kycStatus: verStats.kycStatus,
+        trustScore: verStats.trustScore,
+        referralsCount: referralsCount || 0,
+        referralCount: referralsCount || 0,
         subscription: subscription
           ? {
             status: subscription.status,

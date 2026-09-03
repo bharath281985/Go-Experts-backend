@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../../../middlewares/auth.js';
+import { authenticate, authenticateOptional } from '../../../middlewares/auth.js';
 import {
   addRecentlyViewed,
   listRecentlyViewed,
@@ -13,11 +13,11 @@ import {
 
 const router = Router();
 
-// Discovery / Recommendations
-router.get('/discover', getDiscoveryFeed);
-router.get('/recommendations', getRecommendations);
-router.get('/trending', getTrending);
-router.get('/popular', getPopular);
+// Discovery / Recommendations (authenticated if token provided, fallback if guest)
+router.get('/discover', authenticateOptional, getDiscoveryFeed);
+router.get('/recommendations', authenticateOptional, getRecommendations);
+router.get('/trending', authenticateOptional, getTrending);
+router.get('/popular', authenticateOptional, getPopular);
 
 // Recently Viewed
 router.use(authenticate);

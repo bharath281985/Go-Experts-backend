@@ -3,6 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { RecommendationEngine } from '../../../../services/mobile/recommendation.service.js';
+import { getSettingsSection } from '../../../../services/settings/settings.service.js';
 
 export const addRecentlyViewed = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -36,27 +37,179 @@ export const deleteRecentlyViewedItem = async (req: AuthRequest, res: Response, 
 
 export const getRecommendations = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
-    let recommendations = {};
+    const role = req.user?.role || 'freelancer';
+    const userId = req.user?.id || '';
 
-    switch (req.user.role) {
-      case 'freelancer':
-        recommendations = await RecommendationEngine.forFreelancer({ userId: req.user.id, role: 'freelancer', limit });
-        break;
-      case 'client':
-        recommendations = await RecommendationEngine.forClient({ userId: req.user.id, role: 'client', limit });
-        break;
-      case 'investor':
-        recommendations = await RecommendationEngine.forInvestor({ userId: req.user.id, role: 'investor', limit });
-        break;
-      case 'founder':
-        recommendations = await RecommendationEngine.forFounder({ userId: req.user.id, role: 'founder', limit });
-        break;
+    let recommendations: any[] = [];
+    try {
+      const section = await getSettingsSection('recommendation_tabs');
+      const tabs = section?.data as Record<string, any[]> | undefined;
+      recommendations = tabs?.[role] ?? [];
+    } catch {
+      recommendations = [];
     }
 
-    return res.json(successResponse('Recommendations retrieved', recommendations));
-  } catch (error) { next(error); }
+    const itemLists = await buildRecommendationItems(role, userId);
+    return res.json(successResponse('Recommendations retrieved', {
+      recommendedRoles: recommendations,
+      roleTabs: recommendations,
+      recommendedItems: itemLists,
+    }));
+  } catch (error) {
+    return res.json(successResponse('Recommendations retrieved', {
+      recommendedRoles: [],
+      roleTabs: [],
+      recommendedItems: {},
+    }));
+  }
 };
+
+function cleanTag(val: string | null | undefined, fallback: string): string {
+  if (!val || typeof val !== 'string') return fallback;
+  const trimmed = val.trim();
+  if (!trimmed || /^[0-9a-fA-F-]{24,}$/.test(trimmed)) return fallback;
+  const parts = trimmed.split(',').map(s => s.trim()).filter(s => s && !/^[0-9a-fA-F-]{24,}$/.test(s));
+  return parts.length > 0 ? parts[0] : fallback;
+}
+
+function cleanDesc(val: string | null | undefined, fallback: string = ''): string {
+  if (!val || typeof val !== 'string') return fallback;
+  const trimmed = val.trim();
+  if (!trimmed || /^[0-9a-fA-F-]{24,}$/.test(trimmed)) return fallback;
+  const parts = trimmed.split(',').map(s => s.trim()).filter(s => s && !/^[0-9a-fA-F-]{24,}$/.test(s));
+  return parts.length > 0 ? parts.join(', ') : fallback;
+}
+
+async function getActiveStartupIdeas(limit: number = 5, excludeUserId?: string) {
+  const activeFounders = await prisma.user.findMany({
+    where: { role: 'founder', status: 'active', deletedAt: null },
+    select: { id: true },
+  }).catch(() => []);
+  const activeFounderIds = activeFounders.map((f) => f.id);
+  if (activeFounderIds.length === 0) return [];
+
+  return prisma.startupIdea.findMany({
+    where: {
+      deletedAt: null,
+      founder: { in: activeFounderIds },
+      NOT: [
+        { startup: '' },
+        { startup: { contains: "'s Startup" } },
+        { startup: { contains: "’s Startup" } },
+        { startup: { contains: "s Startup" } },
+      ],
+      ...(excludeUserId ? { founder: { not: excludeUserId } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  }).catch(() => []);
+}
+
+async function getActiveProjects(limit: number = 5, excludeUserId?: string) {
+  const activeClients = await prisma.user.findMany({
+    where: { role: 'client', status: 'active', deletedAt: null },
+    select: { id: true },
+  }).catch(() => []);
+  const activeClientIds = activeClients.map((c) => c.id);
+
+  return prisma.project.findMany({
+    where: {
+      status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
+      deletedAt: null,
+      ...(activeClientIds.length > 0 ? { client: { in: activeClientIds } } : {}),
+      ...(excludeUserId ? { client: { not: excludeUserId } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  }).catch(() => []);
+}
+
+async function buildRecommendationItems(role: string, userId: string) {
+  const limit = 5;
+
+  try {
+    if (role === 'freelancer') {
+      const [projects, clients, startups] = await Promise.all([
+        getActiveProjects(limit, userId),
+        prisma.user.findMany({
+          where: { role: 'client', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
+          include: { clientProfile: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }).catch(() => []),
+        getActiveStartupIdeas(limit, userId),
+      ]);
+
+      return {
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName || 'Client', subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
+        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
+      };
+    }
+
+    if (role === 'client') {
+      const [freelancers, startups, investors] = await Promise.all([
+        prisma.user.findMany({
+          where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
+          include: { freelancerProfile: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }).catch(() => []),
+        getActiveStartupIdeas(limit, userId),
+        prisma.user.findMany({
+          where: { role: 'investor', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
+          include: { investorProfile: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }).catch(() => []),
+      ]);
+      return {
+        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName || 'Freelancer', subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
+        investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName || 'Investor', subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
+      };
+    }
+
+    if (role === 'investor') {
+      const [startups, projects, freelancers] = await Promise.all([
+        getActiveStartupIdeas(limit, userId),
+        getActiveProjects(limit, userId),
+        prisma.user.findMany({
+          where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
+          include: { freelancerProfile: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }).catch(() => []),
+      ]);
+      return {
+        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName || 'Freelancer', subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+      };
+    }
+
+    const [investors, freelancers, clients] = await Promise.all([
+      prisma.user.findMany({ where: { role: 'investor', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { investorProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { freelancerProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'client', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { clientProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+    ]);
+
+    return {
+      investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
+      freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+      clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
+    };
+  } catch {
+    return {
+      freelancers: [],
+      projects: [],
+      investors: [],
+      startups: [],
+      clients: [],
+      founders: [],
+    };
+  }
+}
 
 export const getTrending = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

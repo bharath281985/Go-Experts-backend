@@ -159,25 +159,35 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
     const targetFilter = reqIndustryId || reqCategoryId;
 
     if (targetFilter) {
-      const targetIndustry = await prisma.industry.findFirst({
-        where: {
-          OR: [
-            { id: targetFilter },
-            { name: targetFilter },
-            { name: { contains: targetFilter } }
-          ]
-        }
-      }).catch(() => null);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetFilter);
+      let targetIndustry: any = null;
+      if (isUuid) {
+        targetIndustry = await prisma.industry.findUnique({
+          where: { id: targetFilter },
+          select: { id: true, name: true }
+        }).catch(() => null);
+      } else {
+        targetIndustry = await prisma.industry.findFirst({
+          where: {
+            OR: [
+              { id: targetFilter },
+              { name: targetFilter },
+              { name: { contains: targetFilter } }
+            ]
+          },
+          select: { id: true, name: true }
+        }).catch(() => null);
+      }
 
       indId = targetIndustry?.id || targetFilter;
-      indName = targetIndustry?.name || targetFilter;
+      indName = targetIndustry?.name;
 
       where.OR = [
         { categoryId: targetFilter },
         { industry: indId },
-        { industry: indName },
+        ...(indName ? [{ industry: indName }] : []),
         { category: { is: { industryId: indId } } },
-        { category: { is: { name: { contains: indName } } } }
+        ...(indName ? [{ category: { is: { name: { contains: indName } } } }] : [])
       ];
     }
 
@@ -430,6 +440,46 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
     }));
 
     return res.json(successResponse('Budget ranges retrieved', ranges));
+  } catch (error) { next(error); }
+};
+
+export const getDepartments = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbDepartments = await (prisma as any).masterOption?.findMany({
+      where: { type: { in: ['department', 'departments', 'team_department'] }, status: 'active' },
+      orderBy: { label: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    if (dbDepartments && dbDepartments.length > 0) {
+      return res.json(successResponse('Departments retrieved', deduplicateMasterOptions(dbDepartments)));
+    }
+
+    return res.json(successResponse('Departments retrieved', []));
+  } catch (error) { next(error); }
+};
+
+export const getMasters = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const type = ((req.query.type as string) || (req.params.type as string) || '').trim();
+    if (!type) {
+      return res.json(successResponse('Masters retrieved', []));
+    }
+
+    if (type.toLowerCase().includes('dept') || type.toLowerCase().includes('department')) {
+      return getDepartments(req, res, next);
+    }
+    if (type.toLowerCase().includes('designation') || type.toLowerCase().includes('role')) {
+      return getDesignations(req, res, next);
+    }
+
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: { contains: type }, status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Masters retrieved', deduplicateMasterOptions(options || [])));
   } catch (error) { next(error); }
 };
 
@@ -1461,8 +1511,18 @@ export const getById = (modelName: string) => async (req: Request, res: Response
     if (modelName === 'startup') {
       const id = req.params.id;
 
-      const idea = await prisma.startupIdea.findUnique({ where: { id } }).catch(() => null);
-      if (!idea || idea.deletedAt) {
+      let idea = await prisma.startupIdea.findFirst({
+        where: { id, deletedAt: null }
+      }).catch(() => null);
+
+      if (!idea) {
+        idea = await prisma.startupIdea.findFirst({
+          where: { founder: id, deletedAt: null },
+          orderBy: { createdAt: 'desc' }
+        }).catch(() => null);
+      }
+
+      if (!idea) {
         return res.status(404).json({ success: false, message: 'Startup not found' });
       }
 

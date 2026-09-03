@@ -26,7 +26,7 @@ import { globalSearch } from './controllers/search.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from './controllers/ideas.controller.js';
 import { getReceivedReviews, getAverageRating, getRatingBreakdown, replyToReview } from './controllers/reviews.controller.js';
 import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority } from './controllers/watchlist.controller.js';
-import { listProjects as listClientProjects, createProject, updateProject, deleteProject, updateProjectStatus, getProjectDetails } from '../client/controllers/projects.controller.js';
+import { listProjects as listClientProjects, createProject, updateProject, deleteProject, updateProjectStatus, getProjectDetails, inviteFreelancer } from '../client/controllers/projects.controller.js';
 import { listProjectProposals } from '../client/controllers/proposals.controller.js';
 
 const router = Router();
@@ -46,6 +46,7 @@ router.get('/projects/:projectId/proposals', listProjectProposals);
 router.put('/projects/:id', updateProject);
 router.delete('/projects/:id', deleteProject);
 router.patch('/projects/:id/status', updateProjectStatus);
+router.post('/projects/:id/invite', inviteFreelancer);
 
 // Startup Ideas
 router.get('/ideas', listIdeas);
