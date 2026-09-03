@@ -1824,8 +1824,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         return {
           id: realId,
           name: realName || 'Skill',
-          skillId: realId,
-          skillName: realName || 'Skill'
+       
         };
       });
       const skillNames = formattedSkills.map(s => s.name);
@@ -1847,11 +1846,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         return {
           id: realId,
           name: realName || 'General',
-          industryId: realId,
-          industryName: realName || 'General'
+       
         };
       });
-      const primaryInd = formattedIndustries[0] || { id: '', name: 'General', industryId: '', industryName: 'General' };
+      const primaryInd = formattedIndustries[0] || { id: '', name: 'General' };
 
       const dbWorkModes = await prisma.workMode.findMany({
         where: { OR: [{ id: { in: wmArr } }, { name: { in: wmArr } }] }
@@ -1870,8 +1868,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         return {
           id: realId,
           name: realName || 'Remote',
-          workModeId: realId,
-          workModeName: realName || 'Remote'
+        
         };
       });
       const defaultRemoteWm = await prisma.workMode.findFirst({
@@ -1881,8 +1878,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const primaryWm = formattedWorkModes[0] || {
         id: defaultRemoteWm?.id || 'wm_remote',
         name: defaultRemoteWm?.name || 'Remote',
-        workModeId: defaultRemoteWm?.id || 'wm_remote',
-        workModeName: defaultRemoteWm?.name || 'Remote'
+      
       };
       const finalWorkModes = formattedWorkModes.length > 0 ? formattedWorkModes : [primaryWm];
 
@@ -1909,8 +1905,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const expObj = {
         id: expId,
         name: expName,
-        experienceLevelId: expId,
-        experienceLevelName: expName
+      
       };
 
       // Country and State
@@ -1962,9 +1957,9 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
-        userId: user.id,
+       
         fullName: user.fullName || reg.fullName || "",
-        name: user.fullName || reg.fullName || "",
+       
         email: user.email,
         phone: user.phone || reg.phone || reg.mobile || "",
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
@@ -1975,15 +1970,15 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         state: stateName,
         country: countryName,
         location: locationStr || 'Remote',
-        Skills: formattedSkills,
+       
         skills: formattedSkills,
-        Industry: primaryInd,
+   
         industry: primaryInd,
-        WorkMode: finalWorkModes,
+       
         workMode: primaryWm,
         hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
         experienceLevel: expObj,
-        ExperienceLevel: expObj,
+        
         yearsOfExperience: user.freelancerProfile?.yearsOfExperience || reg.yearsOfExperience || reg.yearsExperience || reg.years || null,
         portfolioUrl: user.freelancerProfile?.portfolioUrl || reg.portfolioUrl || reg.portfolio || reg.websiteUrl || null,
         linkedInUrl: user.freelancerProfile?.linkedInUrl || reg.linkedInUrl || reg.linkedin || null,
