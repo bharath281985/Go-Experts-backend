@@ -95,6 +95,10 @@ const formatStartupResponse = (
     };
   }
 
+  const indName = isUUID(idea.industry) ? industryMap.get(idea.industry) || optionMap.get(idea.industry) || '' : idea.industry || '';
+  const catName = isUUID(idea.category) ? optionMap.get(idea.category) || industryMap.get(idea.category) || '' : idea.category || '';
+  const stageName = isUUID(idea.stage) ? optionMap.get(idea.stage) || industryMap.get(idea.stage) || '' : idea.stage || '';
+
   const baseResult: any = {
     id: idea.id,
     startup: idea.startup,
@@ -109,9 +113,17 @@ const formatStartupResponse = (
     createdAt: idea.createdAt,
     updatedAt: idea.updatedAt,
 
-    industry: isUUID(idea.industry) ? industryMap.get(idea.industry) || optionMap.get(idea.industry) || '' : idea.industry,
-    category: isUUID(idea.category) ? optionMap.get(idea.category) || industryMap.get(idea.category) || '' : idea.category,
-    stage: isUUID(idea.stage) ? optionMap.get(idea.stage) || industryMap.get(idea.stage) || '' : idea.stage,
+    industry: { id: idea.industry || '', name: indName || 'General' },
+    industryId: idea.industry || '',
+    industryName: indName || 'General',
+
+    category: { id: idea.category || '', name: catName || 'General' },
+    categoryId: idea.category || '',
+    categoryName: catName || 'General',
+
+    stage: { id: idea.stage || '', name: stageName || 'MVP' },
+    stageId: idea.stage || '',
+    stageName: stageName || 'MVP',
 
     teamSize: founderProfile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
     description: reg.description || reg.pitch || userObj?.bio || "",
