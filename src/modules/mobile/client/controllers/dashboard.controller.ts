@@ -27,6 +27,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       pendingPayments,
       allPayments,
       supportTicketsCount,
+      referralsCount,
     ] = await Promise.all([
       prisma.clientProfile.findUnique({ where: { userId } }),
       prisma.project.count({ where: { client: userId, status: 'in_progress' } }),
@@ -85,6 +86,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       prisma.payment.findMany({ where: { userId, status: 'completed' } }),
       // Support tickets
       prisma.supportTicket.count({ where: { requesterId: userId, status: { not: 'RESOLVED' } } }),
+      // Referrals count
+      prisma.referral.count({ where: { referrerId: userId } }),
     ]);
 
     // Populate target details for upcoming meetings
@@ -149,7 +152,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       where: { id: userId },
       include: { clientProfile: true },
     });
-    const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
+    const verStats = authUser ? getVerificationStats(authUser) : {
+      missingCount: 0,
+      pendingCount: 0,
+      verifiedCount: 0,
+      kycStatus: 'PENDING',
+      trustScore: 0,
+    };
 
     return res.json(
       successResponse('Client dashboard retrieved', {
@@ -160,6 +169,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         accountVerified: Boolean(authUser?.verified),
         verificationMissingCount: verStats.missingCount,
         verificationTrustScore: verStats.trustScore,
+        missingCount: verStats.missingCount,
+        pendingCount: verStats.pendingCount,
+        verifiedCount: verStats.verifiedCount,
+        kycStatus: verStats.kycStatus,
+        trustScore: verStats.trustScore,
+        referralsCount: referralsCount || 0,
+        referralCount: referralsCount || 0,
         activeProjects,
         draftProjects,
         completedProjects,

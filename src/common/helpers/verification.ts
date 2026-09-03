@@ -176,7 +176,13 @@ export function getVerificationStats(user: any) {
         requiredBusinessVerified,
         profileApproved,
         kycApproved,
-        kycStatus: kycApproved ? "APPROVED" : "PENDING",
+        kycStatus: kycApproved
+            ? "APPROVED"
+            : pendingCount > 0
+                ? "PENDING"
+                : missingCount > 0
+                    ? "MISSING"
+                    : "PENDING",
         accountVerified: profileApproved,
         fullName: user.fullName,
         email: user.email,

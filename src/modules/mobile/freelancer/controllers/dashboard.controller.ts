@@ -15,6 +15,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       acceptedProjects, completedProjects, currentContracts,
       reviews, rawUpcomingMeetings, completion,
       unreadMessages, notifications, allPayments, allProposals,
+      referralsCount,
     ] = await Promise.all([
       prisma.freelancerProfile.findUnique({ where: { userId } }),
       prisma.wallet.findUnique({ where: { userId } }),
@@ -68,6 +69,8 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       prisma.payment.findMany({ where: { userId, status: 'completed' } }),
       // All proposals for chart
       prisma.proposal.findMany({ where: { freelancerId: userId } }),
+      // Referrals count
+      prisma.referral.count({ where: { referrerId: userId } }),
     ]);
 
     // Populate target details for upcoming meetings
@@ -151,7 +154,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       where: { id: userId },
       include: { freelancerProfile: true },
     });
-    const verStats = authUser ? getVerificationStats(authUser) : { missingCount: 0, trustScore: 0 };
+    const verStats = authUser ? getVerificationStats(authUser) : {
+      missingCount: 0,
+      pendingCount: 0,
+      verifiedCount: 0,
+      kycStatus: 'PENDING',
+      trustScore: 0,
+    };
 
     const data = {
       profileCompletion: completion.profileCompletion,
@@ -161,6 +170,13 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       accountVerified: Boolean(authUser?.verified),
       verificationMissingCount: verStats.missingCount,
       verificationTrustScore: verStats.trustScore,
+      missingCount: verStats.missingCount,
+      pendingCount: verStats.pendingCount,
+      verifiedCount: verStats.verifiedCount,
+      kycStatus: verStats.kycStatus,
+      trustScore: verStats.trustScore,
+      referralsCount: referralsCount || 0,
+      referralCount: referralsCount || 0,
       walletBalance: wallet?.balance || 0,
       subscriptionStatus: subscription ? 'active' : 'inactive',
       todaysTasks: todayTasksCount,

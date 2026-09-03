@@ -159,25 +159,35 @@ export const getSkills = async (req: Request, res: Response, next: NextFunction)
     const targetFilter = reqIndustryId || reqCategoryId;
 
     if (targetFilter) {
-      const targetIndustry = await prisma.industry.findFirst({
-        where: {
-          OR: [
-            { id: targetFilter },
-            { name: targetFilter },
-            { name: { contains: targetFilter } }
-          ]
-        }
-      }).catch(() => null);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetFilter);
+      let targetIndustry: any = null;
+      if (isUuid) {
+        targetIndustry = await prisma.industry.findUnique({
+          where: { id: targetFilter },
+          select: { id: true, name: true }
+        }).catch(() => null);
+      } else {
+        targetIndustry = await prisma.industry.findFirst({
+          where: {
+            OR: [
+              { id: targetFilter },
+              { name: targetFilter },
+              { name: { contains: targetFilter } }
+            ]
+          },
+          select: { id: true, name: true }
+        }).catch(() => null);
+      }
 
       indId = targetIndustry?.id || targetFilter;
-      indName = targetIndustry?.name || targetFilter;
+      indName = targetIndustry?.name;
 
       where.OR = [
         { categoryId: targetFilter },
         { industry: indId },
-        { industry: indName },
+        ...(indName ? [{ industry: indName }] : []),
         { category: { is: { industryId: indId } } },
-        { category: { is: { name: { contains: indName } } } }
+        ...(indName ? [{ category: { is: { name: { contains: indName } } } }] : [])
       ];
     }
 
