@@ -144,11 +144,11 @@ router.patch('/investments/:id/cancel', authenticate, cancelInvestment);
 
 router.get('/founders/:id', authenticateOptional, getById('founder'));
 router.get('/projects', authenticateOptional, directoryCache, getProjects);
+router.get('/projects/saved', authenticate, savedProjects);
 router.post('/projects', authenticate, createProject);
 router.get('/projects/:projectId/proposals', authenticate, listProjectProposals);
 router.post('/projects/:id/save', authenticate, saveProject);
 router.delete('/projects/:id/save', authenticate, unsaveProject);
-router.get('/projects/saved', authenticate, savedProjects);
 router.get('/projects/:id', authenticateOptional, directoryCache, getById('project'));
 router.put('/projects/:id', authenticate, updateProject);
 router.delete('/projects/:id', authenticate, deleteProject);

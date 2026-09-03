@@ -89,35 +89,34 @@ export const unsaveProject = async (req: AuthRequest, res: Response, next: NextF
 export const savedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const skip = (page - 1) * limit;
+
     const saved = await getJsonSetting(userId, 'saved-projects', [] as string[]);
     
-    if (saved.length === 0) {
-      return res.json(successResponse('Saved projects', []));
+    if (!saved || saved.length === 0) {
+      return res.json(successResponse('Saved projects', [], { page, limit, total: 0, totalPages: 0 }));
     }
     
-    const projects = await prisma.project.findMany({
-      where: { id: { in: saved }, deletedAt: null },
-      include: { 
-        milestones: true, 
-        tasks: true
-      }
-    });
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany({
+        where: { id: { in: saved }, deletedAt: null },
+        include: { 
+          milestones: true, 
+          tasks: true
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.project.count({
+        where: { id: { in: saved }, deletedAt: null }
+      })
+    ]);
     
-    // Fetch client details for these projects
-    const clientIds = [...new Set(projects.map((p) => p.client).filter(Boolean))];
-    const clients = await prisma.user.findMany({
-      where: { id: { in: clientIds } },
-      select: { id: true, fullName: true, avatarUrl: true }
-    });
-    const clientMap = new Map(clients.map((c) => [c.id, c]));
-    
-    // Map projects to include the client object
-    const populatedProjects = projects.map((project) => ({
-      ...project,
-      clientDetails: clientMap.get(project.client) || null
-    }));
-    
-    res.json(successResponse('Saved projects', populatedProjects));
+    const shaped = await shapeProjects(projects, userId);
+    return res.json(successResponse('Saved projects', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }));
   } catch (err) { next(err); }
 };
 export const recommendedProjects = async (req: AuthRequest, res: Response, next: NextFunction) => res.json(successResponse('Recommended projects', []));

@@ -1187,6 +1187,12 @@ router.post("/projects", authenticateOptional, async (req: any, res: Response, n
 router.get("/projects/:slug", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { slug } = req.params;
+    if (slug === 'saved') {
+      const { savedProjects } = await import("../../modules/mobile/freelancer/controllers/projects.controller.js");
+      const { authenticate } = await import("../../middlewares/auth.js");
+      return authenticate(req as any, res, () => (savedProjects as any)(req, res, next));
+    }
+
     const project = await prisma.project.findFirst({
       where: {
         id: slug,
