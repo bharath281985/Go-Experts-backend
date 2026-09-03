@@ -1049,7 +1049,7 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
         where,
         select: {
           id: true, fullName: true, avatarUrl: true, city: true, isVerified: true,
-          investorProfile: { select: { focusAreas: true, ticketMin: true, ticketMax: true, deals: true } }
+          investorProfile: { select: { id: true, focusAreas: true, ticketMin: true, ticketMax: true, deals: true } }
         },
         orderBy: { createdAt: 'desc' },
         skip, take: limit
