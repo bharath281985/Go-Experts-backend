@@ -4,24 +4,27 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 import { isSchemaDriftError } from '../../../../common/helpers/prisma-compat.js';
-import { resolveLabelOrName } from '../../../../utils/array-option-resolver.js';
+import { resolveLabelOrName, resolveOptionObject } from '../../../../utils/array-option-resolver.js';
 
 async function enrichIdea(idea: any) {
   if (!idea) return null;
-  const [stageName, industryName, categoryName] = await Promise.all([
-    resolveLabelOrName(idea.stage),
-    resolveLabelOrName(idea.industry),
-    resolveLabelOrName(idea.category),
+  const [stageObj, industryObj, categoryObj] = await Promise.all([
+    resolveOptionObject(idea.stage),
+    resolveOptionObject(idea.industry),
+    resolveOptionObject(idea.category),
   ]);
 
   return {
     ...idea,
-    stage: stageName || idea.stage,
-    stageId: idea.stage,
-    industry: industryName || idea.industry,
-    industryId: idea.industry,
-    category: categoryName || idea.category,
-    categoryId: idea.category,
+    stage: stageObj,
+    stageId: stageObj.id,
+    stageName: stageObj.name,
+    industry: industryObj,
+    industryId: industryObj.id,
+    industryName: industryObj.name,
+    category: categoryObj,
+    categoryId: categoryObj.id,
+    categoryName: categoryObj.name,
   };
 }
 
@@ -306,7 +309,7 @@ export const deleteIdea = async (req: AuthRequest, res: Response, next: NextFunc
 
     await prisma.startupIdea.update({
       where: { id: req.params.id },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: new Date(), status: 'inactive' }
     });
 
     return res.json(successResponse('Startup idea deleted successfully'));

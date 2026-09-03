@@ -125,3 +125,100 @@ export const parseProjectListQuery = (req: Request, scope: ProjectListScope) => 
 
   return { where, orderBy, page, limit, skip };
 };
+
+export const parseStartupListQuery = (req: Request) => {
+  const { page, limit, skip } = parsePagination(req);
+  const q = asString(readParam(req, 'q', 'search'));
+  const status = asString(readParam(req, 'status'));
+  const categories = [
+    ...asStringList(readParam(req, 'category', 'categories')),
+    ...asStringList(readParam(req, 'categoryId', 'categoryIds', 'category_id')),
+  ];
+  const industries = [
+    ...asStringList(readParam(req, 'industry', 'industries')),
+    ...asStringList(readParam(req, 'industryId', 'industryIds', 'industry_id')),
+  ];
+  const stages = [
+    ...asStringList(readParam(req, 'stage', 'stages')),
+    ...asStringList(readParam(req, 'stageId', 'stageIds', 'stage_id')),
+  ];
+  const minFundingRaw = readParam(req, 'minFunding', 'min_funding', 'minRaised', 'min_raised');
+  const maxFundingRaw = readParam(req, 'maxFunding', 'max_funding', 'maxRaised', 'max_raised');
+  const minFunding = minFundingRaw != null ? parseFloat(String(minFundingRaw)) : undefined;
+  const maxFunding = maxFundingRaw != null ? parseFloat(String(maxFundingRaw)) : undefined;
+
+  const sortRaw = (
+    asString(readParam(req, 'sort', 'sort_by', 'sortBy')) || 'newest'
+  ).toLowerCase();
+
+  const where: Prisma.StartupIdeaWhereInput = {
+    deletedAt: null,
+    status: status ? status : { in: ['active', 'Published', 'published'] },
+  };
+
+  const viewerId = (req as any).user?.id as string | undefined;
+  if (viewerId) {
+    where.founder = { not: viewerId };
+  }
+
+  if (q) {
+    where.OR = [
+      { startup: { contains: q } },
+      { industry: { contains: q } },
+      { category: { contains: q } },
+    ];
+  }
+
+  if (categories.length === 1) {
+    where.category = categories[0];
+  } else if (categories.length > 1) {
+    where.category = { in: categories };
+  }
+
+  if (industries.length === 1) {
+    where.industry = industries[0];
+  } else if (industries.length > 1) {
+    where.industry = { in: industries };
+  }
+
+  if (stages.length === 1) {
+    where.stage = stages[0];
+  } else if (stages.length > 1) {
+    where.stage = { in: stages };
+  }
+
+  if (minFunding !== undefined || maxFunding !== undefined) {
+    where.funding = {};
+    if (minFunding !== undefined && !isNaN(minFunding)) {
+      (where.funding as any).gte = minFunding;
+    }
+    if (maxFunding !== undefined && !isNaN(maxFunding)) {
+      (where.funding as any).lte = maxFunding;
+    }
+  }
+
+  let orderBy: Prisma.StartupIdeaOrderByWithRelationInput | Prisma.StartupIdeaOrderByWithRelationInput[] =
+    { createdAt: 'desc' };
+
+  if (
+    sortRaw.includes('funding') &&
+    (sortRaw.includes('low') || sortRaw.includes('asc') || sortRaw === 'funding_asc')
+  ) {
+    orderBy = [{ funding: 'asc' }, { createdAt: 'desc' }];
+  } else if (
+    sortRaw.includes('funding') &&
+    (sortRaw.includes('high') || sortRaw.includes('desc') || sortRaw === 'funding_desc')
+  ) {
+    orderBy = [{ funding: 'desc' }, { createdAt: 'desc' }];
+  } else if (sortRaw.includes('views') || sortRaw.includes('view') || sortRaw === 'popular') {
+    orderBy = [{ views: 'desc' }, { createdAt: 'desc' }];
+  } else if (sortRaw.includes('trending') || sortRaw.includes('investor') || sortRaw === 'featured') {
+    orderBy = [{ interestedInvestors: 'desc' }, { createdAt: 'desc' }];
+  } else if (sortRaw.includes('oldest') || sortRaw === 'created_asc') {
+    orderBy = { createdAt: 'asc' };
+  } else {
+    orderBy = { createdAt: 'desc' };
+  }
+
+  return { where, orderBy, page, limit, skip };
+};

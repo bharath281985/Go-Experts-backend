@@ -171,42 +171,77 @@ export async function resolveLabelOrName(val: any): Promise<string> {
   const trimmed = val.trim();
   if (!trimmed) return '';
 
-  const isUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed);
-  if (!isUuidPattern && !trimmed.startsWith('opt_') && !trimmed.startsWith('stg_') && !trimmed.startsWith('ind_')) {
-    return trimmed;
-  }
-
   try {
     // 1. Check industry
-    const ind = await prisma.industry.findFirst({
-      where: { OR: [{ id: trimmed }, { name: trimmed }] },
-      select: { name: true }
-    }).catch(() => null);
-    if (ind?.name) return ind.name;
+    try {
+      const ind = await prisma.industry.findFirst({
+        where: { OR: [{ id: trimmed }, { name: trimmed }] },
+        select: { name: true }
+      });
+      if (ind?.name) return ind.name;
+    } catch {}
 
-    // 2. Check startupStage
-    const stg = await prisma.startupStage.findFirst({
-      where: { OR: [{ id: trimmed }, { name: trimmed }] },
-      select: { name: true }
-    }).catch(() => null);
-    if (stg?.name) return stg.name;
+    // 2. Check skillCategory
+    try {
+      const cat = await (prisma as any).skillCategory?.findFirst({
+        where: { OR: [{ id: trimmed }, { name: trimmed }] },
+        select: { name: true }
+      });
+      if (cat?.name) return cat.name;
+    } catch {}
 
-    // 3. Check masterOption
-    const opt = await (prisma as any).masterOption?.findFirst({
-      where: { OR: [{ id: trimmed }, { value: trimmed }, { label: trimmed }] },
-      select: { label: true, value: true }
-    }).catch(() => null);
-    if (opt?.label) return opt.label;
-    if (opt?.value) return opt.value;
+    // 3. Check startupStage
+    try {
+      const stg = await prisma.startupStage.findFirst({
+        where: { OR: [{ id: trimmed }, { name: trimmed }] },
+        select: { name: true }
+      });
+      if (stg?.name) return stg.name;
+    } catch {}
 
-    // 4. Check skillCategory
-    const cat = await (prisma as any).skillCategory?.findFirst({
-      where: { OR: [{ id: trimmed }, { name: trimmed }] },
-      select: { name: true }
-    }).catch(() => null);
-    if (cat?.name) return cat.name;
+    // 4. Check masterOption
+    try {
+      const opt = await (prisma as any).masterOption?.findFirst({
+        where: { OR: [{ id: trimmed }, { value: trimmed }, { label: trimmed }] },
+        select: { label: true, value: true }
+      });
+      if (opt?.label) return opt.label;
+      if (opt?.value) return opt.value;
+    } catch {}
+
+    // 5. Direct Raw SQL Fallback
+    try {
+      const raw = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT name FROM industries WHERE id = ? OR name = ?
+         UNION
+         SELECT name FROM skill_categories WHERE id = ? OR name = ?
+         UNION
+         SELECT name FROM startup_stages WHERE id = ? OR name = ?
+         UNION
+         SELECT label AS name FROM master_options WHERE id = ? OR value = ? OR label = ?
+         LIMIT 1`,
+        trimmed, trimmed, trimmed, trimmed, trimmed, trimmed, trimmed, trimmed, trimmed
+      ).catch(() => []);
+      if (raw && raw[0]?.name) return String(raw[0].name);
+    } catch {}
   } catch {}
 
   return trimmed;
 }
 
+export async function resolveOptionObject(val: any): Promise<{ id: string; name: string }> {
+  if (!val) return { id: '', name: '' };
+  if (typeof val === 'object' && (val.id !== undefined || val.name !== undefined)) {
+    const id = String(val.id ?? '').trim();
+    const name = String(val.name ?? val.label ?? val.value ?? '').trim();
+    if (id && !name) {
+      const resolvedName = await resolveLabelOrName(id);
+      return { id, name: resolvedName || id };
+    }
+    return { id, name: name || id };
+  }
+  const idStr = String(val).trim();
+  if (!idStr) return { id: '', name: '' };
+  const name = await resolveLabelOrName(idStr);
+  return { id: idStr, name: name || idStr };
+}

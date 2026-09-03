@@ -35,6 +35,7 @@ import { getMyVerification, updateMyVerification, deleteMyVerification } from '.
 import { saveFreelancer, unsaveFreelancer, getSavedFreelancers } from '../client/controllers/freelancers.controller.js';
 import { saveStartup, unsaveStartup } from '../investor/controllers/startups.controller.js';
 import { saveFounder, unsaveFounder, getFounderWatchlist } from '../investor/controllers/watchlist.controller.js';
+import { saveProject, unsaveProject, savedProjects } from '../freelancer/controllers/projects.controller.js';
 
 const router = Router();
 
@@ -86,9 +87,9 @@ router.get('/freelancers/saved', authenticate, getSavedFreelancers);
 router.get('/freelancers/:id', authenticateOptional, directoryCache, getById('freelancer'));
 router.post('/freelancers/:id/save', authenticate, saveFreelancer);
 router.delete('/freelancers/:id/save', authenticate, unsaveFreelancer);
-router.get('/clients', directoryCache, getClients);
+router.get('/clients', authenticateOptional, directoryCache, getClients);
 router.get('/clients/:id', directoryCache, getById('client'));
-router.get('/investors', directoryCache, getInvestors);
+router.get('/investors', authenticateOptional, directoryCache, getInvestors);
 router.get('/investors/:id', authenticateOptional, getById('investor'));
 router.get('/startups', authenticateOptional, getStartups);
 router.get('/startups/my-startups', authenticate, listIdeas);   
@@ -142,6 +143,9 @@ router.get('/projects', authenticateOptional, directoryCache, getProjects);
 router.post('/projects', authenticate, createProject);
 router.get('/projects/:id', authenticateOptional, directoryCache, getById('project'));
 router.get('/projects/:projectId/proposals', authenticate, listProjectProposals);
+router.post('/projects/:id/save', authenticate, saveProject);
+router.delete('/projects/:id/save', authenticate, unsaveProject);
+router.get('/projects/saved', authenticate, savedProjects);
 router.put('/projects/:id', authenticate, updateProject);
 router.delete('/projects/:id', authenticate, deleteProject);
 router.patch('/projects/:id/status', authenticate, updateProjectStatus);

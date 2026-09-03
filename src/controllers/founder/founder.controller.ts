@@ -268,9 +268,13 @@ export const updateFounderStartup = async (req: AuthenticatedRequest, res: Respo
     if (startup) {
       updated = await prisma.startupIdea.update({ where: { id: startup.id }, data });
     } else {
+      const startupName = data.startup || user.founderProfile?.startupName;
+      if (!startupName) {
+        return res.status(400).json({ success: false, message: "Startup name is required" });
+      }
       updated = await prisma.startupIdea.create({
         data: {
-          startup: data.startup || user.founderProfile?.startupName || `${user.fullName}'s Startup`,
+          startup: startupName,
           founder: user.id,
           industry: data.industry || user.founderProfile?.industry || "General",
           category: data.category || user.founderProfile?.industry || "General",

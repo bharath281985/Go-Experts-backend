@@ -49,7 +49,7 @@ export const formatStartupResponse = (
 
   if (user) {
     reg = parseRegData(user.registrationData);
-        // Minimal user fields for list view
+    // Minimal user fields for list view
     userObj = {
       id: user.id,
       fullName: user.fullName,
@@ -69,7 +69,7 @@ export const formatStartupResponse = (
     }
   } else {
     const fallbackName = idea.founder || idea.startup || "Founder";
-        userObj = {
+    userObj = {
       id: idea.founder || idea.id,
       fullName: fallbackName,
       avatarUrl: idea.logo || null,
@@ -130,9 +130,15 @@ export const formatStartupResponse = (
     logo: idea.logo,
     coverUrl: idea.coverUrl,
 
-    industry: industryValue,
-    category: categoryValue,
-    stage: stageValue,
+    industry: { id: idea.industry || '', name: industryValue },
+    industryId: idea.industry || '',
+    industryName: industryValue,
+    category: { id: idea.category || '', name: categoryValue },
+    categoryId: idea.category || '',
+    categoryName: categoryValue,
+    stage: { id: idea.stage || '', name: stageValue },
+    stageId: idea.stage || '',
+    stageName: stageValue,
 
     metrics: {
       fundingGoal: goal,
@@ -165,7 +171,6 @@ export const formatStartupResponse = (
     hasInvested: investedIds.has(idea.id)
   };
 
-  // If not detailed, return the stripped down version
   if (!isDetailed) {
     return baseResult;
   }
@@ -298,7 +303,15 @@ export const listStartups = async (req: AuthRequest, res: Response, next: NextFu
     const industry = req.query.industry as string;
     const stage = req.query.stage as string;
 
-    const where: any = { status: 'active', deletedAt: null };
+    const where: any = {
+      status: 'active',
+      deletedAt: null,
+      NOT: [
+        { startup: { contains: "'s Startup" } },
+        { startup: { contains: "’s Startup" } },
+        { startup: '' }
+      ]
+    };
     if (req.user?.id) where.founder = { not: req.user.id };
     if (q) where.startup = { contains: q };
     if (industry) where.industry = industry;
@@ -361,7 +374,16 @@ export const getRecommendedStartups = async (req: AuthRequest, res: Response, ne
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
+        where: {
+          status: 'active',
+          deletedAt: null,
+          NOT: [
+            { startup: { contains: "'s Startup" } },
+            { startup: { contains: "’s Startup" } },
+            { startup: '' }
+          ],
+          ...(req.user?.id ? { founder: { not: req.user.id } } : {})
+        },
         take: 10, orderBy: { createdAt: 'desc' }
       }),
       readList(req.user.id),
@@ -384,7 +406,16 @@ export const getTrendingStartups = async (req: AuthRequest, res: Response, next:
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
+        where: {
+          status: 'active',
+          deletedAt: null,
+          NOT: [
+            { startup: { contains: "'s Startup" } },
+            { startup: { contains: "’s Startup" } },
+            { startup: '' }
+          ],
+          ...(req.user?.id ? { founder: { not: req.user.id } } : {})
+        },
         take: 10, orderBy: { views: 'desc' }
       }),
       readList(req.user.id),
@@ -407,7 +438,16 @@ export const getFeaturedStartups = async (req: AuthRequest, res: Response, next:
   try {
     const [ideas, watchlist, investments] = await Promise.all([
       prisma.startupIdea.findMany({
-        where: { status: 'active', deletedAt: null, ...(req.user?.id ? { founder: { not: req.user.id } } : {}) },
+        where: {
+          status: 'active',
+          deletedAt: null,
+          NOT: [
+            { startup: { contains: "'s Startup" } },
+            { startup: { contains: "’s Startup" } },
+            { startup: '' }
+          ],
+          ...(req.user?.id ? { founder: { not: req.user.id } } : {})
+        },
         take: 5, orderBy: { interestedInvestors: 'desc' }
       }),
       readList(req.user.id),
@@ -443,20 +483,27 @@ export const saveStartup = async (req: AuthRequest, res: Response, next: NextFun
 
     const { notes, priority } = req.body || {};
     const items = await readList(req.user.id);
-    const exists = items.find(i => i.startupId === startupId);
-    if (exists) return res.status(409).json(errorResponse('Startup already saved to watchlist', 'CONFLICT'));
+    const existingIndex = items.findIndex(i => i.startupId === startupId);
 
+    const checkInvestment = await prisma.investment.findFirst({
+      where: { investor: req.user.id, startup: startupId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+    });
+
+    if (existingIndex >= 0) {
+      // Toggle off: remove from watchlist
+      items.splice(existingIndex, 1);
+      await writeList(req.user.id, items);
+      return res.json(successResponse('Startup removed from watchlist', { isSaved: false, hasInvested: !!checkInvestment }));
+    }
+
+    // Toggle on: add to watchlist
     const now = new Date().toISOString();
     const entry: WatchlistEntry = { id: randomUUID(), startupId, notes: notes || '', priority: priority || 'medium', savedAt: now, updatedAt: now };
 
     items.unshift(entry);
     await writeList(req.user.id, items);
 
-    const checkInvestment = await prisma.investment.findFirst({
-      where: { investor: req.user.id, startup: startupId, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
-    });
-
-    return res.status(201).json(successResponse('Startup saved to watchlist', { ...entry, isSaved: true, hasInvested: !!checkInvestment }));
+    return res.status(200).json(successResponse('Startup saved to watchlist', { ...entry, isSaved: true, hasInvested: !!checkInvestment }));
   } catch (error) { next(error); }
 };
 
@@ -476,9 +523,7 @@ export const unsaveStartup = async (req: AuthRequest, res: Response, next: NextF
 
     const items = await readList(req.user.id);
     const filtered = items.filter(i => i.startupId !== startupId);
-    if (filtered.length === items.length) return res.status(404).json(errorResponse('Startup not in watchlist', 'NOT_FOUND'));
-
     await writeList(req.user.id, filtered);
-    return res.json(successResponse('Startup removed from watchlist'));
+    return res.json(successResponse('Startup removed from watchlist', { isSaved: false }));
   } catch (error) { next(error); }
 };

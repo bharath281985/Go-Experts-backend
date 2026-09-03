@@ -3,7 +3,7 @@ import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
-import { resolveMasterOptionsInput, resolveLabelOrName } from '../../../../utils/array-option-resolver.js';
+import { resolveMasterOptionsInput, resolveLabelOrName, resolveOptionObject } from '../../../../utils/array-option-resolver.js';
 import { getJsonSetting } from '../../../../common/helpers/portal-shared.js';
 
 async function resolveId(val: any, model: string) {
@@ -100,22 +100,23 @@ export const getStartup = async (req: AuthRequest, res: Response, next: NextFunc
       documents.push({ id: "doc_pd", name: "Pitch Deck", url: startup.pitchDeck, type: "pdf" });
     }
 
-    const [resolvedStartupStage, resolvedStartupCat, stageName, industryName, categoryName] = await Promise.all([
-      resolveMasterOptionsInput(startup?.stage, 'startup_stage'),
-      resolveMasterOptionsInput(startup?.category, 'project_category'),
-      resolveLabelOrName(startup?.stage),
-      resolveLabelOrName(startup?.industry),
-      resolveLabelOrName(startup?.category),
+    const [stageObj, industryObj, categoryObj] = await Promise.all([
+      resolveOptionObject(startup?.stage),
+      resolveOptionObject(startup?.industry),
+      resolveOptionObject(startup?.category),
     ]);
 
     const result: any = {
       ...startup,
-      stage: stageName || startup?.stage,
-      industry: industryName || startup?.industry,
-      category: categoryName || startup?.category,
-      industryId: await resolveId(startup?.industry, "Industry"),
-      categoryId: resolvedStartupCat.ids[0] || startup?.category,
-      stageId: resolvedStartupStage.ids[0] || startup?.stage,
+      stage: stageObj,
+      industry: industryObj,
+      category: categoryObj,
+      industryId: industryObj.id,
+      stageId: stageObj.id,
+      categoryId: categoryObj.id,
+      industryName: industryObj.name,
+      stageName: stageObj.name,
+      categoryName: categoryObj.name,
       documents,
       teamSize: profile?.teamSize ?? (reg.teamSize ? parseInt(reg.teamSize) : 1),
       description: startup.description || reg.description || reg.pitch || user?.bio || "",

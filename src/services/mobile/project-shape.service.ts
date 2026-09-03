@@ -51,57 +51,47 @@ export const shapeProjects = async (
   if (!projects.length) return [];
 
   const clientIds = [...new Set(projects.map((p) => p.client).filter(Boolean))];
-  const industryIds = [
-    ...new Set(
-      projects
-        .map((p) => p.category)
-        .filter((c: string) => c && uuidLike.test(c))
-    ),
-  ];
-  const experienceLevelIds = [
-    ...new Set(
-      projects
-        .map((p) => p.experienceLevel)
-        .filter((e: string) => e && uuidLike.test(e))
-    ),
-  ];
-  const workModeIds = [
-    ...new Set(
-      projects
-        .map((p) => p.workMode)
-        .filter((w: string) => w && uuidLike.test(w))
-    ),
-  ];
-  const skillIds = [
-    ...new Set(
-      projects.flatMap((p) => splitIds(p.technology)).filter((id) => uuidLike.test(id))
-    ),
-  ];
-
+  const allCategoryKeys = [...new Set(projects.map((p) => String(p.category || '').trim()).filter(Boolean))];
+  const allExperienceKeys = [...new Set(projects.map((p) => String(p.experienceLevel || '').trim()).filter(Boolean))];
+  const allWorkModeKeys = [...new Set(projects.map((p) => String(p.workMode || '').trim()).filter(Boolean))];
+  const allSkillKeys = [...new Set(projects.flatMap((p) => splitIds(p.technology)).filter(Boolean))];
   const budgetIds = [...new Set(projects.map((p) => p.budgetRangeId).filter(Boolean))];
 
-  const [clients, industries, experienceLevels, workModes, budgetRanges, skills] = await Promise.all([
+  const allLookupKeys = [...new Set([
+    ...allCategoryKeys,
+    ...allExperienceKeys,
+    ...allWorkModeKeys,
+    ...allSkillKeys,
+  ])];
+
+  const [clients, industries, skillCategories, experienceLevels, workModes, budgetRanges, skills, masterOptions] = await Promise.all([
     clientIds.length
       ? prisma.user.findMany({
-        where: { id: { in: clientIds } },
+        where: { id: { in: clientIds }, status: 'active', deletedAt: null },
         select: { id: true, fullName: true, avatarUrl: true, isVerified: true },
-      })
+      }).catch(() => [])
       : Promise.resolve([]),
-    industryIds.length
-      ? prisma.skillCategory.findMany({
-        where: { id: { in: industryIds } },
-        select: { id: true, name: true },
-      })
-      : Promise.resolve([]),
-    experienceLevelIds.length
-      ? prisma.experienceLevel.findMany({
-        where: { id: { in: experienceLevelIds } },
+    allCategoryKeys.length
+      ? prisma.industry.findMany({
+        where: { OR: [{ id: { in: allCategoryKeys } }, { name: { in: allCategoryKeys } }] },
         select: { id: true, name: true },
       }).catch(() => [])
       : Promise.resolve([]),
-    workModeIds.length
+    allCategoryKeys.length
+      ? prisma.skillCategory.findMany({
+        where: { OR: [{ id: { in: allCategoryKeys } }, { name: { in: allCategoryKeys } }] },
+        select: { id: true, name: true },
+      }).catch(() => [])
+      : Promise.resolve([]),
+    allExperienceKeys.length
+      ? prisma.experienceLevel.findMany({
+        where: { OR: [{ id: { in: allExperienceKeys } }, { name: { in: allExperienceKeys } }] },
+        select: { id: true, name: true },
+      }).catch(() => [])
+      : Promise.resolve([]),
+    allWorkModeKeys.length
       ? prisma.workMode.findMany({
-        where: { id: { in: workModeIds } },
+        where: { OR: [{ id: { in: allWorkModeKeys } }, { name: { in: allWorkModeKeys } }] },
         select: { id: true, name: true },
       }).catch(() => [])
       : Promise.resolve([]),
@@ -111,22 +101,97 @@ export const shapeProjects = async (
         select: { id: true, label: true, value: true, min: true, max: true, sortOrder: true }
       }).catch(() => [])
       : Promise.resolve([]),
-    skillIds.length
+    allSkillKeys.length
       ? prisma.skill.findMany({
-        where: { id: { in: skillIds } },
+        where: { OR: [{ id: { in: allSkillKeys } }, { name: { in: allSkillKeys } }] },
         select: { id: true, name: true },
-      })
+      }).catch(() => [])
+      : Promise.resolve([]),
+    allLookupKeys.length
+      ? (prisma as any).masterOption?.findMany({
+        where: {
+          OR: [
+            { id: { in: allLookupKeys } },
+            { label: { in: allLookupKeys } },
+            { value: { in: allLookupKeys } },
+          ],
+        },
+        select: { id: true, label: true, value: true, type: true }
+      }).catch(() => [])
       : Promise.resolve([]),
   ]);
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
-  const industryById = new Map(industries.map((c) => [c.id, c.name]));
-  const experienceLevelById = new Map(experienceLevels.map((c) => [c.id, c.name]));
-  const workModeById = new Map(workModes.map((c) => [c.id, c.name]));
+
+  // Build two-way maps (id -> {id, name}, name -> {id, name})
+  const industryMap = new Map<string, { id: string; name: string }>();
+  const addIndustry = (id: string, name: string) => {
+    if (!id && !name) return;
+    const entry = { id: id || '', name: name || '' };
+    if (id) industryMap.set(id, entry);
+    if (name) {
+      industryMap.set(name, entry);
+      industryMap.set(name.toLowerCase(), entry);
+    }
+  };
+  industries.forEach((i) => addIndustry(i.id, i.name));
+  skillCategories.forEach((c) => addIndustry(c.id, c.name));
+  (masterOptions || []).forEach((m: any) => {
+    const label = m.label || m.value || '';
+    if (label) addIndustry(m.id, label);
+  });
+
+  const experienceLevelMap = new Map<string, { id: string; name: string }>();
+  const addExp = (id: string, name: string) => {
+    if (!id && !name) return;
+    const entry = { id: id || '', name: name || '' };
+    if (id) experienceLevelMap.set(id, entry);
+    if (name) {
+      experienceLevelMap.set(name, entry);
+      experienceLevelMap.set(name.toLowerCase(), entry);
+    }
+  };
+  experienceLevels.forEach((e) => addExp(e.id, e.name));
+  (masterOptions || []).filter((m: any) => m.type === 'experience_level').forEach((m: any) => {
+    const label = m.label || m.value || '';
+    if (label) addExp(m.id, label);
+  });
+
+  const workModeMap = new Map<string, { id: string; name: string }>();
+  const addWorkMode = (id: string, name: string) => {
+    if (!id && !name) return;
+    const entry = { id: id || '', name: name || '' };
+    if (id) workModeMap.set(id, entry);
+    if (name) {
+      workModeMap.set(name, entry);
+      workModeMap.set(name.toLowerCase(), entry);
+    }
+  };
+  workModes.forEach((w) => addWorkMode(w.id, w.name));
+  (masterOptions || []).filter((m: any) => m.type === 'work_mode').forEach((m: any) => {
+    const label = m.label || m.value || '';
+    if (label) addWorkMode(m.id, label);
+  });
+
   const budgetRangeById = new Map<string, BudgetRangeRecord>(
     (budgetRanges as BudgetRangeRecord[]).map((b) => [b.id, b])
   );
-  const skillById = new Map(skills.map((s) => [s.id, s.name]));
+
+  const skillMap = new Map<string, { id: string; name: string }>();
+  const addSkill = (id: string, name: string) => {
+    if (!id && !name) return;
+    const entry = { id: id || '', name: name || '' };
+    if (id) skillMap.set(id, entry);
+    if (name) {
+      skillMap.set(name, entry);
+      skillMap.set(name.toLowerCase(), entry);
+    }
+  };
+  skills.forEach((s) => addSkill(s.id, s.name));
+  (masterOptions || []).filter((m: any) => m.type === 'technology' || m.type === 'skill').forEach((m: any) => {
+    const label = m.label || m.value || '';
+    if (label) addSkill(m.id, label);
+  });
 
   const proposalCounts = await prisma.proposal.groupBy({
     by: ['projectId'],
@@ -146,27 +211,49 @@ export const shapeProjects = async (
     savedIds = new Set(savedRows);
   }
 
-  return projects
-    .filter((project) => clientById.has(project.client))
-    .map((project) => {
+  return projects.map((project) => {
     const client: any = clientById.get(project.client);
     const skillIdList = splitIds(project.technology);
-    const skillNames = skillIdList.map((id) => skillById.get(id) ?? id);
-    const industryName = uuidLike.test(String(project.category || ''))
-      ? industryById.get(project.category) ?? 'General'
-      : project.category || 'General';
-    const experienceLevelKey = String(project.experienceLevel || '').trim();
-    const experienceLevelRecord = experienceLevelById.get(experienceLevelKey) || null;
-    const experienceLevelName = experienceLevelRecord?.name || experienceLevelKey || 'intermediate';
-    const workModeKey = String(project.workMode || '').trim();
-    const workModeRecord = workModeById.get(workModeKey) || null;
-    const workModeName = workModeRecord?.name || workModeKey || 'Remote';
-    const budgetRangeRecord = budgetRangeById.get(String(project.budgetRangeId || '').trim()) || null;
 
-    const formattedSkills = skillIdList.map((id, index) => ({
-      skillId: id,
-      skillName: skillNames[index]
-    }));
+    const formattedSkills = skillIdList.map((key) => {
+      const trimmed = key.trim();
+      const resolved = skillMap.get(trimmed) || skillMap.get(trimmed.toLowerCase());
+      if (resolved) {
+        return {
+          skillId: resolved.id || (uuidLike.test(trimmed) ? trimmed : ''),
+          skillName: resolved.name || trimmed
+        };
+      }
+      return {
+        skillId: uuidLike.test(trimmed) ? trimmed : '',
+        skillName: trimmed
+      };
+    });
+
+    const skillNames = formattedSkills.map((s) => s.skillName).filter(Boolean);
+
+    const catKey = String(project.category || '').trim();
+    const resolvedInd = industryMap.get(catKey) || industryMap.get(catKey.toLowerCase());
+    const industryObj = {
+      id: resolvedInd?.id || (uuidLike.test(catKey) ? catKey : ''),
+      name: resolvedInd?.name || (uuidLike.test(catKey) ? 'General' : catKey || 'General'),
+    };
+
+    const expKey = String(project.experienceLevel || '').trim();
+    const resolvedExp = experienceLevelMap.get(expKey) || experienceLevelMap.get(expKey.toLowerCase());
+    const experienceLevelObj = {
+      id: resolvedExp?.id || (uuidLike.test(expKey) ? expKey : ''),
+      name: resolvedExp?.name || expKey || 'Intermediate',
+    };
+
+    const wmKey = String(project.workMode || '').trim();
+    const resolvedWm = workModeMap.get(wmKey) || workModeMap.get(wmKey.toLowerCase());
+    const workModeObj = {
+      id: resolvedWm?.id || (uuidLike.test(wmKey) ? wmKey : ''),
+      name: resolvedWm?.name || wmKey || 'Remote',
+    };
+
+    const budgetRangeRecord = budgetRangeById.get(String(project.budgetRangeId || '').trim()) || null;
 
     return {
       id: project.id,
@@ -176,10 +263,9 @@ export const shapeProjects = async (
       clientName: client?.fullName || 'Client',
       clientAvatar: client?.avatarUrl ?? null,
       clientVerified: Boolean(client?.isVerified),
-      industry: {
-        id: uuidLike.test(String(project.category || '')) ? project.category : '',
-        name: industryName,
-      },
+      industry: industryObj,
+      industryId: industryObj.id,
+      industryName: industryObj.name,
       skills: formattedSkills,
       techStack: skillNames,
       technology: skillNames.join(', '),
@@ -200,14 +286,12 @@ export const shapeProjects = async (
       timeline: project.timeline ?? '',
       startDate: project.startDate ? new Date(project.startDate).toISOString() : null,
       endDate: project.endDate ? new Date(project.endDate).toISOString() : null,
-      workMode: {
-        id: workModeRecord?.id || '',
-        name: workModeName,
-      },
-      experienceLevel: {
-        id: experienceLevelRecord?.id || '',
-        name: experienceLevelName,
-      },
+      workMode: workModeObj,
+      workModeId: workModeObj.id,
+      workModeName: workModeObj.name,
+      experienceLevel: experienceLevelObj,
+      experienceLevelId: experienceLevelObj.id,
+      experienceLevelName: experienceLevelObj.name,
       attachments: parseAttachments(project.attachments),
       status: project.status,
       createdAt: project.createdAt,
