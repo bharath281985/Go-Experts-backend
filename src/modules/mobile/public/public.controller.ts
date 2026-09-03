@@ -443,6 +443,46 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
   } catch (error) { next(error); }
 };
 
+export const getDepartments = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const dbDepartments = await (prisma as any).masterOption?.findMany({
+      where: { type: { in: ['department', 'departments', 'team_department'] }, status: 'active' },
+      orderBy: { label: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    if (dbDepartments && dbDepartments.length > 0) {
+      return res.json(successResponse('Departments retrieved', deduplicateMasterOptions(dbDepartments)));
+    }
+
+    return res.json(successResponse('Departments retrieved', []));
+  } catch (error) { next(error); }
+};
+
+export const getMasters = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const type = ((req.query.type as string) || (req.params.type as string) || '').trim();
+    if (!type) {
+      return res.json(successResponse('Masters retrieved', []));
+    }
+
+    if (type.toLowerCase().includes('dept') || type.toLowerCase().includes('department')) {
+      return getDepartments(req, res, next);
+    }
+    if (type.toLowerCase().includes('designation') || type.toLowerCase().includes('role')) {
+      return getDesignations(req, res, next);
+    }
+
+    const options = await (prisma as any).masterOption?.findMany({
+      where: { type: { contains: type }, status: 'active' },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, label: true, value: true }
+    }).catch(() => []);
+
+    return res.json(successResponse('Masters retrieved', deduplicateMasterOptions(options || [])));
+  } catch (error) { next(error); }
+};
+
 export const getDesignations = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const dbDesignations = await (prisma as any).masterOption?.findMany({
