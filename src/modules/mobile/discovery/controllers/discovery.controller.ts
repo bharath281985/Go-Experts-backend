@@ -64,6 +64,22 @@ export const getRecommendations = async (req: AuthRequest, res: Response, next: 
   }
 };
 
+function cleanTag(val: string | null | undefined, fallback: string): string {
+  if (!val || typeof val !== 'string') return fallback;
+  const trimmed = val.trim();
+  if (!trimmed || /^[0-9a-fA-F-]{24,}$/.test(trimmed)) return fallback;
+  const parts = trimmed.split(',').map(s => s.trim()).filter(s => s && !/^[0-9a-fA-F-]{24,}$/.test(s));
+  return parts.length > 0 ? parts[0] : fallback;
+}
+
+function cleanDesc(val: string | null | undefined, fallback: string = ''): string {
+  if (!val || typeof val !== 'string') return fallback;
+  const trimmed = val.trim();
+  if (!trimmed || /^[0-9a-fA-F-]{24,}$/.test(trimmed)) return fallback;
+  const parts = trimmed.split(',').map(s => s.trim()).filter(s => s && !/^[0-9a-fA-F-]{24,}$/.test(s));
+  return parts.length > 0 ? parts.join(', ') : fallback;
+}
+
 async function buildRecommendationItems(role: string, userId: string) {
   const limit = 5;
 
@@ -78,19 +94,20 @@ async function buildRecommendationItems(role: string, userId: string) {
         prisma.user.findMany({
           where: { role: 'client', status: 'active', deletedAt: null },
           include: { clientProfile: true },
+          orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
-        prisma.user.findMany({
-          where: { role: 'founder', status: 'active', deletedAt: null },
-          include: { founderProfile: true },
+        prisma.startupIdea.findMany({
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
       ]);
 
       return {
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: p.category, description: p.description ?? p.technology ?? '' })),
-        clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: c.clientProfile?.company ?? 'Client', description: c.clientProfile?.industry ?? c.city ?? '' })),
-        startups: (startups || []).map((s) => ({ id: s.id, title: s.fullName, subtitle: s.founderProfile?.startupName ?? 'Startup', description: s.founderProfile?.industry ?? s.city ?? '' })),
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
+        startups: (startups || []).map((s) => ({ id: s.id, title: s.title, subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry ?? s.location, '') })),
       };
     }
 
@@ -99,6 +116,7 @@ async function buildRecommendationItems(role: string, userId: string) {
         prisma.user.findMany({
           where: { role: 'freelancer', status: 'active', deletedAt: null },
           include: { freelancerProfile: true },
+          orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
         prisma.project.findMany({
@@ -109,39 +127,54 @@ async function buildRecommendationItems(role: string, userId: string) {
         prisma.user.findMany({
           where: { role: 'investor', status: 'active', deletedAt: null },
           include: { investorProfile: true },
+          orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
       ]);
       return {
-        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: f.freelancerProfile?.skills ?? 'Freelancer', description: f.freelancerProfile?.industry ?? f.city ?? '' })),
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: p.category, description: p.description ?? p.technology ?? '' })),
-        investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: i.investorProfile?.firm ?? 'Investor', description: i.investorProfile?.focusAreas ?? i.city ?? '' })),
+        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
       };
     }
 
     if (role === 'investor') {
       const [startups, founders, freelancers] = await Promise.all([
-        prisma.user.findMany({ where: { role: 'founder', status: 'active', deletedAt: null }, include: { founderProfile: true }, take: limit }).catch(() => []),
-        prisma.user.findMany({ where: { role: 'founder', status: 'active', deletedAt: null }, include: { founderProfile: true }, take: limit }).catch(() => []),
-        prisma.user.findMany({ where: { role: 'freelancer', status: 'active', deletedAt: null }, include: { freelancerProfile: true }, take: limit }).catch(() => []),
+        prisma.startupIdea.findMany({
+          where: { deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }).catch(() => []),
+        prisma.user.findMany({
+          where: { role: 'founder', status: 'active', deletedAt: null },
+          include: { founderProfile: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }).catch(() => []),
+        prisma.user.findMany({
+          where: { role: 'freelancer', status: 'active', deletedAt: null },
+          include: { freelancerProfile: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }).catch(() => []),
       ]);
       return {
-        startups: (startups || []).map((s) => ({ id: s.id, title: s.fullName, subtitle: s.founderProfile?.startupName ?? 'Startup', description: s.founderProfile?.industry ?? s.city ?? '' })),
-        founders: (founders || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: f.founderProfile?.stage ?? 'Founder', description: f.founderProfile?.industry ?? f.city ?? '' })),
-        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: f.freelancerProfile?.skills ?? 'Freelancer', description: f.freelancerProfile?.industry ?? f.city ?? '' })),
+        startups: (startups || []).map((s) => ({ id: s.id, title: s.title, subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry ?? s.location, '') })),
+        founders: (founders || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.founderProfile?.stage ?? f.founderProfile?.startupName, 'Founder'), description: cleanDesc(f.founderProfile?.industry ?? f.city, '') })),
+        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
       };
     }
 
     const [investors, freelancers, clients] = await Promise.all([
-      prisma.user.findMany({ where: { role: 'investor', status: 'active', deletedAt: null }, include: { investorProfile: true }, take: limit }).catch(() => []),
-      prisma.user.findMany({ where: { role: 'freelancer', status: 'active', deletedAt: null }, include: { freelancerProfile: true }, take: limit }).catch(() => []),
-      prisma.user.findMany({ where: { role: 'client', status: 'active', deletedAt: null }, include: { clientProfile: true }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'investor', status: 'active', deletedAt: null }, include: { investorProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'freelancer', status: 'active', deletedAt: null }, include: { freelancerProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      prisma.user.findMany({ where: { role: 'client', status: 'active', deletedAt: null }, include: { clientProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
     ]);
 
     return {
-      investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: i.investorProfile?.firm ?? 'Investor', description: i.investorProfile?.focusAreas ?? i.city ?? '' })),
-      freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: f.freelancerProfile?.skills ?? 'Freelancer', description: f.freelancerProfile?.industry ?? f.city ?? '' })),
-      clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: c.clientProfile?.company ?? 'Client', description: c.clientProfile?.industry ?? c.city ?? '' })),
+      investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
+      freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+      clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
     };
   } catch {
     return {
