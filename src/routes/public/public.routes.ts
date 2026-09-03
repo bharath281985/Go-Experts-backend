@@ -1395,7 +1395,6 @@ router.get("/startup_ideas", async (req: Request, res: Response, next: NextFunct
       deletedAt: null,
       status: "active",
       visibility: "Public",
-      founder: { in: activeFounderIds },
     };
 
     const category = req.query.category || req.query.categoryId;
