@@ -664,7 +664,14 @@ export const inviteFreelancer = async (req: AuthRequest, res: Response, next: Ne
       });
     } catch (_) {}
 
-    return res.status(201).json(successResponse('Invitation sent successfully', { proposal, conversationId: conv?.id }));
+    return res.status(201).json(
+      successResponse('Invitation sent successfully', {
+        isInvited: true,
+        status: 'invited',
+        proposal,
+        conversationId: conv?.id,
+      })
+    );
   } catch (error) {
     next(error);
   }

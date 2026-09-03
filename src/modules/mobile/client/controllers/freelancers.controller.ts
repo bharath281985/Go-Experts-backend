@@ -21,15 +21,32 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
     ]);
     const userId = req.user?.id;
     let savedIds = new Set<string>();
+    let invitedIds = new Set<string>();
+
     if (userId) {
       const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
       const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
       savedIds = new Set(ids);
+
+      const fIds = freelancers.map(f => f.id);
+      if (fIds.length > 0) {
+        const invites = await prisma.proposal.findMany({
+          where: {
+            freelancerId: { in: fIds },
+            status: 'invited',
+            deletedAt: null,
+            project: { client: userId }
+          },
+          select: { freelancerId: true }
+        }).catch(() => []);
+        invitedIds = new Set(invites.map(i => i.freelancerId));
+      }
     }
     
     const mapped = freelancers.map(f => ({
       ...f,
-      isSaved: savedIds.has(f.id)
+      isSaved: savedIds.has(f.id),
+      isInvited: invitedIds.has(f.id),
     }));
     
     return res.json(successResponse('Freelancers retrieved', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
@@ -48,13 +65,36 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
     
     const userId = req.user?.id;
     let isSaved = false;
+    let isInvited = false;
+    let invitedProjectIds: string[] = [];
+
     if (userId) {
       const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
       const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
       isSaved = ids.includes(freelancer.id);
+
+      const invites = await prisma.proposal.findMany({
+        where: {
+          freelancerId: freelancer.id,
+          status: 'invited',
+          deletedAt: null,
+          project: { client: userId }
+        },
+        select: { projectId: true }
+      }).catch(() => []);
+
+      if (invites.length > 0) {
+        isInvited = true;
+        invitedProjectIds = invites.map(i => i.projectId);
+      }
     }
     
-    return res.json(successResponse('Freelancer details', { ...freelancer, isSaved }));
+    return res.json(successResponse('Freelancer details', {
+      ...freelancer,
+      isSaved,
+      isInvited,
+      invitedProjectIds,
+    }));
   } catch (error) { next(error); }
 };
 
@@ -65,15 +105,32 @@ export const getRecommendedFreelancers = async (req: AuthRequest, res: Response,
     const freelancers = await prisma.user.findMany({ where, take: 10, include: { freelancerProfile: true } });
     const userId = req.user?.id;
     let savedIds = new Set<string>();
+    let invitedIds = new Set<string>();
+
     if (userId) {
       const rows = await getJsonSetting(userId, 'savedFreelancers', [] as any[]);
       const ids = rows.map((r: any) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean);
       savedIds = new Set(ids);
+
+      const fIds = freelancers.map(f => f.id);
+      if (fIds.length > 0) {
+        const invites = await prisma.proposal.findMany({
+          where: {
+            freelancerId: { in: fIds },
+            status: 'invited',
+            deletedAt: null,
+            project: { client: userId }
+          },
+          select: { freelancerId: true }
+        }).catch(() => []);
+        invitedIds = new Set(invites.map(i => i.freelancerId));
+      }
     }
     
     const mapped = freelancers.map(f => ({
       ...f,
-      isSaved: savedIds.has(f.id)
+      isSaved: savedIds.has(f.id),
+      isInvited: invitedIds.has(f.id),
     }));
     
     return res.json(successResponse('Recommended freelancers', mapped));
