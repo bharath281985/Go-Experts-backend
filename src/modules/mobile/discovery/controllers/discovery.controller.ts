@@ -148,14 +148,14 @@ async function buildRecommendationItems(role: string, userId: string) {
     }
 
     if (role === 'client') {
-      const [freelancers, projects, investors] = await Promise.all([
+      const [freelancers, startups, investors] = await Promise.all([
         prisma.user.findMany({
           where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
           include: { freelancerProfile: true },
           orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
-        getActiveProjects(limit, userId),
+        getActiveStartupIdeas(limit, userId),
         prisma.user.findMany({
           where: { role: 'investor', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) },
           include: { investorProfile: true },
@@ -165,7 +165,7 @@ async function buildRecommendationItems(role: string, userId: string) {
       ]);
       return {
         freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName || 'Freelancer', subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
         investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName || 'Investor', subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
       };
     }
