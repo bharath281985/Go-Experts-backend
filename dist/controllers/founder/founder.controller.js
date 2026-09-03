@@ -1,6 +1,6 @@
 import { prisma } from "../../config/database.js";
 import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
-import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
+import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, } from "../../common/helpers/portal-shared.js";
 async function loadFounderUser(userId) {
     return prisma.user.findFirst({
         where: { id: userId, deletedAt: null },
@@ -23,7 +23,7 @@ function requireUser(req, res) {
     }
     return req.user.id;
 }
-async function findOrCreateStartup(user) {
+async function findExistingStartup(user) {
     const needles = founderNeedles(user, user.founderProfile);
     if (needles.length) {
         const existing = await prisma.startupIdea.findFirst({
@@ -33,17 +33,7 @@ async function findOrCreateStartup(user) {
         if (existing)
             return existing;
     }
-    return prisma.startupIdea.create({
-        data: {
-            startup: user.founderProfile?.startupName || `${user.fullName}'s Startup`,
-            founder: user.fullName,
-            industry: user.founderProfile?.industry || "General",
-            category: user.founderProfile?.industry || "General",
-            stage: user.founderProfile?.stage || "Idea",
-            funding: 0,
-            equity: 0,
-        },
-    });
+    return null;
 }
 // ==========================================
 // DASHBOARD
@@ -56,13 +46,13 @@ export const getFounderDashboard = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
         const [investorRequests, pendingRequests, acceptedRequests, wallet, unreadNotifications] = await Promise.all([
-            prisma.investment.count({ where: { deletedAt: null, startup: { contains: startup.startup } } }),
-            prisma.investment.count({ where: { deletedAt: null, startup: { contains: startup.startup }, status: "Pending" } }),
-            prisma.investment.count({
+            startup ? prisma.investment.count({ where: { deletedAt: null, startup: { contains: startup.startup } } }) : 0,
+            startup ? prisma.investment.count({ where: { deletedAt: null, startup: { contains: startup.startup }, status: "Pending" } }) : 0,
+            startup ? prisma.investment.count({
                 where: { deletedAt: null, startup: { contains: startup.startup }, status: { in: ["Accepted", "Completed"] } },
-            }),
+            }) : 0,
             getUserWalletPayload(userId),
             prisma.notification.count({
                 where: {
@@ -92,12 +82,15 @@ export const getFounderDashboard = async (req, res, next) => {
                     messages: 0,
                 },
                 kpis: [
-                    { key: "requests", label: "Investor Requests", value: String(investorRequests) },
-                    { key: "pending", label: "Pending", value: String(pendingRequests) },
-                    { key: "accepted", label: "Accepted", value: String(acceptedRequests) },
-                    { key: "raised", label: "Total Raised", value: money(raised) },
-                    { key: "team", label: "Team Size", value: String(user.founderProfile?.teamSize ?? 1) },
-                    { key: "balance", label: "Wallet Balance", value: money(wallet.balance, wallet.currency) },
+                    { key: "startupProfile", label: "Startup Profile Status", value: startup?.id ? "Active" : "Incomplete" },
+                    { key: "pitchViews", label: "Investor Views", value: String(startup?.views ?? 0) },
+                    { key: "investorInterests", label: "Investor Interests", value: String(investorRequests) },
+                    { key: "contactRequests", label: "Contact Requests", value: "0" },
+                    { key: "deckDownloads", label: "Pitch Deck Downloads", value: "0" },
+                    { key: "unreadMessages", label: "Unread Messages", value: "0" }, // Will be updated by frontend fetch
+                    { key: "pendingMeetings", label: "Scheduled Meetings", value: "0" }, // Will be updated by frontend fetch
+                    { key: "subscriptionStatus", label: "Subscription Status", value: "Free Founder Plan" },
+                    { key: "profileCompletion", label: "Profile Strength Score", value: "0%" }, // Updated by frontend
                 ],
                 wallet,
             },
@@ -210,7 +203,10 @@ export const getFounderStartup = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
+        if (!startup) {
+            return res.json({ success: true, message: "No startup idea found", data: null });
+        }
         const details = await getJsonSetting(userId, "startup-details", {});
         res.json({ success: true, data: { ...startup, ...details } });
     }
@@ -226,7 +222,7 @@ export const updateFounderStartup = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
         const body = req.body || {};
         const data = {};
         if (body.startup != null)
@@ -249,7 +245,29 @@ export const updateFounderStartup = async (req, res, next) => {
             data.visibility = String(body.visibility).trim();
         if (body.status != null)
             data.status = String(body.status).trim();
-        const updated = await prisma.startupIdea.update({ where: { id: startup.id }, data });
+        let updated;
+        if (startup) {
+            updated = await prisma.startupIdea.update({ where: { id: startup.id }, data });
+        }
+        else {
+            const startupName = data.startup || user.founderProfile?.startupName;
+            if (!startupName) {
+                return res.status(400).json({ success: false, message: "Startup name is required" });
+            }
+            updated = await prisma.startupIdea.create({
+                data: {
+                    startup: startupName,
+                    founder: user.id,
+                    industry: data.industry || user.founderProfile?.industry || "General",
+                    category: data.category || user.founderProfile?.industry || "General",
+                    stage: data.stage || user.founderProfile?.stage || "Idea",
+                    funding: data.funding || 0,
+                    equity: data.equity || 0,
+                    visibility: data.visibility || "Public",
+                    status: data.status || "active",
+                }
+            });
+        }
         if (data.startup) {
             await prisma.founderProfile.upsert({
                 where: { userId },
@@ -353,7 +371,20 @@ export const getFounderFunding = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
+        if (!startup) {
+            return res.json({
+                success: true,
+                data: {
+                    target: 0,
+                    totalRaised: 0,
+                    equityGiven: 0,
+                    dealsAccepted: 0,
+                    dealsPending: 0,
+                    investments: [],
+                },
+            });
+        }
         const investments = await prisma.investment.findMany({
             where: { deletedAt: null, startup: { contains: startup.startup } },
             orderBy: { createdAt: "desc" },
@@ -388,7 +419,10 @@ export const listInvestorRequests = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
+        if (!startup) {
+            return res.json({ success: true, rows: [], total: 0 });
+        }
         const rows = await prisma.investment.findMany({
             where: { deletedAt: null, startup: { contains: startup.startup } },
             orderBy: { createdAt: "desc" },
@@ -407,7 +441,9 @@ export const respondInvestorRequest = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
+        if (!startup)
+            return res.status(404).json({ success: false, message: "Startup not found" });
         const investment = await prisma.investment.findFirst({
             where: { id: req.params.id, deletedAt: null, startup: { contains: startup.startup } },
         });
@@ -439,7 +475,10 @@ export const listFounderInvestors = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
+        if (!startup) {
+            return res.json({ success: true, rows: [] });
+        }
         const investments = await prisma.investment.findMany({
             where: { deletedAt: null, startup: { contains: startup.startup } },
         });
@@ -823,7 +862,18 @@ export const getFounderAnalytics = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
+        const startup = await findExistingStartup(user);
+        if (!startup) {
+            return res.json({
+                success: true,
+                data: {
+                    views: 0,
+                    interestedInvestors: 0,
+                    investmentsByStatus: [],
+                    totalRequests: 0,
+                },
+            });
+        }
         const investments = await prisma.investment.findMany({
             where: { deletedAt: null, startup: { contains: startup.startup } },
         });
@@ -853,11 +903,11 @@ export const getFounderReports = async (req, res, next) => {
         const user = await loadFounderUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const startup = await findOrCreateStartup(user);
-        const investments = await prisma.investment.findMany({
+        const startup = await findExistingStartup(user);
+        const investments = startup ? await prisma.investment.findMany({
             where: { deletedAt: null, startup: { contains: startup.startup } },
             orderBy: { createdAt: "desc" },
-        });
+        }) : [];
         const now = new Date();
         const months = [];
         for (let i = 11; i >= 0; i--) {

@@ -290,7 +290,17 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
         workModeName: realName || 'Remote',
       };
     });
-    const primaryWorkMode = formattedWorkModeObjects[0] || { id: '', name: 'Remote', workModeId: '', workModeName: 'Remote' };
+    const defaultRemoteWm = await prisma.workMode.findFirst({
+      where: { name: { contains: 'Remote' } },
+      select: { id: true, name: true }
+    }).catch(() => null);
+    const primaryWorkMode = formattedWorkModeObjects[0] || {
+      id: defaultRemoteWm?.id || 'wm_remote',
+      name: defaultRemoteWm?.name || 'Remote',
+      workModeId: defaultRemoteWm?.id || 'wm_remote',
+      workModeName: defaultRemoteWm?.name || 'Remote',
+    };
+    const finalWorkModes = formattedWorkModeObjects.length > 0 ? formattedWorkModeObjects : [primaryWorkMode];
 
     // Formatted Experience Level
     const expName = dbExp?.name || (/^[0-9a-f-]{36}$/i.test(rawExp) ? 'Intermediate' : (rawExp || 'Intermediate'));
@@ -302,7 +312,7 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
     };
 
     // Formatted Location
-    const countryName = dbCountry?.name || (rawCountry.length === 2 ? rawCountry.toUpperCase() : rawCountry);
+    const countryName = dbCountry?.name || (rawCountry.length === 2 ? (rawCountry.toUpperCase() === 'IN' ? 'India' : (rawCountry.toUpperCase() === 'US' ? 'United States' : rawCountry.toUpperCase())) : rawCountry) || 'India';
     const stateName = dbState?.name || rawState;
     const cityName = freelancer.city || reg.city || '';
     let locationStr = cityName;
@@ -311,40 +321,30 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
 
     return res.json(successResponse('Freelancer details', {
       ...freelancer,
-      country: countryName || freelancer.country,
-      countryId: dbCountry?.id || rawCountry,
-      countryName: countryName || '',
-      state: stateName || freelancer.state,
-      stateId: dbState?.id || rawState,
+      country: countryName,
+      countryId: dbCountry?.id || rawCountry || 'IN',
+      countryName: countryName,
+      state: stateName || freelancer.state || '',
+      stateId: dbState?.id || rawState || '',
       stateName: stateName || '',
       city: cityName,
       location: locationStr || 'Remote',
 
-      // Skills: Both structured list of objects and array of string names
       Skills: formattedSkillObjects,
-      skills: skillNames.length > 0 ? skillNames : sklArr,
+      skills: formattedSkillObjects,
 
-      // Industry: Objects, array, and flat strings
-      Industry: formattedIndustryObjects,
+      Industry: primaryIndustry,
       industry: primaryIndustry,
-      industryId: primaryIndustry.id,
-      industryName: primaryIndustry.name,
 
-      // WorkMode: Objects, array, and flat strings
-      WorkMode: formattedWorkModeObjects,
+      WorkMode: finalWorkModes,
       workMode: primaryWorkMode,
-      workModeId: primaryWorkMode.id,
-      workModeName: primaryWorkMode.name,
 
-      // Experience Level
       ExperienceLevel: expObj,
       experienceLevel: expObj,
-      experienceLevelId: expObj.id,
-      experienceLevelName: expObj.name,
       experience: expName,
 
-      // Headline and bio fallbacks
-      titleHeadline: freelancer.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || 'Freelancer',
+      titleHeadline: freelancer.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || 'Junior web developer',
+      title: freelancer.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || 'Junior web developer',
       bio: freelancer.bio || (freelancer.freelancerProfile as any)?.bio || reg.bio || reg.overview || '',
       hourlyRate: freelancer.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? 0,
       rating: freelancer.freelancerProfile?.rating ?? 5.0,

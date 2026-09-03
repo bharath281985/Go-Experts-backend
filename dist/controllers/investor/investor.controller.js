@@ -77,11 +77,18 @@ export const getInvestorDashboard = async (req, res, next) => {
                     messages: 0,
                 },
                 kpis: [
-                    { key: "total", label: "Total Investments", value: String(total) },
-                    { key: "pending", label: "Pending Deals", value: String(pending) },
-                    { key: "accepted", label: "Accepted Deals", value: String(accepted) },
-                    { key: "deals", label: "Deals Closed", value: String(user.investorProfile?.deals ?? 0) },
-                    { key: "balance", label: "Wallet Balance", value: money(wallet.balance, wallet.currency) },
+                    { key: "portfolioValue", label: "Portfolio Value", value: money(totalDeployed) },
+                    { key: "totalInvestments", label: "Total Investments", value: String(total) },
+                    { key: "availableCapital", label: "Available Capital", value: money(wallet.balance, wallet.currency) },
+                    { key: "startupsFollowing", label: "Startups Following", value: String(user.investorProfile?.deals ?? 0) },
+                    { key: "pendingInterests", label: "Pending Interests", value: String(pending) },
+                    { key: "meetingsThisWeek", label: "Meetings This Week", value: "0" }, // Will be updated by frontend fetch or aggregated here
+                    { key: "dueDiligence", label: "Due Diligence", value: String(pending) },
+                    { key: "offersSent", label: "Offers Sent", value: String(total) },
+                    { key: "roi", label: "ROI %", value: accepted > 0 ? `${accepted} closed` : "—" },
+                    { key: "unreadMessages", label: "Unread Messages", value: "0" }, // Will be updated by frontend fetch
+                    { key: "notifications", label: "Notifications", value: String(unreadNotifications) },
+                    { key: "walletBalance", label: "Wallet Balance", value: money(wallet.balance, wallet.currency) },
                 ],
                 recentInvestments,
                 totalDeployed,

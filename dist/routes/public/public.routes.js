@@ -429,20 +429,34 @@ async function listModel({ req, res, next, modelName, searchColumns, include, de
         next(err);
     }
 }
-router.get("/freelancers", async (req, res, next) => {
+import { authenticateOptional } from "../../middleware/auth.js";
+import { getJsonSetting } from "../../common/helpers/portal-shared.js";
+router.get("/freelancers", authenticateOptional, async (req, res, next) => {
     try {
         const body = parseFreelancerQueryFilters(req);
-        const { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+        let { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+        const userId = req.user?.id;
+        if (userId) {
+            const savedRows = await getJsonSetting(userId, 'savedFreelancers', []);
+            const savedIds = new Set(savedRows.map((r) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean));
+            rows = rows.map((r) => ({ ...r, isSaved: savedIds.has(r.id) }));
+        }
         res.json({ success: true, rows, total, degraded, categoryId });
     }
     catch (err) {
         next(err);
     }
 });
-router.post("/freelancers", async (req, res, next) => {
+router.post("/freelancers", authenticateOptional, async (req, res, next) => {
     try {
         const body = parseFreelancersListBody(req.body ?? {});
-        const { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+        let { rows, total, degraded, categoryId } = await listPublicFreelancers(body);
+        const userId = req.user?.id;
+        if (userId) {
+            const savedRows = await getJsonSetting(userId, 'savedFreelancers', []);
+            const savedIds = new Set(savedRows.map((r) => typeof r === 'string' ? r : (r.freelancerId || r.id)).filter(Boolean));
+            rows = rows.map((r) => ({ ...r, isSaved: savedIds.has(r.id) }));
+        }
         res.json({ success: true, rows, total, degraded, categoryId });
     }
     catch (err) {
@@ -991,7 +1005,7 @@ router.post("/post-project", async (_req, res, next) => {
         next(err);
     }
 });
-router.get("/projects", async (req, res, next) => {
+router.get("/projects", authenticateOptional, async (req, res, next) => {
     try {
         const body = parseCatalogListBody({
             page: req.query.page,
@@ -999,19 +1013,25 @@ router.get("/projects", async (req, res, next) => {
             search: req.query.search,
         });
         const category = typeof req.query.category === "string" ? req.query.category : undefined;
-        const { rows, total } = await listPublicProjects({
+        let { rows, total } = await listPublicProjects({
             page: body.page,
             pageSize: body.pageSize,
             search: body.search,
             category,
         });
+        const userId = req.user?.id;
+        if (userId) {
+            const savedRows = await getJsonSetting(userId, 'saved-projects', []);
+            const savedIds = new Set(savedRows);
+            rows = rows.map((r) => ({ ...r, isSaved: savedIds.has(r.id) }));
+        }
         res.json({ success: true, rows, total });
     }
     catch (err) {
         next(err);
     }
 });
-router.post("/projects", async (req, res, next) => {
+router.post("/projects", authenticateOptional, async (req, res, next) => {
     try {
         const body = parseCatalogListBody(req.body ?? {});
         const category = typeof req.body?.category === "string"
@@ -1020,13 +1040,19 @@ router.post("/projects", async (req, res, next) => {
         const categoryId = typeof req.body?.categoryId === "string"
             ? req.body.categoryId
             : undefined;
-        const { rows, total } = await listPublicProjects({
+        let { rows, total } = await listPublicProjects({
             page: body.page,
             pageSize: body.pageSize,
             search: body.search,
             category,
             categoryId,
         });
+        const userId = req.user?.id;
+        if (userId) {
+            const savedRows = await getJsonSetting(userId, 'saved-projects', []);
+            const savedIds = new Set(savedRows);
+            rows = rows.map((r) => ({ ...r, isSaved: savedIds.has(r.id) }));
+        }
         res.json({ success: true, rows, total });
     }
     catch (err) {
@@ -1036,6 +1062,11 @@ router.post("/projects", async (req, res, next) => {
 router.get("/projects/:slug", async (req, res, next) => {
     try {
         const { slug } = req.params;
+        if (slug === 'saved') {
+            const { savedProjects } = await import("../../modules/mobile/freelancer/controllers/projects.controller.js");
+            const { authenticate } = await import("../../middlewares/auth.js");
+            return authenticate(req, res, () => savedProjects(req, res, next));
+        }
         const project = await prisma.project.findFirst({
             where: {
                 id: slug,
@@ -1214,12 +1245,21 @@ router.get("/startup_ideas", async (req, res, next) => {
             deletedAt: null,
             status: "active",
             visibility: "Public",
-            founder: { in: activeFounderIds },
         };
+        const category = req.query.category || req.query.categoryId;
+        const industry = req.query.industry || req.query.industryId;
+        const stage = req.query.stage || req.query.stageId;
+        if (category)
+            where.category = category;
+        if (industry)
+            where.industry = industry;
+        if (stage)
+            where.stage = stage;
         if (search) {
             where.OR = [
                 { startup: { contains: search } },
                 { industry: { contains: search } },
+                { category: { contains: search } },
             ];
         }
         const db = prisma.startupIdea;

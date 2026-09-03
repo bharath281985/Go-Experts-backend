@@ -274,12 +274,27 @@ export const listClientProjects = async (req, res, next) => {
             }),
             prisma.project.count({ where }),
         ]);
+        const budgetRangeIds = [...new Set(rows.map(r => r.budgetRangeId).filter(Boolean))];
+        let budgetRanges = [];
+        if (budgetRangeIds.length > 0) {
+            budgetRanges = await prisma.masterOption?.findMany({
+                where: { id: { in: budgetRangeIds } },
+                select: { id: true, label: true, value: true, min: true, max: true }
+            }).catch(() => []);
+        }
+        const enrichedRows = rows.map(r => {
+            const br = budgetRanges.find(b => b.id === r.budgetRangeId);
+            return {
+                ...r,
+                budgetRange: br ? { id: br.id, label: br.label, min: br.min, max: br.max, value: br.value } : null
+            };
+        });
         const totalPages = Math.ceil(total / limit);
         res.json({
             success: true,
             message: "Projects retrieved successfully",
-            rows,
-            data: rows,
+            rows: enrichedRows,
+            data: enrichedRows,
             total,
             meta: {
                 page,
@@ -365,14 +380,28 @@ export const createClientProject = async (req, res, next) => {
                 throw err;
             }
         }
+        const budgetMin = Number.isFinite(Number(body.budgetMin)) ? Number(body.budgetMin) : null;
+        const budgetMax = Number.isFinite(Number(body.budgetMax)) ? Number(body.budgetMax) : null;
+        const budgetRangeId = body.budgetRangeId ? String(body.budgetRangeId) : null;
+        const parseDateValue = (val) => {
+            if (val === undefined || val === null || val === "")
+                return null;
+            const d = new Date(val);
+            return Number.isNaN(d.getTime()) ? null : d;
+        };
         const project = await prisma.project.create({
             data: {
                 title,
                 client: userId,
                 budget,
+                budgetMin,
+                budgetMax,
+                budgetRangeId,
                 category,
                 technology,
                 timeline: body.timeline ? String(body.timeline) : null,
+                startDate: parseDateValue(body.startDate),
+                endDate: parseDateValue(body.endDate),
                 status: requestedStatus,
                 description: body.description ? String(body.description) : null,
                 industryId: body.industry ? String(body.industry) : null,
@@ -426,7 +455,14 @@ export const getClientProject = async (req, res, next) => {
             }),
             prisma.contract.findMany({ where: { projectId: project.id, deletedAt: null } }),
         ]);
-        res.json({ success: true, data: { ...project, tasks, proposals, contracts } });
+        let budgetRange = null;
+        if (project.budgetRangeId) {
+            budgetRange = await prisma.masterOption?.findUnique({
+                where: { id: project.budgetRangeId },
+                select: { id: true, label: true, value: true, min: true, max: true }
+            }).catch(() => null);
+        }
+        res.json({ success: true, data: { ...project, budgetRange, tasks, proposals, contracts } });
     }
     catch (err) {
         handleError(err, res, next);
@@ -452,6 +488,14 @@ export const updateClientProject = async (req, res, next) => {
             data.technology = String(body.technology).trim();
         if (body.timeline != null)
             data.timeline = String(body.timeline).trim() || null;
+        if (body.startDate !== undefined) {
+            const d = new Date(body.startDate);
+            data.startDate = (body.startDate === null || body.startDate === "" || Number.isNaN(d.getTime())) ? null : d;
+        }
+        if (body.endDate !== undefined) {
+            const d = new Date(body.endDate);
+            data.endDate = (body.endDate === null || body.endDate === "" || Number.isNaN(d.getTime())) ? null : d;
+        }
         if (body.status != null)
             data.status = String(body.status).trim();
         if (body.freelancer != null)
@@ -1575,7 +1619,39 @@ export const listSavedFreelancers = async (req, res, next) => {
         if (!userId)
             return;
         const rows = await getJsonSetting(userId, "savedFreelancers", []);
-        res.json({ success: true, rows, total: rows.length });
+        // Extract actual freelancer IDs from whatever format is in the DB
+        const freelancerIds = rows.map((r) => {
+            if (typeof r === 'string')
+                return r;
+            return r.freelancerId || r.id;
+        }).filter(Boolean);
+        const freelancers = await prisma.user.findMany({
+            where: { id: { in: freelancerIds }, role: 'freelancer', deletedAt: null },
+            include: { freelancerProfile: true }
+        });
+        const rowMap = new Map(freelancers.map((f) => [f.id, f]));
+        // Map to a clean, flat object format expected by the app/web
+        const populated = rows.map((savedItem) => {
+            const extractedId = typeof savedItem === 'string' ? savedItem : (savedItem.freelancerId || savedItem.id);
+            const f = rowMap.get(extractedId);
+            if (!f)
+                return null;
+            const profile = f.freelancerProfile;
+            const isObject = typeof savedItem === 'object';
+            return {
+                id: (isObject && savedItem.id !== f.id) ? savedItem.id : `sf-${f.id}`,
+                freelancerId: f.id,
+                slug: f.id,
+                name: f.fullName || (isObject ? savedItem.name : ''),
+                headline: profile?.titleHeadline || (isObject ? savedItem.headline : '') || '',
+                avatar: f.avatarUrl || (isObject ? savedItem.avatar : '') || '',
+                rate: profile?.hourlyRate || (isObject ? savedItem.rate : 0) || 0,
+                rating: profile?.rating || (isObject ? savedItem.rating : 0) || 0,
+                location: f.city ? `${f.city}, ${f.country || ''}` : (isObject ? savedItem.location : '') || '',
+                savedAt: (isObject && savedItem.savedAt) ? savedItem.savedAt : new Date().toISOString(),
+            };
+        }).filter(Boolean);
+        res.json({ success: true, rows: populated, total: populated.length });
     }
     catch (err) {
         handleError(err, res, next);

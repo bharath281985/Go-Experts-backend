@@ -30,9 +30,11 @@ function getFriendlyErrorMessage(err, statusCode) {
     const unknownArg = message.match(/Unknown arg(?:ument)? `([^`]+)`/i);
     if (unknownArg?.[1])
         return `Unsupported field "${unknownArg[1]}". Please review the form and try again.`;
-    const invalidArg = message.match(/Argument `([^`]+)`: (.+)/i);
-    if (invalidArg?.[1])
-        return `Invalid value for "${invalidArg[1]}". Please review the form and try again.`;
+    const invalidArg = message.match(/Argument `([^`]+)`: ([\s\S]+)/i);
+    if (invalidArg?.[1]) {
+        const reason = invalidArg[2].split('\n')[0].replace(/\.$/, '').trim();
+        return `Invalid value for "${invalidArg[1]}": ${reason}. Please review the form and try again.`;
+    }
     const code = err.code;
     if (code === "P2002" && String(err.meta?.target ?? message).includes("email")) {
         return "A user with this email already exists. Please use a different email address.";
