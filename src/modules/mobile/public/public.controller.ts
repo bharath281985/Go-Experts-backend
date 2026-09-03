@@ -1077,7 +1077,7 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     ]);
     const formattedInvestors = investors.map((investor) => ({
       ...investor,
-      isSaved: savedIds.has(investor.id) || (investor.investorProfile?.id && savedIds.has(investor.investorProfile.id)) || false,
+      isSaved: savedIds.has(investor.id),
       investorProfile: investor.investorProfile ? {
         ticketMin: investor.investorProfile.ticketMin,
         ticketMax: investor.investorProfile.ticketMax,
@@ -1824,8 +1824,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         return {
           id: realId,
           name: realName || 'Skill',
-          skillId: realId,
-          skillName: realName || 'Skill'
+       
         };
       });
       const skillNames = formattedSkills.map(s => s.name);
@@ -1847,11 +1846,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         return {
           id: realId,
           name: realName || 'General',
-          industryId: realId,
-          industryName: realName || 'General'
+       
         };
       });
-      const primaryInd = formattedIndustries[0] || { id: '', name: 'General', industryId: '', industryName: 'General' };
+      const primaryInd = formattedIndustries[0] || { id: '', name: 'General' };
 
       const dbWorkModes = await prisma.workMode.findMany({
         where: { OR: [{ id: { in: wmArr } }, { name: { in: wmArr } }] }
@@ -1870,11 +1868,19 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         return {
           id: realId,
           name: realName || 'Remote',
-          workModeId: realId,
-          workModeName: realName || 'Remote'
+        
         };
       });
-      const primaryWm = formattedWorkModes[0] || { id: '', name: 'Remote', workModeId: '', workModeName: 'Remote' };
+      const defaultRemoteWm = await prisma.workMode.findFirst({
+        where: { name: { contains: 'Remote' } },
+        select: { id: true, name: true }
+      }).catch(() => null);
+      const primaryWm = formattedWorkModes[0] || {
+        id: defaultRemoteWm?.id || 'wm_remote',
+        name: defaultRemoteWm?.name || 'Remote',
+      
+      };
+      const finalWorkModes = formattedWorkModes.length > 0 ? formattedWorkModes : [primaryWm];
 
       const rawExp = user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "";
       let expOption: any = null;
@@ -1899,8 +1905,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const expObj = {
         id: expId,
         name: expName,
-        experienceLevelId: expId,
-        experienceLevelName: expName
+      
       };
 
       // Country and State
@@ -1919,8 +1924,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         }).catch(() => null);
       }
 
-      const countryName = resolvedCountry?.name || (rawC.length === 2 ? rawC.toUpperCase() : rawC);
-      const stateName = resolvedState?.name || stId;
+      const countryName = resolvedCountry?.name || (rawC.length === 2 ? (rawC.toUpperCase() === 'IN' ? 'India' : (rawC.toUpperCase() === 'US' ? 'United States' : rawC.toUpperCase())) : rawC) || 'India';
+      const countryId = resolvedCountry?.id || (rawC.length === 2 ? rawC.toUpperCase() : 'IN');
+      const stateName = resolvedState?.name || stId || '';
+      const stateId = resolvedState?.id || stId || '';
       const cityName = user.city || reg.city || "";
       let locationStr = cityName;
       if (stateName) locationStr = locationStr ? `${locationStr}, ${stateName}` : stateName;
@@ -1950,47 +1957,28 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
-        userId: user.id,
+       
         fullName: user.fullName || reg.fullName || "",
-        name: user.fullName || reg.fullName || "",
+       
         email: user.email,
         phone: user.phone || reg.phone || reg.mobile || "",
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
-        avatar: user.avatarUrl || reg.avatarUrl || null,
-        title: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Freelancer",
-        titleHeadline: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Freelancer",
-        professionalTitle: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Freelancer",
+        titleHeadline: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Junior web developer",
+        title: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Junior web developer",
         bio: user.bio || reg.bio || reg.overview || "",
-        overview: user.bio || reg.bio || reg.overview || "",
         city: cityName,
-        country: countryName || user.country || reg.country || "",
-        countryId: resolvedCountry?.id || cntryId,
-        countryName: countryName || '',
-        state: stateName || user.state || reg.state || "",
-        stateId: resolvedState?.id || stId,
-        stateName: stateName || '',
+        state: stateName,
+        country: countryName,
         location: locationStr || 'Remote',
-
-        Skills: formattedSkills,
-        skills: skillNames.length > 0 ? skillNames : sklArr,
-
-        Industry: oneOrMany(formattedIndustries),
+       
+        skills: formattedSkills,
+   
         industry: primaryInd,
-        industryId: primaryInd.id,
-        industryName: primaryInd.name,
-
-        WorkMode: oneOrMany(formattedWorkModes),
+       
         workMode: primaryWm,
-        workModeId: primaryWm.id,
-        workModeName: primaryWm.name,
-
         hourlyRate: user.freelancerProfile?.hourlyRate ?? reg.hourlyRate ?? null,
-        experience: expName,
         experienceLevel: expObj,
-        ExperienceLevel: expObj,
-        experienceLevelId: expObj.id,
-        experienceLevelName: expObj.name,
-
+        
         yearsOfExperience: user.freelancerProfile?.yearsOfExperience || reg.yearsOfExperience || reg.yearsExperience || reg.years || null,
         portfolioUrl: user.freelancerProfile?.portfolioUrl || reg.portfolioUrl || reg.portfolio || reg.websiteUrl || null,
         linkedInUrl: user.freelancerProfile?.linkedInUrl || reg.linkedInUrl || reg.linkedin || null,
