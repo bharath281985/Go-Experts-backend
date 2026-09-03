@@ -40,6 +40,22 @@ const router = Router();
 
 router.use(authMiddleware as any);
 router.use(requireOnboarding as any);
+// --- Multi-Role Routes (Client, Investor, Founder) ---
+const multiRole = portalRoleMiddleware(["client", "investor", "founder"]) as any;
+
+router.get("/projects", multiRole, listClientProjects as any);
+router.post("/projects/search", multiRole, listClientProjects as any);
+router.post("/projects", multiRole, createClientProject as any);
+router.get("/projects/:id", multiRole, getClientProject as any);
+router.patch("/projects/:id", multiRole, updateClientProject as any);
+router.put("/projects/:id", multiRole, updateClientProject as any);
+router.delete("/projects/:id", multiRole, deleteClientProject as any);
+router.get("/projects/:id/applications", multiRole, listProjectApplications as any);
+router.post("/projects/:id/invite", multiRole, inviteFreelancer as any);
+//   router.get("/projects/:id/invitations", multiRole, listProjectInvitations as any);
+router.get("/projects/:id/proposals", multiRole, listProjectApplications as any);
+
+// --- Client Only Routes ---
 router.use(portalRoleMiddleware(["client"]) as any);
 
 router.get("/dashboard", getClientDashboard as any);
@@ -52,24 +68,12 @@ router.get("/verification", getMyVerification as any);
 router.patch("/verification", updateMyVerification as any);
 router.delete("/verification", deleteMyVerification as any);
 
-router.get("/projects", listClientProjects as any);
-router.post("/projects/search", listClientProjects as any);
 router.get("/pipeline", getClientPipeline as any);
-router.post("/projects", createClientProject as any);
-router.get("/projects/:id", getClientProject as any);
-router.patch("/projects/:id", updateClientProject as any);
-router.put("/projects/:id", updateClientProject as any);
-router.delete("/projects/:id", deleteClientProject as any);
-router.get("/projects/:id/applications", listProjectApplications as any);
-
 router.get("/applications", listClientApplications as any);
 
-router.post("/projects/:id/invite", inviteFreelancer as any);
-//   router.get("/projects/:id/invitations", listProjectInvitations as any);
-  router.get("/projects/:id/proposals", listProjectApplications as any);
-  router.get("/proposals/:id", getClientProposal as any);
-  router.post("/proposals/:id/shortlist", shortlistProposal as any);
-  router.post("/proposals/:id/offer", offerProposal as any);
+router.get("/proposals/:id", getClientProposal as any);
+router.post("/proposals/:id/shortlist", shortlistProposal as any);
+router.post("/proposals/:id/offer", offerProposal as any);
   
 router.post("/proposals/:id/reject", rejectProposal as any);
 router.post("/proposals/:id/interview", interviewProposal as any);
