@@ -623,7 +623,10 @@ export const inviteFreelancer = async (req: AuthRequest, res: Response, next: Ne
           userB: freelancerId,
           projectId: project.id,
           name: `Project Invitation: ${project.title}`,
-          contextType: 'PROJECT',
+          role: 'freelancer',
+          msg: messageText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: 'active',
         } as any,
       });
     }
@@ -638,6 +641,15 @@ export const inviteFreelancer = async (req: AuthRequest, res: Response, next: Ne
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       });
+
+      await prisma.conversation.update({
+        where: { id: conv.id },
+        data: {
+          msg: messageText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          unread: { increment: 1 },
+        },
+      }).catch(() => null);
     }
 
     // Send Notification to Freelancer
