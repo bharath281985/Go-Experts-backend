@@ -119,7 +119,12 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
     const skip = (page - 1) * limit;
     const q = req.query.q as string;
 
-    const where: any = { role: 'freelancer', status: 'active', deletedAt: null };
+    const where: any = {
+      role: 'freelancer',
+      status: 'active',
+      deletedAt: null,
+      OR: [{ isVerified: true }, { verified: true }],
+    };
     if (req.user?.id) where.id = { not: req.user.id };
     if (q) where.fullName = { contains: q };
 
@@ -354,7 +359,12 @@ export const getFreelancer = async (req: AuthRequest, res: Response, next: NextF
 
 export const getRecommendedFreelancers = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const where: any = { role: 'freelancer', status: 'active', deletedAt: null };
+    const where: any = {
+      role: 'freelancer',
+      status: 'active',
+      deletedAt: null,
+      OR: [{ isVerified: true }, { verified: true }],
+    };
     if (req.user?.id) where.id = { not: req.user.id };
     const freelancers = await prisma.user.findMany({ where, take: 10, include: { freelancerProfile: true } });
     

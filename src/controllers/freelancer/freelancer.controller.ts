@@ -585,7 +585,9 @@ export const getFreelancerDashboard = async (
     }));
 
     // Skill distribution from comma-separated skills
-    let skillsRaw = parseSkills(user.freelancerProfile?.skills);
+    const skillsRawOriginal = parseSkills(user.freelancerProfile?.skills);
+    let skillsRaw = [...skillsRawOriginal];
+    let skillItems = skillsRawOriginal.map((skill) => ({ id: skill, name: skill }));
     if (skillsRaw.length > 0) {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const uuidSkills = skillsRaw.filter((s) => uuidRegex.test(s));
@@ -621,8 +623,15 @@ export const getFreelancerDashboard = async (
         
         const skillMap = new Map(dbSkills.map((s) => [s.id, s.name]));
         const moMap = new Map(moSkills.map((s) => [s.id, s.label || s.value]));
-        
-        skillsRaw = skillsRaw.map((s) => skillMap.get(s) || moMap.get(s) || regSkillMap.get(s) || SKILL_NAME_MAP[s] || s);
+        const resolvedSkillMap = new Map<string, string>();
+        skillsRaw.forEach((s) => {
+          resolvedSkillMap.set(s, skillMap.get(s) || moMap.get(s) || regSkillMap.get(s) || SKILL_NAME_MAP[s] || s);
+        });
+        skillsRaw = skillsRaw.map((s) => resolvedSkillMap.get(s) || s);
+        skillItems = skillsRawOriginal.map((s) => ({
+          id: s,
+          name: skillMap.get(s) || moMap.get(s) || regSkillMap.get(s) || SKILL_NAME_MAP[s] || s,
+        }));
       }
     }
     const skillDist =
@@ -1053,8 +1062,13 @@ export const getFreelancerProfile = async (
         headline,
         title,
         industry,
-        experience: profile?.experience || "",
-        skills,
+        experience: profile?.experience
+          ? {
+              id: profile.experience,
+              name: profile.experience,
+            }
+          : null,
+        skills: skillItems,
         skillsText: skills.join(", "),
         hourlyRate: profile?.hourlyRate ?? null,
         city: user.city || "",

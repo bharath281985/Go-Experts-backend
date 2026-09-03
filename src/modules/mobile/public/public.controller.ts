@@ -802,7 +802,12 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
 
-    const where: any = { role: 'freelancer', status: 'active', deletedAt: null };
+    const where: any = {
+      role: 'freelancer',
+      status: 'active',
+      deletedAt: null,
+      OR: [{ isVerified: true }, { verified: true }],
+    };
     if (userId) {
       where.id = { not: userId };
     }
@@ -889,7 +894,12 @@ export const getClients = async (req: Request, res: Response, next: NextFunction
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
 
-    const where: any = { role: 'client', status: 'active', deletedAt: null };
+    const where: any = {
+      role: 'client',
+      status: 'active',
+      deletedAt: null,
+      OR: [{ isVerified: true }, { verified: true }],
+    };
     if (userId) {
       where.id = { not: userId };
     }
@@ -962,7 +972,12 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
 
-    const where: any = { role: 'investor', status: 'active', deletedAt: null };
+    const where: any = {
+      role: 'investor',
+      status: 'active',
+      deletedAt: null,
+      OR: [{ isVerified: true }, { verified: true }],
+    };
     if (userId) {
       where.id = { not: userId };
     }
@@ -1302,6 +1317,13 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
     const { where, orderBy, page, limit, skip } = parseStartupListQuery(req);
     const userId = (req as any).user?.id as string | undefined;
 
+    const verifiedFounders = await prisma.user.findMany({
+      where: { role: 'founder', status: 'active', deletedAt: null, OR: [{ isVerified: true }, { verified: true }] },
+      select: { id: true }
+    });
+    const verifiedFounderIds = verifiedFounders.map(f => f.id);
+    where.founder = { in: userId ? verifiedFounderIds.filter(id => id !== userId) : verifiedFounderIds };
+
     const [ideas, total] = await Promise.all([
       prisma.startupIdea.findMany({
         where,
@@ -1338,8 +1360,8 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
 
     const data = ideas.map(idea => {
       const founderUser = userMap.get(idea.founder);
-      // Exclude startup if founder account is inactive or deleted
-      if (!founderUser || founderUser.deletedAt || (founderUser.status && founderUser.status !== 'active')) {
+      // Exclude startup if founder account is inactive, deleted, or unverified
+      if (!founderUser || founderUser.deletedAt || (founderUser.status && founderUser.status !== 'active') || !(founderUser.isVerified || founderUser.verified)) {
         return null;
       }
       // isDetailed = false
@@ -1364,6 +1386,13 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
   try {
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, { kind: 'public' });
     const viewerId = (req as any).user?.id as string | undefined;
+
+    const verifiedClients = await prisma.user.findMany({
+      where: { role: 'client', status: 'active', deletedAt: null, OR: [{ isVerified: true }, { verified: true }] },
+      select: { id: true }
+    });
+    const verifiedClientIds = verifiedClients.map(c => c.id);
+    where.client = { in: viewerId ? verifiedClientIds.filter(id => id !== viewerId) : verifiedClientIds };
 
     if (viewerId) {
       const userExclusions = [

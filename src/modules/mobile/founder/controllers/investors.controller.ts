@@ -114,7 +114,7 @@ const enrichInvestments = async (investments: any[]) => {
       })
     : [];
 
-  const userMap = new Map(users.map((user) => [user.id, user]));
+  const userMap = new Map<string, any>(users.map((user: any) => [user.id, user]));
 
   return Promise.all(investments.map(async (investment) => ({
     ...investment,
@@ -131,15 +131,22 @@ export const listInvestors = async (req: AuthRequest, res: Response, next: NextF
     const skip = (page - 1) * limit;
     const orderDirection = req.query.order === 'asc' ? 'asc' : 'desc';
 
+    const where: any = {
+      role: 'investor',
+      status: 'active',
+      deletedAt: null,
+      OR: [{ isVerified: true }, { verified: true }],
+    };
+
     const [investors, total] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'investor', status: 'active', deletedAt: null },
+        where,
         include: { investorProfile: true },
         skip,
         take: limit,
         orderBy: { createdAt: orderDirection },
       }),
-      prisma.user.count({ where: { role: 'investor', status: 'active', deletedAt: null } }),
+      prisma.user.count({ where }),
     ]);
 
     const mappedInvestors = await Promise.all(investors.map(mapInvestorAsync));
@@ -175,7 +182,12 @@ export const getInvestor = async (req: AuthRequest, res: Response, next: NextFun
 export const getRecommendedInvestors = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const investors = await prisma.user.findMany({
-      where: { role: 'investor', status: 'active', deletedAt: null },
+      where: {
+        role: 'investor',
+        status: 'active',
+        deletedAt: null,
+        OR: [{ isVerified: true }, { verified: true }],
+      },
       include: { investorProfile: true },
       orderBy: [{ investorProfile: { deals: 'desc' } }, { createdAt: 'desc' }],
       take: 10,

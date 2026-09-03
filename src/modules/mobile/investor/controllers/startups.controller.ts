@@ -303,16 +303,22 @@ export const listStartups = async (req: AuthRequest, res: Response, next: NextFu
     const industry = req.query.industry as string;
     const stage = req.query.stage as string;
 
+    const verifiedFounders = await prisma.user.findMany({
+      where: { role: 'founder', status: 'active', deletedAt: null, OR: [{ isVerified: true }, { verified: true }] },
+      select: { id: true }
+    });
+    const verifiedFounderIds = verifiedFounders.map(f => f.id);
+
     const where: any = {
       status: 'active',
       deletedAt: null,
+      founder: { in: req.user?.id ? verifiedFounderIds.filter(id => id !== req.user.id) : verifiedFounderIds },
       NOT: [
         { startup: { contains: "'s Startup" } },
         { startup: { contains: "’s Startup" } },
         { startup: '' }
       ]
     };
-    if (req.user?.id) where.founder = { not: req.user.id };
     if (q) where.startup = { contains: q };
     if (industry) where.industry = industry;
     if (stage) where.stage = stage;
