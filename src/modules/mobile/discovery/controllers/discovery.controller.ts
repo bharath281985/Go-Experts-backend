@@ -143,7 +143,7 @@ async function buildRecommendationItems(role: string, userId: string) {
         prisma.startupIdea.findMany({
           where: {
             deletedAt: null,
-            NOT: [{ title: '' }]
+            NOT: [{ startup: '' }]
           },
           orderBy: { createdAt: 'desc' },
           take: limit,
