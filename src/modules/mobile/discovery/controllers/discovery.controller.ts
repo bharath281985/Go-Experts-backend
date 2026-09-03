@@ -98,16 +98,16 @@ async function buildRecommendationItems(role: string, userId: string) {
           take: limit,
         }).catch(() => []),
         prisma.startupIdea.findMany({
-          where: { deletedAt: null },
+          where: { deletedAt: null, NOT: [{ startup: '' }] },
           orderBy: { createdAt: 'desc' },
           take: limit,
         }).catch(() => []),
       ]);
 
       return {
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
-        clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
-        startups: (startups || []).map((s) => ({ id: s.id, title: s.title, subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry ?? s.location, '') })),
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName || 'Client', subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
+        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
       };
     }
 
@@ -132,9 +132,9 @@ async function buildRecommendationItems(role: string, userId: string) {
         }).catch(() => []),
       ]);
       return {
-        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
-        investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
+        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName || 'Freelancer', subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName || 'Investor', subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
       };
     }
 
@@ -161,9 +161,9 @@ async function buildRecommendationItems(role: string, userId: string) {
         }).catch(() => []),
       ]);
       return {
-        startups: (startups || []).map((s) => ({ id: s.id, title: s.title, subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry ?? s.location, '') })),
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title, subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
-        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
+        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
+        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName || 'Freelancer', subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
       };
     }
 

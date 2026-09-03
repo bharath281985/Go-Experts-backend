@@ -8,14 +8,15 @@ export const getReceivedReviews = async (req: AuthRequest, res: Response, next: 
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
+    const targetId = (req.query.targetId as string) || (req.user?.id as string);
 
     let reviews: any[] = [];
     let total = 0;
     try {
       if ((prisma as any).review) {
         [reviews, total] = await Promise.all([
-          (prisma as any).review.findMany({ where: { revieweeId: req.user.id }, skip, take: limit }),
-          (prisma as any).review.count({ where: { revieweeId: req.user.id } })
+          (prisma as any).review.findMany({ where: { revieweeId: targetId }, skip, take: limit }),
+          (prisma as any).review.count({ where: { revieweeId: targetId } })
         ]);
       }
     } catch {
