@@ -119,8 +119,8 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
         : [],
     ]);
 
-    const directUserMap = new Map(fetchedUsers.map(u => [u.id, u]));
-    const directFpMap = new Map(fetchedFounderProfiles.map(f => [f.userId, f]));
+    const directUserMap = new Map<string, any>(fetchedUsers.map((u: any): [string, any] => [u.id, u]));
+    const directFpMap = new Map<string, any>(fetchedFounderProfiles.map((f: any): [string, any] => [f.userId, f]));
 
     const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(startups);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
