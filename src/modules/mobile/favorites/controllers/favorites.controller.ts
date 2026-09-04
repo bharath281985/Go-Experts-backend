@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { shapeProjects } from '../../../../services/mobile/project-shape.service.js';
 
 const favKey = (userId: string) => `favorites:${userId}`;
 
@@ -305,6 +306,14 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               clientProfile: true,
             },
           });
+        } else if (item.entityType === 'project') {
+          const project = await prisma.project.findFirst({
+            where: { id: item.entityId, deletedAt: null },
+          });
+          if (project) {
+            const shaped = await shapeProjects([project]);
+            details = shaped[0] || project;
+          }
         }
       } catch (e) {
         console.error('Error populating favorite details', e);
@@ -323,6 +332,7 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
 
         // Nested helper keys for backward compatibility
         details: details || null,
+        project: item.entityType === 'project' ? details : null,
         investor: item.entityType === 'investor' ? details : null,
         founder: item.entityType === 'founder' || item.entityType === 'startup' ? details : null,
         freelancer: item.entityType === 'freelancer' ? details : null,
