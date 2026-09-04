@@ -39,7 +39,7 @@ type PortfolioItem = {
   updatedAt: string;
 };
 
-const portfolioKey = (userId: string) => `freelancer_portfolio:${userId}`;
+const portfolioKey = (userId: string | number) => `freelancer_portfolio:${userId}`;
 
 const parseItems = (raw?: string | null): PortfolioItem[] => {
   if (!raw) return [];
@@ -51,16 +51,17 @@ const parseItems = (raw?: string | null): PortfolioItem[] => {
   }
 };
 
-export const readItems = async (rawId: string): Promise<PortfolioItem[]> => {
-  let userId = rawId;
-  try {
-    const profile = await prisma.freelancerProfile.findFirst({
-      where: { OR: [{ id: rawId }, { userId: rawId }] }
-    });
-    if (profile?.userId) {
-      userId = profile.userId;
-    }
-  } catch (_) {}
+export const readItems = async (userIdOrFreelancerId: string | number): Promise<PortfolioItem[]> => {
+  let userId = String(userIdOrFreelancerId || '');
+  if (!userId) return [];
+
+  const profile = await prisma.freelancerProfile.findFirst({
+    where: { OR: [{ id: userId }, { userId: userId }] },
+    select: { userId: true },
+  }).catch(() => null);
+  if (profile?.userId) {
+    userId = profile.userId;
+  }
 
   const row = await prisma.setting.findUnique({ where: { key: portfolioKey(userId) } });
   const items = parseItems(row?.value);
@@ -123,7 +124,18 @@ export const readItems = async (rawId: string): Promise<PortfolioItem[]> => {
   return [];
 };
 
-const writeItems = async (userId: string, items: PortfolioItem[]) => {
+const writeItems = async (userIdOrFreelancerId: string | number, items: PortfolioItem[]) => {
+  let userId = String(userIdOrFreelancerId || '');
+  if (!userId) return;
+
+  const profile = await prisma.freelancerProfile.findFirst({
+    where: { OR: [{ id: userId }, { userId: userId }] },
+    select: { userId: true },
+  }).catch(() => null);
+  if (profile?.userId) {
+    userId = profile.userId;
+  }
+
   const key = portfolioKey(userId);
   await prisma.setting.upsert({
     where: { key },
@@ -150,7 +162,7 @@ const writeItems = async (userId: string, items: PortfolioItem[]) => {
         }).catch(() => null);
       }
     }
-  } catch {}
+  } catch { }
 };
 
 const normalizeItem = async (body: Record<string, unknown>, existing?: PortfolioItem): Promise<PortfolioItem> => {
@@ -190,7 +202,7 @@ const normalizeItem = async (body: Record<string, unknown>, existing?: Portfolio
       for (const s of dbSkills) {
         dbSkillMap[s.name.toLowerCase()] = s.id;
       }
-    } catch {}
+    } catch { }
   }
 
   const skills: SkillEntry[] = skillNames.map((name) => {
@@ -258,7 +270,8 @@ export const listPortfolio = async (req: AuthRequest, res: Response, next: NextF
     const limit = Math.min(Math.max(parseInt(String(req.query.limit || '15'), 10) || 15, 1), 100);
     const search = String(req.query.search || req.query.q || '').trim().toLowerCase();
 
-    let items = await readItems(req.user.id);
+    const userId = String(req.user?.id || '');
+    let items = await readItems(userId);
     if (search) {
       items = items.filter((item) =>
         [item.title, item.description, item.projectUrl, ...(item.technologies || [])]
@@ -292,7 +305,8 @@ export const listPortfolio = async (req: AuthRequest, res: Response, next: NextF
 
 export const getPortfolioItem = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const items = await readItems(req.user.id);
+    const userId = String(req.user?.id || '');
+    const items = await readItems(userId);
     const item = items.find((i) => i.id === req.params.id);
     if (!item) return res.status(404).json(errorResponse('Portfolio item not found', 'NOT_FOUND'));
     return res.json(successResponse('Portfolio item retrieved', item));
@@ -304,14 +318,24 @@ export const getPortfolioItem = async (req: AuthRequest, res: Response, next: Ne
 export const createPortfolioItem = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const title = String(req.body?.title || '').trim();
+    const description = String(req.body?.description || req.body?.overview || '').trim();
+    const projectUrl = String(req.body?.projectUrl || req.body?.liveUrl || '').trim();
+
     if (!title) {
       return res.status(400).json(errorResponse('Title is required', 'VALIDATION_ERROR'));
     }
+    if (!description) {
+      return res.status(400).json(errorResponse('Description is required', 'VALIDATION_ERROR'));
+    }
+    if (!projectUrl) {
+      return res.status(400).json(errorResponse('Project / Live URL is required', 'VALIDATION_ERROR'));
+    }
 
-    const items = await readItems(req.user.id);
+    const userId = String(req.user?.id || '');
+    const items = await readItems(userId);
     const item = await normalizeItem(req.body || {});
     items.unshift(item);
-    await writeItems(req.user.id, items);
+    await writeItems(userId, items);
     return res.status(201).json(successResponse('Portfolio item created', item));
   } catch (error) {
     next(error);
@@ -320,15 +344,23 @@ export const createPortfolioItem = async (req: AuthRequest, res: Response, next:
 
 export const updatePortfolioItem = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const items = await readItems(req.user.id);
+    const userId = String(req.user?.id || '');
+    const items = await readItems(userId);
     const index = items.findIndex((i) => i.id === req.params.id);
     if (index < 0) {
       return res.status(404).json(errorResponse('Portfolio item not found', 'NOT_FOUND'));
     }
 
+    if (req.body?.title !== undefined && !String(req.body.title).trim()) {
+      return res.status(400).json(errorResponse('Title cannot be empty', 'VALIDATION_ERROR'));
+    }
+    if (req.body?.projectUrl !== undefined && !String(req.body.projectUrl).trim() && !String(req.body.liveUrl || '').trim()) {
+      return res.status(400).json(errorResponse('Project / Live URL cannot be empty', 'VALIDATION_ERROR'));
+    }
+
     const updated = await normalizeItem(req.body || {}, items[index]);
     items[index] = updated;
-    await writeItems(req.user.id, items);
+    await writeItems(userId, items);
     return res.json(successResponse('Portfolio item updated', updated));
   } catch (error) {
     next(error);
@@ -337,12 +369,13 @@ export const updatePortfolioItem = async (req: AuthRequest, res: Response, next:
 
 export const deletePortfolioItem = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const items = await readItems(req.user.id);
+    const userId = String(req.user?.id || '');
+    const items = await readItems(userId);
     const nextItems = items.filter((i) => i.id !== req.params.id);
     if (nextItems.length === items.length) {
       return res.status(404).json(errorResponse('Portfolio item not found', 'NOT_FOUND'));
     }
-    await writeItems(req.user.id, nextItems);
+    await writeItems(userId, nextItems);
     return res.json(successResponse('Portfolio item deleted', true));
   } catch (error) {
     next(error);

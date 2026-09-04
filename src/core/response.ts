@@ -9,7 +9,7 @@ export interface ApiResponse<T = any> {
     totalPages?: number;
   } | null;
   errors?: any[];
-  code?: string;
+  code?: string | number;
   timestamp: string;
 }
 
@@ -27,7 +27,7 @@ export const successResponse = <T>(
 
 export const errorResponse = (
   message: string,
-  code: string = 'ERROR',
+  code: string | number = 'ERROR',
   errors: any[] = []
 ): ApiResponse => ({
   success: false,
@@ -35,6 +35,6 @@ export const errorResponse = (
   data: null,
   meta: null,
   errors,
-  code,
+  code: typeof code === 'number' ? String(code) : code,
   timestamp: new Date().toISOString()
 });

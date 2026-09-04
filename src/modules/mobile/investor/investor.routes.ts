@@ -10,7 +10,16 @@ import { getProfile, updateProfile, uploadAvatar, uploadCover, uploadDocuments, 
 import { listStartups, getStartupDetails, getRecommendedStartups, getTrendingStartups, getFeaturedStartups, saveStartup, unsaveStartup } from './controllers/startups.controller.js';
 import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority, getFounderWatchlist, saveFounder, unsaveFounder } from './controllers/watchlist.controller.js';
 import { listInvestments, getInvestment, expressInterest, makeOffer, updateInvestmentStatus, cancelInvestment, getInvestmentHistory } from './controllers/investments.controller.js';
-import { getPortfolio, getPortfolioItem, getPortfolioPerformance, getPortfolioAllocation, getPortfolioROI } from './controllers/portfolio.controller.js';
+import {
+  getPortfolio,
+  getPortfolioItem,
+  getPortfolioPerformance,
+  getPortfolioAllocation,
+  getPortfolioROI,
+  addPortfolioItem,
+  updatePortfolioItem,
+  deletePortfolioItem,
+} from './controllers/portfolio.controller.js';
 import { listMeetings, scheduleMeeting, getMeeting, rescheduleMeeting, cancelMeeting, addMeetingNotes } from './controllers/meetings.controller.js';
 import { listConversations, getConversation, sendMessage, markMessageRead, uploadAttachment } from './controllers/messages.controller.js';
 import { listDocuments, getDocument, uploadDocument, deleteDocument } from './controllers/documents.controller.js';
@@ -111,6 +120,9 @@ router.patch('/investments/:id/cancel', cancelInvestment);
 
 // ─── Portfolio ───
 router.get('/portfolio', getPortfolio);
+router.post('/portfolio', addPortfolioItem);
+router.put('/portfolio/:id', updatePortfolioItem);
+router.delete('/portfolio/:id', deletePortfolioItem);
 router.get('/portfolio/performance', getPortfolioPerformance);
 router.get('/portfolio/allocation', getPortfolioAllocation);
 router.get('/portfolio/roi', getPortfolioROI);

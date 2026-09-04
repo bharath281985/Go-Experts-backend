@@ -2367,40 +2367,36 @@ export const getPublicInvestorPortfolio = async (req: Request, res: Response, ne
     const { id } = req.params;
     const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(String(req.query.limit || '15'), 10) || 15, 1), 100);
+    const search = String(req.query.search || req.query.q || '').trim().toLowerCase();
+    const status = String(req.query.status || '').trim().toLowerCase();
 
-    let investorUserId = id;
-    try {
-      const investor = await prisma.investorProfile.findFirst({
-        where: { OR: [{ id }, { userId: id }] }
-      });
-      if (investor?.userId) {
-        investorUserId = investor.userId;
-      }
-    } catch (_) {}
+    const { readInvestorPortfolioItems } = await import('../investor/controllers/portfolio.controller.js');
+    let items = await readInvestorPortfolioItems(id);
 
-    const investments = await prisma.investment.findMany({
-      where: {
-        OR: [
-          { investor: investorUserId },
-          { investor: id }
-        ],
-        status: { in: ['Active', 'Closed', 'Completed', 'active', 'closed', 'completed'] }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    if (status && status !== 'all') {
+      items = items.filter((item) => (item.status || 'ongoing').toLowerCase() === status);
+    }
 
-    const totalInvested = investments.reduce((sum, inv) => sum + (inv.offer || 0), 0);
-    const total = investments.length;
+    if (search) {
+      items = items.filter((item) =>
+        [item.startupName, item.industry, item.stage, item.status]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(search)
+      );
+    }
+
+    items = [...items].sort(
+      (a, b) => new Date(b.investedAt || b.createdAt).getTime() - new Date(a.investedAt || a.createdAt).getTime()
+    );
+
+    const total = items.length;
     const start = (page - 1) * limit;
-    const data = investments.slice(start, start + limit);
+    const data = items.slice(start, start + limit);
 
     return res.json(
-      successResponse('Portfolio retrieved', {
-        investments: data,
-        items: data,
-        totalInvested,
-        activeCount: investments.filter(i => (i.status || '').toLowerCase() === 'active').length,
-      }, {
+      successResponse('Investor portfolio retrieved', data, {
         page,
         limit,
         total,
@@ -2415,31 +2411,15 @@ export const getPublicInvestorPortfolio = async (req: Request, res: Response, ne
 export const getPublicInvestorPortfolioItem = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, itemId } = req.params;
-    let investorUserId = id;
-    try {
-      const investor = await prisma.investorProfile.findFirst({
-        where: { OR: [{ id }, { userId: id }] }
-      });
-      if (investor?.userId) {
-        investorUserId = investor.userId;
-      }
-    } catch (_) {}
+    const { readInvestorPortfolioItems } = await import('../investor/controllers/portfolio.controller.js');
+    const items = await readInvestorPortfolioItems(id);
+    const item = items.find((p) => p.id === itemId || p.id === req.params.id);
 
-    const investment = await prisma.investment.findFirst({
-      where: {
-        id: itemId || id,
-        OR: [
-          { investor: investorUserId },
-          { investor: id }
-        ]
-      }
-    });
-
-    if (!investment) {
-      return res.status(404).json({ success: false, message: 'Investment portfolio item not found' });
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Portfolio holding not found' });
     }
 
-    return res.json(successResponse('Portfolio item retrieved', investment));
+    return res.json(successResponse('Portfolio holding retrieved', item));
   } catch (error) {
     next(error);
   }
