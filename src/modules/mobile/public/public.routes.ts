@@ -36,7 +36,8 @@ import { getReceivedReviews, getAverageRating, getRatingBreakdown, replyToReview
 import { getMyVerification, updateMyVerification, deleteMyVerification } from '../../../controllers/verification/verification.controller.js';
 import { saveFreelancer, unsaveFreelancer, getSavedFreelancers } from '../client/controllers/freelancers.controller.js';
 import { saveStartup, unsaveStartup } from '../investor/controllers/startups.controller.js';
-import { saveFounder, unsaveFounder, getFounderWatchlist } from '../investor/controllers/watchlist.controller.js';
+import { saveFounder, unsaveFounder, getFounderWatchlist, getWatchlist as getSavedStartups } from '../investor/controllers/watchlist.controller.js';
+import { getWatchlist as getSavedInvestors } from '../founder/controllers/watchlist.controller.js';
 import { saveProject, unsaveProject, savedProjects } from '../freelancer/controllers/projects.controller.js';
 
 const router = Router();
@@ -98,11 +99,13 @@ router.delete('/freelancers/:id/save', authenticate, unsaveFreelancer);
 router.get('/clients', authenticateOptional, directoryCache, getClients);
 router.get('/clients/:id', directoryCache, getById('client'));
 router.get('/investors', authenticateOptional, directoryCache, getInvestors);
+router.get('/investors/saved', authenticate, getSavedInvestors);
 router.get('/investors/:id', authenticateOptional, getById('investor'));
 router.get('/investors/:id/portfolio', authenticateOptional, getPublicInvestorPortfolio);
 router.get('/investors/:id/portfolio/:itemId', authenticateOptional, getPublicInvestorPortfolioItem);
 router.get('/investors/:id/investments', authenticateOptional, getPublicInvestorPortfolio);
 router.get('/startups', authenticateOptional, getStartups);
+router.get('/startups/saved', authenticate, getSavedStartups);
 router.get('/startups/my-startups', authenticate, listIdeas);   
 router.post('/startups', authenticate, createIdea);
 router.get('/startups/:id', authenticateOptional, getById('startup'));
@@ -114,6 +117,7 @@ router.put('/startups/:id', authenticate, updateIdea);
 router.delete('/startups/:id', authenticate, deleteIdea);
 
 // ─── Founders & Investors Watchlist ───
+router.get('/founders/saved', authenticate, getFounderWatchlist);
 router.get('/founders/:id', authenticateOptional, getById('founder'));
 router.post('/founders/:id/save', authenticate, saveFounder);
 router.delete('/founders/:id/save', authenticate, unsaveFounder);
@@ -142,9 +146,11 @@ router.patch('/investor-requests/:id/reject', authenticate, rejectRequest);
 router.patch('/investor-requests/:id/meeting', authenticate, scheduleRequestMeeting);
 router.post('/investor-requests/:id/message', authenticate, messageInvestor);
 
-// ─── Investment Offers & Portfolio (Universal Access) ───
+// ─── Investment Offers & Portfolio & Deals (Universal Access) ───
 router.get('/investments', authenticate, listInvestments);
+router.get('/deals', authenticate, listInvestments);
 router.get('/investments/:id', authenticate, getInvestment);
+router.get('/deals/:id', authenticate, getInvestment);
 router.post('/investments/offer', authenticate, makeOffer);
 router.post('/investments/express-interest', authenticate, expressInterest);
 router.patch('/investments/:id/cancel', authenticate, cancelInvestment);

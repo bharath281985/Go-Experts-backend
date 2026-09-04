@@ -28,12 +28,32 @@ import { getReceivedReviews, getAverageRating, getRatingBreakdown, replyToReview
 import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority } from './controllers/watchlist.controller.js';
 import { listProjects as listClientProjects, createProject, updateProject, deleteProject, updateProjectStatus, getProjectDetails, inviteFreelancer } from '../client/controllers/projects.controller.js';
 import { listProjectProposals } from '../client/controllers/proposals.controller.js';
+import { listInvestments, getInvestment } from '../investor/controllers/investments.controller.js';
+import { listContracts, getContractDetails } from '../freelancer/controllers/contracts.controller.js';
+import { getSavedFreelancers, saveFreelancer, unsaveFreelancer } from '../client/controllers/freelancers.controller.js';
+import { savedProjects, saveProject, unsaveProject } from '../freelancer/controllers/projects.controller.js';
+import { saveStartup, unsaveStartup } from '../investor/controllers/startups.controller.js';
+import { getFounderWatchlist, saveFounder, unsaveFounder } from '../investor/controllers/watchlist.controller.js';
 
 const router = Router();
 
 // Auth + Role guard on all founder routes
 router.use(authenticate);
 router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
+
+// ─── Saved Endpoints (Role agnostic) ───
+router.get('/freelancers/saved', getSavedFreelancers);
+router.post('/freelancers/:id/save', saveFreelancer);
+router.delete('/freelancers/:id/save', unsaveFreelancer);
+router.get('/projects/saved', savedProjects);
+router.post('/projects/:id/save', saveProject);
+router.delete('/projects/:id/save', unsaveProject);
+router.get('/startups/saved', getWatchlist);
+router.post('/startups/:id/save', saveStartup);
+router.delete('/startups/:id/save', unsaveStartup);
+router.get('/watchlist/founders', getFounderWatchlist);
+router.post('/founders/:id/save', saveFounder);
+router.delete('/founders/:id/save', unsaveFounder);
 
 // Dashboard
 router.get('/dashboard', getDashboard);
@@ -57,6 +77,16 @@ router.post('/startups', createIdea);
 router.get('/ideas/:id', getIdeaDetails);
 router.put('/ideas/:id', updateIdea);
 router.delete('/ideas/:id', deleteIdea);
+
+// Deals & Investments
+router.get('/deals', listInvestments);
+router.get('/deals/:id', getInvestment);
+router.get('/investments', listInvestments);
+router.get('/investments/:id', getInvestment);
+
+// Contracts
+router.get('/contracts', listContracts);
+router.get('/contracts/:id', getContractDetails);
 
 // Profile
 router.get('/profile', getProfile);

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { AuthRequest } from '../../../middlewares/auth.js';
 import { prisma } from '../../../config/database.js';
 import { successResponse, errorResponse } from '../../../core/response.js';
 import { shapeProjects, shapeProject } from '../../../services/mobile/project-shape.service.js';
@@ -2407,4 +2408,24 @@ export const getPublicInvestorPortfolioItem = async (req: Request, res: Response
     next(error);
   }
 };
+
+export const saveInvestor = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { addToWatchlist } = await import('../founder/controllers/watchlist.controller.js');
+    req.body = { ...req.body, investorId: req.params.id };
+    return addToWatchlist(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unsaveInvestor = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { removeFromWatchlist } = await import('../founder/controllers/watchlist.controller.js');
+    return removeFromWatchlist(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+};
+
 

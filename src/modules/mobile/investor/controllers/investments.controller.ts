@@ -8,8 +8,11 @@ import { sendEmail } from '../../../../services/mobile/email.service.js';
 
 const resolveStartupIdea = (startupId: string) => prisma.startupIdea.findFirst({
   where: {
-    OR: [{ id: startupId }, { founder: startupId }],
-    deletedAt: null,
+    OR: [
+      { id: startupId },
+      { founder: startupId },
+      { startup: startupId },
+    ],
   },
 });
 
@@ -17,7 +20,6 @@ const resolveFounderUser = (founder: string) => prisma.user.findFirst({
   where: {
     OR: [{ id: founder }, { email: founder }, { fullName: founder }],
     role: 'founder',
-    deletedAt: null,
   },
   select: { id: true, fullName: true, email: true },
 });
@@ -50,35 +52,115 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
     const status = req.query.status as string;
-    const where: any = { investor: req.user.id };
-    if (status) {
-      where.status = status;
+
+    let baseWhere: any;
+    if (req.user?.role === 'founder') {
+      const founderIdeas = await prisma.startupIdea.findMany({
+        where: { founder: req.user.id },
+        select: { id: true, startup: true },
+      });
+      const ideaIds = founderIdeas.map(f => f.id);
+      const ideaNames = founderIdeas.map(f => f.startup).filter(Boolean);
+      baseWhere = {
+        OR: [
+          { startup: req.user.id },
+          { startup: { in: [...ideaIds, ...ideaNames] } },
+          { investor: req.user.id },
+        ],
+      };
     } else {
-      where.status = { notIn: ['Cancelled', 'Closed'] };
+      baseWhere = {
+        OR: [
+          { investor: req.user.id },
+          { startup: req.user.id },
+        ],
+      };
     }
+
+    const where: any = status
+      ? { AND: [baseWhere, { status }] }
+      : { AND: [baseWhere, { status: { notIn: ['Cancelled', 'Closed'] } }] };
 
     const [investments, total, watchlist] = await Promise.all([
       prisma.investment.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
       prisma.investment.count({ where }),
-      readList(req.user.id)
+      readList(req.user.id),
     ]);
 
-    const startupIds = [...new Set(investments.map(i => i.startup).filter(Boolean))];
+    const startupKeys = [...new Set(investments.map(i => i.startup).filter(Boolean))];
     let startups: any[] = [];
-    if (startupIds.length > 0) {
+    if (startupKeys.length > 0) {
       startups = await prisma.startupIdea.findMany({
-        where: { OR: [{ id: { in: startupIds } }, { founder: { in: startupIds } }], deletedAt: null },
+        where: {
+          OR: [
+            { id: { in: startupKeys } },
+            { founder: { in: startupKeys } },
+            { startup: { in: startupKeys } },
+          ],
+        },
       });
     }
 
+    const userIdsToFetch = [...new Set([
+      ...startupKeys,
+      ...startups.map(s => s.founder).filter(Boolean),
+      ...investments.map(i => (i as any).founder || (i as any).founderId).filter(Boolean),
+    ])];
+
+    const [fetchedUsers, fetchedFounderProfiles] = await Promise.all([
+      userIdsToFetch.length > 0
+        ? prisma.user.findMany({
+            where: { id: { in: userIdsToFetch } },
+            select: { id: true, fullName: true, avatarUrl: true, city: true, country: true, role: true },
+          })
+        : [],
+      userIdsToFetch.length > 0
+        ? prisma.founderProfile.findMany({ where: { userId: { in: userIdsToFetch } } })
+        : [],
+    ]);
+
+    const directUserMap = new Map<string, any>(fetchedUsers.map((u: any): [string, any] => [u.id, u]));
+    const directFpMap = new Map<string, any>(fetchedFounderProfiles.map((f: any): [string, any] => [f.userId, f]));
+
     const { userMap, fpMap, industryMap, optionMap, platformRaisedMap } = await loadRelatedDataForIdeas(startups);
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
-    const investedIds = new Set<string>(startupIds);
+    const investedIds = new Set<string>(startupKeys);
 
     const enriched = investments.map(inv => {
-      const idea = startups.find(s => s.id === inv.startup || s.founder === inv.startup);
-      const details = idea ? formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap) : null;
-      return { ...inv, startup: idea?.id || inv.startup, startupId: idea?.id || inv.startup, startupDetails: details };
+      const idea = startups.find(s =>
+        s.id === inv.startup ||
+        s.founder === inv.startup ||
+        s.startup === inv.startup ||
+        (s.startup && inv.startup && s.startup.toLowerCase() === inv.startup.toLowerCase())
+      );
+      const founderUser = (idea ? userMap.get(idea.founder) : null) || directUserMap.get(inv.startup) || null;
+      const fp = (idea ? fpMap.get(idea.founder) : null) || directFpMap.get(inv.startup) || null;
+      const details = idea
+        ? formatStartupResponse(idea, founderUser, fp, savedIds, investedIds, industryMap, optionMap, false, platformRaisedMap)
+        : null;
+
+      const resolvedStartupName =
+        idea?.startup ||
+        details?.startup ||
+        fp?.companyName ||
+        (founderUser?.role === 'founder' ? `${founderUser.fullName}'s Startup` : null) ||
+        (inv.startup && !inv.startup.includes('-') ? inv.startup : 'Startup');
+      const resolvedStartupLogo = idea?.logo || details?.logo || fp?.logo || founderUser?.avatarUrl || null;
+      const resolvedFounderName = founderUser?.fullName || details?.user?.fullName || 'Founder';
+      const resolvedFounderId = idea?.founder || founderUser?.id || details?.user?.id || null;
+      const resolvedStage = details?.stageName || details?.stage?.name || idea?.stage || fp?.stage || 'MVP';
+
+      return {
+        ...inv,
+        startup: details || (idea ? { id: idea.id, name: idea.startup, logo: idea.logo, stage: idea.stage } : { id: inv.startup, name: resolvedStartupName, logo: resolvedStartupLogo, stage: resolvedStage }),
+        startupId: idea?.id || inv.startup,
+        startupName: resolvedStartupName,
+        startupLogo: resolvedStartupLogo,
+        founderName: resolvedFounderName,
+        founderId: resolvedFounderId,
+        stage: resolvedStage,
+        startupDetails: details,
+      };
     });
 
     return res.json(successResponse('Investments retrieved', enriched, { page, limit, total, totalPages: Math.ceil(total / limit) }));
@@ -87,7 +169,15 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
 
 export const getInvestment = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investment = await prisma.investment.findFirst({ where: { id: req.params.id, investor: req.user.id } });
+    const investment = await prisma.investment.findFirst({
+      where: {
+        id: req.params.id,
+        OR: [
+          { investor: req.user.id },
+          { startup: req.user.id },
+        ],
+      },
+    });
     if (!investment) return res.status(404).json(successResponse('Investment not found', null));
 
     const idea = await resolveStartupIdea(investment.startup).catch(() => null);
@@ -101,10 +191,29 @@ export const getInvestment = async (req: AuthRequest, res: Response, next: NextF
       details = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), savedIds, investedIds, industryMap, optionMap, true, platformRaisedMap);
     }
 
+    const founderUser = idea ? (await resolveFounderUser(idea.founder).catch(() => null)) : (await resolveFounderUser(investment.startup).catch(() => null));
+    const fp = founderUser ? await prisma.founderProfile.findFirst({ where: { userId: founderUser.id } }).catch(() => null) : null;
+
+    const resolvedStartupName =
+      idea?.startup ||
+      details?.startup ||
+      fp?.companyName ||
+      (founderUser?.role === 'founder' ? `${founderUser.fullName}'s Startup` : null) ||
+      (investment.startup && !investment.startup.includes('-') ? investment.startup : 'Startup');
+    const resolvedStartupLogo = idea?.logo || details?.logo || fp?.logo || founderUser?.avatarUrl || null;
+    const resolvedFounderName = founderUser?.fullName || details?.user?.fullName || 'Founder';
+    const resolvedFounderId = idea?.founder || founderUser?.id || details?.user?.id || null;
+    const resolvedStage = details?.stageName || details?.stage?.name || idea?.stage || fp?.stage || 'MVP';
+
     return res.json(successResponse('Investment details', {
       ...investment,
-      startup: idea?.id || investment.startup,
+      startup: details || (idea ? { id: idea.id, name: idea.startup, logo: idea.logo, stage: idea.stage } : { id: investment.startup, name: resolvedStartupName, logo: resolvedStartupLogo, stage: resolvedStage }),
       startupId: idea?.id || investment.startup,
+      startupName: resolvedStartupName,
+      startupLogo: resolvedStartupLogo,
+      founderName: resolvedFounderName,
+      founderId: resolvedFounderId,
+      stage: resolvedStage,
       startupDetails: details,
     }));
   } catch (error) { next(error); }

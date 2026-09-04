@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { shapeProjects } from '../../../../services/mobile/project-shape.service.js';
 
 const favKey = (userId: string) => `favorites:${userId}`;
 
@@ -305,6 +306,14 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
               clientProfile: true,
             },
           });
+        } else if (item.entityType === 'project') {
+          const project = await prisma.project.findFirst({
+            where: { id: item.entityId, deletedAt: null },
+          });
+          if (project) {
+            const shaped = await shapeProjects([project]);
+            details = shaped[0] || project;
+          }
         }
       } catch (e) {
         console.error('Error populating favorite details', e);
@@ -323,6 +332,7 @@ const populateFavorites = async (items: FavItem[]): Promise<any[]> => {
 
         // Nested helper keys for backward compatibility
         details: details || null,
+        project: item.entityType === 'project' ? details : null,
         investor: item.entityType === 'investor' ? details : null,
         founder: item.entityType === 'founder' || item.entityType === 'startup' ? details : null,
         freelancer: item.entityType === 'freelancer' ? details : null,
@@ -338,230 +348,54 @@ export const listFavorites = async (req: AuthRequest, res: Response, next: NextF
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
     const entityType = req.query.entityType as string | undefined;
 
-    // ── Bridge: investor entityType → investor watchlist (startups saved by investor) ──
-    if (entityType === 'investor') {
-      try {
-        const isFounderInvestorWatchlist = req.user.role === 'founder';
-        const watchlistKey = isFounderInvestorWatchlist
-          ? `founder_investor_watchlist:${req.user.id}`
-          : `investor_watchlist:${req.user.id}`;
-        const row = await prisma.setting.findUnique({ where: { key: watchlistKey } });
-        let watchlistItems: any[] = [];
-        if (row?.value) {
-          try { watchlistItems = JSON.parse(row.value); } catch { watchlistItems = []; }
-        }
-        if (!Array.isArray(watchlistItems)) watchlistItems = [];
+    // 1. Load primary favorites
+    let allItems = await loadFavorites(req.user.id);
 
-        const total = watchlistItems.length;
-        const skip = (page - 1) * limit;
-        const slice = watchlistItems.slice(skip, skip + limit);
+    // 2. Merge legacy stored items for all roles & entities seamlessly
+    const legacyKeys = [
+      { key: `saved_freelancers:${req.user.id}`, entityType: 'freelancer', idField: (x: any) => x.freelancerId || x.id },
+      { key: `saved_projects:${req.user.id}`, entityType: 'project', idField: (x: any) => x.projectId || x.id },
+      { key: `investor_watchlist:${req.user.id}`, entityType: 'startup', idField: (x: any) => x.startupId || x.id },
+      { key: `founder_investor_watchlist:${req.user.id}`, entityType: 'investor', idField: (x: any) => x.investorId || x.id },
+      { key: `investor_watchlist_founders:${req.user.id}`, entityType: 'founder', idField: (x: any) => x.founderId || x.startupId || x.id },
+    ];
 
-        if (isFounderInvestorWatchlist) {
-          const favoriteItems: FavItem[] = slice.map((item: any) => ({
-            id: item.id,
-            entityType: 'investor',
-            entityId: item.investorId,
-            note: item.notes || null,
-            createdAt: item.savedAt,
-          }));
-          const populated = await populateFavorites(favoriteItems);
-          return res.json(
-            successResponse('Favorites', populated.map((item: any) => ({ ...item, isSaved: true })), {
-              page,
-              limit,
-              total,
-              totalPages: Math.ceil(total / limit) || 1,
-            })
-          );
-        }
-
-        // Populate with startup/founder details
-        const startupIds = slice.map((i: any) => i.startupId).filter(Boolean);
-        let populated: any[] = [];
-        if (startupIds.length > 0) {
-          const ideas = await prisma.startupIdea.findMany({
-            where: { OR: [{ id: { in: startupIds } }, { founder: { in: startupIds }, deletedAt: null }] },
-          });
-          const founderIds = [...new Set(ideas.map((i: any) => i.founder).filter(Boolean))];
-          let founders: any[] = [];
-          if (founderIds.length > 0) {
-            founders = await prisma.user.findMany({
-              where: { id: { in: founderIds as string[] } },
-              select: { id: true, fullName: true, email: true, avatarUrl: true, city: true, country: true, bio: true, createdAt: true, founderProfile: true },
-            });
+    for (const l of legacyKeys) {
+      if (!entityType || entityType === l.entityType) {
+        try {
+          const row = await prisma.setting.findUnique({ where: { key: l.key } });
+          if (row?.value) {
+            const parsed = JSON.parse(row.value);
+            if (Array.isArray(parsed)) {
+              for (const p of parsed) {
+                const entityId = String(l.idField(p) || '');
+                if (entityId && !allItems.some(i => i.entityType === l.entityType && i.entityId === entityId)) {
+                  allItems.push({
+                    id: p.id || uuidv4(),
+                    entityType: l.entityType,
+                    entityId: entityId,
+                    note: p.notes || p.note || null,
+                    createdAt: p.savedAt || p.createdAt || new Date().toISOString(),
+                  });
+                }
+              }
+            }
           }
-          const founderMap = new Map(founders.map((f: any) => [f.id, f]));
-          const ideaMap = new Map<string, any>();
-          for (const idea of ideas) {
-            const user = founderMap.get(idea.founder);
-            ideaMap.set(idea.id, { ...idea, user: user || null });
-            if (idea.founder) ideaMap.set(idea.founder, { ...idea, user: user || null });
-          }
-          populated = slice.map((item: any) => {
-            const startupData = ideaMap.get(item.startupId) || null;
-            return {
-              favoriteId: item.id,
-              entityType: 'investor',
-              entityId: item.startupId,
-              note: item.notes || null,
-              favoritedAt: item.savedAt,
-              isSaved: true,
-              ...(startupData || {}),
-              details: startupData,
-            };
-          });
-        } else {
-          populated = slice.map((item: any) => ({
-            favoriteId: item.id,
-            entityType: 'investor',
-            entityId: item.startupId,
-            note: item.notes || null,
-            favoritedAt: item.savedAt,
-            isSaved: true,
-          }));
+        } catch {
+          // ignore parsing error
         }
-
-        return res.json(
-          successResponse('Favorites', populated, {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit) || 1,
-          })
-        );
-      } catch (e) {
-        console.error('Error reading investor watchlist for favorites', e);
-        return res.json(successResponse('Favorites', [], { page, limit, total: 0, totalPages: 1 }));
       }
     }
 
-    // ── Bridge: startup entityType → investor watchlist (alias) ──
-    if (entityType === 'startup') {
-      try {
-        const watchlistKey = `investor_watchlist:${req.user.id}`;
-        const row = await prisma.setting.findUnique({ where: { key: watchlistKey } });
-        let watchlistItems: any[] = [];
-        if (row?.value) {
-          try { watchlistItems = JSON.parse(row.value); } catch { watchlistItems = []; }
-        }
-        if (!Array.isArray(watchlistItems)) watchlistItems = [];
-
-        const total = watchlistItems.length;
-        const skip = (page - 1) * limit;
-        const slice = watchlistItems.slice(skip, skip + limit);
-
-        const startupIds = slice.map((i: any) => i.startupId).filter(Boolean);
-        let populated: any[] = [];
-        if (startupIds.length > 0) {
-          const ideas = await prisma.startupIdea.findMany({
-            where: { OR: [{ id: { in: startupIds } }, { founder: { in: startupIds }, deletedAt: null }] },
-          });
-          populated = slice.map((item: any) => {
-            const idea = ideas.find((id: any) => id.id === item.startupId || id.founder === item.startupId) || null;
-            return {
-              favoriteId: item.id,
-              entityType: 'startup',
-              entityId: item.startupId,
-              note: item.notes || null,
-              favoritedAt: item.savedAt,
-              isSaved: true,
-              ...(idea || {}),
-              details: idea,
-            };
-          });
-        } else {
-          populated = slice.map((item: any) => ({
-            favoriteId: item.id,
-            entityType: 'startup',
-            entityId: item.startupId,
-            note: item.notes || null,
-            favoritedAt: item.savedAt,
-            isSaved: true,
-          }));
-        }
-
-        return res.json(
-          successResponse('Favorites', populated, {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit) || 1,
-          })
-        );
-      } catch (e) {
-        console.error('Error reading startup watchlist for favorites', e);
-        return res.json(successResponse('Favorites', [], { page, limit, total: 0, totalPages: 1 }));
-      }
+    if (entityType) {
+      allItems = allItems.filter((i) => i.entityType === entityType);
     }
 
-    // ── Bridge: founder entityType → investor_watchlist_founders ──
-    if (entityType === 'founder') {
-      try {
-        const founderWatchlistKey = `investor_watchlist_founders:${req.user.id}`;
-        const row = await prisma.setting.findUnique({ where: { key: founderWatchlistKey } });
-        let watchlistItems: any[] = [];
-        if (row?.value) {
-          try { watchlistItems = JSON.parse(row.value); } catch { watchlistItems = []; }
-        }
-        if (!Array.isArray(watchlistItems)) watchlistItems = [];
-
-        const total = watchlistItems.length;
-        const skip = (page - 1) * limit;
-        const slice = watchlistItems.slice(skip, skip + limit);
-
-        const founderIds = slice.map((i: any) => i.startupId).filter(Boolean);
-        let populated: any[] = [];
-        if (founderIds.length > 0) {
-          const founders = await prisma.user.findMany({
-            where: { id: { in: founderIds } },
-            select: { id: true, fullName: true, email: true, avatarUrl: true, city: true, country: true, bio: true, createdAt: true, founderProfile: true },
-          });
-          const founderMap = new Map(founders.map((f: any) => [f.id, f]));
-          populated = slice.map((item: any) => {
-            const founder = founderMap.get(item.startupId) || null;
-            return {
-              favoriteId: item.id,
-              entityType: 'founder',
-              entityId: item.startupId,
-              note: item.notes || null,
-              favoritedAt: item.savedAt,
-              isSaved: true,
-              ...(founder || {}),
-              details: founder,
-            };
-          });
-        } else {
-          populated = slice.map((item: any) => ({
-            favoriteId: item.id,
-            entityType: 'founder',
-            entityId: item.startupId,
-            note: item.notes || null,
-            favoritedAt: item.savedAt,
-            isSaved: true,
-          }));
-        }
-
-        return res.json(
-          successResponse('Favorites', populated, {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit) || 1,
-          })
-        );
-      } catch (e) {
-        console.error('Error reading founder watchlist for favorites', e);
-        return res.json(successResponse('Favorites', [], { page, limit, total: 0, totalPages: 1 }));
-      }
-    }
-
-    // ── Default: use the generic favorites store ──
-    let items = await loadFavorites(req.user.id);
-    if (entityType) items = items.filter((i) => i.entityType === entityType);
-    const total = items.length;
+    const total = allItems.length;
     const skip = (page - 1) * limit;
-    const slice = items.slice(skip, skip + limit);
+    const slice = allItems.slice(skip, skip + limit);
     const populated = await populateFavorites(slice);
+
     return res.json(
       successResponse('Favorites', populated, {
         page,
