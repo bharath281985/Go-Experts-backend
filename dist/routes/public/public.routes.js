@@ -1249,6 +1249,8 @@ router.get("/startup_ideas", async (req, res, next) => {
         const category = req.query.category || req.query.categoryId;
         const industry = req.query.industry || req.query.industryId;
         const stage = req.query.stage || req.query.stageId;
+        if (req.query.id)
+            where.id = String(req.query.id);
         if (category)
             where.category = category;
         if (industry)
@@ -1279,17 +1281,10 @@ router.get("/startup_ideas", async (req, res, next) => {
 router.get("/startup_ideas/:id", async (req, res, next) => {
     try {
         const idOrSlug = String(req.params.id || "").trim();
-        // Fetch non-deleted founder IDs so we never expose deleted founders' ideas
-        const activeFounders = await prisma.user.findMany({
-            where: { deletedAt: null, role: "founder" },
-            select: { id: true },
-        });
-        const activeFounderIds = activeFounders.map((u) => u.id);
         const row = await prisma.startupIdea.findFirst({
             where: {
                 deletedAt: null,
                 status: "active",
-                founder: { in: activeFounderIds },
                 OR: [
                     { id: idOrSlug },
                     { startup: { equals: idOrSlug } },
