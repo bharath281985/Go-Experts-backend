@@ -1381,12 +1381,16 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
     const { where, orderBy, page, limit, skip } = parseStartupListQuery(req);
     const userId = (req as any).user?.id as string | undefined;
 
-    const verifiedFounders = await prisma.user.findMany({
-      where: { role: 'founder', status: 'active', deletedAt: null, OR: [{ isVerified: true }, { verified: true }] },
+    const activeFounders = await prisma.user.findMany({
+      where: { role: 'founder', status: 'active', deletedAt: null },
       select: { id: true }
     });
-    const verifiedFounderIds = verifiedFounders.map(f => f.id);
-    where.founder = { in: userId ? verifiedFounderIds.filter(id => id !== userId) : verifiedFounderIds };
+    const activeFounderIds = activeFounders.map(f => f.id);
+    if (activeFounderIds.length > 0) {
+      where.founder = { in: userId ? activeFounderIds.filter(id => id !== userId) : activeFounderIds };
+    } else if (userId) {
+      where.founder = { not: userId };
+    }
 
     const [ideas, total] = await Promise.all([
       prisma.startupIdea.findMany({
@@ -1424,8 +1428,8 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
 
     const data = ideas.map(idea => {
       const founderUser = userMap.get(idea.founder);
-      // Exclude startup if founder account is inactive, deleted, or unverified
-      if (!founderUser || founderUser.deletedAt || (founderUser.status && founderUser.status !== 'active') || !(founderUser.isVerified || founderUser.verified)) {
+      // Exclude startup if founder account is inactive or deleted
+      if (!founderUser || founderUser.deletedAt || (founderUser.status && founderUser.status !== 'active')) {
         return null;
       }
       // isDetailed = false
@@ -1451,12 +1455,16 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, { kind: 'public' });
     const viewerId = (req as any).user?.id as string | undefined;
 
-    const verifiedClients = await prisma.user.findMany({
-      where: { role: 'client', status: 'active', deletedAt: null, OR: [{ isVerified: true }, { verified: true }] },
+    const activeClients = await prisma.user.findMany({
+      where: { role: 'client', status: 'active', deletedAt: null },
       select: { id: true }
     });
-    const verifiedClientIds = verifiedClients.map(c => c.id);
-    where.client = { in: viewerId ? verifiedClientIds.filter(id => id !== viewerId) : verifiedClientIds };
+    const activeClientIds = activeClients.map(c => c.id);
+    if (activeClientIds.length > 0) {
+      where.client = { in: viewerId ? activeClientIds.filter(id => id !== viewerId) : activeClientIds };
+    } else if (viewerId) {
+      where.client = { not: viewerId };
+    }
 
     if (viewerId) {
       const userExclusions = [
