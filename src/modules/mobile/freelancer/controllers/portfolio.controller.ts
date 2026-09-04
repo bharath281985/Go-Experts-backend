@@ -51,7 +51,17 @@ const parseItems = (raw?: string | null): PortfolioItem[] => {
   }
 };
 
-const readItems = async (userId: string): Promise<PortfolioItem[]> => {
+export const readItems = async (rawId: string): Promise<PortfolioItem[]> => {
+  let userId = rawId;
+  try {
+    const profile = await prisma.freelancerProfile.findFirst({
+      where: { OR: [{ id: rawId }, { userId: rawId }] }
+    });
+    if (profile?.userId) {
+      userId = profile.userId;
+    }
+  } catch (_) {}
+
   const row = await prisma.setting.findUnique({ where: { key: portfolioKey(userId) } });
   const items = parseItems(row?.value);
   if (items.length > 0) return Promise.all(items.map((item) => normalizeItem(item, item)));

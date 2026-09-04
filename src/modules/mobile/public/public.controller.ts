@@ -2303,3 +2303,145 @@ export const getEducationLevels = async (req: Request, res: Response, next: Next
     return res.json(successResponse('Education levels retrieved', levels));
   } catch (error) { next(error); }
 };
+
+export const getPublicFreelancerPortfolio = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '15'), 10) || 15, 1), 100);
+    const search = String(req.query.search || req.query.q || '').trim().toLowerCase();
+
+    const { readItems } = await import('../freelancer/controllers/portfolio.controller.js');
+    let items = await readItems(id);
+
+    if (search) {
+      items = items.filter((item) =>
+        [item.title, item.description, item.projectUrl, ...(item.technologies || [])]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(search)
+      );
+    }
+
+    items = [...items].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+
+    const total = items.length;
+    const start = (page - 1) * limit;
+    const data = items.slice(start, start + limit);
+
+    return res.json(
+      successResponse('Portfolio retrieved', data, {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPublicFreelancerPortfolioItem = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, itemId } = req.params;
+    const { readItems } = await import('../freelancer/controllers/portfolio.controller.js');
+    const items = await readItems(id);
+    const item = items.find((p) => p.id === itemId || p.id === req.params.id);
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Portfolio item not found' });
+    }
+
+    return res.json(successResponse('Portfolio item retrieved', item));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPublicInvestorPortfolio = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '15'), 10) || 15, 1), 100);
+
+    let investorUserId = id;
+    try {
+      const investor = await prisma.investorProfile.findFirst({
+        where: { OR: [{ id }, { userId: id }] }
+      });
+      if (investor?.userId) {
+        investorUserId = investor.userId;
+      }
+    } catch (_) {}
+
+    const investments = await prisma.investment.findMany({
+      where: {
+        OR: [
+          { investor: investorUserId },
+          { investor: id }
+        ],
+        status: { in: ['Active', 'Closed', 'Completed', 'active', 'closed', 'completed'] }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const totalInvested = investments.reduce((sum, inv) => sum + (inv.offer || 0), 0);
+    const total = investments.length;
+    const start = (page - 1) * limit;
+    const data = investments.slice(start, start + limit);
+
+    return res.json(
+      successResponse('Portfolio retrieved', {
+        investments: data,
+        items: data,
+        totalInvested,
+        activeCount: investments.filter(i => (i.status || '').toLowerCase() === 'active').length,
+      }, {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPublicInvestorPortfolioItem = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, itemId } = req.params;
+    let investorUserId = id;
+    try {
+      const investor = await prisma.investorProfile.findFirst({
+        where: { OR: [{ id }, { userId: id }] }
+      });
+      if (investor?.userId) {
+        investorUserId = investor.userId;
+      }
+    } catch (_) {}
+
+    const investment = await prisma.investment.findFirst({
+      where: {
+        id: itemId || id,
+        OR: [
+          { investor: investorUserId },
+          { investor: id }
+        ]
+      }
+    });
+
+    if (!investment) {
+      return res.status(404).json({ success: false, message: 'Investment portfolio item not found' });
+    }
+
+    return res.json(successResponse('Portfolio item retrieved', investment));
+  } catch (error) {
+    next(error);
+  }
+};
+

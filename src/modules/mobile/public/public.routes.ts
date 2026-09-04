@@ -8,7 +8,9 @@ import {
   getInvestorTypes, getFounderTypes, getFounderRoles, getTeamSizes, getCountries, getStates,
   getBusinessTypes, getServicesTaxonomy, getProjectCategories,
   getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getBudgetRanges,
-  getDesignations, getFounderGoals, getAvailabilityOptions, getDepartments, getMasters
+  getDesignations, getFounderGoals, getAvailabilityOptions, getDepartments, getMasters,
+  getPublicFreelancerPortfolio, getPublicFreelancerPortfolioItem,
+  getPublicInvestorPortfolio, getPublicInvestorPortfolioItem
 } from './public.controller.js';
 import { authenticate, authenticateOptional } from '../../../middlewares/auth.js';
 import { cacheControl } from '../../../middleware/cache.js';
@@ -89,12 +91,17 @@ router.get('/startup-goals', masterCache, getFounderGoals);
 router.get('/freelancers', authenticateOptional, directoryCache, getFreelancers);
 router.get('/freelancers/saved', authenticate, getSavedFreelancers);
 router.get('/freelancers/:id', authenticateOptional, directoryCache, getById('freelancer'));
+router.get('/freelancers/:id/portfolio', authenticateOptional, getPublicFreelancerPortfolio);
+router.get('/freelancers/:id/portfolio/:itemId', authenticateOptional, getPublicFreelancerPortfolioItem);
 router.post('/freelancers/:id/save', authenticate, saveFreelancer);
 router.delete('/freelancers/:id/save', authenticate, unsaveFreelancer);
 router.get('/clients', authenticateOptional, directoryCache, getClients);
 router.get('/clients/:id', directoryCache, getById('client'));
 router.get('/investors', authenticateOptional, directoryCache, getInvestors);
 router.get('/investors/:id', authenticateOptional, getById('investor'));
+router.get('/investors/:id/portfolio', authenticateOptional, getPublicInvestorPortfolio);
+router.get('/investors/:id/portfolio/:itemId', authenticateOptional, getPublicInvestorPortfolioItem);
+router.get('/investors/:id/investments', authenticateOptional, getPublicInvestorPortfolio);
 router.get('/startups', authenticateOptional, getStartups);
 router.get('/startups/my-startups', authenticate, listIdeas);   
 router.post('/startups', authenticate, createIdea);
