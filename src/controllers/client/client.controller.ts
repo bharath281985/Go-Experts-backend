@@ -1599,6 +1599,134 @@ export const addClientTeamMember = async (req: AuthenticatedRequest, res: Respon
   }
 };
 
+export const resendClientTeamInvite = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const memberId = req.params.id || req.body.id;
+    const reqEmail = req.body.email ? String(req.body.email).trim().toLowerCase() : "";
+
+    // Find member by ID or by email
+    let member: any = null;
+    if (memberId) {
+      member = await (prisma as any).clientTeamMember.findFirst({
+        where: { id: memberId }
+      });
+    }
+    if (!member && reqEmail) {
+      member = await (prisma as any).clientTeamMember.findFirst({
+        where: { email: reqEmail }
+      });
+    }
+
+    const email = (member?.email || reqEmail).toLowerCase();
+    const name = member?.name || req.body.name || "Team Member";
+    const role = member?.role || req.body.role || "Member";
+    const department = member?.department || req.body.department || "Operations";
+    const tempPassword = req.body.password ? String(req.body.password).trim() : "GoExperts@2025";
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Member email is required to resend" });
+    }
+
+    // Ensure User account exists with password
+    const bcrypt = await import("bcrypt");
+    const hashedPassword = await bcrypt.default.hash(tempPassword, 10);
+    const existingUser = await prisma.user.findFirst({ where: { email } });
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          email,
+          fullName: name,
+          password: hashedPassword,
+          role: "client",
+          status: "active",
+          isVerified: true,
+          verified: true,
+        }
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          password: hashedPassword,
+          status: "active",
+          isVerified: true,
+          verified: true,
+        }
+      });
+    }
+
+    // Client inviter details
+    const clientUser = await prisma.user.findUnique({ where: { id: userId } });
+    const clientName = clientUser?.fullName || "Your Organization";
+    const frontendUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5175";
+
+    // Direct Email Dispatch via Nodemailer
+    let emailSent = false;
+    try {
+      const nodemailer = await import("nodemailer");
+      const host = process.env.SMTP_HOST || "mail.goexperts.in";
+      const port = Number(process.env.SMTP_PORT || 465);
+      const user = process.env.SMTP_USER || "support@goexperts.in";
+      const pass = process.env.SMTP_PASS || "Goexperts@2025";
+      const from = process.env.SMTP_FROM || "support@goexperts.in";
+
+      const transporter = nodemailer.default.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false }
+      });
+
+      await transporter.sendMail({
+        from: `"Go Experts Support" <${from}>`,
+        to: email,
+        subject: `Your Team Access Credentials - ${clientName} on Go Experts`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+            <h2 style="color: #E30613; margin-top: 0;">Welcome to Go Experts!</h2>
+            <p>Hi <strong>${name}</strong>,</p>
+            <p>Here are your dashboard access credentials for <strong>${clientName}'s organization</strong> as a <strong>${role}</strong> in <strong>${department}</strong>:</p>
+            <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 18px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #0f172a; font-size: 14px;">Your Dashboard Login Credentials:</h3>
+              <p style="margin: 6px 0; font-size: 13px;"><strong>Login Portal:</strong> <a href="${frontendUrl}/login" target="_blank" style="color: #E30613;">${frontendUrl}/login</a></p>
+              <p style="margin: 6px 0; font-size: 13px;"><strong>Username / Email:</strong> <code style="background: #e2e8f0; padding: 3px 6px; border-radius: 4px; font-weight: bold;">${email}</code></p>
+              <p style="margin: 6px 0; font-size: 13px;"><strong>Login Password:</strong> <code style="background: #e2e8f0; padding: 3px 6px; border-radius: 4px; font-weight: bold;">${tempPassword}</code></p>
+            </div>
+            <p style="margin-top: 24px;">
+              <a href="${frontendUrl}/login" style="background-color: #E30613; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                Sign In to Dashboard &rarr;
+              </a>
+            </p>
+            <p style="color: #64748b; font-size: 12px; margin-top: 24px;">For security, you can change your password anytime under Settings.</p>
+          </div>
+        `,
+        text: `Hi ${name},\n\nHere are your access credentials for ${clientName}'s team on Go Experts:\n\nLogin URL: ${frontendUrl}/login\nEmail: ${email}\nPassword: ${tempPassword}\n\nBest regards,\nGo Experts Team`
+      });
+      emailSent = true;
+      console.log(`[RESEND INVITE SUCCESS] Credentials email resent to ${email}`);
+    } catch (mailErr: any) {
+      console.warn("Direct invite email delivery warning:", mailErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: emailSent ? `Credentials email resent to ${email}!` : `Credentials ready for ${email}`,
+      emailSent,
+      credentials: {
+        email,
+        password: tempPassword,
+        loginUrl: `${frontendUrl}/login`,
+        emailSent
+      }
+    });
+  } catch (err) {
+    handleError(err, res, next);
+  }
+};
+
 export const deleteClientTeamMember = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = requireUser(req, res);
