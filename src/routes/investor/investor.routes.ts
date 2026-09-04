@@ -42,60 +42,61 @@ const router = Router();
 
 router.use(authMiddleware as any);
 router.use(requireOnboarding as any);
-router.use(portalRoleMiddleware(["investor"]) as any);
 
-router.get("/dashboard", getInvestorDashboard as any);
-
-router.get("/profile", getInvestorProfile as any);
-router.patch("/profile", updateInvestorProfile as any);
-router.put("/profile", updateInvestorProfile as any);
-
-router.get("/verification", getMyVerification as any);
-router.patch("/verification", updateMyVerification as any);
-router.delete("/verification", deleteMyVerification as any);
-
+// ── Shared Portal Routes (accessible to all authenticated portal roles: investor, freelancer, client, founder) ──
 router.get("/watchlist", listWatchlist as any);
 router.post("/watchlist", addToWatchlist as any);
 router.delete("/watchlist/:id", removeFromWatchlist as any);
 
 router.get("/portfolio", getInvestorPortfolio as any);
-
 router.get("/investments", listInvestorInvestments as any);
 router.post("/investments", createInvestorInvestment as any);
 
-router.get("/meetings", listInvestorMeetings as any);
-router.post("/meetings", createInvestorMeeting as any);
+// ── Investor-Specific Routes (requires investor role) ──
+const investorOnly = portalRoleMiddleware(["investor"]) as any;
 
-router.get("/messages", listInvestorMessages as any);
-router.post("/messages", createInvestorMessage as any);
+router.get("/dashboard", investorOnly, getInvestorDashboard as any);
 
-router.get("/wallet", getInvestorWallet as any);
-router.post("/wallet/deposit", depositInvestorWallet as any);
-router.post("/wallet/withdraw", withdrawInvestorWallet as any);
+router.get("/profile", investorOnly, getInvestorProfile as any);
+router.patch("/profile", investorOnly, updateInvestorProfile as any);
+router.put("/profile", investorOnly, updateInvestorProfile as any);
 
-router.get("/invoices", listInvestorInvoices as any);
+router.get("/verification", investorOnly, getMyVerification as any);
+router.patch("/verification", investorOnly, updateMyVerification as any);
+router.delete("/verification", investorOnly, deleteMyVerification as any);
 
-router.get("/analytics", getInvestorAnalytics as any);
-router.get("/reports", getInvestorReports as any);
+router.get("/meetings", investorOnly, listInvestorMeetings as any);
+router.post("/meetings", investorOnly, createInvestorMeeting as any);
 
-router.get("/notifications", listInvestorNotifications as any);
-router.patch("/notifications/read-all", markAllInvestorNotificationsRead as any);
-router.patch("/notifications/:id/read", markInvestorNotificationRead as any);
+router.get("/messages", investorOnly, listInvestorMessages as any);
+router.post("/messages", investorOnly, createInvestorMessage as any);
 
-router.get("/documents", listInvestorDocuments as any);
-router.post("/documents", addInvestorDocument as any);
+router.get("/wallet", investorOnly, getInvestorWallet as any);
+router.post("/wallet/deposit", investorOnly, depositInvestorWallet as any);
+router.post("/wallet/withdraw", investorOnly, withdrawInvestorWallet as any);
 
-router.get("/subscription", listInvestorSubscriptions as any);
-router.post("/subscription/purchase", purchaseInvestorSubscription as any);
+router.get("/invoices", investorOnly, listInvestorInvoices as any);
 
-router.get("/settings", getInvestorSettings as any);
-router.patch("/settings", updateInvestorSettings as any);
+router.get("/analytics", investorOnly, getInvestorAnalytics as any);
+router.get("/reports", investorOnly, getInvestorReports as any);
 
-router.get("/all-founders", listAllFounders as any);
+router.get("/notifications", investorOnly, listInvestorNotifications as any);
+router.patch("/notifications/read-all", investorOnly, markAllInvestorNotificationsRead as any);
+router.patch("/notifications/:id/read", investorOnly, markInvestorNotificationRead as any);
 
-router.post("/media/upload", upload.single("file"), uploadFile as any);
+router.get("/documents", investorOnly, listInvestorDocuments as any);
+router.post("/documents", investorOnly, addInvestorDocument as any);
+
+router.get("/subscription", investorOnly, listInvestorSubscriptions as any);
+router.post("/subscription/purchase", investorOnly, purchaseInvestorSubscription as any);
+
+router.get("/settings", investorOnly, getInvestorSettings as any);
+router.patch("/settings", investorOnly, updateInvestorSettings as any);
+
+router.get("/all-founders", investorOnly, listAllFounders as any);
+
+router.post("/media/upload", investorOnly, upload.single("file"), uploadFile as any);
+
+router.get("/reviews", investorOnly, listInvestorReviews as any);
 
 export default router;
-
-
-router.get("/reviews", listInvestorReviews as any);
