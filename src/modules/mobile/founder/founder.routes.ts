@@ -50,7 +50,10 @@ router.post('/projects/:id/invite', inviteFreelancer);
 
 // Startup Ideas
 router.get('/ideas', listIdeas);
+router.get('/startups/my-startups', listIdeas);
+router.get('/startups', listIdeas);
 router.post('/ideas', createIdea);
+router.post('/startups', createIdea);
 router.get('/ideas/:id', getIdeaDetails);
 router.put('/ideas/:id', updateIdea);
 router.delete('/ideas/:id', deleteIdea);
