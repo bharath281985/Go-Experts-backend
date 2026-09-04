@@ -36,7 +36,8 @@ import { getReceivedReviews, getAverageRating, getRatingBreakdown, replyToReview
 import { getMyVerification, updateMyVerification, deleteMyVerification } from '../../../controllers/verification/verification.controller.js';
 import { saveFreelancer, unsaveFreelancer, getSavedFreelancers } from '../client/controllers/freelancers.controller.js';
 import { saveStartup, unsaveStartup } from '../investor/controllers/startups.controller.js';
-import { saveFounder, unsaveFounder, getFounderWatchlist } from '../investor/controllers/watchlist.controller.js';
+import { saveFounder, unsaveFounder, getFounderWatchlist, getWatchlist as getSavedStartups } from '../investor/controllers/watchlist.controller.js';
+import { getWatchlist as getSavedInvestors } from '../founder/controllers/watchlist.controller.js';
 import { saveProject, unsaveProject, savedProjects } from '../freelancer/controllers/projects.controller.js';
 
 const router = Router();
@@ -103,6 +104,7 @@ router.get('/investors/:id/portfolio', authenticateOptional, getPublicInvestorPo
 router.get('/investors/:id/portfolio/:itemId', authenticateOptional, getPublicInvestorPortfolioItem);
 router.get('/investors/:id/investments', authenticateOptional, getPublicInvestorPortfolio);
 router.get('/startups', authenticateOptional, getStartups);
+router.get('/startups/saved', authenticate, getSavedStartups);
 router.get('/startups/my-startups', authenticate, listIdeas);   
 router.post('/startups', authenticate, createIdea);
 router.get('/startups/:id', authenticateOptional, getById('startup'));
@@ -118,6 +120,8 @@ router.get('/founders/:id', authenticateOptional, getById('founder'));
 router.post('/founders/:id/save', authenticate, saveFounder);
 router.delete('/founders/:id/save', authenticate, unsaveFounder);
 router.get('/watchlist/founders', authenticate, getFounderWatchlist);
+router.get('/founders/saved', authenticate, getFounderWatchlist);
+router.get('/investors/saved', authenticate, getSavedInvestors);
 
 // ─── Funding, Pitch Deck & Business Plan (Universal Access) ───
 router.get('/funding', authenticate, getFunding);

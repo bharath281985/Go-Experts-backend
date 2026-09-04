@@ -294,21 +294,23 @@ export const createInvestorInvestment = async (req, res, next) => {
         const userId = requireUser(req, res);
         if (!userId)
             return;
-        // Enforce capabilities
-        try {
-            await requireCapability({ userId, action: "expressInterest" });
-        }
-        catch (err) {
-            if (err instanceof ActionRequirementsError) {
-                return res.status(403).json({
-                    success: false,
-                    code: err.code,
-                    action: err.action,
-                    message: err.message,
-                    missing: err.missing,
-                });
+        // Enforce capabilities for investors
+        if (req.user?.role === "investor") {
+            try {
+                await requireCapability({ userId, action: "expressInterest" });
             }
-            throw err;
+            catch (err) {
+                if (err instanceof ActionRequirementsError) {
+                    return res.status(403).json({
+                        success: false,
+                        code: err.code,
+                        action: err.action,
+                        message: err.message,
+                        missing: err.missing,
+                    });
+                }
+                throw err;
+            }
         }
         const user = await loadInvestorUser(userId);
         if (!user)
