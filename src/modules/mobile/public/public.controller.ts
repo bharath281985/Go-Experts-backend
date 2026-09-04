@@ -1382,7 +1382,7 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
     const userId = (req as any).user?.id as string | undefined;
 
     const activeFounders = await prisma.user.findMany({
-      where: { role: 'founder', status: 'active', deletedAt: null },
+      where: { status: 'active', deletedAt: null },
       select: { id: true }
     });
     const activeFounderIds = activeFounders.map(f => f.id);
@@ -1456,7 +1456,7 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     const viewerId = (req as any).user?.id as string | undefined;
 
     const activeClients = await prisma.user.findMany({
-      where: { role: 'client', status: 'active', deletedAt: null },
+      where: { status: 'active', deletedAt: null },
       select: { id: true }
     });
     const activeClientIds = activeClients.map(c => c.id);
