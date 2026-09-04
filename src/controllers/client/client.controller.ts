@@ -1488,6 +1488,18 @@ export const addClientTeamMember = async (req: AuthenticatedRequest, res: Respon
     const hashedPassword = await bcrypt.default.hash(tempPassword, 10);
     const isPreVerified = Boolean(body.emailVerified);
 
+    const permittedDashboards = Array.isArray(body.permittedDashboards) && body.permittedDashboards.length > 0
+      ? body.permittedDashboards
+      : ["client"];
+    const modulePermissions = body.modulePermissions || (typeof body.permissions === "object" ? body.permissions : {});
+    const structuredPermissions = JSON.stringify({
+      permittedDashboards,
+      modulePermissions,
+      role: body.role || "Member",
+      department: body.dept || body.department || "Engineering",
+    });
+    const targetRole = permittedDashboards[0] || "client";
+
     // 2. Provision or update User account in prisma.user so they can log in
     let existingUser = await prisma.user.findFirst({
       where: { email }
@@ -1499,18 +1511,19 @@ export const addClientTeamMember = async (req: AuthenticatedRequest, res: Respon
           email,
           fullName: name,
           password: hashedPassword,
-          role: "client",
+          role: targetRole,
           status: isPreVerified ? "active" : "pending",
           isVerified: isPreVerified,
           verified: isPreVerified,
         }
       });
-    } else if (body.password) {
+    } else {
       await prisma.user.update({
         where: { id: existingUser.id },
         data: {
-          password: hashedPassword,
-          ...(isPreVerified ? { status: "active", isVerified: true, verified: true } : {})
+          ...(body.password ? { password: hashedPassword } : {}),
+          ...(isPreVerified ? { status: "active", isVerified: true, verified: true } : {}),
+          ...(!permittedDashboards.includes(existingUser.role) ? { role: targetRole } : {}),
         }
       });
     }
@@ -1520,12 +1533,13 @@ export const addClientTeamMember = async (req: AuthenticatedRequest, res: Respon
     const member = await prisma.clientTeamMember.create({
       data: {
         clientId: userId,
+        userId: existingUser?.id || undefined,
         name,
         email,
         role: body.role || "Member",
         department: body.dept || body.department || "Engineering",
         status: isPreVerified ? "Active" : "Invited",
-        permissions: body.permissions ? (typeof body.permissions === "string" ? body.permissions : JSON.stringify(body.permissions)) : undefined,
+        permissions: structuredPermissions,
       }
     });
 
@@ -1629,17 +1643,28 @@ export const resendClientTeamInvite = async (req: AuthenticatedRequest, res: Res
       return res.status(400).json({ success: false, message: "Member email is required to resend" });
     }
 
-    // Ensure User account exists with password
+    // Ensure User account exists with password and matches permitted dashboard role
+    let memberDashboards: string[] = ["client"];
+    if (member?.permissions) {
+      try {
+        const parsed = typeof member.permissions === "string" ? JSON.parse(member.permissions) : member.permissions;
+        if (Array.isArray(parsed.permittedDashboards) && parsed.permittedDashboards.length > 0) {
+          memberDashboards = parsed.permittedDashboards;
+        }
+      } catch (e) {}
+    }
+    const targetRole = memberDashboards[0] || "client";
+
     const bcrypt = await import("bcrypt");
     const hashedPassword = await bcrypt.default.hash(tempPassword, 10);
-    const existingUser = await prisma.user.findFirst({ where: { email } });
+    let existingUser = await prisma.user.findFirst({ where: { email } });
     if (!existingUser) {
-      await prisma.user.create({
+      existingUser = await prisma.user.create({
         data: {
           email,
           fullName: name,
           password: hashedPassword,
-          role: "client",
+          role: targetRole,
           status: "active",
           isVerified: true,
           verified: true,
@@ -1653,8 +1678,16 @@ export const resendClientTeamInvite = async (req: AuthenticatedRequest, res: Res
           status: "active",
           isVerified: true,
           verified: true,
+          ...(!memberDashboards.includes(existingUser.role) ? { role: targetRole } : {}),
         }
       });
+    }
+
+    if (member && existingUser && member.userId !== existingUser.id) {
+      await (prisma as any).clientTeamMember.update({
+        where: { id: member.id },
+        data: { userId: existingUser.id }
+      }).catch(() => {});
     }
 
     // Client inviter details
@@ -2223,12 +2256,38 @@ export const updateClientTeamMember = async (req: AuthenticatedRequest, res: Res
 
     const body = req.body || {};
 
+    const permittedDashboards = Array.isArray(body.permittedDashboards) && body.permittedDashboards.length > 0
+      ? body.permittedDashboards
+      : undefined;
+    const modulePermissions = body.modulePermissions !== undefined
+      ? body.modulePermissions
+      : (typeof body.permissions === "object" ? body.permissions : undefined);
+
+    let permissionsString: string | undefined = undefined;
+    if (permittedDashboards || modulePermissions !== undefined) {
+      // @ts-ignore
+      const current = await prisma.clientTeamMember.findFirst({ where: { id } });
+      let currentPerms: any = {};
+      try {
+        if (current?.permissions) currentPerms = JSON.parse(current.permissions);
+      } catch (e) {}
+      permissionsString = JSON.stringify({
+        permittedDashboards: permittedDashboards || currentPerms.permittedDashboards || ["client"],
+        modulePermissions: modulePermissions !== undefined ? modulePermissions : (currentPerms.modulePermissions || {}),
+        role: body.role || current?.role || "Member",
+        department: body.department || body.dept || current?.department || "Engineering",
+      });
+    } else if (body.permissions !== undefined) {
+      permissionsString = typeof body.permissions === "string" ? body.permissions : JSON.stringify(body.permissions);
+    }
+
     // @ts-ignore - Prisma client needs regeneration
     await prisma.clientTeamMember.updateMany({
       where: { id, clientId: userId },
       data: {
         role: body.role !== undefined ? body.role : undefined,
-        permissions: body.permissions !== undefined ? (typeof body.permissions === "string" ? body.permissions : JSON.stringify(body.permissions)) : undefined,
+        department: (body.department || body.dept) !== undefined ? (body.department || body.dept) : undefined,
+        permissions: permissionsString,
         status: body.status !== undefined ? body.status : undefined,
       }
     });
@@ -2241,30 +2300,36 @@ export const updateClientTeamMember = async (req: AuthenticatedRequest, res: Res
     if (member?.email) {
       memberEmail = member.email.toLowerCase();
       let userAcc = await prisma.user.findFirst({ where: { email: memberEmail } });
+      const targetRole = permittedDashboards ? permittedDashboards[0] : "client";
       if (!userAcc && isActivating) {
         const bcrypt = await import("bcrypt");
         const defaultPassword = body.password ? String(body.password).trim() : "GoExperts@2025";
         const hashedPassword = await bcrypt.default.hash(defaultPassword, 10);
-        await prisma.user.create({
+        userAcc = await prisma.user.create({
           data: {
             email: memberEmail,
             fullName: member.name || "Team Member",
             password: hashedPassword,
-            role: "client",
+            role: targetRole,
             status: "active",
             isVerified: true,
             verified: true,
           }
         });
-      } else if (userAcc && isActivating) {
+      } else if (userAcc) {
         await prisma.user.update({
           where: { id: userAcc.id },
           data: {
-            status: "active",
-            isVerified: true,
-            verified: true,
+            ...(isActivating ? { status: "active", isVerified: true, verified: true } : {}),
+            ...(permittedDashboards && !permittedDashboards.includes(userAcc.role) ? { role: targetRole } : {})
           }
         });
+      }
+      if (userAcc && (!member.userId || member.userId !== userAcc.id)) {
+        await (prisma as any).clientTeamMember.update({
+          where: { id: member.id },
+          data: { userId: userAcc.id }
+        }).catch(() => {});
       }
     }
 
