@@ -160,6 +160,12 @@ async function resolveUserTeamMembership(userId: string, email: string) {
 
     if (!membership) return null;
 
+    // A workspace client/owner is NOT a subordinate team member of their own workspace!
+    const cleanEmail = email.toLowerCase().trim();
+    if (membership.clientId === userId || membership.client?.email?.toLowerCase().trim() === cleanEmail) {
+      return null;
+    }
+
     if (!membership.userId && userId) {
       await (prisma as any).clientTeamMember.update({
         where: { id: membership.id },
@@ -442,6 +448,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       fullName: user.fullName,
       avatarUrl: user.avatarUrl,
       role: effectiveRole,
+      isOwner: !teamInfo,
+      accountType: teamInfo ? "team_member" : "owner",
       permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
       modulePermissions: teamInfo ? teamInfo.modulePermissions : null,
       activeRoles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
@@ -1111,6 +1119,8 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         user: {
           ...sanitized,
           role: effectiveRole,
+          isOwner: !teamInfo,
+          accountType: teamInfo ? "team_member" : "owner",
           permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
           modulePermissions: teamInfo ? teamInfo.modulePermissions : null,
           activeRoles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
