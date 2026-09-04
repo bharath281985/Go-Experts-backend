@@ -26,6 +26,7 @@ import {
   listClientTeam,
   addClientTeamMember,
   updateClientTeamMember,
+  resendClientTeamInvite,
   deleteClientTeamMember, listClientRoles,
   listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead,
   getClientAnalytics
@@ -134,6 +135,8 @@ router.get("/team", listClientTeam as any);
 router.get("/roles", listClientRoles as any);
 router.get("/invitations", listClientInvitations as any);
 router.post("/team", addClientTeamMember as any);
+router.post("/team/:id/resend", resendClientTeamInvite as any);
+router.post("/team/resend", resendClientTeamInvite as any);
 router.put("/team/:id", updateClientTeamMember as any);
 router.delete("/team/:id", deleteClientTeamMember as any);
 
