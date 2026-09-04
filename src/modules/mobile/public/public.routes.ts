@@ -99,6 +99,7 @@ router.delete('/freelancers/:id/save', authenticate, unsaveFreelancer);
 router.get('/clients', authenticateOptional, directoryCache, getClients);
 router.get('/clients/:id', directoryCache, getById('client'));
 router.get('/investors', authenticateOptional, directoryCache, getInvestors);
+router.get('/investors/saved', authenticate, getSavedInvestors);
 router.get('/investors/:id', authenticateOptional, getById('investor'));
 router.get('/investors/:id/portfolio', authenticateOptional, getPublicInvestorPortfolio);
 router.get('/investors/:id/portfolio/:itemId', authenticateOptional, getPublicInvestorPortfolioItem);
@@ -116,12 +117,11 @@ router.put('/startups/:id', authenticate, updateIdea);
 router.delete('/startups/:id', authenticate, deleteIdea);
 
 // ─── Founders & Investors Watchlist ───
+router.get('/founders/saved', authenticate, getFounderWatchlist);
 router.get('/founders/:id', authenticateOptional, getById('founder'));
 router.post('/founders/:id/save', authenticate, saveFounder);
 router.delete('/founders/:id/save', authenticate, unsaveFounder);
 router.get('/watchlist/founders', authenticate, getFounderWatchlist);
-router.get('/founders/saved', authenticate, getFounderWatchlist);
-router.get('/investors/saved', authenticate, getSavedInvestors);
 
 // ─── Funding, Pitch Deck & Business Plan (Universal Access) ───
 router.get('/funding', authenticate, getFunding);
