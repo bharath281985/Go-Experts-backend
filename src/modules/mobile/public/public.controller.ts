@@ -1455,31 +1455,13 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, { kind: 'public' });
     const viewerId = (req as any).user?.id as string | undefined;
 
-    const activeClients = await prisma.user.findMany({
-      where: { status: 'active', deletedAt: null },
-      select: { id: true }
-    });
-    const activeClientIds = activeClients.map(c => c.id);
-    if (activeClientIds.length > 0) {
-      where.client = { in: viewerId ? activeClientIds.filter(id => id !== viewerId) : activeClientIds };
-    } else if (viewerId) {
-      where.client = { not: viewerId };
-    }
-
-    if (viewerId) {
-      const userExclusions = [
-        { client: viewerId },
-        { freelancer: viewerId }
-      ];
-      if (where.NOT) {
-        if (Array.isArray(where.NOT)) {
-          where.NOT.push(...userExclusions);
-        } else {
-          where.NOT = [where.NOT, ...userExclusions];
-        }
-      } else {
-        where.NOT = userExclusions;
-      }
+    const deletedUsers = await prisma.user.findMany({
+      where: { deletedAt: { not: null } },
+      select: { id: true },
+    }).catch(() => []);
+    const deletedUserIds = deletedUsers.map((u) => u.id);
+    if (deletedUserIds.length > 0) {
+      where.client = { notIn: deletedUserIds };
     }
 
     const [projects, total] = await Promise.all([
@@ -1491,6 +1473,7 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     return res.json(successResponse('Projects retrieved', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
+
 
 export const shareProject = async (req: Request, res: Response, next: NextFunction) => {
   try {

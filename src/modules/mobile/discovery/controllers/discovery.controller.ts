@@ -147,8 +147,21 @@ async function getActiveProjects(limit: number = 5, excludeUserId?: string) {
   }).catch(() => []);
 }
 
+function dedupeBy<T>(arr: T[], keyFn: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of arr) {
+    const key = keyFn(item).toLowerCase().trim();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      result.push(item);
+    }
+  }
+  return result;
+}
+
 async function buildRecommendationItems(role: string, userId: string) {
-  const limit = 5;
+  const limit = 10;
 
   try {
     if (role === 'freelancer') {
@@ -163,27 +176,42 @@ async function buildRecommendationItems(role: string, userId: string) {
         getActiveStartupIdeas(limit, userId),
       ]);
 
-      return {
-        projects: (projects || []).map((p) => ({
+      const mappedProjects = dedupeBy(
+        (projects || []).map((p) => ({
           id: p.id,
           title: cleanProjectTitle(p.title, p.category, p.technology),
           subtitle: cleanTag(p.category, 'Project'),
           description: cleanDesc(p.technology ?? p.description, ''),
           budget: p.budget,
         })),
-        clients: (clients || []).map((c) => ({
+        (p) => p.title
+      ).slice(0, 5);
+
+      const mappedClients = dedupeBy(
+        (clients || []).map((c) => ({
           id: c.id,
           title: c.fullName || 'Client',
           subtitle: cleanTag(c.clientProfile?.company, 'Client'),
           description: cleanDesc(c.clientProfile?.industry ?? c.city, ''),
         })),
-        startups: (startups || []).map((s) => ({
+        (c) => c.title
+      ).slice(0, 5);
+
+      const mappedStartups = dedupeBy(
+        (startups || []).map((s) => ({
           id: s.id,
           title: cleanStartupTitle((s as any).title, s.startup, s.industry),
           subtitle: cleanTag(s.stage, 'Startup'),
           description: cleanDesc(s.industry, ''),
           funding: s.funding,
         })),
+        (s) => s.title
+      ).slice(0, 5);
+
+      return {
+        projects: mappedProjects,
+        clients: mappedClients,
+        startups: mappedStartups,
       };
     }
 
@@ -203,26 +231,42 @@ async function buildRecommendationItems(role: string, userId: string) {
           take: limit,
         }).catch(() => []),
       ]);
-      return {
-        freelancers: (freelancers || []).map((f) => ({
+
+      const mappedFreelancers = dedupeBy(
+        (freelancers || []).map((f) => ({
           id: f.id,
           title: f.fullName || 'Freelancer',
           subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'),
           description: cleanDesc(f.freelancerProfile?.industry ?? f.city, ''),
         })),
-        startups: (startups || []).map((s) => ({
+        (f) => f.title
+      ).slice(0, 5);
+
+      const mappedStartups = dedupeBy(
+        (startups || []).map((s) => ({
           id: s.id,
           title: cleanStartupTitle((s as any).title, s.startup, s.industry),
           subtitle: cleanTag(s.stage, 'Startup'),
           description: cleanDesc(s.industry, ''),
           funding: s.funding,
         })),
-        investors: (investors || []).map((i) => ({
+        (s) => s.title
+      ).slice(0, 5);
+
+      const mappedInvestors = dedupeBy(
+        (investors || []).map((i) => ({
           id: i.id,
           title: i.fullName || 'Investor',
           subtitle: cleanTag(i.investorProfile?.firm, 'Investor'),
           description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, ''),
         })),
+        (i) => i.title
+      ).slice(0, 5);
+
+      return {
+        freelancers: mappedFreelancers,
+        startups: mappedStartups,
+        investors: mappedInvestors,
       };
     }
 
@@ -237,27 +281,43 @@ async function buildRecommendationItems(role: string, userId: string) {
           take: limit,
         }).catch(() => []),
       ]);
-      return {
-        startups: (startups || []).map((s) => ({
+
+      const mappedStartups = dedupeBy(
+        (startups || []).map((s) => ({
           id: s.id,
           title: cleanStartupTitle((s as any).title, s.startup, s.industry),
           subtitle: cleanTag(s.stage, 'Startup'),
           description: cleanDesc(s.industry, ''),
           funding: s.funding,
         })),
-        projects: (projects || []).map((p) => ({
+        (s) => s.title
+      ).slice(0, 5);
+
+      const mappedProjects = dedupeBy(
+        (projects || []).map((p) => ({
           id: p.id,
           title: cleanProjectTitle(p.title, p.category, p.technology),
           subtitle: cleanTag(p.category, 'Project'),
           description: cleanDesc(p.technology ?? p.description, ''),
           budget: p.budget,
         })),
-        freelancers: (freelancers || []).map((f) => ({
+        (p) => p.title
+      ).slice(0, 5);
+
+      const mappedFreelancers = dedupeBy(
+        (freelancers || []).map((f) => ({
           id: f.id,
           title: f.fullName || 'Freelancer',
           subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'),
           description: cleanDesc(f.freelancerProfile?.industry ?? f.city, ''),
         })),
+        (f) => f.title
+      ).slice(0, 5);
+
+      return {
+        startups: mappedStartups,
+        projects: mappedProjects,
+        freelancers: mappedFreelancers,
       };
     }
 
@@ -268,10 +328,20 @@ async function buildRecommendationItems(role: string, userId: string) {
     ]);
 
     return {
-      investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
-      freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
-      clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
+      investors: dedupeBy(
+        (investors || []).map((i) => ({ id: i.id, title: i.fullName, subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
+        (i) => i.title
+      ).slice(0, 5),
+      freelancers: dedupeBy(
+        (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+        (f) => f.title
+      ).slice(0, 5),
+      clients: dedupeBy(
+        (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
+        (c) => c.title
+      ).slice(0, 5),
     };
+
   } catch {
     return {
       freelancers: [],
