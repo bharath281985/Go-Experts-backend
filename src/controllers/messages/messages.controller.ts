@@ -177,8 +177,36 @@ export const createOrFindConversation = async (req: AuthenticatedRequest, res: R
       return res.status(400).json({ success: false, message: "recipientId is required" });
     }
 
-    let targetUser = recipientId ? await prisma.user.findUnique({ where: { id: recipientId } }) : null;
-    let targetRole = targetUser?.role || "admin"; 
+    let targetUser = null;
+    if (recipientId) {
+      targetUser = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { id: recipientId },
+            { email: recipientId },
+            { fullName: recipientId },
+          ],
+        },
+      });
+    }
+
+    if (!targetUser && startupIdeaId) {
+      const idea = await prisma.startupIdea.findUnique({ where: { id: startupIdeaId } });
+      if (idea?.founder) {
+        targetUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { id: idea.founder },
+              { email: idea.founder },
+              { fullName: idea.founder },
+            ],
+          },
+        });
+      }
+    }
+
+    let finalRecipientId = targetUser?.id || recipientId;
+    let targetRole = targetUser?.role || "founder"; 
 
     let actualContextId = projectId || investmentId || startupIdeaId || supportTicketId;
     
@@ -187,7 +215,6 @@ export const createOrFindConversation = async (req: AuthenticatedRequest, res: R
        return res.status(403).json({ success: false, message: "Not authorized to create a conversation with this context." });
     }
 
-    let finalRecipientId = recipientId;
     if (contextType === "SUPPORT" && !recipientId) {
        const admin = await prisma.user.findFirst({ where: { role: "admin" } });
        if (admin) finalRecipientId = admin.id;
