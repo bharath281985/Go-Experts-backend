@@ -80,18 +80,41 @@ function cleanDesc(val: string | null | undefined, fallback: string = ''): strin
   return parts.length > 0 ? parts.join(', ') : fallback;
 }
 
+function cleanProjectTitle(title: string | null | undefined, category: string | null | undefined, tech: string | null | undefined): string {
+  if (!title || typeof title !== 'string') {
+    if (category && category.trim()) return `${category.trim()} Project`;
+    return 'Full-Stack Development';
+  }
+  const trimmed = title.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'untitled' || trimmed.toLowerCase() === 'untitled project' || trimmed.toLowerCase() === 'project') {
+    if (tech && tech.trim()) return `${tech.trim()} Platform Development`;
+    if (category && category.trim()) return `${category.trim()} Project`;
+    return 'Full-Stack Web & Mobile App';
+  }
+  return trimmed;
+}
+
+function cleanStartupTitle(title: string | null | undefined, startup: string | null | undefined, industry: string | null | undefined): string {
+  const name = title || startup;
+  if (!name || typeof name !== 'string') return industry ? `${industry} Venture` : 'Next-Gen Startup';
+  const trimmed = name.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'startup idea' || trimmed.toLowerCase() === 'untitled' || trimmed.includes("'s Startup") || trimmed.includes("’s Startup") || trimmed.includes("s Startup")) {
+    return industry ? `${industry} Platform` : 'Next-Gen Startup';
+  }
+  return trimmed;
+}
+
 async function getActiveStartupIdeas(limit: number = 5, excludeUserId?: string) {
-  const activeFounders = await prisma.user.findMany({
-    where: { role: 'founder', status: 'active', deletedAt: null },
+  const deletedUsers = await prisma.user.findMany({
+    where: { deletedAt: { not: null } },
     select: { id: true },
   }).catch(() => []);
-  const activeFounderIds = activeFounders.map((f) => f.id);
-  if (activeFounderIds.length === 0) return [];
+  const deletedUserIds = deletedUsers.map((f) => f.id);
 
   return prisma.startupIdea.findMany({
     where: {
       deletedAt: null,
-      founder: { in: activeFounderIds },
+      ...(deletedUserIds.length > 0 ? { founder: { notIn: deletedUserIds } } : {}),
       NOT: [
         { startup: '' },
         { startup: { contains: "'s Startup" } },
@@ -106,17 +129,17 @@ async function getActiveStartupIdeas(limit: number = 5, excludeUserId?: string) 
 }
 
 async function getActiveProjects(limit: number = 5, excludeUserId?: string) {
-  const activeClients = await prisma.user.findMany({
-    where: { role: 'client', status: 'active', deletedAt: null },
+  const deletedUsers = await prisma.user.findMany({
+    where: { deletedAt: { not: null } },
     select: { id: true },
   }).catch(() => []);
-  const activeClientIds = activeClients.map((c) => c.id);
+  const deletedUserIds = deletedUsers.map((c) => c.id);
 
   return prisma.project.findMany({
     where: {
       status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
       deletedAt: null,
-      ...(activeClientIds.length > 0 ? { client: { in: activeClientIds } } : {}),
+      ...(deletedUserIds.length > 0 ? { client: { notIn: deletedUserIds } } : {}),
       ...(excludeUserId ? { client: { not: excludeUserId } } : {}),
     },
     orderBy: { createdAt: 'desc' },
@@ -141,9 +164,26 @@ async function buildRecommendationItems(role: string, userId: string) {
       ]);
 
       return {
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
-        clients: (clients || []).map((c) => ({ id: c.id, title: c.fullName || 'Client', subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
-        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
+        projects: (projects || []).map((p) => ({
+          id: p.id,
+          title: cleanProjectTitle(p.title, p.category, p.technology),
+          subtitle: cleanTag(p.category, 'Project'),
+          description: cleanDesc(p.technology ?? p.description, ''),
+          budget: p.budget,
+        })),
+        clients: (clients || []).map((c) => ({
+          id: c.id,
+          title: c.fullName || 'Client',
+          subtitle: cleanTag(c.clientProfile?.company, 'Client'),
+          description: cleanDesc(c.clientProfile?.industry ?? c.city, ''),
+        })),
+        startups: (startups || []).map((s) => ({
+          id: s.id,
+          title: cleanStartupTitle((s as any).title, s.startup, s.industry),
+          subtitle: cleanTag(s.stage, 'Startup'),
+          description: cleanDesc(s.industry, ''),
+          funding: s.funding,
+        })),
       };
     }
 
@@ -164,9 +204,25 @@ async function buildRecommendationItems(role: string, userId: string) {
         }).catch(() => []),
       ]);
       return {
-        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName || 'Freelancer', subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
-        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
-        investors: (investors || []).map((i) => ({ id: i.id, title: i.fullName || 'Investor', subtitle: cleanTag(i.investorProfile?.firm, 'Investor'), description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, '') })),
+        freelancers: (freelancers || []).map((f) => ({
+          id: f.id,
+          title: f.fullName || 'Freelancer',
+          subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'),
+          description: cleanDesc(f.freelancerProfile?.industry ?? f.city, ''),
+        })),
+        startups: (startups || []).map((s) => ({
+          id: s.id,
+          title: cleanStartupTitle((s as any).title, s.startup, s.industry),
+          subtitle: cleanTag(s.stage, 'Startup'),
+          description: cleanDesc(s.industry, ''),
+          funding: s.funding,
+        })),
+        investors: (investors || []).map((i) => ({
+          id: i.id,
+          title: i.fullName || 'Investor',
+          subtitle: cleanTag(i.investorProfile?.firm, 'Investor'),
+          description: cleanDesc(i.investorProfile?.focusAreas ?? i.city, ''),
+        })),
       };
     }
 
@@ -182,9 +238,26 @@ async function buildRecommendationItems(role: string, userId: string) {
         }).catch(() => []),
       ]);
       return {
-        startups: (startups || []).map((s) => ({ id: s.id, title: (s as any).title || s.startup || 'Startup Idea', subtitle: cleanTag(s.stage, 'Startup'), description: cleanDesc(s.industry, '') })),
-        projects: (projects || []).map((p) => ({ id: p.id, title: p.title || 'Project', subtitle: cleanTag(p.category, 'Project'), description: cleanDesc(p.technology ?? p.description, '') })),
-        freelancers: (freelancers || []).map((f) => ({ id: f.id, title: f.fullName || 'Freelancer', subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
+        startups: (startups || []).map((s) => ({
+          id: s.id,
+          title: cleanStartupTitle((s as any).title, s.startup, s.industry),
+          subtitle: cleanTag(s.stage, 'Startup'),
+          description: cleanDesc(s.industry, ''),
+          funding: s.funding,
+        })),
+        projects: (projects || []).map((p) => ({
+          id: p.id,
+          title: cleanProjectTitle(p.title, p.category, p.technology),
+          subtitle: cleanTag(p.category, 'Project'),
+          description: cleanDesc(p.technology ?? p.description, ''),
+          budget: p.budget,
+        })),
+        freelancers: (freelancers || []).map((f) => ({
+          id: f.id,
+          title: f.fullName || 'Freelancer',
+          subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'),
+          description: cleanDesc(f.freelancerProfile?.industry ?? f.city, ''),
+        })),
       };
     }
 
