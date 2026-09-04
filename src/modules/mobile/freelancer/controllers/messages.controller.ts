@@ -1,7 +1,43 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
-import { successResponse } from '../../../../core/response.js';
+import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+
+const findOrCreateDm = async (userId: string, role: string, recipientId: string, projectId?: string | null) => {
+  const [a, b] = [userId, recipientId].sort();
+
+  const existing = await prisma.conversation.findFirst({
+    where: {
+      deletedAt: null,
+      status: 'active',
+      OR: [
+        { userA: a, userB: b },
+        { userA: b, userB: a },
+      ],
+    } as any,
+  }).catch(() => null);
+
+  if (existing) return existing;
+
+  const recipient = await prisma.user.findUnique({ where: { id: recipientId } }).catch(() => null);
+  const me = await prisma.user.findUnique({ where: { id: userId } }).catch(() => null);
+
+  return prisma.conversation.create({
+    data: {
+      name: recipient?.fullName || me?.fullName || 'Chat',
+      role,
+      status: 'active',
+      avatar: recipient?.avatarUrl || null,
+      msg: null,
+      time: new Date().toISOString(),
+      ...( {
+        userA: a,
+        userB: b,
+        projectId: projectId || null,
+      } as any),
+    },
+  });
+};
 
 export const listConversations = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -76,11 +112,43 @@ export const getConversationDetails = async (req: AuthRequest, res: Response, ne
 
 export const sendMessage = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { conversationId, text } = req.body;
+    const { conversationId, text, recipientId, projectId } = req.body || {};
+    const trimmedText = String(text || '').trim();
+
+    if (!trimmedText && !recipientId) {
+      return res.status(400).json(errorResponse('conversationId or recipientId is required', 'VALIDATION_ERROR'));
+    }
+
+    let convId = conversationId as string | undefined;
+    if (!convId && recipientId) {
+      const conv = await findOrCreateDm(req.user.id, req.user.role, String(recipientId), projectId ? String(projectId) : undefined);
+      convId = conv.id;
+    }
+
+    if (!convId) {
+      return res.status(400).json(errorResponse('conversationId or recipientId is required', 'VALIDATION_ERROR'));
+    }
+
     const message = await prisma.message.create({
-      data: { conversationId, from: 'me', text, time: new Date().toISOString() }
+      data: {
+        conversationId: convId,
+        from: req.user.fullName || 'me',
+        text: trimmedText || '',
+        time: new Date().toISOString(),
+        ...( { senderId: req.user.id } as any ),
+      }
     });
-    return res.status(201).json(successResponse('Message sent', message));
+
+    await prisma.conversation.update({
+      where: { id: convId },
+      data: {
+        msg: message.text,
+        time: new Date().toISOString(),
+        unread: { increment: 1 },
+      },
+    }).catch(() => null);
+
+    return res.status(201).json(successResponse('Message sent', { ...message, conversationId: convId, from: 'me', isMine: true }));
   } catch (error) { next(error); }
 };
 
