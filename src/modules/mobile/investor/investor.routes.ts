@@ -35,6 +35,7 @@ import { getWatchlist as getWatchlistFounder, addToWatchlist as addToWatchlistFo
 import { listProjects as listClientProjects, createProject, updateProject, deleteProject, updateProjectStatus, getProjectDetails } from '../client/controllers/projects.controller.js';
 import { listProjectProposals } from '../client/controllers/proposals.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
+import { listContracts, getContractDetails } from '../freelancer/controllers/contracts.controller.js';
 
 const router = Router();
 
@@ -109,14 +110,20 @@ router.get('/watchlist/founders', getFounderWatchlist);
 router.post('/founders/:id/save', saveFounder);
 router.delete('/founders/:id/save', unsaveFounder);
 
-// ─── Investments ───
+// ─── Investments & Deals ───
 router.get('/investments', listInvestments);
+router.get('/deals', listInvestments);
 router.get('/investments/history', getInvestmentHistory);
 router.get('/investments/:id', getInvestment);
+router.get('/deals/:id', getInvestment);
 router.post('/investments/express-interest', expressInterest);
 router.post('/investments/offer', makeOffer);
 router.patch('/investments/:id/status', updateInvestmentStatus);
 router.patch('/investments/:id/cancel', cancelInvestment);
+
+// ─── Contracts ───
+router.get('/contracts', listContracts);
+router.get('/contracts/:id', getContractDetails);
 
 // ─── Portfolio ───
 router.get('/portfolio', getPortfolio);

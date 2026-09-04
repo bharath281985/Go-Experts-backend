@@ -54,6 +54,7 @@ import subscriptionRoutes from "./subscription/subscription.routes.js";
 import { getVerificationStats } from "../common/helpers/verification.js";
 
 import mobileRoutes from "../modules/mobile/index.js";
+import { saveInvestor, unsaveInvestor } from "../modules/mobile/public/public.controller.js";
 import { requireOnboarding } from "../middlewares/onboarding.middleware.js";
 
 const router = Router();
@@ -66,6 +67,8 @@ router.use("/payments", paymentsRoutes);
 // Mobile API Routes (/api/v1/mobile/..., /api/mobile/...)
 router.use("/v1/mobile", mobileRoutes);
 router.use("/mobile", mobileRoutes);
+router.post("/v1/mobile/public/investors/:id/save", authMiddleware as any, saveInvestor as any);
+router.delete("/v1/mobile/public/investors/:id/save", authMiddleware as any, unsaveInvestor as any);
 
 // Subscription / Plan Activation Routes
 router.use("/subscription", subscriptionRoutes);

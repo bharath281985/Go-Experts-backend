@@ -25,9 +25,10 @@ import { getSettings, updateSettings } from './controllers/settings.controller.j
 import { globalSearch } from './controllers/search.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from './controllers/ideas.controller.js';
 import { getReceivedReviews, getAverageRating, getRatingBreakdown, replyToReview } from './controllers/reviews.controller.js';
-import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority } from './controllers/watchlist.controller.js';
 import { listProjects as listClientProjects, createProject, updateProject, deleteProject, updateProjectStatus, getProjectDetails, inviteFreelancer } from '../client/controllers/projects.controller.js';
 import { listProjectProposals } from '../client/controllers/proposals.controller.js';
+import { listInvestments, getInvestment } from '../investor/controllers/investments.controller.js';
+import { listContracts, getContractDetails } from '../freelancer/controllers/contracts.controller.js';
 
 const router = Router();
 
@@ -57,6 +58,16 @@ router.post('/startups', createIdea);
 router.get('/ideas/:id', getIdeaDetails);
 router.put('/ideas/:id', updateIdea);
 router.delete('/ideas/:id', deleteIdea);
+
+// Deals & Investments
+router.get('/deals', listInvestments);
+router.get('/deals/:id', getInvestment);
+router.get('/investments', listInvestments);
+router.get('/investments/:id', getInvestment);
+
+// Contracts
+router.get('/contracts', listContracts);
+router.get('/contracts/:id', getContractDetails);
 
 // Profile
 router.get('/profile', getProfile);

@@ -142,9 +142,11 @@ router.patch('/investor-requests/:id/reject', authenticate, rejectRequest);
 router.patch('/investor-requests/:id/meeting', authenticate, scheduleRequestMeeting);
 router.post('/investor-requests/:id/message', authenticate, messageInvestor);
 
-// ─── Investment Offers & Portfolio (Universal Access) ───
+// ─── Investment Offers & Portfolio & Deals (Universal Access) ───
 router.get('/investments', authenticate, listInvestments);
+router.get('/deals', authenticate, listInvestments);
 router.get('/investments/:id', authenticate, getInvestment);
+router.get('/deals/:id', authenticate, getInvestment);
 router.post('/investments/offer', authenticate, makeOffer);
 router.post('/investments/express-interest', authenticate, expressInterest);
 router.patch('/investments/:id/cancel', authenticate, cancelInvestment);
