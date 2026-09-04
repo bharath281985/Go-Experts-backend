@@ -22,6 +22,7 @@ import { listReviews, createReview, updateReview, deleteReview, getAverageRating
 import { getCurrentPlan, getPlans, purchasePlan, renewPlan, upgradePlan, cancelPlan } from './controllers/subscriptions.controller.js';
 import { listTickets, createTicket, getTicket, replyToTicket, closeTicket } from './controllers/support.controller.js';
 import { listDocuments, uploadDocument, getDocument, downloadDocument, deleteDocument } from './controllers/documents.controller.js';
+import { getTeam, inviteTeamMember, updateTeamMemberRole, removeTeamMember } from './controllers/team.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
 import { listInvestments, getInvestment } from '../investor/controllers/investments.controller.js';
 import { getAnalytics, getReports, getSpendReport, getProjectsReport, getFreelancersReport, exportReport } from './controllers/analytics.controller.js';
