@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getClientDashboard, listClientReviews, getClientProfile, updateClientProfile, listClientProjects, getClientPipeline, createClientProject, getClientProject, updateClientProject, deleteClientProject, listProjectApplications, listClientApplications, listClientContracts, getClientProposal, shortlistProposal, offerProposal, rejectProposal, interviewProposal, inviteFreelancer, listSavedFreelancers, toggleSavedFreelancer, removeSavedFreelancer, listClientInvitations, listClientTeam, addClientTeamMember, updateClientTeamMember, deleteClientTeamMember, listClientRoles, listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead, getClientAnalytics } from "../../controllers/client/client.controller.js";
+import { getClientDashboard, listClientReviews, getClientProfile, updateClientProfile, listClientProjects, getClientPipeline, createClientProject, getClientProject, updateClientProject, deleteClientProject, listProjectApplications, listClientApplications, listClientContracts, getClientProposal, shortlistProposal, offerProposal, rejectProposal, interviewProposal, inviteFreelancer, listSavedFreelancers, toggleSavedFreelancer, removeSavedFreelancer, listClientInvitations, listClientTeam, addClientTeamMember, updateClientTeamMember, resendClientTeamInvite, deleteClientTeamMember, listClientRoles, listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead, getClientAnalytics } from "../../controllers/client/client.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
@@ -82,6 +82,8 @@ router.get("/team", listClientTeam);
 router.get("/roles", listClientRoles);
 router.get("/invitations", listClientInvitations);
 router.post("/team", addClientTeamMember);
+router.post("/team/:id/resend", resendClientTeamInvite);
+router.post("/team/resend", resendClientTeamInvite);
 router.put("/team/:id", updateClientTeamMember);
 router.delete("/team/:id", deleteClientTeamMember);
 // router.get("/pipeline", listClientPipeline as any);

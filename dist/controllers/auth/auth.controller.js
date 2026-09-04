@@ -113,6 +113,63 @@ async function getRoleColor(user) {
         return DEFAULT_COLOR;
     }
 }
+async function resolveUserTeamMembership(userId, email) {
+    try {
+        const membership = await prisma.clientTeamMember.findFirst({
+            where: {
+                OR: [
+                    { userId },
+                    { email: email.toLowerCase().trim() },
+                ],
+                status: { not: "Suspended" },
+            },
+            include: {
+                client: {
+                    select: { id: true, fullName: true, email: true }
+                }
+            },
+            orderBy: { updatedAt: "desc" },
+        });
+        if (!membership)
+            return null;
+        if (!membership.userId && userId) {
+            await prisma.clientTeamMember.update({
+                where: { id: membership.id },
+                data: { userId }
+            }).catch(() => { });
+        }
+        let permittedDashboards = ["client"];
+        let modulePermissions = {};
+        if (membership.permissions) {
+            try {
+                const parsed = typeof membership.permissions === "string"
+                    ? JSON.parse(membership.permissions)
+                    : membership.permissions;
+                if (Array.isArray(parsed.permittedDashboards) && parsed.permittedDashboards.length > 0) {
+                    permittedDashboards = parsed.permittedDashboards;
+                }
+                else if (Array.isArray(parsed) && parsed.length > 0) {
+                    permittedDashboards = parsed;
+                }
+                if (parsed.modulePermissions) {
+                    modulePermissions = parsed.modulePermissions;
+                }
+                else if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                    modulePermissions = parsed;
+                }
+            }
+            catch (e) { }
+        }
+        return {
+            membership,
+            permittedDashboards,
+            modulePermissions,
+        };
+    }
+    catch (err) {
+        return null;
+    }
+}
 export const login = async (req, res, next) => {
     try {
         const inputEmail = req.body?.email ?? req.body?.identifier ?? req.body?.username ?? req.body?.emailId;
@@ -273,10 +330,21 @@ export const login = async (req, res, next) => {
                 .catch(() => { });
             return res.status(403).json({ success: false, message: "Your account is suspended. Please contact support." });
         }
+        const teamInfo = await resolveUserTeamMembership(user.id, user.email);
+        let effectiveRole = user.role;
+        if (teamInfo) {
+            if (!teamInfo.permittedDashboards.includes(user.role)) {
+                effectiveRole = teamInfo.permittedDashboards[0] || "client";
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { role: effectiveRole }
+                }).catch(() => { });
+            }
+        }
         const payload = {
             id: user.id,
             email: user.email,
-            role: user.role,
+            role: effectiveRole,
             type: "portal",
         };
         const accessToken = signAccessToken(payload);
@@ -322,7 +390,21 @@ export const login = async (req, res, next) => {
             email: user.email,
             fullName: user.fullName,
             avatarUrl: user.avatarUrl,
-            role: user.role,
+            role: effectiveRole,
+            permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+            modulePermissions: teamInfo ? teamInfo.modulePermissions : null,
+            activeRoles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+            roles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+            teamMembership: teamInfo ? {
+                id: teamInfo.membership.id,
+                clientId: teamInfo.membership.clientId,
+                clientName: teamInfo.membership.client?.fullName || "Organization",
+                role: teamInfo.membership.role,
+                department: teamInfo.membership.department,
+                status: teamInfo.membership.status,
+                permittedDashboards: teamInfo.permittedDashboards,
+                modulePermissions: teamInfo.modulePermissions,
+            } : null,
             status: user.status,
             onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
             country: user.country,
@@ -918,10 +1000,36 @@ export const me = async (req, res, next) => {
             }
             catch (e) { }
             const kycReadiness = buildKycReadiness(user);
+            const teamInfo = await resolveUserTeamMembership(user.id, user.email);
+            let effectiveRole = user.role;
+            if (teamInfo) {
+                if (!teamInfo.permittedDashboards.includes(user.role)) {
+                    effectiveRole = teamInfo.permittedDashboards[0] || "client";
+                    await prisma.user.update({
+                        where: { id: user.id },
+                        data: { role: effectiveRole }
+                    }).catch(() => { });
+                }
+            }
             return res.json({
                 success: true,
                 user: {
                     ...sanitized,
+                    role: effectiveRole,
+                    permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+                    modulePermissions: teamInfo ? teamInfo.modulePermissions : null,
+                    activeRoles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+                    roles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+                    teamMembership: teamInfo ? {
+                        id: teamInfo.membership.id,
+                        clientId: teamInfo.membership.clientId,
+                        clientName: teamInfo.membership.client?.fullName || "Organization",
+                        role: teamInfo.membership.role,
+                        department: teamInfo.membership.department,
+                        status: teamInfo.membership.status,
+                        permittedDashboards: teamInfo.permittedDashboards,
+                        modulePermissions: teamInfo.modulePermissions,
+                    } : null,
                     isKycSubmitted: kycReadiness.submitted,
                     isKycVerified: kycReadiness.verified,
                     kycStatus: kycReadiness.status,
@@ -930,7 +1038,7 @@ export const me = async (req, res, next) => {
                     profileCompletedPer: completion.profileCompletion,
                     profileCompletedPercentage: completion.profileCompletion,
                     profileReadiness: {
-                        role: (user.role || "").toUpperCase(),
+                        role: (effectiveRole || "").toUpperCase(),
                         profileCompletion: completion.profileCompletion,
                         profileLevel: completion.profileLevel || 'INCOMPLETE',
                         operationalReady: completion.operationalReady || false,
