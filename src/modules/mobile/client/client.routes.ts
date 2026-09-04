@@ -28,6 +28,7 @@ import { getAnalytics, getReports, getSpendReport, getProjectsReport, getFreelan
 import { savedProjects, saveProject, unsaveProject } from '../freelancer/controllers/projects.controller.js';
 import { getWatchlist, saveFounder, unsaveFounder, getFounderWatchlist } from '../investor/controllers/watchlist.controller.js';
 import { saveStartup, unsaveStartup } from '../investor/controllers/startups.controller.js';
+import { listInvestments, getInvestment } from '../investor/controllers/investments.controller.js';
 
 const router = Router();
 
