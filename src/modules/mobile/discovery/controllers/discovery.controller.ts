@@ -321,10 +321,10 @@ async function buildRecommendationItems(role: string, userId: string) {
       };
     }
 
-    const [investors, freelancers, clients] = await Promise.all([
+    const [investors, freelancers, startups] = await Promise.all([
       prisma.user.findMany({ where: { role: 'investor', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { investorProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
       prisma.user.findMany({ where: { role: 'freelancer', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { freelancerProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
-      prisma.user.findMany({ where: { role: 'client', status: 'active', deletedAt: null, ...(userId ? { id: { not: userId } } : {}) }, include: { clientProfile: true }, orderBy: { createdAt: 'desc' }, take: limit }).catch(() => []),
+      getActiveStartupIdeas(limit, userId),
     ]);
 
     return {
@@ -336,9 +336,15 @@ async function buildRecommendationItems(role: string, userId: string) {
         (freelancers || []).map((f) => ({ id: f.id, title: f.fullName, subtitle: cleanTag(f.freelancerProfile?.skills, 'Freelancer'), description: cleanDesc(f.freelancerProfile?.industry ?? f.city, '') })),
         (f) => f.title
       ).slice(0, 5),
-      clients: dedupeBy(
-        (clients || []).map((c) => ({ id: c.id, title: c.fullName, subtitle: cleanTag(c.clientProfile?.company, 'Client'), description: cleanDesc(c.clientProfile?.industry ?? c.city, '') })),
-        (c) => c.title
+      startups: dedupeBy(
+        (startups || []).map((s) => ({
+          id: s.id,
+          title: cleanStartupTitle((s as any).title, s.startup, s.industry),
+          subtitle: cleanTag(s.stage, 'Startup'),
+          description: cleanDesc(s.industry, ''),
+          funding: s.funding,
+        })),
+        (s) => s.title
       ).slice(0, 5),
     };
 
