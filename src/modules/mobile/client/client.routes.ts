@@ -24,14 +24,28 @@ import { listTickets, createTicket, getTicket, replyToTicket, closeTicket } from
 import { listDocuments, uploadDocument, getDocument, downloadDocument, deleteDocument } from './controllers/documents.controller.js';
 import { getTeam, inviteTeamMember, updateTeamMemberRole, removeTeamMember } from './controllers/team.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
-import { listInvestments, getInvestment } from '../investor/controllers/investments.controller.js';
 import { getAnalytics, getReports, getSpendReport, getProjectsReport, getFreelancersReport, exportReport } from './controllers/analytics.controller.js';
+import { savedProjects, saveProject, unsaveProject } from '../freelancer/controllers/projects.controller.js';
+import { getWatchlist, saveFounder, unsaveFounder, getFounderWatchlist } from '../investor/controllers/watchlist.controller.js';
+import { saveStartup, unsaveStartup } from '../investor/controllers/startups.controller.js';
 
 const router = Router();
 
 // Auth + Role guard on all client routes
 router.use(authenticate);
 router.use(authorizeRole(['freelancer', 'client', 'investor', 'founder']));
+
+// ─── Saved Endpoints (Universal) ───
+router.get('/projects/saved', savedProjects);
+router.post('/projects/:id/save', saveProject);
+router.delete('/projects/:id/save', unsaveProject);
+router.get('/startups/saved', getWatchlist);
+router.get('/watchlist', getWatchlist);
+router.post('/startups/:id/save', saveStartup);
+router.delete('/startups/:id/save', unsaveStartup);
+router.get('/watchlist/founders', getFounderWatchlist);
+router.post('/founders/:id/save', saveFounder);
+router.delete('/founders/:id/save', unsaveFounder);
 
 // ─── Dashboard ───
 router.get('/dashboard', getDashboard);

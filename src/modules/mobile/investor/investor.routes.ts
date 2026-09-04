@@ -36,11 +36,22 @@ import { listProjects as listClientProjects, createProject, updateProject, delet
 import { listProjectProposals } from '../client/controllers/proposals.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
 import { listContracts, getContractDetails } from '../freelancer/controllers/contracts.controller.js';
+import { getSavedFreelancers, saveFreelancer, unsaveFreelancer } from '../client/controllers/freelancers.controller.js';
+import { savedProjects, saveProject, unsaveProject } from '../freelancer/controllers/projects.controller.js';
 
 const router = Router();
 
 // Auth + Role guard on all investor routes
 router.use(authenticate);
+
+// ─── Freelancers / Projects Saved ───
+router.get('/freelancers/saved', getSavedFreelancers);
+router.post('/freelancers/:id/save', saveFreelancer);
+router.delete('/freelancers/:id/save', unsaveFreelancer);
+router.get('/projects/saved', savedProjects);
+router.post('/projects/:id/save', saveProject);
+router.delete('/projects/:id/save', unsaveProject);
+router.get('/startups/saved', getWatchlist);
 
 // ─── Dual-Personality Watchlist Routes (Investor or Founder payload depending on logged in user) ───
 router.get('/watchlist', (req: AuthRequest, res, next) => {
