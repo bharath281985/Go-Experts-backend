@@ -1042,6 +1042,33 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
+    const safeTeamInfo = async (userId: string, email: string) => {
+      try {
+        return await resolveUserTeamMembership(userId, email);
+      } catch {
+        return null;
+      }
+    };
+
+    const safeProfileCompletion = async (userId: string) => {
+      try {
+        const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+        return await resolveProfileCompletion(userId);
+      } catch {
+        return {
+          profileCompletion: 0,
+          isProfileComplete: false,
+          completedSteps: [],
+          pendingSteps: [],
+          profileLevel: "INCOMPLETE",
+          operationalReady: false,
+          requirements: { core: { complete: false, missing: [] }, recommended: { missing: [] } },
+          verification: { email: "PENDING", phone: "PENDING", identity: "PENDING" },
+          capabilities: {},
+        };
+      }
+    };
+
     if (req.user.type === "portal") {
       const user = await prisma.user.findFirst({
         where: { id: req.user.id, deletedAt: null },
@@ -1055,13 +1082,21 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
       if (!user) {
         return res.status(404).json({ success: false, message: "User not found" });
       }
-      let completion: any = { profileCompletion: 0, isProfileComplete: false, completedSteps: [], pendingSteps: [] };
-      try {
-        const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
-        completion = await resolveProfileCompletion(user.id);
-      } catch (err) {}
+      const completion: any = await safeProfileCompletion(user.id);
 
-      const sanitized: any = sanitizeUserRecord(user);
+      let sanitized: any;
+      try {
+        sanitized = sanitizeUserRecord(user);
+      } catch {
+        sanitized = {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          avatarUrl: user.avatarUrl,
+          role: user.role,
+          status: user.status,
+        };
+      }
       
       try {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1102,7 +1137,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
 
       const kycReadiness = buildKycReadiness(user);
 
-      const teamInfo = await resolveUserTeamMembership(user.id, user.email);
+      const teamInfo = await safeTeamInfo(user.id, user.email);
       let effectiveRole = user.role;
       if (teamInfo) {
         if (!teamInfo.permittedDashboards.includes(user.role)) {
@@ -1175,13 +1210,21 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         },
       });
       if (user) {
-        let completion: any = { profileCompletion: 0, isProfileComplete: false, completedSteps: [], pendingSteps: [] };
-        try {
-          const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
-          completion = await resolveProfileCompletion(user.id);
-        } catch (err) {}
+        const completion: any = await safeProfileCompletion(user.id);
 
-        const sanitizedFallback: any = sanitizeUserRecord(user);
+        let sanitizedFallback: any;
+        try {
+          sanitizedFallback = sanitizeUserRecord(user);
+        } catch {
+          sanitizedFallback = {
+            id: user.id,
+            email: user.email,
+            fullName: user.fullName,
+            avatarUrl: user.avatarUrl,
+            role: user.role,
+            status: user.status,
+          };
+        }
         
         try {
           const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1221,11 +1264,33 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         } catch(e) {}
 
         const kycReadiness = buildKycReadiness(user);
+        const teamInfo = await safeTeamInfo(user.id, user.email);
+        let effectiveRole = user.role;
+        if (teamInfo && !teamInfo.permittedDashboards.includes(user.role)) {
+          effectiveRole = teamInfo.permittedDashboards[0] || "client";
+        }
 
         return res.json({
           success: true,
           user: {
             ...sanitizedFallback,
+              role: effectiveRole,
+              isOwner: !teamInfo,
+              accountType: teamInfo ? "team_member" : "owner",
+              permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+              modulePermissions: teamInfo ? teamInfo.modulePermissions : null,
+              activeRoles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+              roles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
+              teamMembership: teamInfo ? {
+                id: teamInfo.membership.id,
+                clientId: teamInfo.membership.clientId,
+                clientName: teamInfo.membership.client?.fullName || "Organization",
+                role: teamInfo.membership.role,
+                department: teamInfo.membership.department,
+                status: teamInfo.membership.status,
+                permittedDashboards: teamInfo.permittedDashboards,
+                modulePermissions: teamInfo.modulePermissions,
+              } : null,
               isKycSubmitted: kycReadiness.submitted,
               isKycVerified: kycReadiness.verified,
               kycStatus: kycReadiness.status,
