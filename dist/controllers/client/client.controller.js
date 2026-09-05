@@ -20,6 +20,25 @@ async function resolveIndustry(raw) {
     const slugId = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
     return { id: slugId, name: val };
 }
+/** Resolve a country string (name, code or id) to a clean display name */
+async function resolveCountry(raw) {
+    if (!raw || !raw.trim())
+        return null;
+    const val = raw.trim();
+    try {
+        const found = await prisma.country.findFirst({
+            where: { OR: [{ id: val }, { name: val }, { code: val }] },
+            select: { id: true, name: true },
+        });
+        if (found)
+            return found.name;
+    }
+    catch { /* ignore */ }
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) {
+        return "India";
+    }
+    return val;
+}
 async function loadClientUser(userId) {
     const user = await prisma.user.findFirst({
         where: { id: userId, deletedAt: null },
@@ -159,6 +178,7 @@ export const getClientProfile = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const resolvedIndustry = await resolveIndustry(user.clientProfile?.industry);
+        const resolvedCountry = await resolveCountry(user.country);
         res.json({
             success: true,
             data: {
@@ -169,10 +189,13 @@ export const getClientProfile = async (req, res, next) => {
                 avatarUrl: user.avatarUrl || "",
                 bio: user.bio || "",
                 city: user.city || "",
-                country: user.country || "",
+                country: resolvedCountry || "",
+                countryName: resolvedCountry || "",
+                countryId: user.country || "",
                 company: user.clientProfile?.company || "",
-                industry: resolvedIndustry,
+                industry: resolvedIndustry?.name || "",
                 industryName: resolvedIndustry?.name || null,
+                industryData: resolvedIndustry,
                 totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
                 projectsPosted: user.clientProfile?.projectsPosted ?? 0,
                 status: user.status || "active",
