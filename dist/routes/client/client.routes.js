@@ -22,8 +22,8 @@ router.get("/projects/:id/applications", multiRole, listProjectApplications);
 router.post("/projects/:id/invite", multiRole, inviteFreelancer);
 //   router.get("/projects/:id/invitations", multiRole, listProjectInvitations as any);
 router.get("/projects/:id/proposals", multiRole, listProjectApplications);
-// --- Client Only Routes ---
-router.use(portalRoleMiddleware(["client"]));
+// --- Client / Cross-Portal Routes ---
+router.use(portalRoleMiddleware(["client", "investor", "founder", "freelancer", "admin", "super_admin"]));
 router.get("/dashboard", getClientDashboard);
 router.get("/profile", getClientProfile);
 router.patch("/profile", updateClientProfile);

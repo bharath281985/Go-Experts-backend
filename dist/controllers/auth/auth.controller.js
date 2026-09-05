@@ -113,7 +113,7 @@ async function getRoleColor(user) {
         return DEFAULT_COLOR;
     }
 }
-async function resolveUserTeamMembership(userId, email) {
+export async function resolveUserTeamMembership(userId, email) {
     try {
         const membership = await prisma.clientTeamMember.findFirst({
             where: {

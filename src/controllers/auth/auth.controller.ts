@@ -140,7 +140,7 @@ async function getRoleColor(user: any): Promise<string> {
   }
 }
 
-async function resolveUserTeamMembership(userId: string, email: string) {
+export async function resolveUserTeamMembership(userId: string, email: string) {
   try {
     const membership = await (prisma as any).clientTeamMember.findFirst({
       where: {

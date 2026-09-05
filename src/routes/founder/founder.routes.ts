@@ -54,7 +54,7 @@ const router = Router();
 
 router.use(authMiddleware as any);
 router.use(requireOnboarding as any);
-router.use(portalRoleMiddleware(["founder"]) as any);
+router.use(portalRoleMiddleware(["founder", "investor", "client", "freelancer", "admin", "super_admin"]) as any);
 
 router.get("/dashboard", getFounderDashboard as any);
 

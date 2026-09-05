@@ -9,7 +9,7 @@ import { getFounderDashboard, getFounderProfile, updateFounderProfile, getFounde
 const router = Router();
 router.use(authMiddleware);
 router.use(requireOnboarding);
-router.use(portalRoleMiddleware(["founder"]));
+router.use(portalRoleMiddleware(["founder", "investor", "client", "freelancer", "admin", "super_admin"]));
 router.get("/dashboard", getFounderDashboard);
 router.get("/profile", getFounderProfile);
 router.patch("/profile", updateFounderProfile);
