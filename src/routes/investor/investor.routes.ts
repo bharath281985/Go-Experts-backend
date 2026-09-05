@@ -52,8 +52,8 @@ router.get("/portfolio", getInvestorPortfolio as any);
 router.get("/investments", listInvestorInvestments as any);
 router.post("/investments", createInvestorInvestment as any);
 
-// ── Investor-Specific Routes (requires investor role) ──
-const investorOnly = portalRoleMiddleware(["investor"]) as any;
+// ── Investor-Specific Routes (requires portal role) ──
+const investorOnly = portalRoleMiddleware(["investor", "client", "founder", "freelancer", "admin", "super_admin"]) as any;
 
 router.get("/dashboard", investorOnly, getInvestorDashboard as any);
 

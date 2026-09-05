@@ -111,6 +111,18 @@ export const getInvestorProfile = async (req, res, next) => {
         const user = await loadInvestorUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
+        const extra = await getJsonSetting(userId, "investor-profile-details", {});
+        const focusAreas = user.investorProfile?.focusAreas
+            ? user.investorProfile.focusAreas.split(",").map((s) => s.trim()).filter(Boolean)
+            : Array.isArray(extra?.focusAreas)
+                ? extra.focusAreas
+                : [];
+        const preferredStage = user.investorProfile?.preferredStage
+            ? user.investorProfile.preferredStage.split(",").map((s) => s.trim()).filter(Boolean)
+            : Array.isArray(extra?.preferredStage)
+                ? extra.preferredStage
+                : [];
+        const location = extra?.location || [user.city, user.country].filter(Boolean).join(", ");
         res.json({
             success: true,
             data: {
@@ -122,10 +134,17 @@ export const getInvestorProfile = async (req, res, next) => {
                 bio: user.bio || "",
                 city: user.city || "",
                 country: user.country || "",
+                location,
+                website: extra?.website || "",
+                linkedin: extra?.linkedin || "",
+                educationLevel: extra?.educationLevel || "",
                 firm: user.investorProfile?.firm || "",
+                investorType: user.investorProfile?.investorType || extra?.investorType || "",
+                isAccredited: user.investorProfile?.isAccredited || extra?.isAccredited || "",
                 ticketMin: user.investorProfile?.ticketMin ?? null,
                 ticketMax: user.investorProfile?.ticketMax ?? null,
-                focusAreas: user.investorProfile?.focusAreas || "",
+                focusAreas,
+                preferredStage,
                 deals: user.investorProfile?.deals ?? 0,
                 status: user.status,
                 verified: Boolean(user.isVerified || user.verified),
@@ -149,6 +168,23 @@ export const updateInvestorProfile = async (req, res, next) => {
         const fullName = body.fullName != null ? String(body.fullName).trim() : existing.fullName;
         if (!fullName)
             return res.status(400).json({ success: false, message: "Full name is required" });
+        let city = existing.city;
+        let country = existing.country;
+        if (body.location != null) {
+            const loc = String(body.location).trim();
+            if (loc.includes(",")) {
+                const parts = loc.split(",").map((p) => p.trim());
+                city = parts[0] || null;
+                country = parts.slice(1).join(", ") || null;
+            }
+            else if (loc) {
+                city = loc;
+            }
+        }
+        if (body.city != null)
+            city = String(body.city).trim() || null;
+        if (body.country != null)
+            country = String(body.country).trim() || null;
         await prisma.user.update({
             where: { id: userId },
             data: {
@@ -156,8 +192,8 @@ export const updateInvestorProfile = async (req, res, next) => {
                 phone: body.phone != null ? String(body.phone).trim() || null : existing.phone,
                 bio: body.bio != null ? String(body.bio) : existing.bio,
                 avatarUrl: body.avatarUrl != null ? String(body.avatarUrl).trim() || null : existing.avatarUrl,
-                city: body.city != null ? String(body.city).trim() || null : existing.city,
-                country: body.country != null ? String(body.country).trim() || null : existing.country,
+                city,
+                country,
             },
         });
         const focusAreas = body.focusAreas != null
@@ -165,22 +201,49 @@ export const updateInvestorProfile = async (req, res, next) => {
                 ? body.focusAreas.join(", ")
                 : String(body.focusAreas)
             : existing.investorProfile?.focusAreas ?? null;
+        const preferredStage = body.preferredStage != null
+            ? Array.isArray(body.preferredStage)
+                ? body.preferredStage.join(", ")
+                : String(body.preferredStage)
+            : existing.investorProfile?.preferredStage ?? null;
+        const investorType = body.investorType != null ? String(body.investorType).trim() || null : existing.investorProfile?.investorType ?? null;
+        const isAccredited = body.isAccredited != null ? String(body.isAccredited).trim() || null : existing.investorProfile?.isAccredited ?? null;
+        const ticketMin = body.ticketMin != null && body.ticketMin !== "" ? Number(body.ticketMin) : null;
+        const ticketMax = body.ticketMax != null && body.ticketMax !== "" ? Number(body.ticketMax) : null;
         await prisma.investorProfile.upsert({
             where: { userId },
             update: {
                 firm: body.firm != null ? String(body.firm).trim() || null : existing.investorProfile?.firm ?? null,
-                ticketMin: body.ticketMin != null && body.ticketMin !== "" ? Number(body.ticketMin) : existing.investorProfile?.ticketMin ?? null,
-                ticketMax: body.ticketMax != null && body.ticketMax !== "" ? Number(body.ticketMax) : existing.investorProfile?.ticketMax ?? null,
+                investorType,
+                isAccredited,
+                ticketMin: ticketMin !== null ? ticketMin : existing.investorProfile?.ticketMin ?? null,
+                ticketMax: ticketMax !== null ? ticketMax : existing.investorProfile?.ticketMax ?? null,
                 focusAreas,
+                preferredStage,
             },
             create: {
                 userId,
                 firm: body.firm != null ? String(body.firm).trim() || null : null,
-                ticketMin: body.ticketMin != null && body.ticketMin !== "" ? Number(body.ticketMin) : null,
-                ticketMax: body.ticketMax != null && body.ticketMax !== "" ? Number(body.ticketMax) : null,
+                investorType,
+                isAccredited,
+                ticketMin,
+                ticketMax,
                 focusAreas,
+                preferredStage,
             },
         });
+        // Save extra details in settings JSON
+        const prevExtra = await getJsonSetting(userId, "investor-profile-details", {});
+        const newExtra = {
+            ...prevExtra,
+            website: body.website !== undefined ? String(body.website || "").trim() : prevExtra.website || "",
+            linkedin: body.linkedin !== undefined ? String(body.linkedin || "").trim() : prevExtra.linkedin || "",
+            educationLevel: body.educationLevel !== undefined ? String(body.educationLevel || "").trim() : prevExtra.educationLevel || "",
+            location: body.location !== undefined ? String(body.location || "").trim() : prevExtra.location || "",
+            investorType: investorType || prevExtra.investorType || "",
+            isAccredited: isAccredited || prevExtra.isAccredited || "",
+        };
+        await setJsonSetting(userId, "investor-profile-details", newExtra);
         return getInvestorProfile(req, res, next);
     }
     catch (err) {

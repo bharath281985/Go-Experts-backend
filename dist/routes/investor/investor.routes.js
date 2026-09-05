@@ -16,8 +16,8 @@ router.delete("/watchlist/:id", removeFromWatchlist);
 router.get("/portfolio", getInvestorPortfolio);
 router.get("/investments", listInvestorInvestments);
 router.post("/investments", createInvestorInvestment);
-// ── Investor-Specific Routes (requires investor role) ──
-const investorOnly = portalRoleMiddleware(["investor"]);
+// ── Investor-Specific Routes (requires portal role) ──
+const investorOnly = portalRoleMiddleware(["investor", "client", "founder", "freelancer", "admin", "super_admin"]);
 router.get("/dashboard", investorOnly, getInvestorDashboard);
 router.get("/profile", investorOnly, getInvestorProfile);
 router.patch("/profile", investorOnly, updateInvestorProfile);
