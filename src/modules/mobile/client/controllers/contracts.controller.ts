@@ -12,7 +12,27 @@ export const listContracts = async (req: AuthRequest, res: Response, next: NextF
     const where: any = { clientId: req.user.id };
     if (status) where.status = status;
     const [contracts, total] = await Promise.all([
-      prisma.contract.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      prisma.contract.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          project: { select: { id: true, title: true, status: true } },
+          freelancer: { select: { id: true, fullName: true, avatarUrl: true } },
+          proposal: {
+            select: {
+              id: true,
+              bidAmount: true,
+              deliveryDays: true,
+              coverLetter: true,
+              status: true,
+              submittedAt: true,
+              attachments: true,
+            }
+          }
+        }
+      }),
       prisma.contract.count({ where })
     ]);
     return res.json(successResponse('Contracts retrieved', contracts, { page, limit, total, totalPages: Math.ceil(total / limit) }));
@@ -39,9 +59,9 @@ export const getContract = async (req: AuthRequest, res: Response, next: NextFun
 
     let proposal = null;
     if (contract.proposalId) {
-      proposal = await prisma.proposal.findUnique({
-        where: { id: contract.proposalId }
-      });
+        proposal = await prisma.proposal.findUnique({
+          where: { id: contract.proposalId }
+        });
     }
 
     return res.json(

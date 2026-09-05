@@ -160,17 +160,88 @@ const buildAuthPayload = async (user: AuthUser) => {
   let isSocial = false;
 
   try {
-    const [c, s, isSocialRes] = await Promise.all([
+    const [c, s, isSocialRes, membership] = await Promise.all([
       resolveProfileCompletion(user.id).catch(() => null),
       resolveUserSubscriptionGate(user.id).catch(() => null),
       resolveIsSocialLogin(user).catch(() => false),
+      (prisma as any).teamMember.findFirst({
+        where: {
+          OR: [
+            { userId: user.id },
+            { email: user.email.toLowerCase().trim() },
+          ],
+          status: { not: "Suspended" },
+        },
+      }).catch(() => null),
     ]);
     if (c) completion = c;
     if (s) subscriptionGate = s;
     if (typeof isSocialRes === 'boolean') isSocial = isSocialRes;
+
+    let isOwner = !membership;
+    let accountType = isOwner ? "Owner" : "TeamMember";
+    let permittedDashboards: string[] = isOwner ? [user.role] : ["client"];
+    let modulePermissions: any = {};
+
+    if (membership?.permissions) {
+      try {
+        const parsed = typeof membership.permissions === "string" 
+          ? JSON.parse(membership.permissions) 
+          : membership.permissions;
+        if (Array.isArray(parsed.permittedDashboards) && parsed.permittedDashboards.length > 0) {
+          permittedDashboards = parsed.permittedDashboards;
+        } else if (Array.isArray(parsed) && parsed.length > 0) {
+          permittedDashboards = parsed;
+        }
+        if (parsed.modulePermissions) {
+          modulePermissions = parsed.modulePermissions;
+        } else if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          modulePermissions = parsed;
+        }
+      } catch (e) {}
+    }
+
   } catch (err) {
     console.error('Error resolving profile/subscription details:', err);
   }
+
+  // Define these variables outside so they are accessible below
+  let finalIsOwner = true;
+  let finalAccountType = "Owner";
+  let finalPermittedDashboards: string[] = [user.role];
+  let finalModulePermissions: any = {};
+
+  try {
+    const membership = await (prisma as any).teamMember.findFirst({
+      where: {
+        OR: [
+          { userId: user.id },
+          { email: user.email.toLowerCase().trim() },
+        ],
+        status: { not: "Suspended" },
+      },
+    }).catch(() => null);
+
+    finalIsOwner = !membership;
+    finalAccountType = finalIsOwner ? "Owner" : "TeamMember";
+    finalPermittedDashboards = finalIsOwner ? [user.role] : ["client"];
+
+    if (membership?.permissions) {
+      const parsed = typeof membership.permissions === "string" 
+        ? JSON.parse(membership.permissions) 
+        : membership.permissions;
+      if (Array.isArray(parsed.permittedDashboards) && parsed.permittedDashboards.length > 0) {
+        finalPermittedDashboards = parsed.permittedDashboards;
+      } else if (Array.isArray(parsed) && parsed.length > 0) {
+        finalPermittedDashboards = parsed;
+      }
+      if (parsed.modulePermissions) {
+        finalModulePermissions = parsed.modulePermissions;
+      } else if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        finalModulePermissions = parsed;
+      }
+    }
+  } catch (err) {}
 
   const hasActiveSubscription = subscriptionGate.status === 'active';
 
@@ -206,6 +277,12 @@ const buildAuthPayload = async (user: AuthUser) => {
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+
+      // Role Access Management
+      isOwner: finalIsOwner,
+      accountType: finalAccountType,
+      permittedDashboards: finalPermittedDashboards,
+      modulePermissions: finalModulePermissions,
     },
   };
 };
@@ -815,6 +892,53 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     const user = req.user;
     if (!user) return res.status(401).json(errorResponse('Unauthorized'));
 
+    // Fetch team membership if applicable
+    const membership = await (prisma as any).teamMember.findFirst({
+      where: {
+        OR: [
+          { userId: user.id },
+          { email: user.email.toLowerCase().trim() },
+        ],
+        status: { not: "Suspended" },
+      },
+      include: {
+        owner: {
+          select: { id: true, fullName: true, email: true }
+        }
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (membership && !membership.userId && user.id) {
+      await (prisma as any).teamMember.update({
+        where: { id: membership.id },
+        data: { userId: user.id }
+      }).catch(() => {});
+    }
+
+    let isOwner = !membership;
+    let accountType = isOwner ? "Owner" : "TeamMember";
+    let permittedDashboards: string[] = isOwner ? [user.role] : ["client"];
+    let modulePermissions: any = {};
+
+    if (membership?.permissions) {
+      try {
+        const parsed = typeof membership.permissions === "string" 
+          ? JSON.parse(membership.permissions) 
+          : membership.permissions;
+        if (Array.isArray(parsed.permittedDashboards) && parsed.permittedDashboards.length > 0) {
+          permittedDashboards = parsed.permittedDashboards;
+        } else if (Array.isArray(parsed) && parsed.length > 0) {
+          permittedDashboards = parsed;
+        }
+        if (parsed.modulePermissions) {
+          modulePermissions = parsed.modulePermissions;
+        } else if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          modulePermissions = parsed;
+        }
+      } catch (e) {}
+    }
+
     const [dbUser, completion, subscriptionGate] = await Promise.all([
       prisma.user.findUnique({
         where: { id: user.id },
@@ -1021,6 +1145,12 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
+      
+      // Role Access Management
+      isOwner,
+      accountType,
+      permittedDashboards,
+      modulePermissions,
     };
     return res.json(successResponse('User profile retrieved', { user: userData }));
   } catch (error) { next(error); }

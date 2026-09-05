@@ -20,7 +20,27 @@ export const listContracts = async (req: AuthRequest, res: Response, next: NextF
     }
 
     const [contracts, total] = await Promise.all([
-      prisma.contract.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      prisma.contract.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          project: { select: { id: true, title: true, status: true } },
+          client: { select: { id: true, fullName: true, avatarUrl: true } },
+          proposal: {
+            select: {
+              id: true,
+              bidAmount: true,
+              deliveryDays: true,
+              coverLetter: true,
+              status: true,
+              submittedAt: true,
+              attachments: true,
+            }
+          }
+        }
+      }),
       prisma.contract.count({ where })
     ]);
     return res.json(successResponse('Contracts retrieved', contracts, { page, limit, total, totalPages: Math.ceil(total / limit) }));
