@@ -172,6 +172,9 @@ model User {
 
   clientTeamMembers ClientTeamMember[] @relation("ClientOrganization")
   teamMemberships   ClientTeamMember[] @relation("TeamMembership")
+  
+  ownedTeams        TeamMember[] @relation("TeamOwner")
+  teamMemberUsers   TeamMember[] @relation("TeamMemberUser")
 }
 
 model AuthIdentity {
@@ -353,6 +356,33 @@ model Task {
 
   @@index([projectId], map: "tasks_project_id_fkey")
   @@map("tasks")
+}
+
+model Waitlist {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      String
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("waitlist")
+}
+
+model TeamMember {
+  id          String   @id @default(uuid())
+  ownerId     String   @map("owner_id")
+  owner       User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  user        User     @relation("TeamMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  email       String
+  role        String   @default("member")
+  permissions Json     @default("{}")
+  status      String   @default("Active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([ownerId, userId])
+  @@map("team_members")
 }
 
 model TaskChecklist {
