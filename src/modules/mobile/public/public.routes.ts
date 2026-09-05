@@ -20,7 +20,7 @@ import { listProjectProposals, getProposal, shortlistProposal, rejectProposal, i
 import { listProposals as listMyProposals, createProposal, getProposalDetails, updateProposal, withdrawProposal } from '../freelancer/controllers/proposals.controller.js';
 import { createIdea, updateIdea, deleteIdea, listIdeas } from '../founder/controllers/ideas.controller.js';
 import { getFunding, createFundingRound, getFundingHistory, updateFundingRound, updateFundingStatus } from '../founder/controllers/funding.controller.js';
-import { getPitchDeck, uploadPitchDeck, deletePitchDeck } from '../founder/controllers/pitch-deck.controller.js';
+import { getPitchDeck, createPitchDeck, deletePitchDeck } from '../founder/controllers/pitch-deck.controller.js';
 import { getBusinessPlan, createBusinessPlan, updateBusinessPlan } from '../founder/controllers/business-plan.controller.js';
 import { listInvestorRequests, getInvestorRequest, acceptRequest, rejectRequest, scheduleRequestMeeting, messageInvestor } from '../founder/controllers/investor-requests.controller.js';
 import { listInvestments, getInvestment, makeOffer, expressInterest, cancelInvestment } from '../investor/controllers/investments.controller.js';
@@ -131,7 +131,7 @@ router.put('/funding/:id', authenticate, updateFundingRound);
 router.patch('/funding/:id/status', authenticate, updateFundingStatus);
 
 router.get('/pitch-deck', authenticate, getPitchDeck);
-router.post('/pitch-deck', authenticate, upload.single('file'), handleUploadError, uploadPitchDeck);
+router.post('/pitch-deck', authenticate, createPitchDeck);
 router.delete('/pitch-deck', authenticate, deletePitchDeck);
 
 router.get('/business-plan', authenticate, getBusinessPlan);
