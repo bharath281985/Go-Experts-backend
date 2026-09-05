@@ -1674,6 +1674,7 @@ model Proposal {
   deletedAt    DateTime? @map("deleted_at")
   freelancer   User      @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
   project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contracts    Contract[]
 
   @@index([freelancerId], map: "proposals_freelancer_id_fkey")
   @@index([projectId], map: "proposals_project_id_fkey")
@@ -1696,6 +1697,7 @@ model Contract {
   client         User      @relation("ClientContracts", fields: [clientId], references: [id], onDelete: Cascade)
   freelancer     User      @relation("FreelancerContracts", fields: [freelancerId], references: [id], onDelete: Cascade)
   project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  proposal       Proposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
 
   @@index([clientId], map: "contracts_client_id_fkey")
   @@index([freelancerId], map: "contracts_freelancer_id_fkey")
