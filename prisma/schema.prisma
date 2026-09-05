@@ -175,6 +175,8 @@ model User {
   
   ownedTeams        TeamMember[] @relation("TeamOwner")
   teamMemberUsers   TeamMember[] @relation("TeamMemberUser")
+
+  socialLinks       SocialLink[]
 }
 
 model AuthIdentity {
@@ -799,6 +801,19 @@ model FeaturedService {
 
   @@index([userId], map: "featured_services_user_id_fkey")
   @@map("featured_services")
+}
+
+model SocialLink {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  platform  String   
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("social_links")
 }
 
 model Invoice {

@@ -19,6 +19,7 @@ import searchRoutes from './search.routes.js';
 import discoveryRoutes from './discovery.routes.js';
 import favoritesRoutes from './favorites.routes.js';
 import chatRoutes from './chat.routes.js';
+import socialLinksRoutes from './social-links.routes.js';
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use('/search', searchRoutes);
 router.use('/discovery', discoveryRoutes);
 router.use('/favorites', favoritesRoutes);
 router.use('/chat', chatRoutes);
+router.use('/social-links', socialLinksRoutes);
 
 export default router;
