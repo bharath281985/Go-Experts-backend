@@ -132,6 +132,11 @@ async function resolveUserTeamMembership(userId, email) {
         });
         if (!membership)
             return null;
+        // A workspace client/owner is NOT a subordinate team member of their own workspace!
+        const cleanEmail = email.toLowerCase().trim();
+        if (membership.clientId === userId || membership.client?.email?.toLowerCase().trim() === cleanEmail) {
+            return null;
+        }
         if (!membership.userId && userId) {
             await prisma.clientTeamMember.update({
                 where: { id: membership.id },
@@ -391,6 +396,8 @@ export const login = async (req, res, next) => {
             fullName: user.fullName,
             avatarUrl: user.avatarUrl,
             role: effectiveRole,
+            isOwner: !teamInfo,
+            accountType: teamInfo ? "team_member" : "owner",
             permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
             modulePermissions: teamInfo ? teamInfo.modulePermissions : null,
             activeRoles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
@@ -1016,6 +1023,8 @@ export const me = async (req, res, next) => {
                 user: {
                     ...sanitized,
                     role: effectiveRole,
+                    isOwner: !teamInfo,
+                    accountType: teamInfo ? "team_member" : "owner",
                     permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
                     modulePermissions: teamInfo ? teamInfo.modulePermissions : null,
                     activeRoles: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
