@@ -24,7 +24,7 @@ export const listContracts = async (req: AuthRequest, res: Response, next: NextF
             select: {
               id: true,
               bidAmount: true,
-              deliveryDays: true,
+              deliveryTime: true,
               coverLetter: true,
               status: true,
               submittedAt: true,
