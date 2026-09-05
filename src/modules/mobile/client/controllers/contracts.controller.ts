@@ -27,8 +27,7 @@ export const listContracts = async (req: AuthRequest, res: Response, next: NextF
               deliveryTime: true,
               coverLetter: true,
               status: true,
-              submittedAt: true,
-              attachments: true,
+              createdAt: true,
             }
           }
         }
