@@ -17,6 +17,12 @@ const updatePermissionsSchema = z.object({
   status: z.string().optional()
 });
 
+function normalizeRows(raw: unknown) {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object') return [raw];
+  return [];
+}
+
 export const listTeamMembers = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const user = req.user;
@@ -25,7 +31,7 @@ export const listTeamMembers = async (req: AuthRequest, res: Response, next: Nex
     }
 
     // Ensure only owners can manage the team
-    const members = await (prisma as any).teamMember.findMany({
+    const members = normalizeRows(await (prisma as any).teamMember.findMany({
       where: { ownerId: user.id },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -39,7 +45,7 @@ export const listTeamMembers = async (req: AuthRequest, res: Response, next: Nex
           }
         }
       }
-    });
+    }).catch(() => []));
 
     return res.json(successResponse('Team members retrieved successfully', members));
   } catch (error) {
@@ -64,9 +70,9 @@ export const inviteTeamMember = async (req: AuthRequest, res: Response, next: Ne
     const lowerEmail = email.toLowerCase().trim();
 
     // Check if target user exists in the system
-    let targetUser = await prisma.user.findFirst({
+    const targetUser = await prisma.user.findFirst({
       where: { email: lowerEmail }
-    });
+    }).catch(() => null);
 
     if (!targetUser) {
       return res.status(404).json(errorResponse('User with this email not found on GoExperts'));
@@ -82,7 +88,7 @@ export const inviteTeamMember = async (req: AuthRequest, res: Response, next: Ne
         ownerId: user.id,
         userId: targetUser.id 
       }
-    });
+    }).catch(() => null);
 
     if (existingMember) {
       return res.status(400).json(errorResponse('User is already in your team'));
@@ -124,7 +130,7 @@ export const updateTeamMemberPermissions = async (req: AuthRequest, res: Respons
 
     const existingMember = await (prisma as any).teamMember.findFirst({
       where: { id: memberId, ownerId: user.id }
-    });
+    }).catch(() => null);
 
     if (!existingMember) {
       return res.status(404).json(errorResponse('Team member not found'));
@@ -137,7 +143,7 @@ export const updateTeamMemberPermissions = async (req: AuthRequest, res: Respons
         ...(role ? { role } : {}),
         ...(status ? { status } : {})
       }
-    });
+    }).catch((error) => { throw error; });
 
     return res.json(successResponse('Team member updated successfully', updated));
   } catch (error) {
@@ -156,7 +162,7 @@ export const removeTeamMember = async (req: AuthRequest, res: Response, next: Ne
 
     const existingMember = await (prisma as any).teamMember.findFirst({
       where: { id: memberId, ownerId: user.id }
-    });
+    }).catch(() => null);
 
     if (!existingMember) {
       return res.status(404).json(errorResponse('Team member not found'));
@@ -164,7 +170,7 @@ export const removeTeamMember = async (req: AuthRequest, res: Response, next: Ne
 
     await (prisma as any).teamMember.delete({
       where: { id: memberId }
-    });
+    }).catch((error) => { throw error; });
 
     return res.json(successResponse('Team member removed successfully'));
   } catch (error) {

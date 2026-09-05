@@ -10,7 +10,7 @@ import { getProfile, getStartup, updateProfile, uploadLogo, uploadCover, getProf
 import { getFunding, createFundingRound, updateFundingRound, getFundingHistory, updateFundingStatus } from './controllers/funding.controller.js';
 import { listInvestorRequests, getInvestorRequest, acceptRequest, rejectRequest, scheduleRequestMeeting, messageInvestor } from './controllers/investor-requests.controller.js';
 import { listInvestors, getInvestor, getRecommendedInvestors, getInterestedInvestors, getActiveInvestors } from './controllers/investors.controller.js';
-import { getPitchDeck, uploadPitchDeck, updatePitchDeck, deletePitchDeck } from './controllers/pitch-deck.controller.js';
+import { getPitchDeck, createPitchDeck, updatePitchDeck, deletePitchDeck } from './controllers/pitch-deck.controller.js';
 import { getBusinessPlan, createBusinessPlan, updateBusinessPlan } from './controllers/business-plan.controller.js';
 import { getTeam, inviteTeamMember, updateTeamMember, removeTeamMember } from './controllers/team.controller.js';
 import { listDocuments, uploadDocument, getDocument, downloadDocument, deleteDocument } from './controllers/documents.controller.js';
@@ -125,7 +125,7 @@ router.get('/investors/:id', getInvestor);
 
 // Pitch Deck
 router.get('/pitch-deck', getPitchDeck);
-router.post('/pitch-deck', upload.single('file'), handleUploadError, uploadPitchDeck);
+router.post('/pitch-deck', createPitchDeck);
 router.put('/pitch-deck', updatePitchDeck);
 router.delete('/pitch-deck', deletePitchDeck);
 
