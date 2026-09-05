@@ -5,11 +5,11 @@ import {
   updateSocialLink,
   deleteSocialLink,
 } from '../../controllers/mobile/social-links.controller.js';
-import { authMiddleware } from '../../middleware/auth.js';
+import { authenticate } from '../../middleware/auth.js';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(authenticate);
 
 router.get('/', getSocialLinks);
 router.post('/', addSocialLink);

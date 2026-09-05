@@ -1,9 +1,8 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Response } from 'express';
+import { AuthRequest } from '../../middleware/auth.js';
+import { prisma } from '../../config/db.js';
 
-const prisma = new PrismaClient();
-
-export const getSocialLinks = async (req: Request, res: Response): Promise<void> => {
+export const getSocialLinks = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -23,7 +22,7 @@ export const getSocialLinks = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const addSocialLink = async (req: Request, res: Response): Promise<void> => {
+export const addSocialLink = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -53,7 +52,7 @@ export const addSocialLink = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const updateSocialLink = async (req: Request, res: Response): Promise<void> => {
+export const updateSocialLink = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
@@ -95,7 +94,7 @@ export const updateSocialLink = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const deleteSocialLink = async (req: Request, res: Response): Promise<void> => {
+export const deleteSocialLink = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
