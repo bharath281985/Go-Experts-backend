@@ -22,6 +22,7 @@ import chatRoutes from './chat/chat.routes.js';
 import appRoutes from './app/app.routes.js';
 import referralsRoutes from './referrals/referrals.routes.js';
 import teamRoutes from './team/team.routes.js';
+import socialLinksRoutes from '../../routes/mobile/social-links.routes.js';
 
 const router = Router();
 
@@ -48,5 +49,6 @@ router.use('/favorites', favoritesRoutes);
 router.use('/chat', chatRoutes);
 router.use('/referrals', referralsRoutes);
 router.use('/team', teamRoutes);
+router.use('/social-links', socialLinksRoutes);
 
 export default router;
