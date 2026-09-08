@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database.js';
-
+ 
 interface RecommendInput {
   userId: string;
   role: string;
@@ -8,7 +8,7 @@ interface RecommendInput {
 
 /**
  * Weighted scoring algorithm for recommendations.
- * Scoring factors: profile completeness, subscription status, ratings, location match,
+ * Scori ng factors: profile completeness, subscription status, ratings, location match,
  * industry match, skills, category overlap, recent activity, popularity (view count).
  */
 export class RecommendationEngine {
