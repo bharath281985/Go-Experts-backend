@@ -34,6 +34,7 @@ export function isSchemaDriftError(err: unknown) {
 export const FREELANCER_PROFILE_LIST_SELECT = {
   id: true,
   userId: true,
+  titleHeadline: true,
   industry: true,
   skills: true,
   hourlyRate: true,
@@ -333,6 +334,7 @@ export async function listFreelancersCompat(options: {
     let profiles: Array<{
       id: string;
       userId: string;
+      titleHeadline?: string | null;
       industry?: string | null;
       skills: string | null;
       hourlyRate: number | null;
@@ -346,6 +348,7 @@ export async function listFreelancersCompat(options: {
           SELECT
             id,
             user_id as userId,
+            title_headline as titleHeadline,
             industry,
             skills,
             hourly_rate as hourlyRate,
@@ -360,6 +363,7 @@ export async function listFreelancersCompat(options: {
           SELECT
             id,
             user_id as userId,
+            title_headline as titleHeadline,
             skills,
             hourly_rate as hourlyRate,
             rating,
@@ -415,6 +419,7 @@ export async function getFreelancerByIdCompat(
     let profiles: Array<{
       id: string;
       userId: string;
+      titleHeadline?: string | null;
       industry?: string | null;
       skills: string | null;
       hourlyRate: number | null;
@@ -427,6 +432,7 @@ export async function getFreelancerByIdCompat(
         SELECT
           id,
           user_id as userId,
+          title_headline as titleHeadline,
           industry,
           skills,
           hourly_rate as hourlyRate,
@@ -442,6 +448,7 @@ export async function getFreelancerByIdCompat(
         SELECT
           id,
           user_id as userId,
+          title_headline as titleHeadline,
           skills,
           hourly_rate as hourlyRate,
           rating,
