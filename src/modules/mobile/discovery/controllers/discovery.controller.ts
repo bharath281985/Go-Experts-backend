@@ -105,23 +105,27 @@ function cleanStartupTitle(title: string | null | undefined, startup: string | n
 }
 
 async function getActiveStartupIdeas(limit: number = 5, excludeUserId?: string) {
-  const deletedUsers = await prisma.user.findMany({
-    where: { deletedAt: { not: null } },
+  const activeFounders = await prisma.user.findMany({
+    where: { status: 'active', deletedAt: null },
     select: { id: true },
   }).catch(() => []);
-  const deletedUserIds = deletedUsers.map((f) => f.id);
+  const activeFounderIds = activeFounders
+    .map((f) => f.id)
+    .filter((id) => !excludeUserId || id !== excludeUserId);
+
+  if (activeFounderIds.length === 0) return [];
 
   return prisma.startupIdea.findMany({
     where: {
+      status: { in: ['active', 'Active', 'Published', 'published', 'open', 'Open'] },
       deletedAt: null,
-      ...(deletedUserIds.length > 0 ? { founder: { notIn: deletedUserIds } } : {}),
+      founder: { in: activeFounderIds },
       NOT: [
         { startup: '' },
         { startup: { contains: "'s Startup" } },
         { startup: { contains: "’s Startup" } },
         { startup: { contains: "s Startup" } },
       ],
-      ...(excludeUserId ? { founder: { not: excludeUserId } } : {}),
     },
     orderBy: { createdAt: 'desc' },
     take: limit,
@@ -129,18 +133,21 @@ async function getActiveStartupIdeas(limit: number = 5, excludeUserId?: string) 
 }
 
 async function getActiveProjects(limit: number = 5, excludeUserId?: string) {
-  const deletedUsers = await prisma.user.findMany({
-    where: { deletedAt: { not: null } },
+  const activeClients = await prisma.user.findMany({
+    where: { status: 'active', deletedAt: null },
     select: { id: true },
   }).catch(() => []);
-  const deletedUserIds = deletedUsers.map((c) => c.id);
+  const activeClientIds = activeClients
+    .map((c) => c.id)
+    .filter((id) => !excludeUserId || id !== excludeUserId);
+
+  if (activeClientIds.length === 0) return [];
 
   return prisma.project.findMany({
     where: {
       status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
       deletedAt: null,
-      ...(deletedUserIds.length > 0 ? { client: { notIn: deletedUserIds } } : {}),
-      ...(excludeUserId ? { client: { not: excludeUserId } } : {}),
+      client: { in: activeClientIds },
     },
     orderBy: { createdAt: 'desc' },
     take: limit,

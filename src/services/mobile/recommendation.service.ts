@@ -23,8 +23,18 @@ export class RecommendationEngine {
     });
 
     // Recommended Projects: match category/technology to freelancer skills
-    const recommendedProjects = await prisma.project.findMany({
-      where: { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] }, deletedAt: null },
+    const activeClients = await prisma.user.findMany({
+      where: { status: 'active', deletedAt: null },
+      select: { id: true },
+    }).catch(() => []);
+    const activeClientIds = activeClients.map((c) => c.id);
+
+    const recommendedProjects = activeClientIds.length === 0 ? [] : await prisma.project.findMany({
+      where: {
+        status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
+        deletedAt: null,
+        client: { in: activeClientIds },
+      },
       orderBy: { createdAt: 'desc' },
       take: limit
     });

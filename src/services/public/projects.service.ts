@@ -27,18 +27,15 @@ export async function listPublicProjects(options?: {
       (await resolveIndustryNameById(options?.categoryId, options?.category)) ??
       options?.category;
 
-    // Only exclude projects whose owning client has been soft-deleted
-    const deletedClients = await prisma.user.findMany({
-      where: { deletedAt: { not: null } },
+    // Only include projects whose owning client is active and not deleted
+    const activeClients = await prisma.user.findMany({
+      where: { status: "active", deletedAt: null },
       select: { id: true },
     }).catch(() => []);
-    const deletedClientIds = deletedClients.map((u) => u.id);
+    const activeClientIds = activeClients
+      .map((u) => u.id)
+      .filter((id) => !options?.excludeClientId || id !== options.excludeClientId);
 
-    const clientNotIn = [...deletedClientIds];
-    if (options?.excludeClientId) {
-      clientNotIn.push(options.excludeClientId);
-    }
-    
     const where: {
       deletedAt: null;
       status?: any;
@@ -48,7 +45,7 @@ export async function listPublicProjects(options?: {
     } = {
       deletedAt: null,
       status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active", "closed", "Closed", "completed", "Completed"] },
-      ...(clientNotIn.length > 0 ? { client: { notIn: clientNotIn } } : {}),
+      client: { in: activeClientIds },
     };
 
     if (categoryName) where.category = categoryName;
