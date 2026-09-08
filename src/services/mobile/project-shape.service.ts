@@ -206,9 +206,22 @@ export const shapeProjects = async (
   );
 
   let savedIds = new Set<string>();
+  let appliedProjectIds = new Set<string>();
   if (viewerUserId) {
     const savedRows = await getJsonSetting(viewerUserId, 'saved-projects', [] as string[]);
     savedIds = new Set(savedRows);
+    
+    const appliedRows = await prisma.proposal.findMany({
+      where: {
+        freelancerId: viewerUserId,
+        projectId: { in: projects.map((p) => p.id) },
+      },
+      select: { projectId: true },
+    }).catch((err) => {
+      console.error('[shapeProjects] appliedRows query failed:', err);
+      return [];
+    });
+    appliedProjectIds = new Set(appliedRows.map((r) => r.projectId));
   }
 
   return projects.map((project) => {
@@ -303,6 +316,7 @@ export const shapeProjects = async (
       tasks: project.tasks,
       proposals: undefined,
       isSaved: savedIds.has(project.id),
+      isApplied: appliedProjectIds.has(project.id),
     };
   });
 };
