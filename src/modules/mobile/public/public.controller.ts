@@ -1460,9 +1460,12 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
       where: { deletedAt: { not: null } },
       select: { id: true },
     }).catch(() => []);
-    const deletedUserIds = deletedUsers.map((u) => u.id);
-    if (deletedUserIds.length > 0) {
-      where.client = { notIn: deletedUserIds };
+    const excludedClientIds = deletedUsers.map((u) => u.id);
+    if (viewerId) {
+      excludedClientIds.push(viewerId);
+    }
+    if (excludedClientIds.length > 0) {
+      where.client = { notIn: excludedClientIds };
     }
 
     const [projects, total] = await Promise.all([
