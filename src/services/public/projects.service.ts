@@ -17,6 +17,7 @@ export async function listPublicProjects(options?: {
   search?: string;
   category?: string;
   categoryId?: string;
+  excludeClientId?: string;
 }) {
   try {
     const page = options?.page ?? 1;
@@ -33,6 +34,11 @@ export async function listPublicProjects(options?: {
     }).catch(() => []);
     const deletedClientIds = deletedClients.map((u) => u.id);
 
+    const clientNotIn = [...deletedClientIds];
+    if (options?.excludeClientId) {
+      clientNotIn.push(options.excludeClientId);
+    }
+    
     const where: {
       deletedAt: null;
       status?: any;
@@ -42,7 +48,7 @@ export async function listPublicProjects(options?: {
     } = {
       deletedAt: null,
       status: { in: ["open", "approved", "active", "Published", "Open", "Approved", "Active", "closed", "Closed", "completed", "Completed"] },
-      ...(deletedClientIds.length > 0 ? { client: { notIn: deletedClientIds } } : {}),
+      ...(clientNotIn.length > 0 ? { client: { notIn: clientNotIn } } : {}),
     };
 
     if (categoryName) where.category = categoryName;

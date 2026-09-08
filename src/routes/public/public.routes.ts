@@ -1135,13 +1135,30 @@ router.get("/projects", authenticateOptional, async (req: any, res: Response, ne
       pageSize: body.pageSize,
       search: body.search,
       category,
+      excludeClientId: req.user?.id,
     });
 
     const userId = req.user?.id;
     if (userId) {
       const savedRows = await getJsonSetting(userId, 'saved-projects', [] as string[]);
       const savedIds = new Set(savedRows);
-      rows = rows.map((r: any) => ({ ...r, isSaved: savedIds.has(r.id) }));
+      
+      const appliedProposals = await prisma.proposal.findMany({
+        where: {
+          freelancerId: userId,
+          projectId: { in: rows.map((r: any) => r.id) },
+          deletedAt: null
+        },
+        select: { projectId: true, id: true }
+      });
+      const appliedMap = new Map(appliedProposals.map((p: any) => [p.projectId, p.id]));
+
+      rows = rows.map((r: any) => ({ 
+        ...r, 
+        isSaved: savedIds.has(r.id), 
+        isApplied: appliedMap.has(r.id),
+        proposalId: appliedMap.get(r.id) || null
+      }));
     }
 
     res.json({ success: true, rows, total });
@@ -1169,13 +1186,30 @@ router.post("/projects", authenticateOptional, async (req: any, res: Response, n
       search: body.search,
       category,
       categoryId,
+      excludeClientId: req.user?.id,
     });
 
     const userId = req.user?.id;
     if (userId) {
       const savedRows = await getJsonSetting(userId, 'saved-projects', [] as string[]);
       const savedIds = new Set(savedRows);
-      rows = rows.map((r: any) => ({ ...r, isSaved: savedIds.has(r.id) }));
+      
+      const appliedProposals = await prisma.proposal.findMany({
+        where: {
+          freelancerId: userId,
+          projectId: { in: rows.map((r: any) => r.id) },
+          deletedAt: null
+        },
+        select: { projectId: true, id: true }
+      });
+      const appliedMap = new Map(appliedProposals.map((p: any) => [p.projectId, p.id]));
+
+      rows = rows.map((r: any) => ({ 
+        ...r, 
+        isSaved: savedIds.has(r.id), 
+        isApplied: appliedMap.has(r.id),
+        proposalId: appliedMap.get(r.id) || null
+      }));
     }
 
     res.json({ success: true, rows, total });
@@ -1184,7 +1218,7 @@ router.post("/projects", authenticateOptional, async (req: any, res: Response, n
   }
 });
 
-router.get("/projects/:slug", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/projects/:slug", authenticateOptional, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { slug } = req.params;
     if (slug === 'saved') {
@@ -1215,7 +1249,38 @@ router.get("/projects/:slug", async (req: Request, res: Response, next: NextFunc
       }
     }
 
-    res.json({ success: true, data: project });
+    let isApplied = false;
+    let proposalId = null;
+    let isSaved = false;
+
+    const userId = (req as any).user?.id;
+    if (userId) {
+      const savedRows = await getJsonSetting(userId, 'saved-projects', [] as string[]);
+      isSaved = new Set(savedRows).has(project.id);
+      
+      const proposal = await prisma.proposal.findFirst({
+        where: {
+          freelancerId: userId,
+          projectId: project.id,
+          deletedAt: null
+        },
+        select: { id: true }
+      });
+      if (proposal) {
+        isApplied = true;
+        proposalId = proposal.id;
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      data: {
+        ...project,
+        isApplied,
+        proposalId,
+        isSaved,
+      }
+    });
   } catch (err) {
     next(err);
   }
