@@ -132,11 +132,7 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
       where: {
         conversationId: { in: conversationIds },
         readAt: null,
-        NOT: [
-          { senderId: req.user.id },
-          { from: 'me' },
-          ...(req.user.fullName ? [{ from: req.user.fullName }] : []),
-        ],
+        senderId: { not: req.user.id },
       },
       _count: { id: true },
     }).catch(() => []) : [];
