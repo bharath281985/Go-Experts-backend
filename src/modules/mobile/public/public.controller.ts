@@ -11,6 +11,32 @@ import {
 
 const oneOrMany = <T>(items: T[]): T | T[] => items.length === 1 ? items[0] : items;
 
+const profileNeedles = (...values: Array<string | null | undefined>) =>
+  Array.from(
+    new Set(
+      values
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+    )
+  );
+
+const countClientProjects = async (
+  user: { id: string; fullName?: string | null; email?: string | null },
+  company?: string | null
+) => {
+  const needles = profileNeedles(company, user.fullName, user.email);
+
+  return prisma.project.count({
+    where: {
+      deletedAt: null,
+      OR: [
+        { client: user.id },
+        ...needles.map((needle) => ({ client: { contains: needle } })),
+      ],
+    },
+  });
+};
+
 const isLegacySkillSchemaError = (error: unknown): boolean => {
   const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return (
@@ -1951,6 +1977,200 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
        
+      if (idea) {
+        const { industryMap, optionMap } = await loadRelatedDataForIdeas([idea]);
+        startupDetails = formatStartupResponse(idea, user, profile, industryMap, optionMap, true);
+        if (startupDetails) {
+          delete startupDetails.user; // Remove redundant nested user
+        }
+        if (viewingUserId) {
+          const inv = await prisma.investment.findFirst({
+            where: { investor: viewingUserId, startup: idea.id, status: { in: ['Active', 'Completed', 'Closed', 'Pending', 'Offer'] } }
+          });
+          if (inv) hasInvested = true;
+        }
+      }
+
+      const result = {
+        ...founderDetails,
+        isSaved,
+        hasInvested,
+        startup: startupDetails
+      };
+
+      return res.json(successResponse('Details retrieved for founder', result));
+    }
+
+    if (modelName === 'freelancer') {
+      const id = req.params.id;
+      const user = await prisma.user.findFirst({
+        where: { id },
+        include: { freelancerProfile: true }
+      }).catch(() => null);
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Freelancer not found' });
+      }
+
+      const reg = parseRegData(user.registrationData);
+      const indArr = Array.isArray(reg.industry) ? reg.industry : (user.freelancerProfile?.industry ? String(user.freelancerProfile.industry).split(",").map(s => s.trim()) : (reg.industryIds || (reg.industry ? [String(reg.industry)] : [])));
+      const sklArr = Array.isArray(reg.skills) ? reg.skills : (user.freelancerProfile?.skills ? String(user.freelancerProfile.skills).split(",").map(s => s.trim()) : (reg.skillsIds || reg.skillIds || (reg.skills ? [String(reg.skills)] : [])));
+      const wmArr = Array.isArray(reg.workMode) ? reg.workMode : (user.freelancerProfile?.workMode ? String(user.freelancerProfile.workMode).split(",").map(s => s.trim()) : (reg.workModeIds || (reg.workMode ? [String(reg.workMode)] : [])));
+      const stId = reg.stateId || user.state || reg.state || "";
+      const rawC = reg.countryId || user.country || reg.country || "";
+      const cntryId = rawC ? (rawC.length === 2 ? rawC.toUpperCase() : (rawC.toLowerCase() === "india" ? "IN" : (rawC.toLowerCase() === "united states" || rawC.toLowerCase() === "usa" ? "US" : rawC))) : "IN";
+
+      const dbSkills = await prisma.skill.findMany({
+        where: { OR: [{ id: { in: sklArr } }, { name: { in: sklArr } }] }
+      }).catch(() => []);
+      const skillIdMap = new Map<string, any>();
+      const skillNameMap = new Map<string, any>();
+      dbSkills.forEach((row: any) => {
+        skillIdMap.set(row.id, row);
+        skillNameMap.set(row.name.toLowerCase().trim(), row);
+      });
+
+      const formattedSkills = sklArr.map((key: string) => {
+        const found = skillIdMap.get(key) || skillNameMap.get(key.toLowerCase().trim());
+        const realId = found ? found.id : key;
+        const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+        return {
+          id: realId,
+          name: realName || 'Skill',
+       
+        };
+      });
+      const skillNames = formattedSkills.map(s => s.name);
+
+      const dbIndustries = await prisma.industry.findMany({
+        where: { OR: [{ id: { in: indArr } }, { name: { in: indArr } }] }
+      }).catch(() => []);
+      const indIdMap = new Map<string, any>();
+      const indNameMap = new Map<string, any>();
+      dbIndustries.forEach((row: any) => {
+        indIdMap.set(row.id, row);
+        indNameMap.set(row.name.toLowerCase().trim(), row);
+      });
+
+      const formattedIndustries = indArr.map((key: string) => {
+        const found = indIdMap.get(key) || indNameMap.get(key.toLowerCase().trim());
+        const realId = found ? found.id : key;
+        const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+        return {
+          id: realId,
+          name: realName || 'General',
+       
+        };
+      });
+      const primaryInd = formattedIndustries[0] || { id: '', name: 'General' };
+
+      const dbWorkModes = await prisma.workMode.findMany({
+        where: { OR: [{ id: { in: wmArr } }, { name: { in: wmArr } }] }
+      }).catch(() => []);
+      const wmIdMap = new Map<string, any>();
+      const wmNameMap = new Map<string, any>();
+      dbWorkModes.forEach((row: any) => {
+        wmIdMap.set(row.id, row);
+        wmNameMap.set(row.name.toLowerCase().trim(), row);
+      });
+
+      const formattedWorkModes = wmArr.map((key: string) => {
+        const found = wmIdMap.get(key) || wmNameMap.get(key.toLowerCase().trim());
+        const realId = found ? found.id : key;
+        const realName = found ? found.name : (/^[0-9a-f-]{36}$/i.test(key) ? '' : key);
+        return {
+          id: realId,
+          name: realName || 'Remote',
+        
+        };
+      });
+      const defaultRemoteWm = await prisma.workMode.findFirst({
+        where: { name: { contains: 'Remote' } },
+        select: { id: true, name: true }
+      }).catch(() => null);
+      const primaryWm = formattedWorkModes[0] || {
+        id: defaultRemoteWm?.id || 'wm_remote',
+        name: defaultRemoteWm?.name || 'Remote',
+      
+      };
+      const finalWorkModes = formattedWorkModes.length > 0 ? formattedWorkModes : [primaryWm];
+
+      const rawExp = user.freelancerProfile?.experience || reg.experienceLevel || reg.experience || "";
+      let expOption: any = null;
+      if (rawExp) {
+        expOption = await (prisma as any).masterOption?.findFirst({
+          where: { type: 'experience_level', status: 'active', OR: [{ id: rawExp }, { value: rawExp }, { label: rawExp }] },
+          select: { id: true, label: true, value: true }
+        }).catch(() => null);
+
+        if (!expOption) {
+          const dbExp = await prisma.experienceLevel.findFirst({
+            where: { status: 'active', OR: [{ id: rawExp }, { name: rawExp }] },
+            select: { id: true, name: true }
+          }).catch(() => null);
+          if (dbExp) {
+            expOption = { id: dbExp.id, label: dbExp.name, value: dbExp.name };
+          }
+        }
+      }
+      const expId = expOption?.id || rawExp;
+      const expName = expOption?.label || expOption?.value || (/^[0-9a-f-]{36}$/i.test(rawExp) ? 'Intermediate' : (rawExp || 'Intermediate'));
+      const expObj = {
+        id: expId,
+        name: expName,
+      
+      };
+
+      // Country and State
+      let resolvedCountry = null;
+      if (rawC) {
+        resolvedCountry = await prisma.country.findFirst({
+          where: { OR: [{ id: rawC }, { code: rawC.toUpperCase() }, { name: rawC }] },
+          select: { id: true, name: true, code: true }
+        }).catch(() => null);
+      }
+      let resolvedState = null;
+      if (stId) {
+        resolvedState = await (prisma as any).state?.findFirst({
+          where: { OR: [{ id: stId }, { name: stId }] },
+          select: { id: true, name: true }
+        }).catch(() => null);
+      }
+
+      const countryName = resolvedCountry?.name || (rawC.length === 2 ? (rawC.toUpperCase() === 'IN' ? 'India' : (rawC.toUpperCase() === 'US' ? 'United States' : rawC.toUpperCase())) : rawC) || 'India';
+      const countryId = resolvedCountry?.id || (rawC.length === 2 ? rawC.toUpperCase() : 'IN');
+      const stateName = resolvedState?.name || stId || '';
+      const stateId = resolvedState?.id || stId || '';
+      const cityName = user.city || reg.city || "";
+      let locationStr = cityName;
+      if (stateName) locationStr = locationStr ? `${locationStr}, ${stateName}` : stateName;
+      if (countryName) locationStr = locationStr ? `${locationStr}, ${countryName}` : countryName;
+
+      let isSaved = false;
+      const viewingUserId = (req as any).user?.id;
+      if (viewingUserId) {
+        try {
+          const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
+          const savedRows = await getJsonSetting(viewingUserId, 'savedFreelancers', [] as any[]);
+          const list = Array.isArray(savedRows) ? savedRows : [];
+          if (list.some((i: any) => i.freelancerId === id || i.id === id || i === id)) {
+            isSaved = true;
+          }
+          if (!isSaved) {
+            const row = await prisma.setting.findUnique({ where: { key: `savedFreelancers:${viewingUserId}` } });
+            if (row?.value) {
+              const legacyList = JSON.parse(row.value);
+              if (Array.isArray(legacyList) && legacyList.some((i: any) => i.freelancerId === id || i.id === id || i === id)) {
+                isSaved = true;
+              }
+            }
+          }
+        } catch { }
+      }
+
+      return res.json(successResponse('Details retrieved for freelancer', {
+        id: user.id,
+       
         fullName: user.fullName || reg.fullName || "",
        
         email: user.email,
@@ -1998,100 +2218,10 @@ export const getById = (modelName: string) => async (req: Request, res: Response
 
       const reg = parseRegData(user.registrationData);
       const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
+      const projectsPosted = await countClientProjects(user, compVal).catch(
+        () => user.clientProfile?.projectsPosted ?? 0
+      );
       const csVal = user.clientProfile?.companySize || reg.companySize || reg.companySizeId || "1-10 Employees";
-      const csId = reg.companySizeId || user.clientProfile?.companySize || reg.companySize || "1-10";
-      const teamVal = user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || reg.companySize || "1-10";
-      const teamId = reg.currentTeamId || reg.currentTeamSizeId || user.clientProfile?.currentTeam || reg.currentTeam || reg.teamSize || "1-10";
-      const rawB = user.clientProfile?.projectHireBudget || reg.projectHireBudgetId || reg.projectHireBudget || reg.budget || "";
-      const budgetRaw = rawB == null ? "" : String(rawB).trim();
-      const budgetOption = budgetRaw
-        ? await (prisma as any).masterOption?.findFirst({
-          where: {
-            type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] },
-            status: 'active',
-            OR: [{ id: budgetRaw }, { value: budgetRaw }, { label: budgetRaw }]
-          },
-          select: { id: true, label: true, value: true }
-        }).catch(() => null)
-        : null;
-      const budgetId = reg.projectHireBudgetId || budgetOption?.id || budgetRaw || null;
-      const budgetLabel = budgetOption?.label || reg.projectHireBudget || budgetRaw || null;
-      // ── Resolve countryId UUID → country name (client) ──
-      const clientRawC = reg.countryId || user.country || reg.country || '';
-      let countryName = clientRawC;
-      let cntryId = clientRawC;
-      if (clientRawC && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(clientRawC)) {
-        try {
-          const cRow = await prisma.country.findFirst({ where: { id: clientRawC }, select: { id: true, name: true } });
-          if (cRow) { countryName = cRow.name; cntryId = cRow.id; }
-        } catch { /* keep raw */ }
-      } else {
-        cntryId = clientRawC ? (clientRawC.length === 2 ? clientRawC.toUpperCase() : clientRawC) : '';
-        countryName = cntryId;
-      }
-      const hgArr: string[] = user.clientProfile?.hiringGoal
-        ? String(user.clientProfile.hiringGoal).split(',').map((s: string) => s.trim()).filter(Boolean)
-        : (Array.isArray(reg.hiringGoal) ? reg.hiringGoal : []);
-
-      // ── Resolve hiringGoal IDs → names via master_options ──
-      const hgNames: string[] = new Array(hgArr.length).fill('');
-      if (hgArr.length > 0) {
-        try {
-          const hgRows = await (prisma as any).masterOption.findMany({
-            where: { id: { in: hgArr } }, select: { id: true, label: true }
-          });
-          const hgMap = new Map(hgRows.map((r: any) => [r.id, r.label]));
-          hgArr.forEach((hid: string, i: number) => { hgNames[i] = (hgMap.get(hid) as string) || ''; });
-        } catch { /* names remain empty */ }
-      }
-
-      // ── Resolve client industry IDs → names via industry table ──
-      const clientIndArr: string[] = user.clientProfile?.industry
-        ? String(user.clientProfile.industry).split(',').map((s: string) => s.trim()).filter(Boolean)
-        : (Array.isArray(reg.industry) ? reg.industry : []);
-      const clientIndNames: string[] = new Array(clientIndArr.length).fill('');
-      if (clientIndArr.length > 0) {
-        try {
-          const ciRows = await prisma.industry.findMany({ where: { id: { in: clientIndArr } }, select: { id: true, name: true } });
-          const ciMap = new Map(ciRows.map((r: any) => [r.id, r.name]));
-          clientIndArr.forEach((iid: string, i: number) => { clientIndNames[i] = (ciMap.get(iid) as string) || ''; });
-        } catch { /* names remain empty */ }
-      }
-
-      let isSaved = false;
-      const viewingUserId = (req as any).user?.id;
-      if (viewingUserId) {
-        try {
-          const { getJsonSetting } = await import('../../../common/helpers/portal-shared.js');
-          const savedRows = await getJsonSetting(viewingUserId, 'savedClients', [] as any[]);
-          const list = Array.isArray(savedRows) ? savedRows : [];
-          if (list.some((i: any) => i.clientId === id || i.id === id || i === id)) {
-            isSaved = true;
-          }
-          if (!isSaved) {
-            const row = await prisma.setting.findUnique({ where: { key: `savedClients:${viewingUserId}` } });
-            if (row?.value) {
-              const legacyList = JSON.parse(row.value);
-              if (Array.isArray(legacyList) && legacyList.some((i: any) => i.clientId === id || i.id === id || i === id)) {
-                isSaved = true;
-              }
-            }
-          }
-        } catch { }
-      }
-
-      return res.json(successResponse('Details retrieved for client', {
-        id: user.id,
-        userId: user.id,
-        fullName: user.fullName || reg.fullName || '',
-        name: user.fullName || reg.fullName || '',
-        email: user.email,
-        phone: user.phone || reg.phone || reg.mobile || '',
-        avatarUrl: user.avatarUrl || reg.avatarUrl || null,
-        avatar: user.avatarUrl || reg.avatarUrl || null,
-        company: compVal,
-        companyName: compVal,
-        companySize: csVal,
         companySizeId: csId,
         currentTeam: teamVal,
         currentTeamId: teamId,
@@ -2115,7 +2245,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         state: user.state || reg.state || '',
         stateId: reg.stateId || user.state || '',
         totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
-        projectsPosted: user.clientProfile?.projectsPosted ?? 0,
+        projectsPosted,
         status: user.status || 'active',
         verified: Boolean(user.isVerified || (user as any).verified),
         role: user.role || 'client',

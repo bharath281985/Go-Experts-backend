@@ -44,8 +44,23 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
     const rawGoals = reg.clientGoals || reg.goals || reg.goalIds;
     const resolvedGoals = await resolveMasterOptionsInput(rawGoals, 'client_goal');
 
-    const rawIndustry = user.clientProfile?.industry || reg.industry || null;
+    const rawIndustry = user.clientProfile?.industry || reg.industry || reg.companyCategory || reg.category || reg.companyCategoryName || reg.categoryName || null;
     const resolvedIndustry = await resolveIndustry(rawIndustry);
+
+    let projectsPosted = user.clientProfile?.projectsPosted ?? 0;
+    if (projectsPosted === 0) {
+      const compVal = user.clientProfile?.company || reg.companyName || reg.company || "";
+      projectsPosted = await prisma.project.count({
+        where: {
+          deletedAt: null,
+          OR: [
+            { client: user.id },
+            ...(user.fullName ? [{ client: { contains: user.fullName } }] : []),
+            ...(compVal ? [{ client: { contains: compVal } }] : []),
+          ]
+        }
+      }).catch(() => 0);
+    }
 
     const profileData = {
       id: user.id,
@@ -68,6 +83,10 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       country: user.country || reg.country || "",
       company: user.clientProfile?.company || reg.company || reg.companyName || "",
       companyName: user.clientProfile?.company || reg.company || reg.companyName || "",
+      industry: resolvedIndustry?.name || "",
+      industryName: resolvedIndustry?.name || null,
+      category: resolvedIndustry?.name || "",
+      companyCategory: resolvedIndustry?.name || "",
       Industry: resolvedIndustry ? {
         industryId: resolvedIndustry.id,
         industryName: resolvedIndustry.name,
@@ -83,7 +102,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
       panNumber: reg.panNumber || "",
       aadhaarNumber: reg.aadhaarNumber || "",
       totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
-      projectsPosted: user.clientProfile?.projectsPosted ?? 0,
+      projectsPosted,
       status: user.status || "active",
       verified: Boolean(user.isVerified || user.verified),
       role: user.role,
