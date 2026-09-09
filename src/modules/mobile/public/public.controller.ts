@@ -443,14 +443,34 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
 };
 
 export const getBudgetRanges = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const dbRanges = await (prisma as any).masterOption?.findMany({
-      where: { type: { in: ['budget_range', 'project_budget_range', 'hiring_budget_range'] }, status: 'active' },
-      orderBy: { sortOrder: 'asc' },
-      select: { id: true, label: true, value: true, min: true, max: true, sortOrder: true }
-    }).catch(() => []);
+ try {
+  const dbRanges = await (prisma as any).masterOption?.findMany({
+    where: {
+      type: {
+        in: [
+          'budget_range',
+          'project_budget_range',
+          'hiring_budget_range',
+        ],
+      },
+      status: 'active',
+    },
+    orderBy: {
+      sortOrder: 'asc',
+    },
+    select: {
+      id: true,
+      label: true,
+      value: true,
+      min: true,
+      max: true,
+      sortOrder: true,
+    },
+  }).catch(() => []);
 
-    const ranges = deduplicateMasterOptions(dbRanges || []).map((item: any) => ({
+  const ranges = deduplicateMasterOptions(dbRanges || [])
+    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((item: any) => ({
       id: item.id,
       label: item.label,
       value: item.value,
@@ -461,8 +481,12 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
       projectHireBudgetLabel: item.label,
     }));
 
-    return res.json(successResponse('Budget ranges retrieved', ranges));
-  } catch (error) { next(error); }
+  return res.json(
+    successResponse('Budget ranges retrieved', ranges)
+  );
+} catch (error) {
+  next(error);
+}
 };
 
 export const getDepartments = async (req: Request, res: Response, next: NextFunction) => {
