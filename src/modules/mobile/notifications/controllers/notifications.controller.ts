@@ -10,14 +10,16 @@ export const getNotifications = async (req: AuthRequest, res: Response, next: Ne
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
+    const where = { userId: req.user.id, channel: 'in_app' };
+
     const [notifications, total] = await Promise.all([
       prisma.notification.findMany({
-        where: { userId: req.user.id },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit
       }),
-      prisma.notification.count({ where: { userId: req.user.id } })
+      prisma.notification.count({ where })
     ]);
 
     const shaped = notifications.map((n) => ({
@@ -35,7 +37,7 @@ export const getNotifications = async (req: AuthRequest, res: Response, next: Ne
 export const getUnreadCount = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const count = await prisma.notification.count({
-      where: { userId: req.user.id, readAt: null }
+      where: { userId: req.user.id, channel: 'in_app', readAt: null }
     });
     return res.json(successResponse('Unread count retrieved', { count }));
   } catch (error) { next(error); }
@@ -54,7 +56,7 @@ export const markAsRead = async (req: AuthRequest, res: Response, next: NextFunc
 export const markAllAsRead = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await prisma.notification.updateMany({
-      where: { userId: req.user.id, readAt: null },
+      where: { userId: req.user.id, channel: 'in_app', readAt: null },
       data: { readAt: new Date() }
     });
     return res.json(successResponse('All notifications marked as read'));

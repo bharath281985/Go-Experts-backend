@@ -99,7 +99,15 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { investorId, date, time, mode, duration, meeting_link } = req.body;
+    const { date, time, mode, duration, meeting_link } = req.body;
+    const investorId = String(
+      req.body.investorId ||
+      req.body.userId ||
+      req.body.withUserId ||
+      req.body.clientId ||
+      req.body.freelancerId ||
+      ''
+    ).trim();
     const investor = await prisma.user.findFirst({ where: { id: investorId, role: 'investor', deletedAt: null } });
 
     if (!investor) {

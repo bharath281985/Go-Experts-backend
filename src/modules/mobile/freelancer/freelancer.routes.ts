@@ -12,7 +12,7 @@ import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '.
 import { listProposals, createProposal, getProposalDetails, updateProposal, withdrawProposal } from './controllers/proposals.controller.js';
 import { listContracts, getContractDetails, acceptContract, rejectContract, getContractMilestones, getContractTimeline, getContractDocuments } from './controllers/contracts.controller.js';
 import { listTasks, getTaskDetails, updateTaskStatus, startTimer, stopTimer, manualTimeLog } from './controllers/tasks.controller.js';
-import { listMeetings, getMeetingDetails, getUpcomingMeetings } from './controllers/meetings.controller.js';
+import { listMeetings, scheduleMeeting, getMeetingDetails, getUpcomingMeetings } from './controllers/meetings.controller.js';
 import { listConversations, getConversationDetails, sendMessage, deleteMessage } from './controllers/messages.controller.js';
 import { getWalletSummary, getTransactions, getCredits, getDebits, getPendingPayouts, getPaymentHistory, requestWithdrawal } from './controllers/wallet.controller.js';
 import { getMonthlyEarnings, getYearlyEarnings, getCategoryEarnings, getClientEarnings, downloadStatement } from './controllers/earnings.controller.js';
@@ -188,6 +188,7 @@ router.post('/tasks/:id/time-log', manualTimeLog);
 
 // ─── Meetings ───
 router.get('/meetings', listMeetings);
+router.post('/meetings', scheduleMeeting);
 router.get('/meetings/upcoming', getUpcomingMeetings);
 router.get('/meetings/:id', getMeetingDetails);
 

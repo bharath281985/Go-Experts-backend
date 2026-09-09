@@ -38,6 +38,18 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
       return res.status(400).json(errorResponse('You cannot submit a proposal to your own project.', 'INVALID_OPERATION'));
     }
 
+    const existingProposal = await prisma.proposal.findFirst({
+      where: {
+        projectId,
+        freelancerId: req.user.id,
+        deletedAt: null,
+        status: { not: 'withdrawn' },
+      },
+    });
+    if (existingProposal) {
+      return res.json(successResponse('Proposal already submitted', existingProposal));
+    }
+
     const proposal = await prisma.proposal.create({
       data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, status: 'pending' }
     });
