@@ -4,6 +4,31 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
+const shapeProposal = async (proposal: any) => {
+  if (!proposal) return proposal;
+  const project = proposal.project || await prisma.project.findUnique({
+    where: { id: proposal.projectId },
+  }).catch(() => null);
+  const client = project?.client
+    ? await prisma.user.findUnique({
+      where: { id: project.client },
+      select: { id: true, fullName: true, avatarUrl: true },
+    }).catch(() => null)
+    : null;
+  return {
+    ...proposal,
+    project,
+    projectTitle: project?.title || proposal.projectTitle || 'Project',
+    projectDescription: project?.description || proposal.projectDescription || '',
+    clientId: client?.id || project?.client || proposal.clientId || null,
+    clientName: client?.fullName || proposal.clientName || 'Client',
+    clientAvatar: client?.avatarUrl || null,
+    freelancerId: proposal.freelancerId,
+    freelancerName: proposal.freelancer?.fullName || proposal.freelancerName || 'Freelancer',
+    freelancerAvatar: proposal.freelancer?.avatarUrl || null,
+  };
+};
+
 export const listProposals = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -23,7 +48,8 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
       }),
       prisma.proposal.count({ where })
     ]);
-    return res.json(successResponse('Proposals retrieved', proposals, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    const shaped = await Promise.all(proposals.map(shapeProposal));
+    return res.json(successResponse('Proposals retrieved', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
@@ -47,7 +73,7 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
       },
     });
     if (existingProposal) {
-      return res.json(successResponse('Proposal already submitted', existingProposal));
+      return res.json(successResponse('Proposal already submitted', await shapeProposal(existingProposal)));
     }
 
     const proposal = await prisma.proposal.create({
@@ -68,7 +94,7 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
       }
     }
 
-    return res.status(201).json(successResponse('Proposal created', proposal));
+    return res.status(201).json(successResponse('Proposal created', await shapeProposal(proposal)));
   } catch (error) { next(error); }
 };
 
@@ -83,7 +109,7 @@ export const getProposalDetails = async (req: AuthRequest, res: Response, next: 
       return res.status(404).json(errorResponse('Proposal not found', 'NOT_FOUND'));
     }
     
-    return res.json(successResponse('Proposal details retrieved', proposal));
+    return res.json(successResponse('Proposal details retrieved', await shapeProposal(proposal)));
   } catch (error) { next(error); }
 };
 

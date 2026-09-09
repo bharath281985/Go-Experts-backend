@@ -4,16 +4,33 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
+const shapeProposal = (proposal: any, contractId?: string | null) => ({
+  ...proposal,
+  freelancerId: proposal.freelancerId || proposal.freelancer?.id,
+  freelancerName: proposal.freelancer?.fullName || proposal.freelancerName || 'Freelancer',
+  freelancerAvatar: proposal.freelancer?.avatarUrl || proposal.freelancerAvatar || null,
+  clientId: proposal.project?.client || proposal.clientId || null,
+  projectTitle: proposal.project?.title || proposal.projectTitle || 'Project',
+  projectDescription: proposal.project?.description || proposal.projectDescription || '',
+  contractId: contractId ?? proposal.contractId ?? null,
+});
+
 export const listProposals = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
     const [proposals, total] = await Promise.all([
-      prisma.proposal.findMany({ where: { project: { client: req.user.id } }, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      prisma.proposal.findMany({
+        where: { project: { client: req.user.id } },
+        include: { project: true, freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } } },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' }
+      }),
       prisma.proposal.count({ where: { project: { client: req.user.id } } })
     ]);
-    return res.json(successResponse('Proposals retrieved', proposals, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    return res.json(successResponse('Proposals retrieved', proposals.map((p) => shapeProposal(p)), { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
@@ -42,11 +59,7 @@ export const listProjectProposals = async (req: AuthRequest, res: Response, next
       }
     });
 
-    const shaped = proposals.map((p) => ({
-      ...p,
-      freelancerId: p.freelancerId || p.freelancer?.id,
-      contractId: contractMap.get(p.id) || null,
-    }));
+    const shaped = proposals.map((p) => shapeProposal(p, contractMap.get(p.id) || null));
     return res.json(successResponse('Project proposals', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
@@ -66,9 +79,7 @@ export const getProposal = async (req: AuthRequest, res: Response, next: NextFun
 
     return res.json(
       successResponse('Proposal details', {
-        ...proposal,
-        freelancerId: proposal.freelancerId || proposal.freelancer?.id,
-        contractId: contract?.id || null,
+        ...shapeProposal(proposal, contract?.id || null),
       })
     );
   } catch (error) { next(error); }

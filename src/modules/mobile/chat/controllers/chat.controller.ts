@@ -119,11 +119,8 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
       users.forEach(u => userMap.set(u.id, u));
     }
 
-    // Filter out conversations that have no messages
-    const validConversations = conversations.filter((c: any) => c.messages && c.messages.length > 0);
-
     // Compute unread count per conversation for the viewer
-    const conversationIds = validConversations.map((c: any) => c.id);
+    const conversationIds = conversations.map((c: any) => c.id);
     const unreadGroups = conversationIds.length > 0 ? await prisma.message.groupBy({
       by: ['conversationId'],
       where: {
@@ -139,7 +136,7 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
       unreadMap.set(g.conversationId, g._count?.id ?? 0);
     });
 
-    const shapedConversations = validConversations.map((c: any) => {
+    const shapedConversations = conversations.map((c: any) => {
       const otherId = c.userA === req.user.id ? c.userB : (c.userB === req.user.id ? c.userA : null);
       const otherUser = otherId ? userMap.get(otherId) : null;
       const lastMsg = (c.messages && c.messages[0]) ? c.messages[0] : null;
@@ -153,7 +150,7 @@ export const listConversations = async (req: AuthRequest, res: Response, next: N
         }
       }
 
-      const lastText = lastMsg?.text || c.msg || '';
+      const lastText = lastMsg?.text || c.msg || 'No messages yet';
       const lastTime = lastMsg?.createdAt
         ? (typeof lastMsg.createdAt === 'string' ? lastMsg.createdAt : lastMsg.createdAt.toISOString())
         : (lastMsg?.time || (c.updatedAt ? c.updatedAt.toISOString() : c.createdAt?.toISOString()) || new Date().toISOString());
