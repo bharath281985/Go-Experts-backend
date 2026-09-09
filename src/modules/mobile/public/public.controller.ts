@@ -24,15 +24,10 @@ const countClientProjects = async (
   user: { id: string; fullName?: string | null; email?: string | null },
   company?: string | null
 ) => {
-  const needles = profileNeedles(company, user.fullName, user.email);
-
   return prisma.project.count({
     where: {
       deletedAt: null,
-      OR: [
-        { client: user.id },
-        ...needles.map((needle) => ({ client: { contains: needle } })),
-      ],
+      client: user.id
     },
   });
 };
@@ -2040,9 +2035,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         countryName = cntryId;
       }
 
-      const hgArr: string[] = user.clientProfile?.hiringGoal
-        ? String(user.clientProfile.hiringGoal).split(',').map((s: string) => s.trim()).filter(Boolean)
-        : (Array.isArray(reg.hiringGoal) ? reg.hiringGoal : []);
+      const rawHg = user.clientProfile?.hiringGoal || reg.hiringGoal || reg.hiringGoals || reg.goal || [];
+      const hgArr: string[] = Array.isArray(rawHg) ? rawHg : String(rawHg).split(',').map((s: string) => s.trim()).filter(Boolean);
       const hgNames: string[] = new Array(hgArr.length).fill('');
       if (hgArr.length > 0) {
         try {
@@ -2054,9 +2048,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         } catch { }
       }
 
-      const clientIndArr: string[] = user.clientProfile?.industry
-        ? String(user.clientProfile.industry).split(',').map((s: string) => s.trim()).filter(Boolean)
-        : (Array.isArray(reg.industry) ? reg.industry : []);
+      const rawInd = user.clientProfile?.industry || reg.industry || reg.companyCategory || reg.category || reg.focusAreas || reg.industryIds || [];
+      const clientIndArr: string[] = Array.isArray(rawInd) ? rawInd : String(rawInd).split(',').map((s: string) => s.trim()).filter(Boolean);
       const clientIndNames: string[] = new Array(clientIndArr.length).fill('');
       if (clientIndArr.length > 0) {
         try {
