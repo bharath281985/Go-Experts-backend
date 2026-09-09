@@ -39,7 +39,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       prisma.investment.count({ where: { investor: userId, status: 'Active' } }),
       prisma.investment.count({ where: { investor: userId, status: 'Closed' } }),
       prisma.investment.count({ where: { investor: userId, status: 'Pending' } }),
-      prisma.notification.count({ where: { userId, readAt: null } }),
+      prisma.notification.count({ where: { userId, channel: 'in_app', readAt: null } }),
       prisma.meeting.count({ where: { investor: userId, status: 'Scheduled' } }),
       prisma.startupIdea.findMany({
         where: { status: 'active', visibility: 'Public' },

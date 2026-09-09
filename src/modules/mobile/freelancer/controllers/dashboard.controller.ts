@@ -30,7 +30,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
           status: 'Scheduled'
         }
       }),
-      prisma.notification.count({ where: { userId, readAt: null } }),
+      prisma.notification.count({ where: { userId, channel: 'in_app', readAt: null } }),
       prisma.proposal.count({ where: { freelancerId: userId, status: 'pending' } }),
       prisma.project.count({ where: { freelancer: userId, status: 'in_progress' } }),
       prisma.project.count({ where: { freelancer: userId, status: 'completed' } }),
@@ -61,7 +61,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       }),
       // Recent notifications for activities
       prisma.notification.findMany({
-        where: { userId },
+        where: { userId, channel: 'in_app' },
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),

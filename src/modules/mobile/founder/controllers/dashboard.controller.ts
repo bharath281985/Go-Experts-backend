@@ -44,7 +44,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       prisma.wallet.findUnique({ where: { userId } }),
       prisma.investment.count({ where: { startup: startupIdeaId, status: 'Pending' } }),
       prisma.investment.count({ where: { startup: startupIdeaId, status: 'Active' } }),
-      prisma.notification.count({ where: { userId, readAt: null } }),
+      prisma.notification.count({ where: { userId, channel: 'in_app', readAt: null } }),
       prisma.meeting.count({ where: { founder: userId, status: 'Scheduled' } }),
       prisma.user.findMany({
         where: { role: 'investor', status: 'active' },

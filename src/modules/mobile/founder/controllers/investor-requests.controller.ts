@@ -4,6 +4,28 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
+const findOwnedInvestmentRequest = async (id: string, userId: string) => {
+  const founderIdeas = await prisma.startupIdea.findMany({
+    where: { founder: userId, deletedAt: null },
+    select: { id: true, startup: true },
+  }).catch(() => []);
+  const startupKeys = [
+    userId,
+    ...founderIdeas.map((idea) => idea.id),
+    ...founderIdeas.map((idea) => idea.startup).filter(Boolean),
+  ];
+  return prisma.investment.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+      OR: [
+        { founder: userId } as any,
+        { startup: { in: startupKeys } },
+      ],
+    } as any,
+  });
+};
+
 export const listInvestorRequests = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -20,7 +42,7 @@ export const listInvestorRequests = async (req: AuthRequest, res: Response, next
 
 export const getInvestorRequest = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const request = await prisma.investment.findFirst({ where: { id: req.params.id, startup: req.user.id } });
+    const request = await findOwnedInvestmentRequest(req.params.id, req.user.id);
     if (!request) return res.status(404).json(errorResponse('Request not found', 'NOT_FOUND'));
     return res.json(successResponse('Investor request details', request));
   } catch (error) { next(error); }
@@ -28,7 +50,7 @@ export const getInvestorRequest = async (req: AuthRequest, res: Response, next: 
 
 export const acceptRequest = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investment = await prisma.investment.findFirst({ where: { id: req.params.id, startup: req.user.id } });
+    const investment = await findOwnedInvestmentRequest(req.params.id, req.user.id);
     if (!investment) return res.status(404).json(errorResponse('Request not found', 'NOT_FOUND'));
 
     await prisma.investment.update({ where: { id: investment.id }, data: { status: 'Active' } });
@@ -38,7 +60,13 @@ export const acceptRequest = async (req: AuthRequest, res: Response, next: NextF
       type: 'investment_accepted',
       title: 'Investment Accepted',
       message: `${req.user.fullName || 'The founder'} has accepted your investment request!`,
-      channel: 'all'
+      channel: 'all',
+      payload: {
+        investmentId: investment.id,
+        dealId: investment.id,
+        startupId: investment.startup,
+        actionUrl: `/deals/${investment.id}`,
+      },
     });
 
     return res.json(successResponse('Request accepted'));
@@ -47,7 +75,7 @@ export const acceptRequest = async (req: AuthRequest, res: Response, next: NextF
 
 export const rejectRequest = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const investment = await prisma.investment.findFirst({ where: { id: req.params.id, startup: req.user.id } });
+    const investment = await findOwnedInvestmentRequest(req.params.id, req.user.id);
     if (!investment) return res.status(404).json(errorResponse('Request not found', 'NOT_FOUND'));
 
     await prisma.investment.update({ where: { id: investment.id }, data: { status: 'Rejected' } });
@@ -67,7 +95,9 @@ export const rejectRequest = async (req: AuthRequest, res: Response, next: NextF
 export const scheduleRequestMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { date, time } = req.body;
-    await prisma.investment.updateMany({ where: { id: req.params.id, startup: req.user.id }, data: { meetingDate: `${date}T${time}Z` } });
+    const investment = await findOwnedInvestmentRequest(req.params.id, req.user.id);
+    if (!investment) return res.status(404).json(errorResponse('Request not found', 'NOT_FOUND'));
+    await prisma.investment.update({ where: { id: investment.id }, data: { meetingDate: `${date}T${time}Z` } });
     return res.json(successResponse('Meeting scheduled for request'));
   } catch (error) { next(error); }
 };
