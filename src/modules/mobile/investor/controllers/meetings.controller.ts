@@ -4,10 +4,43 @@ import { successResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
-const shapeMeeting = (meeting: any) => {
+const roleLabel = (role?: string | null) => {
+  if (!role) return 'Participant';
+  return role
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const shapeMeeting = async (meeting: any, viewerId?: string) => {
   if (!meeting) return meeting;
   const { meetingLink, ...data } = meeting;
-  return { ...data, meeting_link: meetingLink || null };
+  const participantIds = [meeting.founder, meeting.investor].filter(Boolean);
+  const users = participantIds.length
+    ? await prisma.user.findMany({
+      where: { id: { in: participantIds } },
+      select: { id: true, fullName: true, avatarUrl: true, email: true, role: true },
+    }).catch(() => [])
+    : [];
+  const userMap = new Map(users.map((user) => [user.id, user]));
+  const host = meeting.createdBy ? userMap.get(meeting.createdBy) : userMap.get(viewerId || '');
+  const withId = meeting.investor === viewerId ? meeting.founder : meeting.investor;
+  const withProfile = userMap.get(withId) || null;
+  return {
+    ...data,
+    meeting_link: meetingLink || null,
+    withProfile,
+    withName: withProfile?.fullName || 'Participant',
+    withRole: roleLabel(withProfile?.role),
+    withAvatar: withProfile?.avatarUrl || null,
+    hostName: host?.fullName || null,
+    hostProfile: host || null,
+    participants: users.map((user) => ({
+      ...user,
+      role: user.id === host?.id ? 'Host' : roleLabel(user.role),
+    })),
+  };
 };
 
 export const listMeetings = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -47,10 +80,10 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
       total = 0;
     }
 
-    const data = meetings.map((m) => ({
-      ...shapeMeeting(m),
+    const data = await Promise.all(meetings.map(async (m) => ({
+      ...(await shapeMeeting(m, req.user.id)),
       duration: (m as any).duration || 30,
-    }));
+    })));
 
     return res.json(
       successResponse('Meetings retrieved', data, {
@@ -88,14 +121,14 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
       channel: 'all'
     });
 
-    return res.status(201).json(successResponse('Meeting scheduled', shapeMeeting(meeting)));
+    return res.status(201).json(successResponse('Meeting scheduled', await shapeMeeting(meeting, req.user.id)));
   } catch (error) { next(error); }
 };
 
 export const getMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, investor: req.user.id } });
-    return res.json(successResponse('Meeting details', shapeMeeting(meeting)));
+    return res.json(successResponse('Meeting details', await shapeMeeting(meeting, req.user.id)));
   } catch (error) { next(error); }
 };
 

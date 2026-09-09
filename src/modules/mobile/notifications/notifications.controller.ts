@@ -12,7 +12,7 @@ export const getNotifications = async (req: AuthRequest, res: Response, next: Ne
 export const getUnreadCount = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const count = await prisma.notification.count({ where: { userId: req.user.id, readAt: null } });
-    return res.json(successResponse('Unread count retrieved', { unreadCount: count }));
+    return res.json(successResponse('Unread count retrieved', { count }));
   } catch (error) { next(error); }
 };
 

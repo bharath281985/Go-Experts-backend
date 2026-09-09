@@ -23,6 +23,15 @@ const shapeUser = (user: any, role: string) => {
   };
 };
 
+const roleLabel = (role?: string | null) => {
+  if (!role) return 'Participant';
+  return role
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+};
+
 const shapeMeeting = (meeting: any, userMap: Record<string, any>, viewerRole: string) => {
   const founderUser = shapeUser(userMap[meeting.founder], 'founder');
   const investorUser = shapeUser(userMap[meeting.investor], 'investor');
@@ -30,7 +39,7 @@ const shapeMeeting = (meeting: any, userMap: Record<string, any>, viewerRole: st
   const withProfile = viewerRole === 'founder' ? investorUser : founderUser;
   const participants = [founderUser, investorUser].filter(Boolean).map((participant) => ({
     ...participant,
-    role: participant?.id === hostUser?.id ? 'Host' : 'Participant',
+    role: participant?.id === hostUser?.id ? 'Host' : roleLabel(participant?.role),
   }));
 
   return {
@@ -46,6 +55,9 @@ const shapeMeeting = (meeting: any, userMap: Record<string, any>, viewerRole: st
     createdAt: meeting.createdAt,
     updatedAt: meeting.updatedAt,
     withProfile,
+    withName: withProfile?.fullName || 'Participant',
+    withRole: roleLabel(withProfile?.role),
+    withAvatar: withProfile?.avatarUrl || null,
     hostName: hostUser?.fullName || null,
     hostProfile: hostUser,
     participants,
