@@ -47,12 +47,12 @@ export async function getHomeCmsContent() {
 export async function getPublicPlatformStats() {
     try {
         const activeFounders = await prisma.user.findMany({
-            where: { deletedAt: null, role: "founder" },
+            where: { deletedAt: null, status: "active", role: "founder" },
             select: { id: true },
         });
         const activeFounderIds = activeFounders.map((u) => u.id);
         const activeClients = await prisma.user.findMany({
-            where: { deletedAt: null, role: "client" },
+            where: { deletedAt: null, status: "active", role: "client" },
             select: { id: true },
         });
         const activeClientIds = activeClients.map((u) => u.id);

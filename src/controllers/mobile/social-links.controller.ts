@@ -10,7 +10,7 @@ export const getSocialLinks = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const links = await prisma.socialLink.findMany({
+    const links = await (prisma as any).socialLink.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
     });
@@ -37,7 +37,7 @@ export const addSocialLink = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const link = await prisma.socialLink.create({
+    const link = await (prisma as any).socialLink.create({
       data: {
         userId,
         platform,
@@ -65,7 +65,7 @@ export const updateSocialLink = async (req: AuthRequest, res: Response): Promise
     const { platform, url } = req.body;
 
     // Check if link exists and belongs to user
-    const existingLink = await prisma.socialLink.findUnique({
+    const existingLink = await (prisma as any).socialLink.findUnique({
       where: { id },
     });
 
@@ -79,7 +79,7 @@ export const updateSocialLink = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    const updatedLink = await prisma.socialLink.update({
+    const updatedLink = await (prisma as any).socialLink.update({
       where: { id },
       data: {
         platform: platform ?? existingLink.platform,
@@ -105,7 +105,7 @@ export const deleteSocialLink = async (req: AuthRequest, res: Response): Promise
     }
 
     // Check if link exists and belongs to user
-    const existingLink = await prisma.socialLink.findUnique({
+    const existingLink = await (prisma as any).socialLink.findUnique({
       where: { id },
     });
 
@@ -119,7 +119,7 @@ export const deleteSocialLink = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    await prisma.socialLink.delete({
+    await (prisma as any).socialLink.delete({
       where: { id },
     });
 

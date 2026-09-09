@@ -11,9 +11,19 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
 
+    const where = {
+      deletedAt: null,
+      OR: [{ freelancer: req.user.id }, { client: req.user.id }],
+    };
+
     const [projects, total] = await Promise.all([
-      prisma.project.findMany({ where: { freelancer: req.user.id }, skip, take: limit }),
-      prisma.project.count({ where: { freelancer: req.user.id } })
+      prisma.project.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.project.count({ where })
     ]);
 
     const mapped = await shapeProjects(projects, req.user?.id);

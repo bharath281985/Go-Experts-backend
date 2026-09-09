@@ -29,6 +29,7 @@ export function isSchemaDriftError(err) {
 export const FREELANCER_PROFILE_LIST_SELECT = {
     id: true,
     userId: true,
+    titleHeadline: true,
     industry: true,
     skills: true,
     hourlyRate: true,
@@ -277,6 +278,7 @@ export async function listFreelancersCompat(options) {
           SELECT
             id,
             user_id as userId,
+            title_headline as titleHeadline,
             industry,
             skills,
             hourly_rate as hourlyRate,
@@ -293,6 +295,7 @@ export async function listFreelancersCompat(options) {
           SELECT
             id,
             user_id as userId,
+            title_headline as titleHeadline,
             skills,
             hourly_rate as hourlyRate,
             rating,
@@ -346,6 +349,7 @@ export async function getFreelancerByIdCompat(id, include) {
         SELECT
           id,
           user_id as userId,
+          title_headline as titleHeadline,
           industry,
           skills,
           hourly_rate as hourlyRate,
@@ -363,6 +367,7 @@ export async function getFreelancerByIdCompat(id, include) {
         SELECT
           id,
           user_id as userId,
+          title_headline as titleHeadline,
           skills,
           hourly_rate as hourlyRate,
           rating,

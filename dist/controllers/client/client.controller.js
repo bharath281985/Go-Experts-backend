@@ -177,8 +177,21 @@ export const getClientProfile = async (req, res, next) => {
         const user = await loadClientUser(userId);
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
-        const resolvedIndustry = await resolveIndustry(user.clientProfile?.industry);
+        const reg = typeof user.registrationData === "string" ? (() => { try {
+            return JSON.parse(user.registrationData);
+        }
+        catch {
+            return {};
+        } })() : (user.registrationData || {});
+        const rawIndustry = user.clientProfile?.industry || reg.industry || reg.companyCategory || reg.category || reg.companyCategoryName || reg.categoryName || null;
+        const resolvedIndustry = await resolveIndustry(rawIndustry);
         const resolvedCountry = await resolveCountry(user.country);
+        let projectsPosted = user.clientProfile?.projectsPosted ?? 0;
+        if (projectsPosted === 0) {
+            projectsPosted = await prisma.project.count({
+                where: clientProjectWhere(user, user.clientProfile)
+            }).catch(() => 0);
+        }
         res.json({
             success: true,
             data: {
@@ -195,9 +208,11 @@ export const getClientProfile = async (req, res, next) => {
                 company: user.clientProfile?.company || "",
                 industry: resolvedIndustry?.name || "",
                 industryName: resolvedIndustry?.name || null,
+                category: resolvedIndustry?.name || "",
+                companyCategory: resolvedIndustry?.name || "",
                 industryData: resolvedIndustry,
                 totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
-                projectsPosted: user.clientProfile?.projectsPosted ?? 0,
+                projectsPosted,
                 status: user.status || "active",
                 verified: Boolean(user.isVerified || user.verified),
                 role: user.role,

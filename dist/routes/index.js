@@ -411,7 +411,13 @@ export function sanitizeUserRecord(row) {
         || founderProfile.industry
         || (investorProfile.focusAreas ? String(investorProfile.focusAreas).split(",")[0] : null)
         || regData.industry
+        || regData.companyCategory
+        || regData.category
+        || regData.industryName
+        || regData.categoryName
         || rest.industry
+        || rest.companyCategory
+        || rest.category
         || "Technology";
     const projectsPosted = rest.projects_posted
         ?? rest.projectsPosted

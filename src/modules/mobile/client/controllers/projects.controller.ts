@@ -306,7 +306,7 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
         workMode: workModeValue,
         experienceLevel: level ?? 'intermediate',
         attachments: serializeAttachments(attachments),
-        status: 'draft',
+        status: 'open',
       },
     });
 
