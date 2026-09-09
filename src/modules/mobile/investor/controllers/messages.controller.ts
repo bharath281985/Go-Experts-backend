@@ -350,6 +350,50 @@ export const markMessageRead = async (req: AuthRequest, res: Response, next: Nex
   }
 };
 
+export const markConversationRead = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await prisma.conversation.update({
+      where: { id: req.params.id },
+      data: { unread: 0 },
+    });
+    try {
+      await prisma.message.updateMany({
+        where: { conversationId: req.params.id },
+        data: { readAt: new Date() } as any,
+      });
+    } catch {
+      /* ignore */
+    }
+    return res.json(successResponse('Conversation marked read'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const markConversationUnread = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await prisma.conversation.update({
+      where: { id: req.params.id },
+      data: { unread: 1 },
+    });
+    return res.json(successResponse('Conversation marked unread'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteConversation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    await prisma.conversation.update({
+      where: { id: req.params.id },
+      data: { deletedAt: new Date(), status: 'deleted' },
+    });
+    return res.json(successResponse('Conversation deleted'));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const uploadAttachment = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.file) {

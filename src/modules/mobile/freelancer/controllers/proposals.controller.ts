@@ -9,6 +9,12 @@ const shapeProposal = async (proposal: any) => {
   const project = proposal.project || await prisma.project.findUnique({
     where: { id: proposal.projectId },
   }).catch(() => null);
+  const freelancer = proposal.freelancer || (proposal.freelancerId
+    ? await prisma.user.findUnique({
+      where: { id: proposal.freelancerId },
+      select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true },
+    }).catch(() => null)
+    : null);
   const client = project?.client
     ? await prisma.user.findUnique({
       where: { id: project.client },
@@ -24,8 +30,10 @@ const shapeProposal = async (proposal: any) => {
     clientName: client?.fullName || proposal.clientName || 'Client',
     clientAvatar: client?.avatarUrl || null,
     freelancerId: proposal.freelancerId,
-    freelancerName: proposal.freelancer?.fullName || proposal.freelancerName || 'Freelancer',
-    freelancerAvatar: proposal.freelancer?.avatarUrl || null,
+    freelancer,
+    freelancerName: freelancer?.fullName || proposal.freelancerName || 'Freelancer',
+    freelancerAvatar: freelancer?.avatarUrl || null,
+    freelancerRating: freelancer?.freelancerProfile?.rating || proposal.freelancerRating || 4.8,
   };
 };
 
@@ -44,7 +52,10 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
         where,
         skip,
         take: limit,
-        include: { project: true }
+        include: {
+          project: true,
+          freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } },
+        }
       }),
       prisma.proposal.count({ where })
     ]);
@@ -77,7 +88,14 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
     }
 
     const proposal = await prisma.proposal.create({
-      data: { projectId, freelancerId: req.user.id, bidAmount, coverLetter, status: 'pending' }
+      data: {
+        projectId,
+        freelancerId: req.user.id,
+        bidAmount,
+        coverLetter,
+        deliveryTime,
+        status: 'pending',
+      }
     });
 
     if (project.client) {
@@ -115,12 +133,27 @@ export const getProposalDetails = async (req: AuthRequest, res: Response, next: 
 
 export const updateProposal = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { bidAmount, coverLetter } = req.body;
-    const proposal = await prisma.proposal.updateMany({
+    const { bidAmount, coverLetter, deliveryTime } = req.body;
+    const existing = await prisma.proposal.findFirst({
       where: { id: req.params.id, freelancerId: req.user.id },
-      data: { bidAmount, coverLetter }
     });
-    return res.json(successResponse('Proposal updated', proposal));
+    if (!existing) {
+      return res.status(404).json(errorResponse('Proposal not found', 'NOT_FOUND'));
+    }
+
+    const proposal = await prisma.proposal.update({
+      where: { id: existing.id },
+      data: {
+        bidAmount,
+        coverLetter,
+        ...(deliveryTime !== undefined ? ({ deliveryTime } as any) : {}),
+      },
+      include: {
+        project: true,
+        freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } },
+      },
+    });
+    return res.json(successResponse('Proposal updated', await shapeProposal(proposal)));
   } catch (error) { next(error); }
 };
 

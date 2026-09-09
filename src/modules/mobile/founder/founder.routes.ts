@@ -15,7 +15,7 @@ import { getBusinessPlan, createBusinessPlan, updateBusinessPlan } from './contr
 import { getTeam, inviteTeamMember, updateTeamMember, removeTeamMember } from './controllers/team.controller.js';
 import { listDocuments, uploadDocument, getDocument, downloadDocument, deleteDocument } from './controllers/documents.controller.js';
 import { listMeetings, scheduleMeeting, getMeeting, rescheduleMeeting, cancelMeeting, addMeetingNotes } from './controllers/meetings.controller.js';
-import { listConversations, getConversation, sendMessage, markMessageRead, uploadAttachment } from './controllers/messages.controller.js';
+import { listConversations, getConversation, sendMessage, markMessageRead, markConversationRead, markConversationUnread, deleteConversation, uploadAttachment } from './controllers/messages.controller.js';
 import { getAnalytics } from './controllers/analytics.controller.js';
 import { getReports, getFundingReport, getInvestorsReport, getMeetingsReport, exportReport } from './controllers/reports.controller.js';
 import { getCurrentPlan, getPlans, purchasePlan, renewPlan, upgradePlan, cancelPlan } from './controllers/subscriptions.controller.js';
@@ -160,6 +160,9 @@ router.get('/messages/conversations', listConversations);
 router.get('/messages/conversations/:id', getConversation);
 router.post('/messages/send', sendMessage);
 router.patch('/messages/:id/read', markMessageRead);
+router.patch('/messages/conversations/:id/read-all', markConversationRead);
+router.patch('/messages/conversations/:id/unread', markConversationUnread);
+router.delete('/messages/conversations/:id', deleteConversation);
 router.post('/messages/attachments', chatUpload.single('file'), handleUploadError, uploadAttachment);
 
 // Analytics
