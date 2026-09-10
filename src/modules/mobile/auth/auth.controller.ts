@@ -1984,7 +1984,27 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
 
 export const verifyOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { phone, countryCode, code } = req.body;
+    const { email, phone, countryCode, code, otp } = req.body;
+
+    if (email) {
+      const cleanEmail = String(email).trim().toLowerCase();
+      const emailCode = String(otp || code || '').trim();
+      const result = verifyEmailOtp(cleanEmail, emailCode);
+
+      if (!result.valid) {
+        return res.status(400).json(
+          errorResponse(
+            result.reason === 'EXPIRED'
+              ? 'OTP has expired. Please request a new code.'
+              : 'Invalid OTP. Please try again.',
+            result.reason === 'EXPIRED' ? 'OTP_EXPIRED' : 'INVALID_OTP'
+          )
+        );
+      }
+
+      return res.json(successResponse('Email verified successfully', { verified: true }));
+    }
+
     const result = verifyPhoneOtp(phone, countryCode, code);
 
     if (!result.valid) {
