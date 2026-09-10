@@ -53,6 +53,7 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const skip = (page - 1) * limit;
     const status = req.query.status as string;
     const search = String(req.query.search || req.query.q || '').trim();
+    const searchLower = search.toLowerCase();
 
     let baseWhere: any;
     if (req.user?.role === 'founder') {
@@ -81,23 +82,14 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const where: any = status
       ? { AND: [baseWhere, { status }] }
       : { AND: [baseWhere, { status: { notIn: ['Cancelled', 'Closed'] } }] };
-    if (search) {
-      where.AND.push({
-        OR: [
-          { startup: { contains: search } },
-          { investor: { contains: search } },
-          { status: { contains: search } },
-        ],
-      });
-    }
 
-    const [investments, total, watchlist] = await Promise.all([
-      prisma.investment.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+    const [rawInvestments, total, watchlist] = await Promise.all([
+      prisma.investment.findMany({ where, orderBy: { createdAt: 'desc' } }),
       prisma.investment.count({ where }),
       readList(req.user.id),
     ]);
 
-    const startupKeys = [...new Set(investments.map(i => i.startup).filter(Boolean))];
+    const startupKeys = [...new Set(rawInvestments.map(i => i.startup).filter(Boolean))];
     let startups: any[] = [];
     if (startupKeys.length > 0) {
       startups = await prisma.startupIdea.findMany({
@@ -114,7 +106,7 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const userIdsToFetch = [...new Set([
       ...startupKeys,
       ...startups.map(s => s.founder).filter(Boolean),
-      ...investments.map(i => (i as any).founder || (i as any).founderId).filter(Boolean),
+      ...rawInvestments.map(i => (i as any).founder || (i as any).founderId).filter(Boolean),
     ])];
 
     const [fetchedUsers, fetchedFounderProfiles] = await Promise.all([
@@ -136,7 +128,7 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const savedIds = new Set<string>(watchlist.map(w => w.startupId));
     const investedIds = new Set<string>(startupKeys);
 
-    const enriched = investments.map(inv => {
+    const enriched = rawInvestments.map(inv => {
       const idea = startups.find(s =>
         s.id === inv.startup ||
         s.founder === inv.startup ||
@@ -173,7 +165,30 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
       };
     });
 
-    return res.json(successResponse('Investments retrieved', enriched, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    let filtered = enriched;
+    if (searchLower) {
+      filtered = enriched.filter((item) => {
+        const haystack = [
+          item.startupName,
+          item.founderName,
+          item.status,
+          item.startup?.name,
+          item.startup?.startup,
+          item.startup?.id,
+          item.founderId,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(searchLower);
+      });
+    }
+
+    const paginated = filtered.slice(skip, skip + limit);
+    const filteredTotal = filtered.length;
+    return res.json(successResponse('Investments retrieved', paginated, {
+      page,
+      limit,
+      total: filteredTotal,
+      totalPages: Math.ceil(filteredTotal / limit) || 1,
+    }));
   } catch (error) { next(error); }
 };
 

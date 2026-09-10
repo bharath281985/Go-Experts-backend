@@ -16,25 +16,39 @@ export const globalSearch = async (req: AuthRequest, res: Response, next: NextFu
 
 export const searchProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const q = (req.query.q as string) || '';
+    const q = ((req.query.q as string) || '').trim();
     const category = req.query.category as string;
     const minBudget = req.query.minBudget ? parseFloat(req.query.minBudget as string) : undefined;
     const maxBudget = req.query.maxBudget ? parseFloat(req.query.maxBudget as string) : undefined;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
     const skip = (page - 1) * limit;
 
-    const where: any = { status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] } };
-    if (q) where.title = { contains: q };
+    const where: any = {
+      deletedAt: null,
+      status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
+    };
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { category: { contains: q, mode: 'insensitive' } },
+        { technology: { contains: q, mode: 'insensitive' } },
+        { workMode: { contains: q, mode: 'insensitive' } },
+        { experienceLevel: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
     if (category) where.category = category;
     if (minBudget !== undefined) where.budget = { gte: minBudget };
     if (maxBudget !== undefined) where.budget = { ...where.budget, lte: maxBudget };
 
     const [projects, total] = await Promise.all([
-      prisma.project.findMany({ where, skip, take: limit }),
+      prisma.project.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
       prisma.project.count({ where })
     ]);
-    return res.json(successResponse('Project search results', projects, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    return res.json(successResponse('Project search results', projects, { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }));
   } catch (error) { next(error); }
 };
 

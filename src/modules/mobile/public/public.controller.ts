@@ -1089,6 +1089,7 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
+    const search = String(req.query.search || req.query.q || '').trim();
 
     const where: any = {
       role: 'investor',
@@ -1099,13 +1100,25 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     if (userId) {
       where.id = { not: userId };
     }
+    if (search) {
+      where.AND = [{
+        OR: [
+          { fullName: { contains: search, mode: 'insensitive' } },
+          { city: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { investorProfile: { is: { firm: { contains: search, mode: 'insensitive' } } } },
+          { investorProfile: { is: { focusAreas: { contains: search, mode: 'insensitive' } } } },
+          { investorProfile: { is: { bio: { contains: search, mode: 'insensitive' } } } },
+        ],
+      }];
+    }
 
     const [investors, total] = await Promise.all([
       prisma.user.findMany({
         where,
         select: {
           id: true, fullName: true, avatarUrl: true, city: true, isVerified: true,
-          investorProfile: { select: { id: true, focusAreas: true, ticketMin: true, ticketMax: true, deals: true } }
+          investorProfile: { select: { id: true, firm: true, focusAreas: true, ticketMin: true, ticketMax: true, deals: true } }
         },
         orderBy: { createdAt: 'desc' },
         skip, take: limit
@@ -1520,6 +1533,15 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
       .filter((id) => !viewerId || id !== viewerId);
 
     where.client = { in: activeClientIds };
+    if (viewerId) {
+      where.proposals = {
+        none: {
+          freelancerId: viewerId,
+          status: 'accepted',
+          deletedAt: null,
+        },
+      };
+    }
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({ where, skip, take: limit, orderBy }),

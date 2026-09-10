@@ -32,10 +32,34 @@ export const getProjectDetails = async (req: AuthRequest, res: Response, next: N
 
 export const searchProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const query = (req.query.q as string) || '';
-    const projects = await prisma.project.findMany({ where: { status: 'open', title: { contains: query } }, take: 20 });
+    const q = ((req.query.q as string) || '').trim();
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      deletedAt: null,
+      status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
+    };
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { category: { contains: q, mode: 'insensitive' } },
+        { technology: { contains: q, mode: 'insensitive' } },
+        { workMode: { contains: q, mode: 'insensitive' } },
+        { experienceLevel: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      prisma.project.count({ where }),
+    ]);
+
     const mapped = await shapeProjects(projects, req.user?.id);
-    return res.json(successResponse('Search results', mapped));
+    return res.json(successResponse('Search results', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }));
   } catch (error) { next(error); }
 };
 
