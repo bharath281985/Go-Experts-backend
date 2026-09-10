@@ -1713,6 +1713,7 @@ model Proposal {
   bidAmount    Float     @map("bid_amount")
   deliveryTime Int?      @map("delivery_time")
   coverLetter  String?   @map("cover_letter")
+  attachments  String?   @db.Text
   status       String    @default("pending")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")

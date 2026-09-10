@@ -460,6 +460,7 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
     },
     select: {
       id: true,
+      type: true,
       label: true,
       value: true,
       min: true,
@@ -468,8 +469,18 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
     },
   }).catch(() => []);
 
-  const ranges = deduplicateMasterOptions(dbRanges || [])
-    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  const availableRanges = dbRanges || [];
+  const preferredType = ['project_budget_range', 'hiring_budget_range', 'budget_range']
+    .find((type) => availableRanges.some((item: any) => item.type === type));
+  const canonicalRanges = preferredType
+    ? availableRanges.filter((item: any) => item.type === preferredType)
+    : availableRanges;
+  const ranges = deduplicateMasterOptions(canonicalRanges)
+    .sort((a: any, b: any) =>
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
+      (a.min ?? Number.MAX_SAFE_INTEGER) - (b.min ?? Number.MAX_SAFE_INTEGER) ||
+      String(a.label ?? '').localeCompare(String(b.label ?? '')),
+    )
     .map((item: any) => ({
       id: item.id,
       label: item.label,
@@ -1108,7 +1119,6 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
           { email: { contains: search } },
           { investorProfile: { is: { firm: { contains: search } } } },
           { investorProfile: { is: { focusAreas: { contains: search } } } },
-          { investorProfile: { is: { bio: { contains: search } } } },
         ],
       }];
     }

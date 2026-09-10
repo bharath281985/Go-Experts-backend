@@ -77,7 +77,10 @@ export const getProposal = async (req: AuthRequest, res: Response, next: NextFun
   try {
     const proposal = await prisma.proposal.findFirst({
       where: { id: req.params.id, project: { client: req.user.id } },
-      include: { freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } } }
+      include: {
+        project: true,
+        freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } },
+      }
     });
     if (!proposal) return res.status(404).json(errorResponse('Proposal not found', 'NOT_FOUND'));
 

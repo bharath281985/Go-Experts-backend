@@ -7,14 +7,26 @@ import { shapeProject, shapeProjects } from '../../../../services/mobile/project
 
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
     const skip = (page - 1) * limit;
+    const q = ((req.query.q as string) || '').trim();
 
-    const where = {
+    const where: any = {
       deletedAt: null,
       OR: [{ freelancer: req.user.id }, { client: req.user.id }],
     };
+
+    if (q) {
+      where.AND = [{ OR: [
+        { title: { contains: q } },
+        { description: { contains: q } },
+        { category: { contains: q } },
+        { technology: { contains: q } },
+        { workMode: { contains: q } },
+        { experienceLevel: { contains: q } },
+      ] }];
+    }
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
@@ -27,7 +39,7 @@ export const listProjects = async (req: AuthRequest, res: Response, next: NextFu
     ]);
 
     const mapped = await shapeProjects(projects, req.user?.id);
-    return res.json(successResponse('Projects retrieved', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    return res.json(successResponse('Projects retrieved', mapped, { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }));
   } catch (error) { next(error); }
 };
 

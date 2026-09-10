@@ -8,13 +8,16 @@ export const listContracts = async (req: AuthRequest, res: Response, next: NextF
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
-    const search = req.query.search as string;
+    const search = String(req.query.search || req.query.q || '').trim();
     const status = req.query.status as string;
 
     const where: any = { freelancerId: req.user.id };
     if (status) where.status = status;
     if (search) {
       where.OR = [
+        { project: { title: { contains: search } } },
+        { project: { description: { contains: search } } },
+        { client: { fullName: { contains: search } } },
         { contractNumber: { contains: search } },
       ];
     }
