@@ -9,10 +9,10 @@ import { listProjects, getProjectDetails, searchProjects, appliedProjects, invit
 import { createProject, updateProject, deleteProject, updateProjectStatus } from '../client/controllers/projects.controller.js';
 import { listProjectProposals } from '../client/controllers/proposals.controller.js';
 import { listIdeas, getIdeaDetails, createIdea, updateIdea, deleteIdea } from '../founder/controllers/ideas.controller.js';
-import { listProposals, createProposal, getProposalDetails, updateProposal, withdrawProposal } from './controllers/proposals.controller.js';
+import { listProposals, createProposal, getProposalDetails, updateProposal, withdrawProposal, deleteProposal } from './controllers/proposals.controller.js';
 import { listContracts, getContractDetails, acceptContract, rejectContract, getContractMilestones, getContractTimeline, getContractDocuments } from './controllers/contracts.controller.js';
 import { listTasks, getTaskDetails, updateTaskStatus, startTimer, stopTimer, manualTimeLog } from './controllers/tasks.controller.js';
-import { listMeetings, scheduleMeeting, getMeetingDetails, getUpcomingMeetings } from './controllers/meetings.controller.js';
+import { listMeetings, scheduleMeeting, getMeetingDetails, getUpcomingMeetings, rescheduleMeeting, cancelMeeting } from './controllers/meetings.controller.js';
 import { listConversations, getConversationDetails, sendMessage, deleteMessage } from './controllers/messages.controller.js';
 import { getWalletSummary, getTransactions, getCredits, getDebits, getPendingPayouts, getPaymentHistory, requestWithdrawal } from './controllers/wallet.controller.js';
 import { getMonthlyEarnings, getYearlyEarnings, getCategoryEarnings, getClientEarnings, downloadStatement } from './controllers/earnings.controller.js';
@@ -167,6 +167,7 @@ router.post('/proposals', createProposal);
 router.get('/proposals/:id', getProposalDetails);
 router.put('/proposals/:id', updateProposal);
 router.patch('/proposals/:id', updateProposal);
+router.delete('/proposals/:id', deleteProposal);
 router.delete('/proposals/:id/withdraw', withdrawProposal);
 
 // ─── Contracts ───
@@ -191,6 +192,8 @@ router.get('/meetings', listMeetings);
 router.post('/meetings', scheduleMeeting);
 router.get('/meetings/upcoming', getUpcomingMeetings);
 router.get('/meetings/:id', getMeetingDetails);
+router.patch('/meetings/:id/reschedule', rescheduleMeeting);
+router.patch('/meetings/:id/cancel', cancelMeeting);
 
 // ─── Messages ───
 router.get('/messages', listConversations);

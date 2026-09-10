@@ -120,3 +120,63 @@ export const getUpcomingMeetings = async (req: AuthRequest, res: Response, next:
     return res.json(successResponse('Upcoming meetings retrieved', shaped));
   } catch (error) { next(error); }
 };
+
+export const rescheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { date, time } = req.body;
+    if (!date || !time) {
+      return res.status(400).json({ success: false, message: 'date and time are required' });
+    }
+    const userId = req.user.id;
+    const meeting = await prisma.meeting.findFirst({
+      where: { id: req.params.id, OR: [{ founder: userId }, { investor: userId }] }
+    });
+    if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found' });
+
+    const updated = await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { date: String(date), time: String(time) },
+    });
+
+    const otherId = meeting.founder === userId ? meeting.investor : meeting.founder;
+    if (otherId) {
+      await NotificationEngine.queueNotification({
+        userId: otherId,
+        type: 'meeting_rescheduled',
+        title: 'Meeting Rescheduled',
+        message: `${req.user.fullName || 'A freelancer'} has rescheduled your meeting to ${date} at ${time}.`,
+        channel: 'all',
+      }).catch((err) => console.error('reschedule notification failed:', err));
+    }
+
+    return res.json(successResponse('Meeting rescheduled', await shapeMeeting(updated, userId)));
+  } catch (error) { next(error); }
+};
+
+export const cancelMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user.id;
+    const meeting = await prisma.meeting.findFirst({
+      where: { id: req.params.id, OR: [{ founder: userId }, { investor: userId }] }
+    });
+    if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found' });
+
+    const updated = await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { status: 'Cancelled' },
+    });
+
+    const otherId = meeting.founder === userId ? meeting.investor : meeting.founder;
+    if (otherId) {
+      await NotificationEngine.queueNotification({
+        userId: otherId,
+        type: 'meeting_cancelled',
+        title: 'Meeting Cancelled',
+        message: `${req.user.fullName || 'A freelancer'} has cancelled the upcoming meeting.`,
+        channel: 'all',
+      }).catch((err) => console.error('cancel notification failed:', err));
+    }
+
+    return res.json(successResponse('Meeting cancelled', await shapeMeeting(updated, userId)));
+  } catch (error) { next(error); }
+};

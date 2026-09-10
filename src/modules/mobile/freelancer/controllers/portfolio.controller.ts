@@ -215,7 +215,7 @@ const normalizeItem = async (body: Record<string, unknown>, existing?: Portfolio
 
   const liveUrl = String(body.liveUrl || body.projectUrl || existing?.liveUrl || existing?.projectUrl || '').trim() || null;
   const githubUrl = String(body.githubUrl || existing?.githubUrl || '').trim() || null;
-  const overview = String(body.overview || body.description || existing?.overview || existing?.description || '').trim();
+  const overview = String(body.description || body.overview || existing?.description || existing?.overview || '').trim();
   const cover = String(body.coverMedia || body.coverUrl || existing?.coverMedia || existing?.coverUrl || '').trim() || null;
   const video = String(body.videoDemo || body.videoUrl || existing?.videoDemo || existing?.videoUrl || '').trim() || null;
   const pdf = String(body.pdfCaseStudy || body.caseStudyUrl || existing?.pdfCaseStudy || existing?.caseStudyUrl || '').trim() || null;

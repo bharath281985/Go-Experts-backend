@@ -44,7 +44,7 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
     const skip = (page - 1) * limit;
     const status = req.query.status as string | undefined;
 
-    const where: any = { freelancerId: req.user.id };
+    const where: any = { freelancerId: req.user.id, deletedAt: null };
     if (status) where.status = status;
 
     const [proposals, total] = await Promise.all([
@@ -198,4 +198,22 @@ export const withdrawProposal = async (req: AuthRequest, res: Response, next: Ne
 
     return res.json(successResponse('Proposal withdrawn'));
   } catch (error) { next(error); }
+};
+
+export const deleteProposal = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const proposal = await prisma.proposal.findFirst({
+      where: { id: req.params.id, freelancerId: req.user.id },
+      select: { id: true },
+    });
+
+    if (!proposal) {
+      return res.status(404).json(errorResponse('Proposal not found', 'PROPOSAL_NOT_FOUND'));
+    }
+
+    await prisma.proposal.delete({ where: { id: proposal.id } });
+    return res.json(successResponse('Proposal deleted permanently', { deleted: true }));
+  } catch (error) {
+    next(error);
+  }
 };

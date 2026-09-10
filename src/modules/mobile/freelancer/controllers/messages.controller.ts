@@ -210,15 +210,15 @@ export const getConversationDetails = async (req: AuthRequest, res: Response, ne
     }).catch(() => null);
 
     const shaped = messages.map((m) => {
-      const isMine =
-        (m as any).senderId === req.user.id ||
-        m.from === 'me' ||
-        Boolean(req.user.fullName && m.from === req.user.fullName);
+      const senderId = (m as any).senderId as string | null | undefined;
+      const isMine = senderId
+        ? senderId === req.user.id
+        : Boolean(req.user.fullName && m.from === req.user.fullName);
       return {
         ...m,
         conversationId: conv.id,
         from: isMine ? 'me' : m.from,
-        senderId: (m as any).senderId || (isMine ? req.user.id : null),
+        senderId: senderId || (isMine ? req.user.id : null),
         isMine,
       };
     });
