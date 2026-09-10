@@ -1103,12 +1103,12 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     if (search) {
       where.AND = [{
         OR: [
-          { fullName: { contains: search, mode: 'insensitive' } },
-          { city: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { investorProfile: { is: { firm: { contains: search, mode: 'insensitive' } } } },
-          { investorProfile: { is: { focusAreas: { contains: search, mode: 'insensitive' } } } },
-          { investorProfile: { is: { bio: { contains: search, mode: 'insensitive' } } } },
+          { fullName: { contains: search } },
+          { city: { contains: search } },
+          { email: { contains: search } },
+          { investorProfile: { is: { firm: { contains: search } } } },
+          { investorProfile: { is: { focusAreas: { contains: search } } } },
+          { investorProfile: { is: { bio: { contains: search } } } },
         ],
       }];
     }

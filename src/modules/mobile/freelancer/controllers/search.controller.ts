@@ -31,12 +31,12 @@ export const searchProjects = async (req: AuthRequest, res: Response, next: Next
 
     if (q) {
       where.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-        { category: { contains: q, mode: 'insensitive' } },
-        { technology: { contains: q, mode: 'insensitive' } },
-        { workMode: { contains: q, mode: 'insensitive' } },
-        { experienceLevel: { contains: q, mode: 'insensitive' } },
+        { title: { contains: q } },
+        { description: { contains: q } },
+        { category: { contains: q } },
+        { technology: { contains: q } },
+        { workMode: { contains: q } },
+        { experienceLevel: { contains: q } },
       ];
     }
 

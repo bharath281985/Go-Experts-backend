@@ -23,7 +23,6 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
   const skip = (page - 1) * limit;
   const q = (query || '').trim();
   const results: Record<string, any[]> = {};
-  const queryMode: any = { mode: 'insensitive' };
   const all = !type || type === 'all';
 
   if (all || type === 'freelancer') {
@@ -33,11 +32,11 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
         status: 'active',
         deletedAt: null,
         OR: [
-          { fullName: { contains: q, ...queryMode } },
-          { city: { contains: q, ...queryMode } },
-          { bio: { contains: q, ...queryMode } }
+          { fullName: { contains: q } },
+          { city: { contains: q } },
+          { bio: { contains: q } }
         ],
-        ...(city ? { city: { contains: city, ...queryMode } } : {})
+        ...(city ? { city: { contains: city } } : {})
       },
       select: { id: true, fullName: true, avatarUrl: true, city: true, bio: true, freelancerProfile: true },
       skip, take: limit
@@ -50,8 +49,8 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
         role: 'client',
         status: 'active',
         deletedAt: null,
-        OR: [{ fullName: { contains: q, ...queryMode } }, { city: { contains: q, ...queryMode } }],
-        ...(city ? { city: { contains: city, ...queryMode } } : {})
+        OR: [{ fullName: { contains: q } }, { city: { contains: q } }],
+        ...(city ? { city: { contains: city } } : {})
       },
       select: { id: true, fullName: true, avatarUrl: true, city: true, clientProfile: true },
       skip, take: limit
@@ -64,7 +63,7 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
         role: 'investor',
         status: 'active',
         deletedAt: null,
-        OR: [{ fullName: { contains: q, ...queryMode } }, { city: { contains: q, ...queryMode } }]
+        OR: [{ fullName: { contains: q } }, { city: { contains: q } }]
       },
       select: { id: true, fullName: true, avatarUrl: true, city: true, investorProfile: true },
       skip, take: limit
@@ -78,12 +77,12 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
         status: 'active',
         deletedAt: null,
         OR: [
-          { fullName: { contains: q, ...queryMode } },
-          { founderProfile: { startupName: { contains: q, ...queryMode } } },
-          { founderProfile: { industry: { contains: q, ...queryMode } } }
+          { fullName: { contains: q } },
+          { founderProfile: { startupName: { contains: q } } },
+          { founderProfile: { industry: { contains: q } } }
         ],
-        ...(industry ? { founderProfile: { industry: { contains: industry, ...queryMode } } } : {}),
-        ...(stage ? { founderProfile: { stage: { contains: stage, ...queryMode } } } : {})
+        ...(industry ? { founderProfile: { industry: { contains: industry } } } : {}),
+        ...(stage ? { founderProfile: { stage: { contains: stage } } } : {})
       },
       select: { id: true, fullName: true, avatarUrl: true, city: true, founderProfile: true },
       skip, take: limit
@@ -95,11 +94,11 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
       where: {
         deletedAt: null,
         OR: [
-          { title: { contains: q, ...queryMode } },
-          { category: { contains: q, ...queryMode } },
-          { technology: { contains: q, ...queryMode } }
+          { title: { contains: q } },
+          { category: { contains: q } },
+          { technology: { contains: q } }
         ],
-        ...(category ? { category: { contains: category, ...queryMode } } : {}),
+        ...(category ? { category: { contains: category } } : {}),
         status: input.status || undefined
       },
       skip, take: limit
@@ -114,8 +113,8 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
           deletedAt: null,
           status: 'active',
           OR: [
-            { originalName: { contains: q, ...queryMode } },
-            { filetype: { contains: q, ...queryMode } }
+            { originalName: { contains: q } },
+            { filetype: { contains: q } }
           ]
         },
         skip, take: limit

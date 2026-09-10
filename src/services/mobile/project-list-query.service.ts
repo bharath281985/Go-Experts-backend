@@ -76,7 +76,7 @@ export const parseProjectListQuery = (req: Request, scope: ProjectListScope) => 
 
 
   if (q) {
-    const search = { contains: q, mode: 'insensitive' as const };
+    const search = { contains: q };
     where.OR = [
       { title: search },
       { technology: search },

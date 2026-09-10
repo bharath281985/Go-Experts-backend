@@ -42,8 +42,8 @@ async function resolveStartupIdea(userId: string, payload: PitchDeckPayload = {}
 
   if (businessName) {
     where.OR = [
-      { startup: { equals: businessName, mode: 'insensitive' } },
-      { startup: { contains: businessName, mode: 'insensitive' } },
+      { startup: { equals: businessName } },
+      { startup: { contains: businessName } },
     ];
   }
 
