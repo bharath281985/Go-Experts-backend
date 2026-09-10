@@ -1867,22 +1867,23 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
     const { email, phone, countryCode } = req.body;
 
     if (email) {
+      const cleanEmail = String(email).trim().toLowerCase();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
+      if (!emailRegex.test(cleanEmail)) {
         return res.status(400).json(errorResponse('Invalid email address format', 'VALIDATION_ERROR'));
       }
-      const isDomainValid = await validateEmailDomain(email);
+      const isDomainValid = await validateEmailDomain(cleanEmail);
       if (!isDomainValid) {
         return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
       }
 
-      const existingUser = await prisma.user.findFirst({ where: { email, deletedAt: null } });
+      const existingUser = await prisma.user.findFirst({ where: { email: cleanEmail, deletedAt: null } });
       if (existingUser) {
         return res.status(409).json(errorResponse('Email is already registered. Please login.', 'EMAIL_ALREADY_EXISTS'));
       }
 
-      const { code } = await issueEmailOtp(email);
-      const emailSent = await sendVerificationEmail(email, code);
+      const { code } = await issueEmailOtp(cleanEmail);
+      const emailSent = await sendVerificationEmail(cleanEmail, code);
 
       if (!emailSent) {
         return res.status(500).json(errorResponse('Failed to send OTP email. Please try again later.', 'OTP_SEND_FAILED'));
@@ -1892,7 +1893,7 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       return res.json(
         successResponse('OTP sent successfully', {
           id: otpId,
-          email,
+          email: cleanEmail,
           expiresInSeconds: 600,
           otp: code,
           devOtpCode: code // Displaying explicitly for testing
@@ -1929,18 +1930,19 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
     const { email, phone, countryCode } = req.body;
 
     if (email) {
-      const isDomainValid = await validateEmailDomain(email);
+      const cleanEmail = String(email).trim().toLowerCase();
+      const isDomainValid = await validateEmailDomain(cleanEmail);
       if (!isDomainValid) {
         return res.status(400).json(errorResponse('Email domain is not valid or not receiving emails', 'VALIDATION_ERROR'));
       }
 
-      const existingUser = await prisma.user.findFirst({ where: { email, deletedAt: null } });
+      const existingUser = await prisma.user.findFirst({ where: { email: cleanEmail, deletedAt: null } });
       if (existingUser) {
         return res.status(409).json(errorResponse('Email is already registered. Please login.', 'EMAIL_ALREADY_EXISTS'));
       }
 
-      const { code } = await issueEmailOtp(email);
-      const emailSent = await sendVerificationEmail(email, code);
+      const { code } = await issueEmailOtp(cleanEmail);
+      const emailSent = await sendVerificationEmail(cleanEmail, code);
 
       if (!emailSent) {
         return res.status(500).json(errorResponse('Failed to resend OTP email. Please try again later.', 'OTP_SEND_FAILED'));
@@ -1950,7 +1952,7 @@ export const resendOtp = async (req: Request, res: Response, next: NextFunction)
       return res.json(
         successResponse('OTP resent successfully', {
           id: otpId,
-          email,
+          email: cleanEmail,
           expiresInSeconds: 600,
           otp: code,
           devOtpCode: code
