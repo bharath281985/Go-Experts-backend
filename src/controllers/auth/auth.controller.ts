@@ -12,6 +12,7 @@ import { sanitizeUserRecord } from "../../routes/index.js";
 import { calculateOnboardingProgress } from "../../config/onboarding.js";
 import { getVerificationStats } from "../../common/helpers/verification.js";
 import { bootstrapUserResources } from "../../services/mobile/auth-bootstrap.service.js";
+import { errorResponse, successResponse } from "../../core/response.js";
 
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 
@@ -1560,7 +1561,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email) {
-      return res.status(400).json({ success: false, message: "Email is required" });
+      return res.status(400).json(errorResponse("Email is required", "VALIDATION_ERROR"));
     }
 
     const okMessage = "Password reset instructions have been sent to your registered email address.";
@@ -1939,7 +1940,7 @@ export const sendDeleteAccountOtp = async (req: Request, res: Response, next: Ne
     });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "No active account found with this email address." });
+      return res.status(404).json(errorResponse("No active account found with this email address.", "USER_NOT_FOUND"));
     }
 
     const brandColor = await getRoleColor(user);
@@ -1968,11 +1969,11 @@ export const sendDeleteAccountOtp = async (req: Request, res: Response, next: Ne
       console.error("[DELETE ACCOUNT OTP EMAIL ERROR]", e);
     });
 
-    res.json({
-      success: true,
-      message: `Verification code (OTP) sent to ${email}.`,
+    res.json(successResponse(`Verification code (OTP) sent to ${email}.`, {
+      email,
+      expiresInSeconds: 600,
       demoOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
-    });
+    }));
   } catch (err) {
     next(err);
   }
@@ -1984,7 +1985,7 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
     const otp = String(req.body?.otp || req.body?.code || "").trim();
 
     if (!email || !otp) {
-      return res.status(400).json({ success: false, message: "Email and OTP code are required" });
+      return res.status(400).json(errorResponse("Email and OTP code are required", "VALIDATION_ERROR"));
     }
 
     const user = await prisma.user.findFirst({
@@ -1992,7 +1993,7 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
     });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "Account not found" });
+      return res.status(404).json(errorResponse("Account not found", "USER_NOT_FOUND"));
     }
 
     const key = `del_${email}`;
@@ -2001,7 +2002,7 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
     const isValidOtp = (stored && stored.otp === otp && stored.expiresAt > Date.now()) || otp === "123456";
 
     if (!isValidOtp) {
-      return res.status(400).json({ success: false, message: "Invalid or expired OTP code" });
+      return res.status(400).json(errorResponse("Invalid or expired OTP code", "INVALID_OTP"));
     }
 
     otpStore.delete(key);
@@ -2014,10 +2015,9 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
       },
     });
 
-    res.json({
-      success: true,
-      message: "Your account deletion request has been submitted to the Admin for approval.",
-    });
+    res.json(successResponse("Your account deletion request has been submitted to the Admin for approval.", {
+      status: "pending_deletion",
+    }));
   } catch (err) {
     next(err);
   }

@@ -602,13 +602,18 @@ export const inviteFreelancer = async (req: AuthRequest, res: Response, next: Ne
       },
     });
 
-    // Create or find conversation for the invitation
+    // Invitations use the same direct conversation as normal messages.
     const baseMessageText = body.message || `I would like to invite you to submit a proposal for my project: ${project.title}.`;
     const messageText = `${baseMessageText}\n\nProject Details:\nTitle: ${project.title}\nBudget: ₹${project.budget || 'Negotiable'}`;
+    const freelancer = await prisma.user.findUnique({
+      where: { id: freelancerId },
+      select: { fullName: true },
+    });
 
     let conv = await prisma.conversation.findFirst({
       where: {
-        projectId: project.id,
+        deletedAt: null,
+        status: 'active',
         OR: [
           { userA: userId, userB: freelancerId },
           { userA: freelancerId, userB: userId },
@@ -622,13 +627,20 @@ export const inviteFreelancer = async (req: AuthRequest, res: Response, next: Ne
           userA: userId,
           userB: freelancerId,
           projectId: project.id,
-          name: `Project Invitation: ${project.title}`,
+          name: freelancer?.fullName || 'Chat',
           role: 'freelancer',
           msg: messageText,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           status: 'active',
         } as any,
       });
+    }
+
+    if (conv.name?.startsWith('Project Invitation')) {
+      await prisma.conversation.update({
+        where: { id: conv.id },
+        data: { name: freelancer?.fullName || 'Chat' },
+      }).catch(() => null);
     }
 
     if (conv) {

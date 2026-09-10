@@ -90,7 +90,25 @@ const updateProposalStatus = (status: string) => async (req: AuthRequest, res: R
     const proposal = await prisma.proposal.findFirst({ where: { id: req.params.id, project: { client: req.user.id } } });
     if (!proposal) return res.status(404).json(successResponse('Proposal not found'));
 
-    await prisma.proposal.update({ where: { id: proposal.id }, data: { status } });
+    if (status === 'accepted') {
+      await prisma.$transaction([
+        prisma.proposal.updateMany({
+          where: {
+            projectId: proposal.projectId,
+            id: { not: proposal.id },
+            deletedAt: null,
+            status: { not: 'withdrawn' },
+          },
+          data: { status: 'rejected' },
+        }),
+        prisma.proposal.update({
+          where: { id: proposal.id },
+          data: { status: 'accepted' },
+        }),
+      ]);
+    } else {
+      await prisma.proposal.update({ where: { id: proposal.id }, data: { status } });
+    }
 
     await NotificationEngine.queueNotification({
       userId: proposal.freelancerId,
