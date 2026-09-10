@@ -127,8 +127,8 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
       where: {
         status: 'active',
         OR: [
-          { title: { contains: q, ...queryMode } },
-          { category: { contains: q, ...queryMode } }
+          { title: { contains: q } },
+          { category: { contains: q } }
         ]
       },
       select: { id: true, title: true, category: true, author: true, createdAt: true },
@@ -140,8 +140,8 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
     results.faqs = await prisma.faq.findMany({
       where: {
         OR: [
-          { question: { contains: q, ...queryMode } },
-          { answer: { contains: q, ...queryMode } }
+          { question: { contains: q } },
+          { answer: { contains: q } }
         ]
       },
       skip, take: limit
@@ -153,8 +153,8 @@ export const globalSearch = async (userId: string | null, input: SearchInput) =>
       where: {
         requesterId: userId,
         OR: [
-          { subject: { contains: q, ...queryMode } },
-          { categoryId: { contains: q, ...queryMode } }
+          { subject: { contains: q } },
+          { categoryId: { contains: q } }
         ]
       },
       select: { id: true, subject: true, status: true, priority: true, createdAt: true },
