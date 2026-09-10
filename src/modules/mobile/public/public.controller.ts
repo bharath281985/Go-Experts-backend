@@ -469,13 +469,7 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
     },
   }).catch(() => []);
 
-  const availableRanges = dbRanges || [];
-  const preferredType = ['project_budget_range', 'hiring_budget_range', 'budget_range']
-    .find((type) => availableRanges.some((item: any) => item.type === type));
-  const canonicalRanges = preferredType
-    ? availableRanges.filter((item: any) => item.type === preferredType)
-    : availableRanges;
-  const ranges = deduplicateMasterOptions(canonicalRanges)
+  const ranges = deduplicateMasterOptions(dbRanges || [])
     .sort((a: any, b: any) =>
       (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
       (a.min ?? Number.MAX_SAFE_INTEGER) - (b.min ?? Number.MAX_SAFE_INTEGER) ||

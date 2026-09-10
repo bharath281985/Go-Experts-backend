@@ -67,7 +67,6 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
         { coverLetter: { contains: search } },
         { project: { category: { contains: search } } },
         { project: { technology: { contains: search } } },
-        { freelancerName: { contains: search } },
       ];
     }
 
