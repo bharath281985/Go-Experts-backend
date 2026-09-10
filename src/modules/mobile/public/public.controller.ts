@@ -471,8 +471,8 @@ export const getBudgetRanges = async (req: Request, res: Response, next: NextFun
 
   const ranges = deduplicateMasterOptions(dbRanges || [])
     .sort((a: any, b: any) =>
-      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
       (a.min ?? Number.MAX_SAFE_INTEGER) - (b.min ?? Number.MAX_SAFE_INTEGER) ||
+      (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
       String(a.label ?? '').localeCompare(String(b.label ?? '')),
     )
     .map((item: any) => ({
