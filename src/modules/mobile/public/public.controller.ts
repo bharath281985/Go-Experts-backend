@@ -847,6 +847,7 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
+    const search = String(req.query.search || req.query.q || '').trim();
 
     const where: any = {
       role: 'freelancer',
@@ -856,6 +857,15 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
     };
     if (userId) {
       where.id = { not: userId };
+    }
+    if (search) {
+      where.AND = [
+        { OR: [
+          { fullName: { contains: search } },
+          { city: { contains: search } },
+          { investorProfile: { is: { focusAreas: { contains: search } } } },
+        ] },
+      ];
     }
 
     const [freelancers, total] = await Promise.all([

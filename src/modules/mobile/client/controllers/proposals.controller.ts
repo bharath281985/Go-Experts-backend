@@ -20,15 +20,24 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
+    const search = String(req.query.search || req.query.q || '').trim();
+    const where: any = { project: { client: req.user.id } };
+    if (search) {
+      where.OR = [
+        { coverLetter: { contains: search } },
+        { project: { title: { contains: search } } },
+        { freelancer: { fullName: { contains: search } } },
+      ];
+    }
     const [proposals, total] = await Promise.all([
       prisma.proposal.findMany({
-        where: { project: { client: req.user.id } },
+        where,
         include: { project: true, freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } } },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.proposal.count({ where: { project: { client: req.user.id } } })
+      prisma.proposal.count({ where })
     ]);
     return res.json(successResponse('Proposals retrieved', proposals.map((p) => shapeProposal(p)), { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }

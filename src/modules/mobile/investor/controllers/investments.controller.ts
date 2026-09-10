@@ -52,6 +52,7 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
     const status = req.query.status as string;
+    const search = String(req.query.search || req.query.q || '').trim();
 
     let baseWhere: any;
     if (req.user?.role === 'founder') {
@@ -80,6 +81,15 @@ export const listInvestments = async (req: AuthRequest, res: Response, next: Nex
     const where: any = status
       ? { AND: [baseWhere, { status }] }
       : { AND: [baseWhere, { status: { notIn: ['Cancelled', 'Closed'] } }] };
+    if (search) {
+      where.AND.push({
+        OR: [
+          { startup: { contains: search } },
+          { investor: { contains: search } },
+          { status: { contains: search } },
+        ],
+      });
+    }
 
     const [investments, total, watchlist] = await Promise.all([
       prisma.investment.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
