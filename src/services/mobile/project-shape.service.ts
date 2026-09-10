@@ -207,6 +207,7 @@ export const shapeProjects = async (
 
   let savedIds = new Set<string>();
   let appliedProjectIds = new Set<string>();
+  const proposalIdByProject = new Map<string, string>();
   if (viewerUserId) {
     const savedRows = await getJsonSetting(viewerUserId, 'saved-projects', [] as string[]);
     savedIds = new Set(savedRows);
@@ -215,13 +216,17 @@ export const shapeProjects = async (
       where: {
         freelancerId: viewerUserId,
         projectId: { in: projects.map((p) => p.id) },
+        status: { not: 'withdrawn' },
+        deletedAt: null,
       },
-      select: { projectId: true },
+      select: { id: true, projectId: true },
+      orderBy: { createdAt: 'desc' },
     }).catch((err) => {
       console.error('[shapeProjects] appliedRows query failed:', err);
       return [];
     });
     appliedProjectIds = new Set(appliedRows.map((r) => r.projectId));
+    appliedRows.forEach((row) => proposalIdByProject.set(row.projectId, row.id));
   }
 
   return projects.map((project) => {
@@ -317,6 +322,7 @@ export const shapeProjects = async (
       proposals: undefined,
       isSaved: savedIds.has(project.id),
       isApplied: appliedProjectIds.has(project.id),
+      proposalId: proposalIdByProject.get(project.id) ?? null,
     };
   });
 };
