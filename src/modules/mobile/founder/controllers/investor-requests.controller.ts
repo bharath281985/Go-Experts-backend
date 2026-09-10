@@ -50,7 +50,20 @@ export const acceptRequest = async (req: AuthRequest, res: Response, next: NextF
     const investment = await findOwnedInvestmentRequest(req.params.id, req.user.id);
     if (!investment) return res.status(404).json(errorResponse('Request not found', 'NOT_FOUND'));
 
-    await prisma.investment.update({ where: { id: investment.id }, data: { status: 'Active' } });
+    await prisma.$transaction([
+      prisma.investment.updateMany({
+        where: {
+          startup: investment.startup,
+          id: { not: investment.id },
+          status: 'Pending',
+        },
+        data: { status: 'Rejected' },
+      }),
+      prisma.investment.update({
+        where: { id: investment.id },
+        data: { status: 'Active' },
+      }),
+    ]);
 
     await NotificationEngine.queueNotification({
       userId: investment.investor,
