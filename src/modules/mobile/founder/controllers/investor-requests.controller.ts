@@ -18,10 +18,7 @@ const findOwnedInvestmentRequest = async (id: string, userId: string) => {
     where: {
       id,
       deletedAt: null,
-      OR: [
-        { founder: userId } as any,
-        { startup: { in: startupKeys } },
-      ],
+      startup: { in: startupKeys },
     } as any,
   });
 };
