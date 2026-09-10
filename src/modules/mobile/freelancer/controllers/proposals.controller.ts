@@ -160,28 +160,39 @@ export const updateProposal = async (req: AuthRequest, res: Response, next: Next
 export const withdrawProposal = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const proposal = await prisma.proposal.findFirst({
-      where: { id: req.params.id, freelancerId: req.user.id }
+      where: {
+        freelancerId: req.user.id,
+        deletedAt: null,
+        status: { not: 'withdrawn' },
+        OR: [
+          { id: req.params.id },
+          { projectId: req.params.id },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (proposal) {
-      await prisma.proposal.update({
-        where: { id: proposal.id },
-        data: { status: 'withdrawn' }
-      });
+    if (!proposal) {
+      return res.status(404).json(errorResponse('Proposal not found', 'PROPOSAL_NOT_FOUND'));
+    }
 
-      const project = await prisma.project.findUnique({ where: { id: proposal.projectId } });
-      if (project && project.client) {
-        try {
-          await NotificationEngine.queueNotification({
-            userId: project.client,
-            type: 'proposal_withdrawn',
-            title: 'Proposal Withdrawn',
-            message: `${req.user.fullName || 'A freelancer'} has withdrawn their proposal on your project.`,
-            channel: 'all'
-          });
-        } catch (notifError) {
-          console.error('Failed to queue notification for proposal withdrawal:', notifError);
-        }
+    await prisma.proposal.update({
+      where: { id: proposal.id },
+      data: { status: 'withdrawn' }
+    });
+
+    const project = await prisma.project.findUnique({ where: { id: proposal.projectId } });
+    if (project && project.client) {
+      try {
+        await NotificationEngine.queueNotification({
+          userId: project.client,
+          type: 'proposal_withdrawn',
+          title: 'Proposal Withdrawn',
+          message: `${req.user.fullName || 'A freelancer'} has withdrawn their proposal on your project.`,
+          channel: 'all'
+        });
+      } catch (notifError) {
+        console.error('Failed to queue notification for proposal withdrawal:', notifError);
       }
     }
 
