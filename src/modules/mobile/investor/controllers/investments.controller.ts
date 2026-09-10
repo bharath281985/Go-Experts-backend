@@ -373,6 +373,29 @@ export const updateInvestmentStatus = async (req: AuthRequest, res: Response, ne
   } catch (error) { next(error); }
 };
 
+export const updateInvestment = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const offer = Number(req.body.offer);
+    const equity = Number(req.body.equity);
+    if (!Number.isFinite(offer) || offer < 0 || !Number.isFinite(equity) || equity < 0) {
+      return res.status(400).json(errorResponse('Valid offer and equity are required', 'VALIDATION_ERROR'));
+    }
+
+    const investment = await prisma.investment.findFirst({
+      where: { id: req.params.id, investor: req.user.id, deletedAt: null },
+    });
+    if (!investment) {
+      return res.status(404).json(errorResponse('Investment not found', 'NOT_FOUND'));
+    }
+
+    const updated = await prisma.investment.update({
+      where: { id: investment.id },
+      data: { offer, equity },
+    });
+    return res.json(successResponse('Investment updated', updated));
+  } catch (error) { next(error); }
+};
+
 export const cancelInvestment = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const investment = await prisma.investment.findFirst({

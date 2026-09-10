@@ -240,7 +240,11 @@ export const getConversation = async (req: AuthRequest, res: Response, next: Nex
         ...m,
         conversationId: conversation.id,
         from: isMine ? 'me' : m.from,
-        senderId: (m as any).senderId || (isMine ? req.user.id : null),
+        senderId: (m as any).senderId || (isMine
+          ? req.user.id
+          : (conversation as any).userA === req.user.id
+            ? (conversation as any).userB
+            : (conversation as any).userA),
         isMine,
       };
     });

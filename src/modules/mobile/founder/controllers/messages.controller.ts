@@ -228,6 +228,10 @@ export const getConversation = async (req: AuthRequest, res: Response, next: Nex
     } catch {
       /* ignore */
     }
+    const peerId = (conversation as any).userA === req.user.id ? (conversation as any).userB : (conversation as any).userA;
+    const peer = peerId
+      ? await prisma.user.findUnique({ where: { id: peerId }, select: { role: true } }).catch(() => null)
+      : null;
     const shaped = messages.map((m) => {
       const isMine =
         (m as any).senderId === req.user.id ||
@@ -237,7 +241,10 @@ export const getConversation = async (req: AuthRequest, res: Response, next: Nex
         ...m,
         conversationId: conversation.id,
         from: isMine ? 'me' : m.from,
-        senderId: (m as any).senderId || (isMine ? req.user.id : null),
+        senderId: (m as any).senderId || (isMine
+          ? req.user.id
+          : ((conversation as any).userA === req.user.id ? (conversation as any).userB : (conversation as any).userA)),
+        senderRole: isMine ? req.user.role : peer?.role || null,
         isMine,
       };
     });

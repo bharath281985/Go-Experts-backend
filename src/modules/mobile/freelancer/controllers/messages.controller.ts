@@ -189,6 +189,10 @@ export const getConversationDetails = async (req: AuthRequest, res: Response, ne
       where: { conversationId: conv.id },
       orderBy: { createdAt: 'asc' }
     });
+    const peerId = (conv as any).userA === req.user.id ? (conv as any).userB : (conv as any).userA;
+    const peer = peerId
+      ? await prisma.user.findUnique({ where: { id: peerId }, select: { role: true } }).catch(() => null)
+      : null;
 
     // Mark messages as read for this viewer
     await prisma.message.updateMany({
@@ -218,7 +222,10 @@ export const getConversationDetails = async (req: AuthRequest, res: Response, ne
         ...m,
         conversationId: conv.id,
         from: isMine ? 'me' : m.from,
-        senderId: senderId || (isMine ? req.user.id : null),
+        senderId: senderId || (isMine
+          ? req.user.id
+          : ((conv as any).userA === req.user.id ? (conv as any).userB : (conv as any).userA)),
+        senderRole: isMine ? req.user.role : peer?.role || null,
         isMine,
       };
     });

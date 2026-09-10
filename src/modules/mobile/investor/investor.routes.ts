@@ -9,7 +9,7 @@ import { getDashboard } from './controllers/dashboard.controller.js';
 import { getProfile, updateProfile, uploadAvatar, uploadCover, uploadDocuments, getProfileCompletion } from './controllers/profile.controller.js';
 import { listStartups, getStartupDetails, getRecommendedStartups, getTrendingStartups, getFeaturedStartups, saveStartup, unsaveStartup } from './controllers/startups.controller.js';
 import { getWatchlist, addToWatchlist, removeFromWatchlist, updateWatchlistNotes, updateWatchlistPriority, getFounderWatchlist, saveFounder, unsaveFounder } from './controllers/watchlist.controller.js';
-import { listInvestments, getInvestment, expressInterest, makeOffer, updateInvestmentStatus, cancelInvestment, getInvestmentHistory } from './controllers/investments.controller.js';
+import { listInvestments, getInvestment, expressInterest, makeOffer, updateInvestment, updateInvestmentStatus, cancelInvestment, getInvestmentHistory } from './controllers/investments.controller.js';
 import {
   getPortfolio,
   getPortfolioItem,
@@ -127,6 +127,7 @@ router.get('/deals', listInvestments);
 router.get('/investments/history', getInvestmentHistory);
 router.get('/investments/:id', getInvestment);
 router.get('/deals/:id', getInvestment);
+router.put('/deals/:id', updateInvestment);
 router.post('/investments/express-interest', expressInterest);
 router.post('/investments/offer', makeOffer);
 router.patch('/investments/:id/status', updateInvestmentStatus);
