@@ -44,7 +44,12 @@ export class NotificationEngine {
         channel,
         status: 'queued',
         scheduledAt,
-        metadata: payload ? JSON.stringify(payload) : undefined
+        metadata: (() => {
+          if (!payload) return undefined;
+          const raw = JSON.stringify(payload);
+          // VARCHAR(191) column limit — truncate to avoid DB overflow
+          return raw.length > 191 ? raw.substring(0, 191) : raw;
+        })()
       }
     });
 

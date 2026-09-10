@@ -58,12 +58,6 @@ export const acceptRequest = async (req: AuthRequest, res: Response, next: NextF
       title: 'Investment Accepted',
       message: `${req.user.fullName || 'The founder'} has accepted your investment request!`,
       channel: 'all',
-      payload: {
-        investmentId: investment.id,
-        dealId: investment.id,
-        startupId: investment.startup,
-        actionUrl: `/deals/${investment.id}`,
-      },
     });
 
     return res.json(successResponse('Request accepted'));

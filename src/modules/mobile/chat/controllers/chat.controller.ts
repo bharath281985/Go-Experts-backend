@@ -376,13 +376,34 @@ export const markMessageRead = async (req: AuthRequest, res: Response, next: Nex
 
 export const markConversationRead = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    let conversation = await prisma.conversation.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+    });
+
+    // Older clients may send the peer user ID when opening a chat from a profile.
+    if (!conversation) {
+      conversation = await prisma.conversation.findFirst({
+        where: {
+          deletedAt: null,
+          OR: [
+            { userA: req.user.id, userB: req.params.id },
+            { userA: req.params.id, userB: req.user.id },
+          ],
+        } as any,
+      }).catch(() => null);
+    }
+
+    if (!conversation) {
+      return res.json(successResponse('Conversation already read'));
+    }
+
     await prisma.conversation.update({
-      where: { id: req.params.id },
+      where: { id: conversation.id },
       data: { unread: 0 },
     });
     try {
       await prisma.message.updateMany({
-        where: { conversationId: req.params.id },
+        where: { conversationId: conversation.id },
         data: { readAt: new Date() } as any,
       });
     } catch {
