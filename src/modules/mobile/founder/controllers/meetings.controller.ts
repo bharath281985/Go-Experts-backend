@@ -44,6 +44,8 @@ const shapeMeeting = (meeting: any, userMap: Record<string, any>, viewerRole: st
 
   return {
     id: meeting.id,
+    title: meeting.title || 'Investor Meeting',
+    agenda: meeting.agenda || '',
     founder: meeting.founder,
     investor: meeting.investor,
     date: meeting.date,
@@ -111,7 +113,7 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { date, time, mode, duration, meeting_link } = req.body;
+    const { date, time, mode, duration, meeting_link, title, agenda, description } = req.body;
     const investorId = String(
       req.body.investorId ||
       req.body.userId ||
@@ -128,6 +130,8 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
 
     const meeting = await prisma.meeting.create({
       data: {
+        title: title ? String(title).trim() : 'Investor Meeting',
+        agenda: String(agenda || description || '').trim() || null,
         founder: req.user.id,
         investor: investorId,
         date,

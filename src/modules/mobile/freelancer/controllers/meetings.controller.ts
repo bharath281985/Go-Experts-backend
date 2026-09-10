@@ -56,7 +56,7 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { date, time, mode, meeting_link } = req.body;
+    const { date, time, mode, meeting_link, title, agenda, description } = req.body;
     const withUserId = String(
       req.body.withUserId ||
       req.body.userId ||
@@ -76,6 +76,8 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
 
     const meeting = await prisma.meeting.create({
       data: {
+        title: title ? String(title).trim() : 'Meeting',
+        agenda: String(agenda || description || '').trim() || null,
         founder: req.user.id,
         investor: withUserId,
         date: String(date),

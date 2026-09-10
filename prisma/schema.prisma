@@ -476,6 +476,8 @@ model Investment {
 
 model Meeting {
   id          String    @id @default(uuid())
+  title       String?   @db.VarChar(255)
+  agenda      String?   @db.Text
   founder     String
   investor    String
   date        String

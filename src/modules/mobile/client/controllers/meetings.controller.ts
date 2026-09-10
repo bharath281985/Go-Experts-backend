@@ -28,6 +28,8 @@ const shapeMeeting = async (meeting: any, viewerId?: string) => {
   const withId = meeting.founder === viewerId ? meeting.investor : meeting.founder;
   const withProfile = userMap.get(withId) || null;
   return {
+    title: meeting.title || 'Meeting',
+    agenda: meeting.agenda || '',
     ...data,
     meeting_link: meetingLink || null,
     withProfile,
@@ -53,7 +55,7 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { date, time, mode, meeting_link } = req.body;
+    const { date, time, mode, meeting_link, title, agenda, description } = req.body;
     const withUserId = String(
       req.body.withUserId ||
       req.body.userId ||
@@ -71,7 +73,7 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
       return res.status(400).json({ success: false, message: 'Meeting participant is required' });
     }
 
-    const meeting = await prisma.meeting.create({ data: { founder: req.user.id, investor: withUserId, date, time, mode, status: 'Scheduled', meetingLink: meeting_link ? String(meeting_link).trim() : null } });
+    const meeting = await prisma.meeting.create({ data: { title: title ? String(title).trim() : 'Meeting', agenda: String(agenda || description || '').trim() || null, founder: req.user.id, investor: withUserId, date, time, mode, status: 'Scheduled', meetingLink: meeting_link ? String(meeting_link).trim() : null } });
 
     await NotificationEngine.queueNotification({
       userId: withUserId,
@@ -89,6 +91,27 @@ export const getMeeting = async (req: AuthRequest, res: Response, next: NextFunc
   try {
     const meeting = await prisma.meeting.findFirst({ where: { id: req.params.id, OR: [{ founder: req.user.id }, { investor: req.user.id }] } });
     return res.json(successResponse('Meeting details', await shapeMeeting(meeting, req.user.id)));
+  } catch (error) { next(error); }
+};
+
+export const joinMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const meeting = await prisma.meeting.findFirst({
+      where: {
+        id: req.params.id,
+        OR: [{ founder: req.user.id }, { investor: req.user.id }],
+        deletedAt: null,
+      },
+    });
+    if (!meeting) return res.status(404).json({ success: false, message: 'Meeting not found' });
+
+    const updated = meeting.status === 'Cancelled'
+      ? meeting
+      : await prisma.meeting.update({
+          where: { id: meeting.id },
+          data: { status: 'In Progress' },
+        });
+    return res.json(successResponse('Meeting joined', await shapeMeeting(updated, req.user.id)));
   } catch (error) { next(error); }
 };
 

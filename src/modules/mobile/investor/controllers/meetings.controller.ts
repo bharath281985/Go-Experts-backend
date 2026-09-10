@@ -100,7 +100,7 @@ export const listMeetings = async (req: AuthRequest, res: Response, next: NextFu
 
 export const scheduleMeeting = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { date, time, mode, meeting_link } = req.body;
+    const { date, time, mode, meeting_link, title, agenda, description } = req.body;
     const founderId = String(
       req.body.founderId ||
       req.body.userId ||
@@ -110,7 +110,7 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response, next: Nex
       ''
     ).trim();
     const meeting = await prisma.meeting.create({
-      data: { investor: req.user.id, founder: founderId, date, time, mode: mode || 'Online', status: 'Scheduled', meetingLink: meeting_link ? String(meeting_link).trim() : null }
+      data: { title: title ? String(title).trim() : 'Meeting', agenda: String(agenda || description || '').trim() || null, investor: req.user.id, founder: founderId, date, time, mode: mode || 'Online', status: 'Scheduled', meetingLink: meeting_link ? String(meeting_link).trim() : null }
     });
 
     await NotificationEngine.queueNotification({

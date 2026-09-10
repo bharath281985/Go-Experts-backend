@@ -28,7 +28,7 @@ import { listTasks as listClientTasks, createTask as createClientTask, getTask a
 import { startTimer, stopTimer, manualTimeLog } from '../freelancer/controllers/tasks.controller.js';
 import { listContracts, getContractDetails, acceptContract, rejectContract } from '../freelancer/controllers/contracts.controller.js';
 import { createContract, completeContract, cancelContract } from '../client/controllers/contracts.controller.js';
-import { listMeetings, scheduleMeeting, getMeeting, rescheduleMeeting, cancelMeeting, addMeetingNotes } from '../client/controllers/meetings.controller.js';
+import { listMeetings, scheduleMeeting, getMeeting, joinMeeting, rescheduleMeeting, cancelMeeting, addMeetingNotes } from '../client/controllers/meetings.controller.js';
 import { getTeam, inviteTeamMember, removeTeamMember } from '../client/controllers/team.controller.js';
 import { getWallet, getTransactions } from '../client/controllers/wallet.controller.js';
 import { requestWithdrawal } from '../freelancer/controllers/wallet.controller.js';
@@ -204,6 +204,7 @@ router.patch('/contracts/:id/cancel', authenticate, cancelContract);
 router.get('/meetings', authenticate, listMeetings);
 router.post('/meetings', authenticate, scheduleMeeting);
 router.get('/meetings/:id', authenticate, getMeeting);
+router.patch('/meetings/:id/join', authenticate, joinMeeting);
 router.patch('/meetings/:id/reschedule', authenticate, rescheduleMeeting);
 router.patch('/meetings/:id/cancel', authenticate, cancelMeeting);
 router.post('/meetings/:id/notes', authenticate, addMeetingNotes);
