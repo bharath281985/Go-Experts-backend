@@ -188,7 +188,7 @@ const mapSocialError = (error: unknown, provider: 'google' | 'apple') => {
   if (!(error instanceof Error)) return null;
   switch (error.message) {
     case 'ROLE_REQUIRED_FOR_NEW_USER':
-      return errorResponse('Role is required for new users.', 'ROLE_REQUIRED');
+      return errorResponse('Pick your role and let’s get started!.', 'ROLE_REQUIRED');
     case 'INVALID_GOOGLE_TOKEN':
     case 'INVALID_APPLE_TOKEN':
       return errorResponse(
