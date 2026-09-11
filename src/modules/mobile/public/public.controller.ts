@@ -2483,11 +2483,14 @@ export const unsaveInvestor = async (req: AuthRequest, res: Response, next: Next
 export const getRoleColor = async (req: Request, res: Response, next: NextFunction) => {
   const role = String(req.query.role || "").trim().toLowerCase();
   const DEFAULT_COLOR = "#0f172a";
-  if (!role) return res.json({ success: true, color: DEFAULT_COLOR });
 
   try {
     const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
     const colors = setting?.value ? JSON.parse(setting.value) : SETTINGS_DEFAULTS.industry_colors;
+
+    if (!role) {
+      return res.json({ success: true, colors });
+    }
 
     let matchedColor = DEFAULT_COLOR;
     for (const [key, color] of Object.entries(colors)) {
@@ -2498,7 +2501,11 @@ export const getRoleColor = async (req: Request, res: Response, next: NextFuncti
     }
     return res.json({ success: true, color: matchedColor });
   } catch (err) {
-    return res.json({ success: true, color: "#E30613" });
+    return res.json({ 
+      success: true, 
+      color: "#E30613", 
+      colors: SETTINGS_DEFAULTS.industry_colors 
+    });
   }
 };
 
