@@ -1,4 +1,4 @@
-﻿import { Request, Response } from "express";
+import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
 import { randomUUID } from "crypto";
 import { NotificationService } from "../../modules/notifications/notification.service.js";

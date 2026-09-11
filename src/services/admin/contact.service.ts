@@ -127,7 +127,7 @@ export class ContactCmsService {
         },
         contactInfo: {
           generalEmail: "hello@goexperts.in",
-          supportEmail: "support@goexperts.in",
+          supportEmail: "servicedesk@goexperts.in",
           careersEmail: "careers@goexperts.in",
           businessEmail: "enterprise@goexperts.in",
           phone: "+91 80 4567 8900",
@@ -139,7 +139,7 @@ export class ContactCmsService {
           websiteUrl: "https://goexperts.in",
         },
         supportChannels: [
-          { id: "supp-1", icon: "HelpCircle", title: "Customer Support", description: "Get assistance with your account, payments, or ongoing projects.", contactEmail: "support@goexperts.in", ctaLabel: "Email Support", ctaUrl: "mailto:support@goexperts.in", order: 1, enabled: true },
+          { id: "supp-1", icon: "HelpCircle", title: "Customer Support", description: "Get assistance with your account, payments, or ongoing projects.", contactEmail: "servicedesk@goexperts.in", ctaLabel: "Email Support", ctaUrl: "mailto:servicedesk@goexperts.in", order: 1, enabled: true },
           { id: "supp-2", icon: "Building2", title: "Enterprise & Sales", description: "Learn about custom contracts, volume pricing, and dedicated account management.", contactEmail: "enterprise@goexperts.in", ctaLabel: "Contact Sales", ctaUrl: "mailto:enterprise@goexperts.in", order: 2, enabled: true },
           { id: "supp-3", icon: "Briefcase", title: "Careers & Talent", description: "Interested in joining our team? Reach out directly to our talent acquisition team.", contactEmail: "careers@goexperts.in", ctaLabel: "View Openings", ctaUrl: "/careers", order: 3, enabled: true },
         ],

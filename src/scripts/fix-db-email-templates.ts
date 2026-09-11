@@ -78,7 +78,7 @@ async function main() {
           <tr>
             <td style="background-color: #fafbfc; padding: 24px 32px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #edf2f7;">
               <p style="margin: 0 0 6px 0; font-weight: 600; color: #4a5568;">Go Experts &bull; Working With You. For You.</p>
-              <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:support@goexperts.in" style="color: #E30613; text-decoration: none;">support@goexperts.in</a></p>
+              <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:servicedesk@goexperts.in" style="color: #E30613; text-decoration: none;">servicedesk@goexperts.in</a></p>
             </td>
           </tr>
         </table>

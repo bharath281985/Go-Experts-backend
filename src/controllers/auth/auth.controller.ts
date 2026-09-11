@@ -467,6 +467,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       } : null,
       status: user.status,
       onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
+      currentStep: user.currentStep,
       country: user.country,
       state: user.state,
       city: user.city,
@@ -1961,7 +1962,7 @@ export const sendDeleteAccountOtp = async (req: Request, res: Response, next: Ne
         </div>
         <p style="color: #71717a; font-size: 13px;">This verification code is valid for 10 minutes. If you did not request account deletion, please ignore this email or contact support immediately.</p>
         <hr style="border: none; border-top: 1px solid #f4f4f5; margin: 24px 0;" />
-        <p style="font-size: 12px; color: #a1a1aa; margin: 0;">Go Experts Support Team · support@goexperts.in</p>
+        <p style="font-size: 12px; color: #a1a1aa; margin: 0;">Go Experts Support Team · servicedesk@goexperts.in</p>
       </div>
     `;
 

@@ -1059,3 +1059,25 @@ C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\cont
 
 Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
 
+[2026-09-11T08:25:16.443Z] PRISMA ERROR:
+
+Invalid `prisma.project.count()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\controllers\admin\sidebar-counts.controller.ts:60:48
+
+  57 if (lastRead) {
+  58   whereClause.createdAt = { gt: new Date(lastRead) };
+  59 }
+→ 60 const unreadCount = await prisma.project.count(
+Timed out fetching a new connection from the connection pool. More info: http://pris.ly/d/connection-pool (Current connection pool timeout: 10, connection limit: 9)
+
+[2026-09-11T08:26:49.706Z] PRISMA ERROR:
+
+Invalid `prisma.user.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:900:36
+
+  897 
+  898 router.get("/delete-requests", async (req: Request, res: Response, next: NextFunction) => {
+  899   try {
+→ 900     const rows = await prisma.user.findMany(
+Timed out fetching a new connection from the connection pool. More info: http://pris.ly/d/connection-pool (Current connection pool timeout: 10, connection limit: 9)
+

@@ -3,9 +3,9 @@ import nodemailer from 'nodemailer';
 
 const host = process.env.SMTP_HOST || 'mail.goexperts.in';
 const port = parseInt(process.env.SMTP_PORT || '465');
-const user = process.env.SMTP_USER || 'support@goexperts.in';
+const user = process.env.SMTP_USER || 'servicedesk@goexperts.in';
 const pass = process.env.SMTP_PASS || 'Goexperts@2025';
-const fromEmail = process.env.SMTP_FROM || 'support@goexperts.in';
+const fromEmail = process.env.SMTP_FROM || 'servicedesk@goexperts.in';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://goexperts.in';
 
 const transporter = nodemailer.createTransport({
@@ -190,10 +190,10 @@ export const sendAccountActiveEmail = (to: string, name: string) => {
     </p>
 
     ${featureList([
-      { icon: '🔐', text: 'Your account is secured and verified' },
-      { icon: '🌐', text: 'Access the full platform and connect globally' },
-      { icon: '📋', text: 'Your profile is now visible to potential collaborators' },
-    ], '#22c55e')}
+    { icon: '🔐', text: 'Your account is secured and verified' },
+    { icon: '🌐', text: 'Access the full platform and connect globally' },
+    { icon: '📋', text: 'Your profile is now visible to potential collaborators' },
+  ], '#22c55e')}
 
     ${divider()}
 
@@ -208,7 +208,7 @@ export const sendAccountActiveEmail = (to: string, name: string) => {
 
     <p style="margin:32px 0 0;color:#94a3b8;font-size:13px;line-height:1.6;">
       If you have any questions, reply to this email or contact us at 
-      <a href="mailto:support@goexperts.in" style="color:#f97316;text-decoration:none;">support@goexperts.in</a>
+      <a href="mailto:servicedesk@goexperts.in" style="color:#f97316;text-decoration:none;">servicedesk@goexperts.in</a>
     </p>
     <p style="margin:8px 0 0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;
@@ -245,11 +245,11 @@ export const sendPlanActivationEmail = (to: string, name: string) => {
                 <p style="margin:0 0 4px;color:#0369a1;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Free Starter Plan</p>
                 <p style="margin:0 0 16px;color:#0f172a;font-size:22px;font-weight:800;">90 Days Free Access <span style="font-size:14px;color:#64748b;font-weight:400;">— No credit card required</span></p>
                 ${featureList([
-                  { icon: '💼', text: 'Post and browse unlimited projects & proposals' },
-                  { icon: '🤝', text: 'Connect with verified clients, freelancers & investors' },
-                  { icon: '🔒', text: 'Secure milestone-based payment escrow system' },
-                  { icon: '📊', text: 'Access industry analytics and market insights' },
-                ], '#3b82f6')}
+    { icon: '💼', text: 'Post and browse unlimited projects & proposals' },
+    { icon: '🤝', text: 'Connect with verified clients, freelancers & investors' },
+    { icon: '🔒', text: 'Secure milestone-based payment escrow system' },
+    { icon: '📊', text: 'Access industry analytics and market insights' },
+  ], '#3b82f6')}
               </td>
             </tr>
           </table>
@@ -314,10 +314,10 @@ export const sendPlanActivationOtpEmail = (to: string, token: string) => {
     <p style="margin:0 0 12px;color:#374151;font-size:14px;font-weight:700;">How to use this code:</p>
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:24px;">
       ${[
-        ['1', '#f97316', 'Go back to the verification page in your browser'],
-        ['2', '#3b82f6', 'Enter the 6-digit code shown above'],
-        ['3', '#22c55e', 'Click Verify — your plan activates instantly!'],
-      ].map(([num, color, text]) => `
+      ['1', '#f97316', 'Go back to the verification page in your browser'],
+      ['2', '#3b82f6', 'Enter the 6-digit code shown above'],
+      ['3', '#22c55e', 'Click Verify — your plan activates instantly!'],
+    ].map(([num, color, text]) => `
       <tr>
         <td style="padding:6px 0;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
@@ -489,7 +489,7 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
 
     <p style="margin:0 0 4px;color:#374151;font-size:13px;font-weight:600;">Questions? We're here for you.</p>
     <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">
-      Reply to this email or reach us at <a href="mailto:support@goexperts.in" style="color:#f97316;text-decoration:none;">support@goexperts.in</a>. Our team typically responds within 24 hours.
+      Reply to this email or reach us at <a href="mailto:servicedesk@goexperts.in" style="color:#f97316;text-decoration:none;">servicedesk@goexperts.in</a>. Our team typically responds within 24 hours.
     </p>
     <p style="margin:16px 0 0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;
@@ -532,7 +532,7 @@ export const sendAccountDeletedEmail = (to: string, name: string) => {
     </p>
     <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 24px;">
       If this was a mistake or you did not request this, please contact our support team immediately at 
-      <a href="mailto:support@goexperts.in" style="color:#f97316;text-decoration:none;">support@goexperts.in</a>.
+      <a href="mailto:servicedesk@goexperts.in" style="color:#f97316;text-decoration:none;">servicedesk@goexperts.in</a>.
     </p>
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;

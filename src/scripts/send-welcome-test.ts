@@ -5,7 +5,7 @@ const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: "support@goexperts.in",
+    user: "servicedesk@goexperts.in",
     pass: "Goexperts@2025",
   },
   tls: { rejectUnauthorized: false },
@@ -68,7 +68,7 @@ const welcomeHtml = `
           <tr>
             <td style="background-color: #fafbfc; padding: 24px 32px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #edf2f7;">
               <p style="margin: 0 0 6px 0; font-weight: 600; color: #4a5568;">Go Experts &bull; Working With You. For You.</p>
-              <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:support@goexperts.in" style="color: #E30613; text-decoration: none;">support@goexperts.in</a></p>
+              <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:servicedesk@goexperts.in" style="color: #E30613; text-decoration: none;">servicedesk@goexperts.in</a></p>
             </td>
           </tr>
         </table>
@@ -82,7 +82,7 @@ const welcomeHtml = `
 async function run() {
   try {
     const info = await transporter.sendMail({
-      from: '"Go Experts Support" <support@goexperts.in>',
+      from: '"Go Experts Support" <servicedesk@goexperts.in>',
       to: "saidinesh.goexperts@gmail.com",
       subject: "Welcome to Go Experts!",
       html: welcomeHtml,
