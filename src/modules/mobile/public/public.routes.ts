@@ -10,7 +10,8 @@ import {
   getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getBudgetRanges,
   getDesignations, getFounderGoals, getAvailabilityOptions, getDepartments, getMasters,
   getPublicFreelancerPortfolio, getPublicFreelancerPortfolioItem,
-  getPublicInvestorPortfolio, getPublicInvestorPortfolioItem
+  getPublicInvestorPortfolio, getPublicInvestorPortfolioItem,
+  getRoleColor
 } from './public.controller.js';
 import { authenticate, authenticateOptional } from '../../../middlewares/auth.js';
 import { cacheControl } from '../../../middleware/cache.js';
@@ -240,5 +241,6 @@ router.post('/contact', submitContact);
 router.get('/search', directoryCache, search);
 
 router.get('/education_levels', masterCache, getEducationLevels as any);
+router.get('/settings/role-color', getRoleColor);
 
 export default router;

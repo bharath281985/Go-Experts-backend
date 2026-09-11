@@ -8,6 +8,7 @@ import {
   parseProjectListQuery,
   parseStartupListQuery,
 } from '../../../services/mobile/project-list-query.service.js';
+import { SETTINGS_DEFAULTS } from '../../../services/settings/settings.defaults.js';
 
 const oneOrMany = <T>(items: T[]): T | T[] => items.length === 1 ? items[0] : items;
 
@@ -2476,6 +2477,28 @@ export const unsaveInvestor = async (req: AuthRequest, res: Response, next: Next
     return removeFromWatchlist(req, res, next);
   } catch (error) {
     next(error);
+  }
+};
+
+export const getRoleColor = async (req: Request, res: Response, next: NextFunction) => {
+  const role = String(req.query.role || "").trim().toLowerCase();
+  const DEFAULT_COLOR = "#0f172a";
+  if (!role) return res.json({ success: true, color: DEFAULT_COLOR });
+
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
+    const colors = setting?.value ? JSON.parse(setting.value) : SETTINGS_DEFAULTS.industry_colors;
+
+    let matchedColor = DEFAULT_COLOR;
+    for (const [key, color] of Object.entries(colors)) {
+      if (key.toLowerCase() === role || key.toLowerCase() === role + 's') {
+        matchedColor = String(color);
+        break;
+      }
+    }
+    return res.json({ success: true, color: matchedColor });
+  } catch (err) {
+    return res.json({ success: true, color: "#E30613" });
   }
 };
 
