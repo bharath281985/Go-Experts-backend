@@ -89,6 +89,10 @@ router.get("/settings/general", async (req, res) => {
     const result = await getSettingsSection("general");
     res.json(result);
 });
+router.get("/settings/splash", async (req, res) => {
+    const result = await getSettingsSection("splash");
+    res.json(result);
+});
 const COUNTRY_INFO_MAP = {
     "india": { code: "IN", phoneCode: "+91", flag: "🇮🇳", currencyCode: "INR" },
     "usa": { code: "US", phoneCode: "+1", flag: "🇺🇸", currencyCode: "USD" },

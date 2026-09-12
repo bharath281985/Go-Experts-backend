@@ -128,8 +128,11 @@ model User {
   advertisements          Advertisement[]
   authIdentities          AuthIdentity[]
   clientProfile           ClientProfile?
+  clientTeamMembers       ClientTeamMember[]      @relation("ClientOrganization")
+  teamMemberships         ClientTeamMember[]      @relation("TeamMembership")
   clientContracts         Contract[]              @relation("ClientContracts")
   freelancerContracts     Contract[]              @relation("FreelancerContracts")
+  conversationStates      ConversationState[]
   couponUsages            CouponUsage[]
   deviceTokens            DeviceToken[]
   featuredServices        FeaturedService[]
@@ -140,18 +143,25 @@ model User {
   freelancerProfile       FreelancerProfile?
   investorProfile         InvestorProfile?
   invoices                Invoice[]
+  reactions               MessageReaction[]
   notificationLogs        NotificationLog[]
   notificationPreferences NotificationPreference?
   notifications           Notification[]
   payments                Payment[]
   proposals               Proposal[]
+  referralClicks          ReferralClick[]         @relation("ClickReferrer")
   referralReceived        Referral?               @relation("Referee")
   referralsGiven          Referral[]              @relation("Referrer")
+  reported                Report[]                @relation("ReportedUser")
+  reports                 Report[]                @relation("Reporter")
   resumeShares            ResumeShare[]
   reviewsReceived         Review[]                @relation("Reviewee")
   reviewsWritten          Review[]                @relation("Reviewer")
+  socialLinks             SocialLink[]
   subscriptionHistories   SubscriptionHistory[]
   subscriptions           Subscription[]
+  ownedTeams              TeamMember[]            @relation("TeamOwner")
+  teamMemberUsers         TeamMember[]            @relation("TeamMemberUser")
   resumeConfig            UserResumeConfig?
   walletRewards           WalletReward[]
   wallet                  Wallet?
@@ -160,23 +170,6 @@ model User {
   @@index([status])
   @@index([createdAt])
   @@map("users")
-
-
-  reactions MessageReaction[]
-  conversationStates ConversationState[]
-
-
-  referralClicks ReferralClick[] @relation("ClickReferrer")
-  reports Report[] @relation("Reporter")
-  reported Report[] @relation("ReportedUser")
-
-  clientTeamMembers ClientTeamMember[] @relation("ClientOrganization")
-  teamMemberships   ClientTeamMember[] @relation("TeamMembership")
-  
-  ownedTeams        TeamMember[] @relation("TeamOwner")
-  teamMemberUsers   TeamMember[] @relation("TeamMemberUser")
-
-  socialLinks       SocialLink[]
 }
 
 model AuthIdentity {
@@ -195,67 +188,65 @@ model AuthIdentity {
 }
 
 model FreelancerProfile {
-  id                 String   @id @default(uuid())
-  userId             String   @unique @map("user_id")
-  titleHeadline      String?  @map("title_headline")
-  skills             String?  @db.Text
-  hourlyRate         Float?   @map("hourly_rate")
-  rating             Float?   @default(5)
-  experience         String?  @map("experience_level")
+  id                 String       @id @default(uuid())
+  userId             String       @unique @map("user_id")
+  titleHeadline      String?      @map("title_headline")
+  skills             String?      @db.Text
+  hourlyRate         Float?       @map("hourly_rate")
+  rating             Float?       @default(5)
+  experience         String?      @map("experience_level")
   education          String?
-  yearsOfExperience  String?  @map("years_of_experience")
-  portfolioUrl       String?  @map("portfolio_url")
-  resumeUrl          String?  @map("resume_url")
-  linkedInUrl        String?  @map("linkedin_url")
-  websiteUrl         String?  @map("website_url")
-  githubUrl          String?  @map("github_url")
-  dribbbleUrl        String?  @map("dribbble_url")
-  bannerUrl          String?  @map("banner_url")
-  logoUrl            String?  @map("logo_url")
-  industry           String?  @db.Text
-  workMode           String?  @map("work_mode")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-  verificationJson   String?  @map("verification_json") @db.Text
-  portfolioJson      String?  @map("portfolio_json") @db.Text
+  yearsOfExperience  String?      @map("years_of_experience")
+  portfolioUrl       String?      @map("portfolio_url")
+  resumeUrl          String?      @map("resume_url")
+  linkedInUrl        String?      @map("linkedin_url")
+  websiteUrl         String?      @map("website_url")
+  githubUrl          String?      @map("github_url")
+  dribbbleUrl        String?      @map("dribbble_url")
+  bannerUrl          String?      @map("banner_url")
+  logoUrl            String?      @map("logo_url")
+  industry           String?      @db.Text
+  workMode           String?      @map("work_mode")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  verificationJson   String?      @map("verification_json") @db.Text
+  portfolioJson      String?      @map("portfolio_json") @db.Text
   availability       String?
   currency           String?
-  monthlyRetainer    Float?   @map("monthly_retainer")
-  openToTravel       Boolean? @default(false) @map("open_to_travel")
-  remoteAvailability Boolean? @default(true) @map("remote_availability")
-  responseTime       String?  @map("response_time")
-  workingHours       String?  @map("working_hours")
-  industryId         String?  @map("industry_id")
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyRetainer    Float?       @map("monthly_retainer")
+  openToTravel       Boolean?     @default(false) @map("open_to_travel")
+  remoteAvailability Boolean?     @default(true) @map("remote_availability")
+  responseTime       String?      @map("response_time")
+  workingHours       String?      @map("working_hours")
+  industryId         String?      @map("industry_id")
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitations        Invitation[]
+  shortlists         Shortlist[]
 
   @@map("freelancer_profiles")
-
-  invitations Invitation[]
-  shortlists Shortlist[]
 }
 
 model ClientProfile {
-  id                String   @id @default(uuid())
-  userId            String   @unique @map("user_id")
+  id                String       @id @default(uuid())
+  userId            String       @unique @map("user_id")
   company           String?
-  industry          String?  @db.Text
-  companySize       String?  @map("company_size")
-  currentTeam       String?  @map("current_team")
-  projectHireBudget String?  @map("project_hire_budget")
-  websiteUrl        String?  @map("website_url")
-  jobTitle          String?  @map("job_title")
-  hiringGoal        String?  @map("hiring_goal") @db.Text
-  totalSpend        Float?   @default(0) @map("total_spend")
-  projectsPosted    Int      @default(0) @map("projects_posted")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  verificationJson  String?  @map("verification_json") @db.Text
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  industry          String?      @db.Text
+  companySize       String?      @map("company_size")
+  currentTeam       String?      @map("current_team")
+  projectHireBudget String?      @map("project_hire_budget")
+  websiteUrl        String?      @map("website_url")
+  jobTitle          String?      @map("job_title")
+  hiringGoal        String?      @map("hiring_goal") @db.Text
+  totalSpend        Float?       @default(0) @map("total_spend")
+  projectsPosted    Int          @default(0) @map("projects_posted")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  verificationJson  String?      @map("verification_json") @db.Text
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitations       Invitation[]
+  shortlists        Shortlist[]
 
   @@map("client_profiles")
-
-  invitations Invitation[]
-  shortlists Shortlist[]
 }
 
 model InvestorProfile {
@@ -271,8 +262,8 @@ model InvestorProfile {
   deals            Int      @default(0)
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   verificationJson String?  @map("verification_json") @db.Text
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("investor_profiles")
 }
@@ -292,50 +283,49 @@ model FounderProfile {
   primaryGoal      String?  @map("primary_goal") @db.Text
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   verificationJson String?  @map("verification_json") @db.Text
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("founder_profiles")
 }
 
 model Project {
-  id              String      @id @default(uuid())
+  id              String         @id @default(uuid())
   title           String
   client          String
   freelancer      String?
   budget          Float
-  budgetMin       Float?      @map("budget_min")
-  budgetMax       Float?      @map("budget_max")
-  budgetRangeId   String?     @map("budget_range_id")
+  budgetMin       Float?         @map("budget_min")
+  budgetMax       Float?         @map("budget_max")
+  budgetRangeId   String?        @map("budget_range_id")
   category        String
   technology      String
   timeline        String?
-  startDate       DateTime?   @map("start_date")
-  endDate         DateTime?   @map("end_date")
-  description     String?     @db.Text
-  workMode        String?     @map("work_mode")
-  experienceLevel String?     @map("experience_level")
-  attachments     String?     @db.Text
-  shareCount      Int?        @default(0) @map("share_count")
-  status          String      @default("open")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
-  deletedAt       DateTime?   @map("deleted_at")
-  industryId      String?     @map("industry_id")
+  startDate       DateTime?      @map("start_date")
+  endDate         DateTime?      @map("end_date")
+  description     String?        @db.Text
+  workMode        String?        @map("work_mode")
+  experienceLevel String?        @map("experience_level")
+  attachments     String?        @db.Text
+  shareCount      Int?           @default(0) @map("share_count")
+  status          String         @default("open")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  deletedAt       DateTime?      @map("deleted_at")
+  industryId      String?        @map("industry_id")
   contracts       Contract[]
+  conversations   Conversation[]
+  invitations     Invitation[]
   milestones      Milestone[]
   proposals       Proposal[]
   reviews         Review[]
+  shortlists      Shortlist[]
   tasks           Task[]
 
   @@index([status])
   @@index([category])
   @@index([createdAt])
   @@map("projects")
-
-  invitations Invitation[]
-  shortlists Shortlist[]
-  conversations Conversation[]
 }
 
 model Task {
@@ -373,17 +363,18 @@ model Waitlist {
 model TeamMember {
   id          String   @id @default(uuid())
   ownerId     String   @map("owner_id")
-  owner       User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   userId      String   @map("user_id")
-  user        User     @relation("TeamMemberUser", fields: [userId], references: [id], onDelete: Cascade)
   email       String
   role        String   @default("member")
-  permissions Json     @default("{}")
+  permissions String   @db.LongText
   status      String   @default("Active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  owner       User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  user        User     @relation("TeamMemberUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([ownerId, userId])
+  @@index([userId], map: "team_members_user_id_fkey")
   @@map("team_members")
 }
 
@@ -495,61 +486,60 @@ model Meeting {
 }
 
 model Conversation {
-  id        String    @id @default(uuid())
-  name      String
-  role      String
-  msg       String?
-  time      String?
-  unread    Int       @default(0)
-  online    Boolean   @default(false)
-  typing    Boolean   @default(false)
-  avatar    String?
-  userA     String?   @map("user_a")
-  userB     String?   @map("user_b")
-  projectId String?   @map("project_id")
-  status    String    @default("active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-  messages  Message[]
+  id              String              @id @default(uuid())
+  name            String
+  role            String
+  msg             String?
+  time            String?
+  unread          Int                 @default(0)
+  online          Boolean             @default(false)
+  typing          Boolean             @default(false)
+  avatar          String?
+  userA           String?             @map("user_a")
+  userB           String?             @map("user_b")
+  projectId       String?             @map("project_id")
+  status          String              @default("active")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  deletedAt       DateTime?           @map("deleted_at")
+  adminNote       String?             @map("admin_note") @db.Text
+  contextType     String?             @map("context_type")
+  investmentId    String?             @map("investment_id")
+  startupIdeaId   String?             @map("startup_idea_id")
+  supportTicketId String?             @map("support_ticket_id")
+  states          ConversationState[]
+  project         Project?            @relation(fields: [projectId], references: [id])
+  messages        Message[]
 
   @@index([userA])
   @@index([userB])
+  @@index([projectId], map: "conversations_project_id_fkey")
   @@map("conversations")
-
-
-  adminNote String? @map("admin_note") @db.Text
-  project Project? @relation(fields: [projectId], references: [id])
-  contextType String? @map("context_type")
-  investmentId String? @map("investment_id")
-  startupIdeaId String? @map("startup_idea_id")
-  supportTicketId String? @map("support_ticket_id")
-  states ConversationState[]
 }
 
 model Message {
-  id             String       @id @default(uuid())
-  conversationId String       @map("conversation_id")
-  from           String
-  senderId       String?      @map("sender_id")
-  text           String
-  time           String
-  readAt         DateTime?    @map("read_at")
-  attachmentUrl  String?      @map("attachment_url") @db.VarChar(500)
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id              String            @id @default(uuid())
+  conversationId  String            @map("conversation_id")
+  from            String
+  senderId        String?           @map("sender_id")
+  text            String
+  time            String
+  readAt          DateTime?         @map("read_at")
+  attachmentUrl   String?           @map("attachment_url") @db.VarChar(500)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  clientMessageId String?           @map("client_message_id")
+  replyToId       String?           @map("reply_to_id")
+  deliveryStatus  String            @default("SENT") @map("delivery_status")
+  deletedAt       DateTime?         @map("deleted_at")
+  reactions       MessageReaction[]
+  conversation    Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  replyTo         Message?          @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies         Message[]         @relation("MessageReplies")
 
   @@index([conversationId], map: "messages_conversation_id_fkey")
+  @@index([replyToId], map: "messages_reply_to_id_fkey")
   @@map("messages")
-
-  clientMessageId String? @map("client_message_id")
-  replyToId String? @map("reply_to_id")
-  deliveryStatus String @default("SENT") @map("delivery_status")
-  deletedAt DateTime? @map("deleted_at")
-  replyTo Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies Message[] @relation("MessageReplies")
-  reactions MessageReaction[]
 }
 
 model Subscription {
@@ -745,10 +735,6 @@ model CouponUsage {
   @@map("coupon_usage")
 }
 
-
-
-
-
 model AdvertisementPlan {
   id             String          @id @default(uuid())
   name           String
@@ -808,7 +794,7 @@ model FeaturedService {
 model SocialLink {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  platform  String   
+  platform  String
   url       String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1283,7 +1269,6 @@ model SupportTicket {
   createdAt       DateTime               @default(now()) @map("created_at")
   updatedAt       DateTime               @updatedAt @map("updated_at")
   deletedAt       DateTime?              @map("deleted_at")
-
   messages        SupportTicketMessage[]
 
   @@index([requesterId])
@@ -1295,31 +1280,30 @@ model SupportTicket {
 }
 
 model SupportTicketMessage {
-  id              String                    @id @default(uuid())
-  ticketId        String                    @map("ticket_id")
-  ticket          SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  senderId        String                    @map("sender_id")
-  senderRole      String                    @map("sender_role")
-  message         String                    @db.LongText
-  isInternal      Boolean                   @default(false) @map("is_internal")
-  createdAt       DateTime                  @default(now()) @map("created_at")
-
-  attachments     SupportTicketAttachment[]
+  id          String                    @id @default(uuid())
+  ticketId    String                    @map("ticket_id")
+  senderId    String                    @map("sender_id")
+  senderRole  String                    @map("sender_role")
+  message     String                    @db.LongText
+  isInternal  Boolean                   @default(false) @map("is_internal")
+  createdAt   DateTime                  @default(now()) @map("created_at")
+  attachments SupportTicketAttachment[]
+  ticket      SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@map("support_ticket_messages")
 }
 
 model SupportTicketAttachment {
-  id              String               @id @default(uuid())
-  messageId       String               @map("message_id")
-  message         SupportTicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  fileName        String               @map("file_name")
-  fileUrl         String               @map("file_url")
-  storageKey      String?              @map("storage_key")
-  mimeType        String?              @map("mime_type")
-  fileSize        Int?                 @map("file_size")
-  createdAt       DateTime             @default(now()) @map("created_at")
+  id         String               @id @default(uuid())
+  messageId  String               @map("message_id")
+  fileName   String               @map("file_name")
+  fileUrl    String               @map("file_url")
+  storageKey String?              @map("storage_key")
+  mimeType   String?              @map("mime_type")
+  fileSize   Int?                 @map("file_size")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  message    SupportTicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
   @@map("support_ticket_attachments")
@@ -1337,24 +1321,24 @@ model Setting {
 }
 
 model AuditLog {
-  id        String     @id @default(uuid())
-  actorId   String?    @map("actor_id")
-  action    String
-  entity    String
-  entityId  String?    @map("entity_id")
-  oldValue  String?    @map("old_value") @db.Text
-  newValue  String?    @map("new_value") @db.Text
-  diff      String?    @db.Text
-  ipAddress String?    @map("ip_address")
-  userAgent String?    @map("user_agent") @db.Text
-  createdAt DateTime   @default(now()) @map("created_at")
-  actor     AdminUser? @relation(fields: [actorId], references: [id])
+  id         String     @id @default(uuid())
+  actorId    String?    @map("actor_id")
+  action     String
+  entity     String
+  entityId   String?    @map("entity_id")
+  oldValue   String?    @map("old_value") @db.Text
+  newValue   String?    @map("new_value") @db.Text
+  diff       String?    @db.Text
+  ipAddress  String?    @map("ip_address")
+  userAgent  String?    @map("user_agent") @db.Text
+  createdAt  DateTime   @default(now()) @map("created_at")
+  entityType String?    @map("entity_type")
+  adminId    String?    @map("admin_id")
+  details    String?    @db.Text
+  actor      AdminUser? @relation(fields: [actorId], references: [id])
 
   @@index([actorId], map: "audit_logs_actor_id_fkey")
   @@map("audit_logs")
-  entityType String? @map("entity_type")
-  adminId String? @map("admin_id")
-  details String? @db.Text
 }
 
 model ActivityLog {
@@ -1552,6 +1536,11 @@ model Notification {
   metadata         String?                       @map("metadata") @db.Text
   createdAt        DateTime                      @default(now()) @map("created_at")
   updatedAt        DateTime                      @updatedAt @map("updated_at")
+  count            Int                           @default(1)
+  actorId          String?                       @map("actor_id")
+  contextType      String?                       @map("context_type")
+  contextId        String?                       @map("context_id")
+  actionUrl        String?                       @map("action_url")
   deliveryAttempts NotificationDeliveryAttempt[]
   logs             NotificationLog[]
   queueRecord      NotificationQueue[]
@@ -1559,12 +1548,6 @@ model Notification {
 
   @@index([userId], map: "notifications_user_id_fkey")
   @@map("notifications")
-
-  count Int @default(1)
-  actorId String? @map("actor_id")
-  contextType String? @map("context_type")
-  contextId String? @map("context_id")
-  actionUrl String? @map("action_url")
 }
 
 model NotificationQueue {
@@ -1709,26 +1692,25 @@ model FreelancerCertificate {
 }
 
 model Proposal {
-  id           String    @id @default(uuid())
-  projectId    String    @map("project_id")
-  freelancerId String    @map("freelancer_id")
-  bidAmount    Float     @map("bid_amount")
-  deliveryTime Int?      @map("delivery_time")
-  coverLetter  String?   @map("cover_letter")
-  attachments  String?   @db.Text
-  status       String    @default("pending")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
-  freelancer   User      @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id           String     @id @default(uuid())
+  projectId    String     @map("project_id")
+  freelancerId String     @map("freelancer_id")
+  bidAmount    Float      @map("bid_amount")
+  deliveryTime Int?       @map("delivery_time")
+  coverLetter  String?    @map("cover_letter")
+  attachments  String?    @db.Text
+  status       String     @default("pending")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
   contracts    Contract[]
+  offers       Offer[]
+  freelancer   User       @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([freelancerId], map: "proposals_freelancer_id_fkey")
   @@index([projectId], map: "proposals_project_id_fkey")
   @@map("proposals")
-
-  offers Offer[]
 }
 
 model Contract {
@@ -1745,11 +1727,12 @@ model Contract {
   client         User      @relation("ClientContracts", fields: [clientId], references: [id], onDelete: Cascade)
   freelancer     User      @relation("FreelancerContracts", fields: [freelancerId], references: [id], onDelete: Cascade)
   project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  proposal       Proposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  proposal       Proposal? @relation(fields: [proposalId], references: [id])
 
   @@index([clientId], map: "contracts_client_id_fkey")
   @@index([freelancerId], map: "contracts_freelancer_id_fkey")
   @@index([projectId], map: "contracts_project_id_fkey")
+  @@index([proposalId], map: "contracts_proposal_id_fkey")
   @@map("contracts")
 }
 
@@ -2164,21 +2147,21 @@ model ResumeShare {
   @@map("resume_shares")
 }
 
-
 model Invitation {
-  id           String    @id @default(uuid())
-  projectId    String    @map("project_id")
-  clientId     String    @map("client_id")
-  freelancerId String    @map("freelancer_id")
-  status       String    @default("DRAFT")
+  id           String            @id @default(uuid())
+  projectId    String            @map("project_id")
+  clientId     String            @map("client_id")
+  freelancerId String            @map("freelancer_id")
+  status       String            @default("DRAFT")
   message      String?
-  expiresAt    DateTime? @map("expires_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  respondedAt  DateTime? @map("responded_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  client     ClientProfile     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  freelancer FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime?         @map("expires_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  respondedAt  DateTime?         @map("responded_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  client       ClientProfile     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([clientId])
   @@index([freelancerId])
   @@index([projectId])
@@ -2186,16 +2169,18 @@ model Invitation {
 }
 
 model Shortlist {
-  id           String   @id @default(uuid())
-  projectId    String   @map("project_id")
-  clientId     String   @map("client_id")
-  freelancerId String   @map("freelancer_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  client     ClientProfile     @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  freelancer FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id           String            @id @default(uuid())
+  projectId    String            @map("project_id")
+  clientId     String            @map("client_id")
+  freelancerId String            @map("freelancer_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  client       ClientProfile     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, freelancerId])
   @@index([clientId])
+  @@index([freelancerId], map: "shortlists_freelancer_id_fkey")
   @@map("shortlists")
 }
 
@@ -2208,7 +2193,8 @@ model Offer {
   status     String   @default("PENDING")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
-  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
   @@index([proposalId])
   @@map("offers")
 }
@@ -2219,23 +2205,27 @@ model MessageReaction {
   userId    String   @map("user_id")
   reaction  String
   createdAt DateTime @default(now()) @map("created_at")
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([messageId, userId, reaction])
+  @@index([userId], map: "message_reactions_user_id_fkey")
   @@map("message_reactions")
 }
 
 model ConversationState {
-  id             String    @id @default(uuid())
-  userId         String    @map("user_id")
-  conversationId String    @map("conversation_id")
-  isPinned       Boolean   @default(false) @map("is_pinned")
-  isMuted        Boolean   @default(false) @map("is_muted")
-  isArchived     Boolean   @default(false) @map("is_archived")
-  lastReadAt     DateTime? @map("last_read_at")
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid())
+  userId         String       @map("user_id")
+  conversationId String       @map("conversation_id")
+  isPinned       Boolean      @default(false) @map("is_pinned")
+  isMuted        Boolean      @default(false) @map("is_muted")
+  isArchived     Boolean      @default(false) @map("is_archived")
+  lastReadAt     DateTime?    @map("last_read_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, conversationId])
+  @@index([conversationId], map: "conversation_states_conversation_id_fkey")
   @@map("conversation_states")
 }
 
@@ -2248,6 +2238,7 @@ model BusinessActivity {
   actorType   String   @default("USER") @map("actor_type")
   metadata    String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
+
   @@index([contextType, contextId])
   @@map("business_activities")
 }
@@ -2262,80 +2253,94 @@ model Report {
   status         String   @default("PENDING")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
-  reporter     User  @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  reportedUser User? @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+  reportedUser   User?    @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  reporter       User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([reportedUserId], map: "reports_reported_user_id_fkey")
+  @@index([reporterId], map: "reports_reporter_id_fkey")
   @@map("reports")
 }
 
 model ReferralCampaign {
-  id String @id @default(uuid())
-  name String
-  status String @default("ACTIVE")
+  id         String          @id @default(uuid())
+  name       String
+  status     String          @default("ACTIVE")
   rewardType String
-  rules ReferralRule[]
-  referrals Referral[]
-  clicks ReferralClick[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  clicks     ReferralClick[]
+  rules      ReferralRule[]
+  referrals  Referral[]
+
   @@map("referral_campaigns")
 }
 
 model ReferralRule {
-  id String @id @default(uuid())
-  campaignId String
-  referrerRole String @default("ANY")
-  referredRole String @default("ANY")
+  id            String           @id @default(uuid())
+  campaignId    String
+  referrerRole  String           @default("ANY")
+  referredRole  String           @default("ANY")
   qualification String
-  rewardAmount Float
-  rewardType String? @map("reward_type")
-    industry String? @map("industry")
-  campaign ReferralCampaign @relation(fields: [campaignId], references: [id])
+  rewardAmount  Float
+  rewardType    String?          @map("reward_type")
+  industry      String?          @map("industry")
+  campaign      ReferralCampaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId], map: "referral_rules_campaignId_fkey")
   @@map("referral_rules")
 }
 
 model ReferralClick {
-  id String @id @default(uuid())
-  campaignId String?
-  referrerId String?
-  referralCode String? @map("referral_code")
-  ipAddress String?
-  userAgent String?
-  landingSessionId String? @map("landing_session_id")
-  createdAt DateTime @default(now())
-  campaign ReferralCampaign? @relation(fields: [campaignId], references: [id])
-  referrer User? @relation("ClickReferrer", fields: [referrerId], references: [id])
-  referrals Referral[]
+  id               String            @id @default(uuid())
+  campaignId       String?
+  referrerId       String?
+  referralCode     String?           @map("referral_code")
+  ipAddress        String?
+  userAgent        String?
+  landingSessionId String?           @map("landing_session_id")
+  createdAt        DateTime          @default(now())
+  campaign         ReferralCampaign? @relation(fields: [campaignId], references: [id])
+  referrer         User?             @relation("ClickReferrer", fields: [referrerId], references: [id])
+  referrals        Referral[]
+
+  @@index([campaignId], map: "referral_clicks_campaignId_fkey")
+  @@index([referrerId], map: "referral_clicks_referrerId_fkey")
   @@map("referral_clicks")
 }
 
 model Referral {
-  id         String           @id @default(uuid())
+  id         String            @id @default(uuid())
   campaignId String?
-  referrerId String           @map("referrer_id")
-  refereeId  String           @unique @map("referee_id")
+  referrerId String            @map("referrer_id")
+  refereeId  String            @unique @map("referee_id")
   link       String?
-  qrCode     String?          @map("qr_code")
-  status     String           @default("pending")
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
+  qrCode     String?           @map("qr_code")
+  status     String            @default("pending")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
   clickId    String?
   events     ReferralEvent[]
   rewards    ReferralReward[]
   campaign   ReferralCampaign? @relation(fields: [campaignId], references: [id])
-  click      ReferralClick?   @relation(fields: [clickId], references: [id])
-  referee    User             @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
-  referrer   User             @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  click      ReferralClick?    @relation(fields: [clickId], references: [id])
+  referee    User              @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+  referrer   User              @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+
   @@index([referrerId], map: "referrals_referrer_id_fkey")
+  @@index([campaignId], map: "referrals_campaignId_fkey")
+  @@index([clickId], map: "referrals_clickId_fkey")
   @@map("referrals")
 }
 
 model ReferralEvent {
-  id String @id @default(uuid())
+  id         String   @id @default(uuid())
   referralId String
-  eventType String
-  metadata String? @db.Text
-  referral Referral @relation(fields: [referralId], references: [id])
-  createdAt DateTime @default(now())
+  eventType  String
+  metadata   String?  @db.Text
+  createdAt  DateTime @default(now())
+  referral   Referral @relation(fields: [referralId], references: [id])
+
+  @@index([referralId], map: "referral_events_referralId_fkey")
   @@map("referral_events")
 }
 
@@ -2347,26 +2352,28 @@ model ReferralReward {
   rewardType String   @default("CASH") @map("reward_type")
   status     String   @default("PENDING")
   createdAt  DateTime @default(now())
-  referral Referral @relation(fields: [referralId], references: [id])
+  referral   Referral @relation(fields: [referralId], references: [id])
+
+  @@index([referralId], map: "referral_rewards_referral_id_fkey")
   @@map("referral_rewards")
 }
 
-
 model ClientTeamMember {
-  id           String   @id @default(uuid())
-  clientId     String   @map("client_id")
-  client       User     @relation("ClientOrganization", fields: [clientId], references: [id])
-  userId       String?  @map("user_id")
-  user         User?    @relation("TeamMembership", fields: [userId], references: [id])
-  name         String
-  email        String
-  role         String   @default("Member")
-  department   String?
-  status       String   @default("Invited")
-  permissions  String?  @db.LongText
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  clientId    String   @map("client_id")
+  userId      String?  @map("user_id")
+  name        String
+  email       String
+  role        String   @default("Member")
+  department  String?
+  status      String   @default("Invited")
+  permissions String?  @db.LongText
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  client      User     @relation("ClientOrganization", fields: [clientId], references: [id])
+  user        User?    @relation("TeamMembership", fields: [userId], references: [id])
 
+  @@index([clientId], map: "client_team_members_client_id_fkey")
+  @@index([userId], map: "client_team_members_user_id_fkey")
   @@map("client_team_members")
 }
-

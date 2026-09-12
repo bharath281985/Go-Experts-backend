@@ -15,6 +15,7 @@ import {
 } from './public.controller.js';
 import { authenticate, authenticateOptional } from '../../../middlewares/auth.js';
 import { cacheControl } from '../../../middleware/cache.js';
+import { getSettingsSection } from '../../../services/settings/settings.service.js';
 import { upload, handleUploadError } from '../../../middleware/upload.js';
 import { createProject, updateProject, deleteProject, updateProjectStatus } from '../client/controllers/projects.controller.js';
 import { listProjectProposals, getProposal, shortlistProposal, rejectProposal, interviewProposal, acceptProposal, messageFreelancer } from '../client/controllers/proposals.controller.js';
@@ -242,5 +243,9 @@ router.get('/search', directoryCache, search);
 
 router.get('/education_levels', masterCache, getEducationLevels as any);
 router.get('/settings/role-color', getRoleColor);
+router.get('/settings/splash', async (_req, res) => {
+  const result = await getSettingsSection('splash');
+  res.json(result);
+});
 
 export default router;

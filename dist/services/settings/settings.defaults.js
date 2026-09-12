@@ -505,4 +505,41 @@ export const SETTINGS_DEFAULTS = {
             isDefault: true,
         }
     ],
+    splash: {
+        enabled: true,
+        splash: {
+            mediaUrl: "",
+            mediaName: "",
+            mediaType: "image",
+        },
+        onboarding: {
+            steps: [
+                {
+                    title: "Discover Go Experts",
+                    description: "Find verified freelancers, investors, clients, and founders in one place.",
+                    mediaUrl: "",
+                    mediaName: "",
+                    mediaType: "image",
+                },
+                {
+                    title: "Connect With the Right People",
+                    description: "Use smart matching to build your network and start meaningful conversations.",
+                    mediaUrl: "",
+                    mediaName: "",
+                    mediaType: "image",
+                },
+                {
+                    title: "Build, Fund, and Scale",
+                    description: "Manage opportunities, projects, funding, and growth from your workspace.",
+                    mediaUrl: "",
+                    mediaName: "",
+                    mediaType: "image",
+                },
+            ],
+        },
+        logo: {
+            logoUrl: "",
+            logoName: "",
+        },
+    },
 };

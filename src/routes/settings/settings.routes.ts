@@ -20,6 +20,7 @@ import {
   getRolesSettings,
   getSecuritySettings,
   getSmsSettings,
+  getSplashSettings,
   getSystemLogsSettings,
   getWhatsappSettings,
   saveBrandingSettings,
@@ -32,6 +33,7 @@ import {
   savePaymentsSettings,
   saveSecuritySettings,
   saveSmsSettings,
+  saveSplashSettings,
   saveWhatsappSettings,
   sendTestEmailHandler,
   testIntegrationConnection,
@@ -49,6 +51,10 @@ router.use(authMiddleware as any);
 // General Workspace
 router.get("/general", getGeneralSettings);
 router.put("/general", saveGeneralSettings);
+
+// Splash Screen
+router.get("/splash", getSplashSettings);
+router.put("/splash", saveSplashSettings);
 
 // Role Colors
 router.get("/industry-colors", getIndustryColorsSettings);

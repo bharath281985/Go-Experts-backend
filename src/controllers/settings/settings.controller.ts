@@ -59,6 +59,9 @@ export const saveSecuritySettings = saveJsonSection("security");
 export const getEnvironmentSettings = jsonSection("environment");
 export const saveEnvironmentSettings = saveJsonSection("environment");
 
+export const getSplashSettings = jsonSection("splash");
+export const saveSplashSettings = saveJsonSection("splash");
+
 export const getCountrySettings = jsonSection("country");
 export const saveCountrySettings = saveJsonSection("country");
 
