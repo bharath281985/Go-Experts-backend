@@ -511,9 +511,10 @@ export const SETTINGS_DEFAULTS = {
   splash: {
     enabled: true,
     splash: {
-      mediaUrl: "",
-      mediaName: "",
-      mediaType: "image",
+      imageUrl: "",
+      imageName: "",
+      videoUrl: "",
+      videoName: "",
     },
     onboarding: {
       steps: [

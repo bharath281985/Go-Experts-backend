@@ -7,6 +7,70 @@ function sectionKey(section: SettingsSection) {
   return `${SECTION_KEY_PREFIX}${section}`;
 }
 
+function normalizeSplashSettingsData(value: unknown): Record<string, any> {
+  const defaults = SETTINGS_DEFAULTS.splash;
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
+  const sourceSplash = source.splash && typeof source.splash === "object" && !Array.isArray(source.splash)
+    ? source.splash as Record<string, any>
+    : {};
+  const sourceOnboarding = source.onboarding && typeof source.onboarding === "object" && !Array.isArray(source.onboarding)
+    ? source.onboarding as { steps?: Array<Record<string, any>> }
+    : {};
+  const sourceLogo = source.logo && typeof source.logo === "object" && !Array.isArray(source.logo)
+    ? source.logo as Record<string, any>
+    : {};
+
+  const oldMediaUrl = typeof sourceSplash.mediaUrl === "string"
+    ? sourceSplash.mediaUrl
+    : typeof source.mediaUrl === "string"
+      ? source.mediaUrl
+      : "";
+  const oldMediaName = typeof sourceSplash.mediaName === "string"
+    ? sourceSplash.mediaName
+    : typeof source.mediaName === "string"
+      ? source.mediaName
+      : "";
+  const oldMediaType = sourceSplash.mediaType === "video" || source.mediaType === "video" ? "video" : "image";
+  const steps: Array<Record<string, any>> = defaults.onboarding.steps.map((defaultStep, index) => ({
+    ...(defaultStep as Record<string, any>),
+    ...(Array.isArray(sourceOnboarding.steps) && sourceOnboarding.steps[index]
+      ? sourceOnboarding.steps[index]
+      : {}),
+  }));
+
+  if (!source.onboarding && (source.title || source.description)) {
+    steps[0] = {
+      ...steps[0],
+      title: String(source.title || steps[0].title || ""),
+      description: String(source.description || steps[0].description || ""),
+    };
+  }
+
+  return {
+    enabled: Boolean(source.enabled ?? defaults.enabled),
+    splash: {
+      imageUrl: String(sourceSplash.imageUrl || (oldMediaType === "image" ? oldMediaUrl : "") || defaults.splash.imageUrl || ""),
+      imageName: String(sourceSplash.imageName || (oldMediaType === "image" ? oldMediaName : "") || ""),
+      videoUrl: String(sourceSplash.videoUrl || (oldMediaType === "video" ? oldMediaUrl : "") || defaults.splash.videoUrl || ""),
+      videoName: String(sourceSplash.videoName || (oldMediaType === "video" ? oldMediaName : "") || ""),
+    },
+    onboarding: { steps },
+    logo: {
+      ...defaults.logo,
+      ...sourceLogo,
+      logoUrl: String(sourceLogo.logoUrl || source.logoUrl || ""),
+    },
+  };
+}
+
+function normalizeSettingsSectionData(section: SettingsSection, data: unknown): any {
+  if (section === "splash") {
+    return normalizeSplashSettingsData(data);
+  }
+
+  return data;
+}
+
 export async function getSettingsSection<T extends SettingsSection>(section: T) {
   const defaults = SETTINGS_DEFAULTS[section];
 
@@ -16,18 +80,20 @@ export async function getSettingsSection<T extends SettingsSection>(section: T) 
     });
 
     if (!row?.value) {
-      return { section, data: defaults };
+      return { section, data: normalizeSettingsSectionData(section, defaults) };
     }
 
     const parsed = JSON.parse(row.value);
+    const merged = Array.isArray(defaults)
+      ? parsed
+      : { ...(defaults as object), ...(parsed as object) };
+
     return {
       section,
-      data: Array.isArray(defaults)
-        ? parsed
-        : { ...(defaults as object), ...(parsed as object) },
+      data: normalizeSettingsSectionData(section, merged),
     };
   } catch {
-    return { section, data: defaults };
+    return { section, data: normalizeSettingsSectionData(section, defaults) };
   }
 }
 
@@ -35,7 +101,8 @@ export async function saveSettingsSection<T extends SettingsSection>(
   section: T,
   data: (typeof SETTINGS_DEFAULTS)[T]
 ) {
-  const payload = JSON.stringify(data);
+  const normalizedData = normalizeSettingsSectionData(section, data);
+  const payload = JSON.stringify(normalizedData);
 
   await prisma.setting.upsert({
     where: { key: sectionKey(section) },
@@ -50,7 +117,7 @@ export async function saveSettingsSection<T extends SettingsSection>(
     },
   });
 
-  return { section, data };
+  return { section, data: normalizedData };
 }
 export async function renderEmailTemplate(
   templateId: string,

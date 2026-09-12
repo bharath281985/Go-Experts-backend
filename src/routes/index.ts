@@ -1,4 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { fileURLToPath } from "url";
+import path from "path";
+import fs from "fs";
 import bcrypt from "bcrypt";
 import { prisma } from "../config/database.js";
 import { creditWalletForSelf } from "../common/helpers/portal-shared.js";
@@ -93,9 +96,6 @@ router.use("/founder", founderRoutes);
 router.use("/referrals", referralRoutes);
 
 // Expose OpenAPI specs publicly
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 router.get("/docs/openapi.json", (req, res) => {
@@ -648,11 +648,15 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     profileApproved,
     profileStatus: profileApproved ? "Approved" : "Pending",
     kycApproved,
+    kycSubmitted: verificationStats.missingCount === 0,
+    missingCount: verificationStats.missingCount,
     kycStatus: kycApproved ? "Approved" : "Pending",
     verificationSummary: {
       profileApproved,
       profileStatus: profileApproved ? "Approved" : "Pending",
       kycApproved,
+      kycSubmitted: verificationStats.missingCount === 0,
+      missingCount: verificationStats.missingCount,
       kycStatus: kycApproved ? "Approved" : "Pending",
       personalRequired: verificationStats.personalRequired,
       businessRequired: verificationStats.businessRequired,
@@ -2232,10 +2236,36 @@ router.get("/admin/users/unread-counts", authMiddleware as any, (req, res) => {
   });
 });
 
+// Helper: path for the viewed users file
+const VIEWED_FILE = path.join(__dirname, "../../.admin-viewed-users.json");
+
+function getViewedIds(): Set<string> {
+  try {
+    const raw = fs.readFileSync(VIEWED_FILE, "utf-8");
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+}
+
+function addViewedId(id: string) {
+  try {
+    const ids = getViewedIds();
+    ids.add(id);
+    fs.writeFileSync(VIEWED_FILE, JSON.stringify([...ids]), "utf-8");
+  } catch {
+    // ignore
+  }
+}
+
 router.get("/admin/users/unread-list", authMiddleware as any, async (req, res, next) => {
   try {
+    const viewedIds = getViewedIds();
     const unreadUsers = await prisma.user.findMany({
-      where: { status: "pending" },
+      where: {
+        status: "pending",
+        id: viewedIds.size > 0 ? { notIn: [...viewedIds] } : undefined,
+      },
       orderBy: { createdAt: "desc" },
       take: 10,
       select: {
@@ -2257,6 +2287,7 @@ router.get("/admin/users/unread-list", authMiddleware as any, async (req, res, n
 });
 
 router.post("/admin/users/:id/mark-viewed", authMiddleware as any, (req, res) => {
+  addViewedId(req.params.id);
   res.json({ success: true, message: "Marked viewed" });
 });
 
