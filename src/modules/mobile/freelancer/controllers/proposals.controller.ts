@@ -15,7 +15,7 @@ const proposalAttachments = (value: unknown): string[] => {
   }
 };
 
-const shapeProposal = async (proposal: any) => {
+const shapeProposal = async (proposal: any, currentUserId?: string) => {
   if (!proposal) return proposal;
   const project = proposal.project || await prisma.project.findUnique({
     where: { id: proposal.projectId },
@@ -46,6 +46,7 @@ const shapeProposal = async (proposal: any) => {
     freelancerName: freelancer?.fullName || proposal.freelancerName || 'Freelancer',
     freelancerAvatar: freelancer?.avatarUrl || null,
     freelancerRating: freelancer?.freelancerProfile?.rating || proposal.freelancerRating || 4.8,
+    isOwner: Boolean(currentUserId && (client?.id === currentUserId || project?.client === currentUserId)),
   };
 };
 
@@ -82,7 +83,7 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
       }),
       prisma.proposal.count({ where })
     ]);
-    const shaped = await Promise.all(proposals.map(shapeProposal));
+    const shaped = await Promise.all(proposals.map(p => shapeProposal(p, req.user.id)));
     return res.json(successResponse('Proposals retrieved', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
@@ -107,7 +108,7 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
       },
     });
     if (existingProposal) {
-      return res.json(successResponse('Proposal already submitted', await shapeProposal(existingProposal)));
+      return res.json(successResponse('Proposal already submitted', await shapeProposal(existingProposal, req.user.id)));
     }
 
     const proposal = await prisma.proposal.create({
@@ -138,7 +139,7 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
       }
     }
 
-    return res.status(201).json(successResponse('Proposal created', await shapeProposal(proposal)));
+    return res.status(201).json(successResponse('Proposal created', await shapeProposal(proposal, req.user.id)));
   } catch (error) { next(error); }
 };
 
@@ -153,7 +154,7 @@ export const getProposalDetails = async (req: AuthRequest, res: Response, next: 
       return res.status(404).json(errorResponse('Proposal not found', 'NOT_FOUND'));
     }
     
-    return res.json(successResponse('Proposal details retrieved', await shapeProposal(proposal)));
+    return res.json(successResponse('Proposal details retrieved', await shapeProposal(proposal, req.user.id)));
   } catch (error) { next(error); }
 };
 
@@ -182,7 +183,7 @@ export const updateProposal = async (req: AuthRequest, res: Response, next: Next
         freelancer: { select: { id: true, fullName: true, avatarUrl: true, freelancerProfile: true } },
       },
     });
-    return res.json(successResponse('Proposal updated', await shapeProposal(proposal)));
+    return res.json(successResponse('Proposal updated', await shapeProposal(proposal, req.user.id)));
   } catch (error) { next(error); }
 };
 

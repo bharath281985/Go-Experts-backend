@@ -4,7 +4,7 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 
-const shapeProposal = (proposal: any, contractId?: string | null) => ({
+const shapeProposal = (proposal: any, contractId?: string | null, currentUserId?: string) => ({
   ...proposal,
   freelancerId: proposal.freelancerId || proposal.freelancer?.id,
   freelancerName: proposal.freelancer?.fullName || proposal.freelancerName || 'Freelancer',
@@ -13,6 +13,7 @@ const shapeProposal = (proposal: any, contractId?: string | null) => ({
   projectTitle: proposal.project?.title || proposal.projectTitle || 'Project',
   projectDescription: proposal.project?.description || proposal.projectDescription || '',
   contractId: contractId ?? proposal.contractId ?? null,
+  isOwner: Boolean(currentUserId && proposal.project?.client === currentUserId),
 });
 
 export const listProposals = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -39,7 +40,7 @@ export const listProposals = async (req: AuthRequest, res: Response, next: NextF
       }),
       prisma.proposal.count({ where })
     ]);
-    return res.json(successResponse('Proposals retrieved', proposals.map((p) => shapeProposal(p)), { page, limit, total, totalPages: Math.ceil(total / limit) }));
+    return res.json(successResponse('Proposals retrieved', proposals.map((p) => shapeProposal(p, null, req.user.id)), { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
 
@@ -68,7 +69,7 @@ export const listProjectProposals = async (req: AuthRequest, res: Response, next
       }
     });
 
-    const shaped = proposals.map((p) => shapeProposal(p, contractMap.get(p.id) || null));
+    const shaped = proposals.map((p) => shapeProposal(p, contractMap.get(p.id) || null, req.user.id));
     return res.json(successResponse('Project proposals', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }
 };
@@ -91,7 +92,7 @@ export const getProposal = async (req: AuthRequest, res: Response, next: NextFun
 
     return res.json(
       successResponse('Proposal details', {
-        ...shapeProposal(proposal, contract?.id || null),
+        ...shapeProposal(proposal, contract?.id || null, req.user.id),
       })
     );
   } catch (error) { next(error); }
