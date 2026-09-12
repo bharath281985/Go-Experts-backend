@@ -93,7 +93,8 @@ export const getReferralDetails = async (req: AuthenticatedRequest, res: Respons
         totalReferrals: referrals.length,
         totalEarned,
         history: referrals,
-        activeRules
+        activeRules,
+        kycVerified: Boolean(user.isVerified || user.verified)
       }
     });
   } catch (err) {

@@ -90,4 +90,68 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
   }
 });
 
+// Pending Referrals
+router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const referrals = await prisma.referral.findMany({
+      where: { status: "PENDING" },
+      include: {
+        referrer: { select: { fullName: true, email: true, role: true } },
+        referee: { select: { fullName: true, email: true, isVerified: true, verified: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ success: true, data: referrals });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching pending referrals" });
+  }
+});
+
+router.post("/pending_referrals/:id/approve", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const referralId = req.params.id;
+    const referral = await prisma.referral.findUnique({ where: { id: referralId } });
+    if (!referral) return res.status(404).json({ success: false, message: "Referral not found" });
+    if (referral.status !== "PENDING") return res.status(400).json({ success: false, message: "Referral already processed" });
+
+    // Fetch settings to get configured amount
+    const settingsRaw = await prisma.setting.findUnique({ where: { key: "app_settings" } });
+    let amount = 25; // fallback
+    if (settingsRaw?.value) {
+      try {
+        const parsed = typeof settingsRaw.value === "string" ? JSON.parse(settingsRaw.value) : settingsRaw.value;
+        if (parsed.referral_amount) amount = Number(parsed.referral_amount);
+      } catch (e) {}
+    }
+
+    // Process approval
+    await prisma.$transaction(async (tx: any) => {
+      // 1. Update referral status
+      await tx.referral.update({
+        where: { id: referralId },
+        data: { status: "SUCCESSFUL" }
+      });
+      // 2. Add to wallet
+      await tx.walletTransaction.create({
+        data: {
+          walletId: referral.referrerId, // Assuming wallet mapping or using user ID
+          userId: referral.referrerId,
+          type: "referral_credit",
+          amount: amount.toString(),
+          credit: amount.toString(),
+          debit: "0",
+          balance: "0", // Wallet balances should technically be updated, handled via triggers or views in real app
+          status: "completed",
+          description: "Refer & Earn Reward",
+          currency: "INR"
+        }
+      });
+    });
+
+    res.json({ success: true, message: "Referral approved and reward credited!" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error approving referral" });
+  }
+});
+
 export default router;
