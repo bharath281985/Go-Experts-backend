@@ -15,7 +15,7 @@ async function migrate() {
       console.log(`Skipping ${policy.name}, not found.`);
       continue;
     }
-    
+
     // If it's already structured, skip
     if (row.content && row.content.trim().startsWith('{')) {
       console.log(`Skipping ${policy.name}, already structured JSON.`);
@@ -28,7 +28,7 @@ async function migrate() {
       version: "1.0",
       effectiveDate: "August 1, 2026",
       lastUpdated: new Date().toISOString().split('T')[0],
-      contactEmail: "support@goexperts.in",
+      contactEmail: "servicedesk@goexperts.in",
       contactUrl: "/contact",
       summary: null,
       sections: [

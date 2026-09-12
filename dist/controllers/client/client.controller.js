@@ -1501,9 +1501,9 @@ export const addClientTeamMember = async (req, res, next) => {
             const nodemailer = await import("nodemailer");
             const host = process.env.SMTP_HOST || "mail.goexperts.in";
             const port = Number(process.env.SMTP_PORT || 465);
-            const user = process.env.SMTP_USER || "support@goexperts.in";
+            const user = process.env.SMTP_USER || "servicedesk@goexperts.in";
             const pass = process.env.SMTP_PASS || "Goexperts@2025";
-            const from = process.env.SMTP_FROM || "support@goexperts.in";
+            const from = process.env.SMTP_FROM || "servicedesk@goexperts.in";
             const transporter = nodemailer.default.createTransport({
                 host,
                 port,
@@ -1641,9 +1641,9 @@ export const resendClientTeamInvite = async (req, res, next) => {
             const nodemailer = await import("nodemailer");
             const host = process.env.SMTP_HOST || "mail.goexperts.in";
             const port = Number(process.env.SMTP_PORT || 465);
-            const user = process.env.SMTP_USER || "support@goexperts.in";
+            const user = process.env.SMTP_USER || "servicedesk@goexperts.in";
             const pass = process.env.SMTP_PASS || "Goexperts@2025";
-            const from = process.env.SMTP_FROM || "support@goexperts.in";
+            const from = process.env.SMTP_FROM || "servicedesk@goexperts.in";
             const transporter = nodemailer.default.createTransport({
                 host,
                 port,

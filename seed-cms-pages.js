@@ -65,7 +65,7 @@ async function seed() {
         version: "1.0",
         effectiveDate: "August 1, 2026",
         lastUpdated: new Date().toISOString().split('T')[0],
-        contactEmail: "support@goexperts.in",
+        contactEmail: "servicedesk@goexperts.in",
         contactUrl: "/contact",
         summary: "This policy outlines our procedures for refunds and cancellations.",
         sections: [
@@ -131,7 +131,7 @@ async function seed() {
           eyebrow: "Contact",
           heading: "We're here to help",
           description: "Reach out to us for support, partnerships, or general inquiries.",
-          email: "support@goexperts.in"
+          email: "servicedesk@goexperts.in"
         },
         seo: {
           metaTitle: "Contact Us — Go Experts",
@@ -173,7 +173,7 @@ async function seed() {
 
   for (const page of pages) {
     const payloadStr = JSON.stringify(page.content);
-    const category = ['Privacy', 'Legal', 'Refund Policy', 'Terms and conditions'].includes(page.name) 
+    const category = ['Privacy', 'Legal', 'Refund Policy', 'Terms and conditions'].includes(page.name)
       ? 'legal' : 'general';
 
     await prisma.cmsPage.upsert({

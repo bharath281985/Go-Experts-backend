@@ -7,7 +7,8 @@ import { SETTINGS_DEFAULTS } from "../../services/settings/settings.defaults.js"
 import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { SmsChannelAdapter } from "../../modules/notifications/notification.service.js";
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
-import { sendEmail } from "../../services/mobile/email.service.js";
+import { sendEmail, shell } from "../../services/mobile/email.service.js";
+
 import { sanitizeUserRecord } from "../../routes/index.js";
 import { calculateOnboardingProgress } from "../../config/onboarding.js";
 import { getVerificationStats } from "../../common/helpers/verification.js";
@@ -1809,23 +1810,34 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
           },
           {
             subject: "Verify Your Go Experts Account",
-            html: `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748;">
-              <h2 style="color: #1a202c; font-size: 20px; font-weight: 700; margin-bottom: 12px;">Verify Your Email Address</h2>
-              <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Thank you for registering with <strong>Go Experts</strong>. Please click the button below to verify your email address and retrieve your OTP verification code:</p>
-              
-              <div style="text-align: center; margin: 32px 0;">
-                <a href="${verificationLink}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block; box-shadow: 0 4px 12px rgba(227, 6, 19, 0.3);">
-                  Verify Email & View Code &rarr;
-                </a>
-              </div>
+            html: shell(
+              `Verify your GoExperts account email to get started.`,
+              `
+              <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Email Verification</p>
+              <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address 📧</h1>
+              <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Thank you for registering with <strong>GoExperts</strong>. Please click the button below to verify your email address and retrieve your OTP verification code:</p>
 
-              <div style="background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 24px; font-size: 13px; color: #718096;">
-                <p style="margin: 0 0 6px 0;">If the button above does not work, copy and paste the link below into your browser:</p>
-                <a href="${verificationLink}" style="color: #E30613; word-break: break-all; text-decoration: underline;">${verificationLink}</a>
-              </div>
-            </div>
-          `,
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:28px auto;">
+                <tr>
+                  <td style="border-radius:8px;background-color:#c0392b;" align="center">
+                    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${verificationLink}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="16%" stroke="f" fillcolor="#c0392b"><w:anchorlock/><center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:700;">Verify Email &amp; View Code &rarr;</center></v:roundrect><![endif]-->
+                    <!--[if !mso]><!--><a href="${verificationLink}" target="_blank" style="background-color:#c0392b;color:#ffffff;font-family:Inter,'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:700;line-height:50px;text-align:center;text-decoration:none;display:inline-block;border-radius:8px;padding:0 32px;min-width:220px;">Verify Email &amp; View Code &rarr;</a><!--<![endif]-->
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:1px;margin:0 0 24px;">
+                <tr><td style="padding:14px 18px;">
+                  <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">⏰ Security Notice</p>
+                  <p style="margin:0;color:#78350f;font-size:13px;line-height:1.6;">This verification link and OTP code will expire in <strong>15 minutes</strong>. Do not share it with anyone.</p>
+                </td></tr>
+              </table>
+
+              <p style="margin:0 0 8px;color:#64748b;font-size:13px;">Button not working? Copy and paste this link:</p>
+              <p style="margin:0 0 24px;"><a href="${verificationLink}" style="color:#c0392b;font-size:12px;word-break:break-all;text-decoration:none;">${verificationLink}</a></p>
+              <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
+              `
+            ),
           }
         );
 
@@ -2093,23 +2105,34 @@ export const sendVerificationLink = async (req: Request, res: Response, next: Ne
       },
       {
         subject: "Verify Your Go Experts Account",
-        html: `
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748;">
-            <h2 style="color: #1a202c; font-size: 20px; font-weight: 700; margin-bottom: 12px;">Verify Your Email Address</h2>
-            <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Thank you for registering with <strong>Go Experts</strong>. Please click the button below to verify your email address and retrieve your OTP code (Expires in 15 minutes):</p>
-            
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${verificationLink}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block; box-shadow: 0 4px 12px rgba(227, 6, 19, 0.3);">
-                Verify Email & View Code &rarr;
-              </a>
-            </div>
+        html: shell(
+          `Verify your GoExperts account email to get started.`,
+          `
+          <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Email Verification</p>
+          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address 📧</h1>
+          <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Thank you for registering with <strong>GoExperts</strong>. Please click the button below to verify your email address and retrieve your OTP code (Expires in 15 minutes):</p>
 
-            <div style="background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 24px; font-size: 13px; color: #718096;">
-              <p style="margin: 0 0 6px 0;">If the button above does not work, copy and paste the link below into your browser:</p>
-              <a href="${verificationLink}" style="color: #E30613; word-break: break-all; text-decoration: underline;">${verificationLink}</a>
-            </div>
-          </div>
-        `,
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:28px auto;">
+            <tr>
+              <td style="border-radius:8px;background-color:#c0392b;" align="center">
+                <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${verificationLink}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="16%" stroke="f" fillcolor="#c0392b"><w:anchorlock/><center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:700;">Verify Email &amp; View Code &rarr;</center></v:roundrect><![endif]-->
+                <!--[if !mso]><!--><a href="${verificationLink}" target="_blank" style="background-color:#c0392b;color:#ffffff;font-family:Inter,'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:700;line-height:50px;text-align:center;text-decoration:none;display:inline-block;border-radius:8px;padding:0 32px;min-width:220px;">Verify Email &amp; View Code &rarr;</a><!--<![endif]-->
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:1px;margin:0 0 24px;">
+            <tr><td style="padding:14px 18px;">
+              <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">⏰ Security Notice</p>
+              <p style="margin:0;color:#78350f;font-size:13px;line-height:1.6;">This verification link and OTP code will expire in <strong>15 minutes</strong>. Do not share it with anyone.</p>
+            </td></tr>
+          </table>
+
+          <p style="margin:0 0 8px;color:#64748b;font-size:13px;">Button not working? Copy and paste this link:</p>
+          <p style="margin:0 0 24px;"><a href="${verificationLink}" style="color:#c0392b;font-size:12px;word-break:break-all;text-decoration:none;">${verificationLink}</a></p>
+          <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
+          `
+        ),
       }
     );
 

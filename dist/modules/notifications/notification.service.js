@@ -5,10 +5,10 @@ export class EmailChannelAdapter {
     async send(payload, config) {
         const host = config?.host || process.env.SMTP_HOST || "mail.goexperts.in";
         const port = Number(config?.port || process.env.SMTP_PORT || 587);
-        const user = config?.auth?.user || config?.user || config?.username || process.env.SMTP_USER || "support@goexperts.in";
+        const user = config?.auth?.user || config?.user || config?.username || process.env.SMTP_USER || "servicedesk@goexperts.in";
         const pass = config?.auth?.pass || config?.pass || config?.password || process.env.SMTP_PASS || "Goexperts@2025";
         const secure = config?.secure !== undefined ? Boolean(config.secure) : (port === 465);
-        const from = config?.from || config?.fromEmail || process.env.SMTP_FROM || "support@goexperts.in";
+        const from = config?.from || config?.fromEmail || process.env.SMTP_FROM || "servicedesk@goexperts.in";
         try {
             console.log(`[EMAIL ADAPTER] Attempting SMTP send (${host}:${port}) to ${payload.to}`);
             if (host && user && pass) {

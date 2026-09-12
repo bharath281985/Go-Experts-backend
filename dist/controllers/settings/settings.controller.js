@@ -123,14 +123,14 @@ export const testIntegrationConnection = async (req, res, next) => {
 export const sendTestEmailHandler = async (req, res, next) => {
     try {
         const { toEmail, sendTestTo, host, port, username, password, user, pass, fromEmail, encryption, subject, html } = req.body || {};
-        const recipient = sendTestTo || toEmail || "support@goexperts.in";
+        const recipient = sendTestTo || toEmail || "servicedesk@goexperts.in";
         const emailSettings = await getSettingsSection("email");
         const stored = emailSettings?.data || {};
         const smtpHost = host || stored.host || process.env.SMTP_HOST || "mail.goexperts.in";
         const smtpPort = Number(port || stored.port || process.env.SMTP_PORT || 465);
-        const smtpUser = username || user || stored.username || process.env.SMTP_USER || "support@goexperts.in";
+        const smtpUser = username || user || stored.username || process.env.SMTP_USER || "servicedesk@goexperts.in";
         const smtpPass = password || pass || stored.password || stored.apiKey || process.env.SMTP_PASS || "Goexperts@2025";
-        const smtpFrom = fromEmail || stored.fromEmail || process.env.SMTP_FROM || "support@goexperts.in";
+        const smtpFrom = fromEmail || stored.fromEmail || process.env.SMTP_FROM || "servicedesk@goexperts.in";
         const isSecure = encryption === "SSL" || smtpPort === 465;
         try {
             const nodemailer = await import("nodemailer");
@@ -201,7 +201,7 @@ export const sendTestEmailHandler = async (req, res, next) => {
                   <tr>
                     <td style="background-color: #fafbfc; padding: 24px 32px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #edf2f7;">
                       <p style="margin: 0 0 6px 0; font-weight: 600; color: #4a5568;">Go Experts &bull; Working With You. For You.</p>
-                      <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:support@goexperts.in" style="color: #E30613; text-decoration: none;">support@goexperts.in</a></p>
+                      <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:servicedesk@goexperts.in" style="color: #E30613; text-decoration: none;">servicedesk@goexperts.in</a></p>
                     </td>
                   </tr>
                 </table>

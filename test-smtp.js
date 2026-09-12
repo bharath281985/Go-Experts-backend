@@ -2,9 +2,9 @@ import nodemailer from 'nodemailer';
 
 const host = 'mail.goexperts.in';
 const port = 465;
-const user = 'support@goexperts.in';
+const user = 'servicedesk@goexperts.in';
 const pass = 'Goexperts@2025';
-const fromEmail = 'support@goexperts.in';
+const fromEmail = 'servicedesk@goexperts.in';
 
 const transporter = nodemailer.createTransport({
   host,

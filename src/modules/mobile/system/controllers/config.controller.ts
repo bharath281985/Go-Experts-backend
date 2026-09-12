@@ -25,13 +25,13 @@ const refreshCache = async () => {
   if (now - lastCacheUpdate < CACHE_TTL && Object.keys(configCache).length > 0) {
     return;
   }
-  
+
   const [app, flags, remote] = await Promise.all([
     fetchConfigsByCategory('app_config'),
     fetchConfigsByCategory('feature_flag'),
     fetchConfigsByCategory('remote_config')
   ]);
-  
+
   configCache = { app, flags, remote };
   lastCacheUpdate = now;
 };
@@ -45,7 +45,7 @@ export const getAppConfig = async (req: any, res: Response, next: NextFunction) 
       appName: 'Go Experts',
       currentVersion: '1.0.0',
       minSupportedVersion: '1.0.0',
-      supportEmail: 'support@goexperts.com',
+      supportEmail: 'servicedesk@goexperts.in',
       defaultLanguage: 'en',
       ...configCache.app
     };

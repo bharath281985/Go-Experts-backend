@@ -1081,3 +1081,25 @@ C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\pub
 → 900     const rows = await prisma.user.findMany(
 Timed out fetching a new connection from the connection pool. More info: http://pris.ly/d/connection-pool (Current connection pool timeout: 10, connection limit: 9)
 
+[2026-09-12T05:12:40.973Z] PRISMA ERROR:
+
+Invalid `prisma.user.findUnique()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\controllers\auth\auth.controller.ts:2620:36
+
+  2617 try {
+  2618   const { email } = req.query;
+  2619   if (!email) return res.json({ success: true, message: 'Verified', data: { verified: false } });
+→ 2620   const user = await prisma.user.findUnique(
+Server has closed the connection.
+
+[2026-09-12T05:12:42.986Z] PRISMA ERROR:
+
+Invalid `prisma.user.findUnique()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\controllers\auth\auth.controller.ts:2620:36
+
+  2617 try {
+  2618   const { email } = req.query;
+  2619   if (!email) return res.json({ success: true, message: 'Verified', data: { verified: false } });
+→ 2620   const user = await prisma.user.findUnique(
+Server has closed the connection.
+

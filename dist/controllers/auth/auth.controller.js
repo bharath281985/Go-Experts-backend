@@ -5,11 +5,12 @@ import { prisma } from "../../config/database.js";
 import { SETTINGS_DEFAULTS } from "../../services/settings/settings.defaults.js";
 import { SmsChannelAdapter } from "../../modules/notifications/notification.service.js";
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
-import { sendEmail } from "../../services/mobile/email.service.js";
+import { sendEmail, shell } from "../../services/mobile/email.service.js";
 import { sanitizeUserRecord } from "../../routes/index.js";
 import { calculateOnboardingProgress } from "../../config/onboarding.js";
 import { getVerificationStats } from "../../common/helpers/verification.js";
 import { bootstrapUserResources } from "../../services/mobile/auth-bootstrap.service.js";
+import { errorResponse, successResponse } from "../../core/response.js";
 const PORTAL_ROLES = new Set(["freelancer", "client", "investor", "founder"]);
 const signAccessToken = (user) => {
     return jwt.sign({ id: user.id, email: user.email, role: user.role, type: user.type ?? "admin" }, env.JWT_SECRET, { expiresIn: "48h" });
@@ -414,6 +415,7 @@ export const login = async (req, res, next) => {
             } : null,
             status: user.status,
             onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
+            currentStep: user.currentStep,
             country: user.country,
             state: user.state,
             city: user.city,
@@ -1440,7 +1442,7 @@ export const forgotPassword = async (req, res, next) => {
     try {
         const email = String(req.body?.email || "").trim().toLowerCase();
         if (!email) {
-            return res.status(400).json({ success: false, message: "Email is required" });
+            return res.status(400).json(errorResponse("Email is required", "VALIDATION_ERROR"));
         }
         const okMessage = "Password reset instructions have been sent to your registered email address.";
         const missingMessage = "No Go Experts account was found with this email address.";
@@ -1654,23 +1656,31 @@ export const sendOtp = async (req, res, next) => {
                     email,
                 }, {
                     subject: "Verify Your Go Experts Account",
-                    html: `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748;">
-              <h2 style="color: #1a202c; font-size: 20px; font-weight: 700; margin-bottom: 12px;">Verify Your Email Address</h2>
-              <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Thank you for registering with <strong>Go Experts</strong>. Please click the button below to verify your email address and retrieve your OTP verification code:</p>
-              
-              <div style="text-align: center; margin: 32px 0;">
-                <a href="${verificationLink}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block; box-shadow: 0 4px 12px rgba(227, 6, 19, 0.3);">
-                  Verify Email & View Code &rarr;
-                </a>
-              </div>
+                    html: shell(`Verify your GoExperts account email to get started.`, `
+              <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Email Verification</p>
+              <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address 📧</h1>
+              <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Thank you for registering with <strong>GoExperts</strong>. Please click the button below to verify your email address and retrieve your OTP verification code:</p>
 
-              <div style="background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 24px; font-size: 13px; color: #718096;">
-                <p style="margin: 0 0 6px 0;">If the button above does not work, copy and paste the link below into your browser:</p>
-                <a href="${verificationLink}" style="color: #E30613; word-break: break-all; text-decoration: underline;">${verificationLink}</a>
-              </div>
-            </div>
-          `,
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:28px auto;">
+                <tr>
+                  <td style="border-radius:8px;background-color:#c0392b;" align="center">
+                    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${verificationLink}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="16%" stroke="f" fillcolor="#c0392b"><w:anchorlock/><center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:700;">Verify Email &amp; View Code &rarr;</center></v:roundrect><![endif]-->
+                    <!--[if !mso]><!--><a href="${verificationLink}" target="_blank" style="background-color:#c0392b;color:#ffffff;font-family:Inter,'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:700;line-height:50px;text-align:center;text-decoration:none;display:inline-block;border-radius:8px;padding:0 32px;min-width:220px;">Verify Email &amp; View Code &rarr;</a><!--<![endif]-->
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:1px;margin:0 0 24px;">
+                <tr><td style="padding:14px 18px;">
+                  <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">⏰ Security Notice</p>
+                  <p style="margin:0;color:#78350f;font-size:13px;line-height:1.6;">This verification link and OTP code will expire in <strong>15 minutes</strong>. Do not share it with anyone.</p>
+                </td></tr>
+              </table>
+
+              <p style="margin:0 0 8px;color:#64748b;font-size:13px;">Button not working? Copy and paste this link:</p>
+              <p style="margin:0 0 24px;"><a href="${verificationLink}" style="color:#c0392b;font-size:12px;word-break:break-all;text-decoration:none;">${verificationLink}</a></p>
+              <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
+              `),
                 });
                 let emailRes = null;
                 emailRes = await emailAdapter.send({
@@ -1764,7 +1774,7 @@ export const sendDeleteAccountOtp = async (req, res, next) => {
             where: { email, deletedAt: null },
         });
         if (!user) {
-            return res.status(404).json({ success: false, message: "No active account found with this email address." });
+            return res.status(404).json(errorResponse("No active account found with this email address.", "USER_NOT_FOUND"));
         }
         const brandColor = await getRoleColor(user);
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -1782,17 +1792,17 @@ export const sendDeleteAccountOtp = async (req, res, next) => {
         </div>
         <p style="color: #71717a; font-size: 13px;">This verification code is valid for 10 minutes. If you did not request account deletion, please ignore this email or contact support immediately.</p>
         <hr style="border: none; border-top: 1px solid #f4f4f5; margin: 24px 0;" />
-        <p style="font-size: 12px; color: #a1a1aa; margin: 0;">Go Experts Support Team · support@goexperts.in</p>
+        <p style="font-size: 12px; color: #a1a1aa; margin: 0;">Go Experts Support Team · servicedesk@goexperts.in</p>
       </div>
     `;
         await sendEmail(email, "Delete Account Verification Code - Go Experts", emailHtml).catch((e) => {
             console.error("[DELETE ACCOUNT OTP EMAIL ERROR]", e);
         });
-        res.json({
-            success: true,
-            message: `Verification code (OTP) sent to ${email}.`,
+        res.json(successResponse(`Verification code (OTP) sent to ${email}.`, {
+            email,
+            expiresInSeconds: 600,
             demoOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
-        });
+        }));
     }
     catch (err) {
         next(err);
@@ -1803,19 +1813,19 @@ export const verifyDeleteAccountOtp = async (req, res, next) => {
         const email = String(req.body?.email || "").trim().toLowerCase();
         const otp = String(req.body?.otp || req.body?.code || "").trim();
         if (!email || !otp) {
-            return res.status(400).json({ success: false, message: "Email and OTP code are required" });
+            return res.status(400).json(errorResponse("Email and OTP code are required", "VALIDATION_ERROR"));
         }
         const user = await prisma.user.findFirst({
             where: { email, deletedAt: null },
         });
         if (!user) {
-            return res.status(404).json({ success: false, message: "Account not found" });
+            return res.status(404).json(errorResponse("Account not found", "USER_NOT_FOUND"));
         }
         const key = `del_${email}`;
         const stored = otpStore.get(key);
         const isValidOtp = (stored && stored.otp === otp && stored.expiresAt > Date.now()) || otp === "123456";
         if (!isValidOtp) {
-            return res.status(400).json({ success: false, message: "Invalid or expired OTP code" });
+            return res.status(400).json(errorResponse("Invalid or expired OTP code", "INVALID_OTP"));
         }
         otpStore.delete(key);
         // Pass request to Admin: update user status to pending_deletion for admin review
@@ -1825,10 +1835,9 @@ export const verifyDeleteAccountOtp = async (req, res, next) => {
                 status: "pending_deletion",
             },
         });
-        res.json({
-            success: true,
-            message: "Your account deletion request has been submitted to the Admin for approval.",
-        });
+        res.json(successResponse("Your account deletion request has been submitted to the Admin for approval.", {
+            status: "pending_deletion",
+        }));
     }
     catch (err) {
         next(err);
@@ -1895,23 +1904,31 @@ export const sendVerificationLink = async (req, res, next) => {
             email,
         }, {
             subject: "Verify Your Go Experts Account",
-            html: `
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748;">
-            <h2 style="color: #1a202c; font-size: 20px; font-weight: 700; margin-bottom: 12px;">Verify Your Email Address</h2>
-            <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Thank you for registering with <strong>Go Experts</strong>. Please click the button below to verify your email address and retrieve your OTP code (Expires in 15 minutes):</p>
-            
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${verificationLink}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block; box-shadow: 0 4px 12px rgba(227, 6, 19, 0.3);">
-                Verify Email & View Code &rarr;
-              </a>
-            </div>
+            html: shell(`Verify your GoExperts account email to get started.`, `
+          <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Email Verification</p>
+          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address 📧</h1>
+          <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Thank you for registering with <strong>GoExperts</strong>. Please click the button below to verify your email address and retrieve your OTP code (Expires in 15 minutes):</p>
 
-            <div style="background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 24px; font-size: 13px; color: #718096;">
-              <p style="margin: 0 0 6px 0;">If the button above does not work, copy and paste the link below into your browser:</p>
-              <a href="${verificationLink}" style="color: #E30613; word-break: break-all; text-decoration: underline;">${verificationLink}</a>
-            </div>
-          </div>
-        `,
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:28px auto;">
+            <tr>
+              <td style="border-radius:8px;background-color:#c0392b;" align="center">
+                <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${verificationLink}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="16%" stroke="f" fillcolor="#c0392b"><w:anchorlock/><center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:700;">Verify Email &amp; View Code &rarr;</center></v:roundrect><![endif]-->
+                <!--[if !mso]><!--><a href="${verificationLink}" target="_blank" style="background-color:#c0392b;color:#ffffff;font-family:Inter,'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:700;line-height:50px;text-align:center;text-decoration:none;display:inline-block;border-radius:8px;padding:0 32px;min-width:220px;">Verify Email &amp; View Code &rarr;</a><!--<![endif]-->
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:1px;margin:0 0 24px;">
+            <tr><td style="padding:14px 18px;">
+              <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">⏰ Security Notice</p>
+              <p style="margin:0;color:#78350f;font-size:13px;line-height:1.6;">This verification link and OTP code will expire in <strong>15 minutes</strong>. Do not share it with anyone.</p>
+            </td></tr>
+          </table>
+
+          <p style="margin:0 0 8px;color:#64748b;font-size:13px;">Button not working? Copy and paste this link:</p>
+          <p style="margin:0 0 24px;"><a href="${verificationLink}" style="color:#c0392b;font-size:12px;word-break:break-all;text-decoration:none;">${verificationLink}</a></p>
+          <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
+          `),
         });
         const response = await emailAdapter.send({
             to: email,
