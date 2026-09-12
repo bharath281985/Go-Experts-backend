@@ -2,6 +2,63 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import { getVerificationStats, applyVerificationUpdate } from "../../common/helpers/verification.js";
 
+import { getSettingsSection } from "../../services/settings/settings.service.js";
+
+async function triggerWelcomeBonus(user: any) {
+    if (!user || !user.id || !user.email) return;
+
+    try {
+        const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
+        if (!settingsRecord) return;
+        
+        let settings: any = {};
+        try {
+            settings = JSON.parse(settingsRecord.value);
+        } catch(e) {}
+        
+        if (!settings.welcome_bonus_enabled) return;
+
+        const amount = Number(settings.welcome_bonus_amount) || 99;
+
+        // Check if bonus already given
+        const existingTxn = await prisma.walletTransaction.findFirst({
+            where: {
+                wallet: { userId: user.id },
+                description: "Welcome Bonus"
+            }
+        });
+        
+        if (existingTxn) return; // already got it
+
+        await prisma.$transaction(async (tx) => {
+            let wallet = await tx.wallet.findFirst({ where: { userId: user.id } });
+            if (!wallet) {
+                wallet = await tx.wallet.create({ data: { userId: user.id, balance: 0, currency: "INR" } });
+            }
+            const updatedWallet = await tx.wallet.update({
+                where: { id: wallet.id },
+                data: { balance: { increment: amount } }
+            });
+            await tx.walletTransaction.create({
+                data: {
+                    walletId: wallet.id,
+                    type: "Bonus",
+                    direction: "credit",
+                    amount: amount,
+                    description: "Welcome Bonus",
+                    balanceAfter: updatedWallet.balance
+                }
+            });
+        });
+
+        // Send Email
+        const { sendWelcomeBonusEmail } = await import("../../services/mobile/email.service.js");
+        await sendWelcomeBonusEmail(user.email, user.fullName || 'User', amount);
+    } catch (e) {
+        console.error("Welcome bonus error:", e);
+    }
+}
+
 // Get user KYC details (for both freelancer and client)
 export const getUserKyc = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -68,10 +125,11 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
             
             if (isVerified) {
                 const { sendAccountActiveEmail, sendPlanActivationEmail } = await import("../../services/mobile/email.service.js");
-                const userObj = await prisma.user.findFirst({ where: { id }, select: { email: true, fullName: true } });
+                const userObj = await prisma.user.findFirst({ where: { id }, select: { id: true, email: true, fullName: true } });
                 if (userObj && userObj.email) {
                     await sendAccountActiveEmail(userObj.email, userObj.fullName || 'User');
                     await sendPlanActivationEmail(userObj.email, userObj.fullName || 'User');
+                    await triggerWelcomeBonus(userObj);
                 }
             }
         }
@@ -113,6 +171,7 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                 if (freshUserForCheck.email) {
                     await sendAccountActiveEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
                     await sendPlanActivationEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
+                    await triggerWelcomeBonus(freshUserForCheck);
                 }
             }
         }

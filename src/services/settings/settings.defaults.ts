@@ -10,6 +10,8 @@ export const SETTINGS_DEFAULTS = {
     description:
       "Go Experts connects freelancers, clients, investors and startup founders on a single trusted platform.",
     maintenanceMode: false,
+    welcomeBonusEnabled: true,
+    welcomeBonusAmount: 99,
   },
   branding: {
     primaryColor: "#E30613",

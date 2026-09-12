@@ -738,3 +738,62 @@ export const sendAccountDeletedEmail = (to: string, name: string) => {
   `;
   return sendEmail(to, 'Your GoExperts Account Has Been Deleted', shell('Your GoExperts account has been permanently deleted.', body));
 };
+
+export const sendWelcomeBonusEmail = (to: string, name: string, amount: number) => {
+  const firstName = (name || 'User').split(' ')[0];
+  const body = `
+    <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">KYC Approved</p>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:24px;font-weight:800;">Welcome Bonus Credited! 🎉</h1>
+    <p style="margin:0 0 20px;color:#64748b;font-size:14px;">Hi <strong>${firstName}</strong>,</p>
+    <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px;">
+      Congratulations! Your KYC verification is complete. As a thank you for joining Go Experts, we have credited a <strong>Welcome Bonus of ₹${amount}</strong> directly to your wallet.
+    </p>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
+      <tr>
+        <td align="center" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
+          <p style="margin:0 0 4px;color:#64748b;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Bonus Amount</p>
+          <div style="color:#10b981;font-size:32px;font-weight:800;">₹${amount}</div>
+        </td>
+      </tr>
+    </table>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:24px 0;">
+      <tr>
+        <td align="center">
+          <a href="${FRONTEND_URL}/dashboard" style="display:inline-block;background:#E30613;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:8px;box-shadow:0 4px 6px rgba(227,6,19,0.25);">Go to Dashboard</a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
+  `;
+  return sendEmail(to, '🎉 Welcome Bonus Credited — GoExperts', shell(`Your KYC is approved and your ₹${amount} welcome bonus is in your wallet!`, body));
+};
+
+export const sendCashbackEmail = (to: string, name: string, amount: number, planName: string) => {
+  const firstName = (name || 'User').split(' ')[0];
+  const body = `
+    <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Monthly Reward</p>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:24px;font-weight:800;">Cashback Credited! 💸</h1>
+    <p style="margin:0 0 20px;color:#64748b;font-size:14px;">Hi <strong>${firstName}</strong>,</p>
+    <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px;">
+      Your monthly 5% cashback for the <strong>${planName}</strong> plan has just been credited to your GoExperts Wallet!
+    </p>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
+      <tr>
+        <td align="center" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
+          <p style="margin:0 0 4px;color:#64748b;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Cashback Amount</p>
+          <div style="color:#10b981;font-size:32px;font-weight:800;">₹${amount}</div>
+        </td>
+      </tr>
+    </table>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:24px 0;">
+      <tr>
+        <td align="center">
+          <a href="${FRONTEND_URL}/dashboard" style="display:inline-block;background:#E30613;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:8px;box-shadow:0 4px 6px rgba(227,6,19,0.25);">Check Wallet Balance</a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
+  `;
+  return sendEmail(to, '💸 Your Monthly Cashback is Here — GoExperts', shell(`You just received ₹${amount} in your GoExperts wallet!`, body));
+};
+

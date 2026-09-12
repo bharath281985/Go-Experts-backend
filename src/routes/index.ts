@@ -581,7 +581,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   const kycApproved = Boolean(verificationStats.kycApproved);
 
   
-  let vJson = {};
+  let vJson: any = {};
   try {
     if (freelancerProfile && freelancerProfile.verificationJson) {
       vJson = typeof freelancerProfile.verificationJson === "string" 

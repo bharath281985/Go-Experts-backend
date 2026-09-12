@@ -85,6 +85,14 @@ export const getReferralDetails = async (req: AuthenticatedRequest, res: Respons
       include: { campaign: { select: { name: true } } }
     });
 
+    const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
+    let appSettings: any = {};
+    if (settingsRecord) {
+      try {
+        appSettings = JSON.parse(settingsRecord.value);
+      } catch(e) {}
+    }
+
     res.json({
       success: true,
       data: {
@@ -94,7 +102,9 @@ export const getReferralDetails = async (req: AuthenticatedRequest, res: Respons
         totalEarned,
         history: referrals,
         activeRules,
-        kycVerified: Boolean(user.isVerified || user.verified)
+        kycVerified: Boolean(user.isVerified || user.verified),
+        welcomeBonusEnabled: Boolean(appSettings.welcome_bonus_enabled ?? true),
+        welcomeBonusAmount: Number(appSettings.welcome_bonus_amount ?? 99)
       }
     });
   } catch (err) {

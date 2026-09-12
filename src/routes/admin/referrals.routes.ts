@@ -154,4 +154,42 @@ router.post("/pending_referrals/:id/approve", async (req: AuthenticatedRequest, 
   }
 });
 
+// ── Cashback Stats ──
+router.get("/cashback_stats", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Get all cashback transactions
+    const cashbackTxns = await prisma.walletTransaction.findMany({
+      where: { type: "Cashback" },
+      include: {
+        wallet: {
+          include: {
+            user: { select: { id: true, fullName: true, email: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    const totalDebited = cashbackTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        totalDebited: parseFloat(totalDebited.toFixed(2)),
+        count: cashbackTxns.length,
+        transactions: cashbackTxns.map(t => ({
+          id: t.id,
+          amount: t.amount,
+          description: t.description,
+          createdAt: t.createdAt,
+          user: t.wallet?.user,
+        }))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching cashback stats" });
+  }
+});
+
 export default router;

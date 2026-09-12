@@ -552,6 +552,8 @@ model Subscription {
   autoRenew          Boolean                   @default(true) @map("auto_renew")
   cancelledAt        DateTime?                 @map("cancelled_at")
   cancellationReason String?                   @map("cancellation_reason")
+  lastCashbackDate   DateTime?                 @map("last_cashback_date")
+  cashbackMonthsPaid Int                       @default(0) @map("cashback_months_paid")
   createdAt          DateTime                  @default(now()) @map("created_at")
   updatedAt          DateTime                  @updatedAt @map("updated_at")
   invoices           Invoice[]
