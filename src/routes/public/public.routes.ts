@@ -120,7 +120,7 @@ router.get("/settings/general", async (req: Request, res: Response) => {
 });
 
 router.get("/settings/splash", async (req: Request, res: Response) => {
-  const result = await getSettingsSection("splash");
+  const result = await getSettingsSection("splash", req);
   res.json(result);
 });
 

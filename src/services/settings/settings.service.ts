@@ -1,5 +1,6 @@
 import { prisma } from "../../config/database.js";
 import { SETTINGS_DEFAULTS, type SettingsSection } from "./settings.defaults.js";
+import { buildPublicFileUrl } from "../../utils/public-url.js";
 
 const SECTION_KEY_PREFIX = "settings:section:";
 
@@ -7,7 +8,7 @@ function sectionKey(section: SettingsSection) {
   return `${SECTION_KEY_PREFIX}${section}`;
 }
 
-function normalizeSplashSettingsData(value: unknown): Record<string, any> {
+function normalizeSplashSettingsData(value: unknown, req?: any): Record<string, any> {
   const defaults = SETTINGS_DEFAULTS.splash;
   const source = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
   const sourceSplash = source.splash && typeof source.splash === "object" && !Array.isArray(source.splash)
@@ -31,12 +32,24 @@ function normalizeSplashSettingsData(value: unknown): Record<string, any> {
       ? source.mediaName
       : "";
   const oldMediaType = sourceSplash.mediaType === "video" || source.mediaType === "video" ? "video" : "image";
-  const steps: Array<Record<string, any>> = defaults.onboarding.steps.map((defaultStep, index) => ({
-    ...(defaultStep as Record<string, any>),
-    ...(Array.isArray(sourceOnboarding.steps) && sourceOnboarding.steps[index]
-      ? sourceOnboarding.steps[index]
-      : {}),
-  }));
+  const toPublicUrl = (url?: string | null) => {
+    const value = typeof url === "string" ? url : "";
+    if (!value) return "";
+    return req ? buildPublicFileUrl(value, req) || value : value;
+  };
+  const steps: Array<Record<string, any>> = defaults.onboarding.steps.map((defaultStep, index) => {
+    const step = {
+      ...(defaultStep as Record<string, any>),
+      ...(Array.isArray(sourceOnboarding.steps) && sourceOnboarding.steps[index]
+        ? sourceOnboarding.steps[index]
+        : {}),
+    };
+
+    return {
+      ...step,
+      mediaUrl: toPublicUrl(step.mediaUrl),
+    };
+  });
 
   if (!source.onboarding && (source.title || source.description)) {
     steps[0] = {
@@ -49,29 +62,29 @@ function normalizeSplashSettingsData(value: unknown): Record<string, any> {
   return {
     enabled: Boolean(source.enabled ?? defaults.enabled),
     splash: {
-      imageUrl: String(sourceSplash.imageUrl || (oldMediaType === "image" ? oldMediaUrl : "") || defaults.splash.imageUrl || ""),
+      imageUrl: toPublicUrl(String(sourceSplash.imageUrl || (oldMediaType === "image" ? oldMediaUrl : "") || defaults.splash.imageUrl || "")),
       imageName: String(sourceSplash.imageName || (oldMediaType === "image" ? oldMediaName : "") || ""),
-      videoUrl: String(sourceSplash.videoUrl || (oldMediaType === "video" ? oldMediaUrl : "") || defaults.splash.videoUrl || ""),
+      videoUrl: toPublicUrl(String(sourceSplash.videoUrl || (oldMediaType === "video" ? oldMediaUrl : "") || defaults.splash.videoUrl || "")),
       videoName: String(sourceSplash.videoName || (oldMediaType === "video" ? oldMediaName : "") || ""),
     },
     onboarding: { steps },
     logo: {
       ...defaults.logo,
       ...sourceLogo,
-      logoUrl: String(sourceLogo.logoUrl || source.logoUrl || ""),
+      logoUrl: toPublicUrl(String(sourceLogo.logoUrl || source.logoUrl || "")),
     },
   };
 }
 
-function normalizeSettingsSectionData(section: SettingsSection, data: unknown): any {
+function normalizeSettingsSectionData(section: SettingsSection, data: unknown, req?: any): any {
   if (section === "splash") {
-    return normalizeSplashSettingsData(data);
+    return normalizeSplashSettingsData(data, req);
   }
 
   return data;
 }
 
-export async function getSettingsSection<T extends SettingsSection>(section: T) {
+export async function getSettingsSection<T extends SettingsSection>(section: T, req?: any) {
   const defaults = SETTINGS_DEFAULTS[section];
 
   try {
@@ -80,7 +93,7 @@ export async function getSettingsSection<T extends SettingsSection>(section: T) 
     });
 
     if (!row?.value) {
-      return { section, data: normalizeSettingsSectionData(section, defaults) };
+      return { section, data: normalizeSettingsSectionData(section, defaults, req) };
     }
 
     const parsed = JSON.parse(row.value);
@@ -90,10 +103,10 @@ export async function getSettingsSection<T extends SettingsSection>(section: T) 
 
     return {
       section,
-      data: normalizeSettingsSectionData(section, merged),
+      data: normalizeSettingsSectionData(section, merged, req),
     };
   } catch {
-    return { section, data: normalizeSettingsSectionData(section, defaults) };
+    return { section, data: normalizeSettingsSectionData(section, defaults, req) };
   }
 }
 

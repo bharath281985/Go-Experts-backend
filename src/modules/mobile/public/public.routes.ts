@@ -243,8 +243,8 @@ router.get('/search', directoryCache, search);
 
 router.get('/education_levels', masterCache, getEducationLevels as any);
 router.get('/settings/role-color', getRoleColor);
-router.get('/settings/splash', async (_req, res) => {
-  const result = await getSettingsSection('splash');
+router.get('/settings/splash', async (req, res) => {
+  const result = await getSettingsSection('splash', req);
   res.json(result);
 });
 
