@@ -1,11 +1,42 @@
 import { prisma } from "../../config/database.js";
 import { SETTINGS_DEFAULTS, type SettingsSection } from "./settings.defaults.js";
-import { buildPublicFileUrl } from "../../utils/public-url.js";
 
 const SECTION_KEY_PREFIX = "settings:section:";
 
 function sectionKey(section: SettingsSection) {
   return `${SECTION_KEY_PREFIX}${section}`;
+}
+
+function requestBaseUrl(req?: any) {
+  const envUrl = process.env.BASE_URL || process.env.APP_URL || process.env.PUBLIC_URL;
+  if (envUrl && !String(envUrl).includes("localhost")) return String(envUrl).replace(/\/+$/, "");
+
+  if (req?.get) {
+    const host = req.get("host");
+    const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+    if (host) return `${proto}://${host}`.replace(/\/+$/, "");
+  }
+
+  return envUrl ? String(envUrl).replace(/\/+$/, "") : "https://apiai.goexperts.in";
+}
+
+function requestUploadBasePath(req?: any) {
+  const originalUrl = String(req?.originalUrl || req?.url || "");
+  if (originalUrl.includes("/api/v1/mobile/")) return "/api/v1/mobile/uploads";
+  if (originalUrl.includes("/api/mobile/")) return "/api/mobile/uploads";
+  return "/uploads";
+}
+
+function buildSettingsFileUrl(filepath?: string | null, req?: any) {
+  if (!filepath) return "";
+  if (/^https?:\/\//i.test(filepath)) return filepath;
+
+  const normalizedPath = String(filepath)
+    .replace(/^\/+/, "")
+    .replace(/\\/g, "/")
+    .replace(/^uploads\//, "");
+
+  return `${requestBaseUrl(req)}${requestUploadBasePath(req)}/${normalizedPath}`;
 }
 
 function normalizeSplashSettingsData(value: unknown, req?: any): Record<string, any> {
@@ -32,11 +63,7 @@ function normalizeSplashSettingsData(value: unknown, req?: any): Record<string, 
       ? source.mediaName
       : "";
   const oldMediaType = sourceSplash.mediaType === "video" || source.mediaType === "video" ? "video" : "image";
-  const toPublicUrl = (url?: string | null) => {
-    const value = typeof url === "string" ? url : "";
-    if (!value) return "";
-    return req ? buildPublicFileUrl(value, req) || value : value;
-  };
+  const toPublicUrl = (url?: string | null) => buildSettingsFileUrl(url, req);
   const steps: Array<Record<string, any>> = defaults.onboarding.steps.map((defaultStep, index) => {
     const step = {
       ...(defaultStep as Record<string, any>),
