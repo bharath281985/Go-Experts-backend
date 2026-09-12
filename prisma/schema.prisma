@@ -672,6 +672,7 @@ model Wallet {
   updatedAt    DateTime            @updatedAt @map("updated_at")
   bonuses      WalletBonus[]
   transactions WalletTransaction[]
+  withdrawals  WalletWithdrawalRequest[]
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("wallets")
@@ -705,6 +706,22 @@ model WalletBonus {
 
   @@index([walletId], map: "wallet_bonuses_wallet_id_fkey")
   @@map("wallet_bonuses")
+}
+
+model WalletWithdrawalRequest {
+  id            String   @id @default(uuid())
+  walletId      String   @map("wallet_id")
+  amount        Float
+  status        String   @default("pending") // pending, approved, rejected
+  paymentMethod String   @map("payment_method") // upi, bank
+  paymentDetails String  @db.Text @map("payment_details") // JSON string containing upi_id or bank details
+  adminNote     String?  @db.Text @map("admin_note")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  wallet        Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId], map: "wallet_withdrawal_requests_wallet_id_fkey")
+  @@map("wallet_withdrawal_requests")
 }
 
 model WalletReward {

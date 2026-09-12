@@ -580,8 +580,31 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   const profileApproved = Boolean(verificationStats.profileApproved);
   const kycApproved = Boolean(verificationStats.kycApproved);
 
+  
+  let vJson = {};
+  try {
+    if (freelancerProfile && freelancerProfile.verificationJson) {
+      vJson = typeof freelancerProfile.verificationJson === "string" 
+        ? JSON.parse(freelancerProfile.verificationJson) 
+        : freelancerProfile.verificationJson;
+    } else if (rest.verificationData) {
+      vJson = typeof rest.verificationData === "string" 
+        ? JSON.parse(rest.verificationData) 
+        : rest.verificationData;
+    }
+  } catch (e) {}
+
   const sanitized = {
     ...rest,
+    panDocument: vJson.panDocument ?? regData.panDocument ?? rest.panDocument ?? null,
+    aadharDocument: vJson.aadharDocument ?? regData.aadharDocument ?? rest.aadharDocument ?? null,
+    gstDocument: vJson.gstDocument ?? regData.gstDocument ?? rest.gstDocument ?? null,
+    businessProof: vJson.businessProof ?? regData.businessProof ?? rest.businessProof ?? null,
+    addressProof: vJson.addressProof ?? regData.addressProof ?? rest.addressProof ?? null,
+    pitchDeck: founderProfile?.pitchDeck ?? regData.pitchDeck ?? rest.pitchDeck ?? null,
+    resume: freelancerProfile?.resumeUrl ?? regData.resumeUrl ?? regData.resume ?? rest.resume ?? null,
+    companyLogo: clientProfile?.logoUrl ?? founderProfile?.logoUrl ?? regData.companyLogo ?? regData.logo ?? rest.companyLogo ?? null,
+    attachments: rest.attachments ?? regData.attachments ?? vJson.attachments ?? null,
     hasPassword: Boolean(password && String(password).length > 0),
     userId: rest.id,
     name: rest.fullName,
@@ -799,6 +822,14 @@ const getFreelancerProfilePayload = (body: any) => {
     if (Number.isFinite(parsed)) profileData.rating = parsed;
   }
   if (experience !== undefined) profileData.experience = experience == null || experience === "" ? null : String(experience);
+
+  const portfolioUrl = profile.portfolioUrl ?? body.portfolioUrl;
+  const linkedInUrl = profile.linkedInUrl ?? body.linkedInUrl;
+  const resumeUrl = profile.resumeUrl ?? profile.resume ?? body.resumeUrl ?? body.resume;
+
+  if (portfolioUrl !== undefined) profileData.portfolioUrl = portfolioUrl ? String(portfolioUrl) : null;
+  if (linkedInUrl !== undefined) profileData.linkedInUrl = linkedInUrl ? String(linkedInUrl) : null;
+  if (resumeUrl !== undefined) profileData.resumeUrl = resumeUrl ? String(resumeUrl) : null;
 
   return profileData;
 };
