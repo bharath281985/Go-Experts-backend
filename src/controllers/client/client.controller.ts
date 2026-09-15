@@ -1058,6 +1058,43 @@ export const listClientMeetings = async (req: AuthenticatedRequest, res: Respons
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     const rows = await listMeetingsForUser(user, [user.clientProfile?.company]);
+    const userRefs = Array.from(new Set(
+      rows.flatMap((meeting) => [meeting.founder, meeting.investor]).filter((value): value is string => UUID_RE.test(String(value || "")))
+    ));
+    const users = userRefs.length
+      ? await prisma.user.findMany({
+          where: { id: { in: userRefs } },
+          select: { id: true, fullName: true, email: true, avatarUrl: true, role: true },
+        })
+      : [];
+    const userMap = new Map(users.map((item) => [item.id, item]));
+    const viewerNeedles = uniqueValues([user.id, user.fullName, user.email, user.clientProfile?.company]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean));
+    const isViewerRef = (value: string | null | undefined) => {
+      const normalized = String(value || "").trim().toLowerCase();
+      return Boolean(normalized && viewerNeedles.some((needle) => normalized === needle || normalized.includes(needle)));
+    };
+    const displayRef = (value: string | null | undefined) => {
+      const raw = String(value || "").trim();
+      return userMap.get(raw)?.fullName || raw;
+    };
+    const shapedRows = rows.map((meeting) => {
+      const counterpartRef = isViewerRef(meeting.founder) ? meeting.investor : meeting.founder;
+      const counterpart = displayRef(counterpartRef) || "Participant";
+      return {
+        ...meeting,
+        title: meeting.title || `Meeting with ${counterpart}`,
+        agenda: meeting.agenda || "",
+        founderName: displayRef(meeting.founder),
+        investorName: displayRef(meeting.investor),
+        with: counterpart,
+        counterpart,
+        participant: counterpart,
+        platform: meeting.mode || "Online",
+        meetingLink: meeting.meetingLink || "",
+      };
+    });
 
     // Fetch freelancer contacts for the client
     const { getJsonSetting } = await import("../../common/helpers/portal-shared.js");
@@ -1110,7 +1147,7 @@ export const listClientMeetings = async (req: AuthenticatedRequest, res: Respons
 
     const persons = Array.from(contactsMap.entries()).map(([name, email]) => ({ name, email }));
 
-    res.json({ success: true, rows, total: rows.length, persons });
+    res.json({ success: true, rows: shapedRows, total: shapedRows.length, persons });
   } catch (err) {
     handleError(err, res, next);
   }

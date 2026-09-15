@@ -1819,6 +1819,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response, n
 };
 
 const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+const tokenStore = new Map<string, { email: string; expiresAt: number }>();
 
 export const sendOtp = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -1860,7 +1861,10 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
         }
 
         const clientHost = getClientHost(req);
-        const verificationLink = `${clientHost}/verify-email?email=${encodeURIComponent(email)}&code=${otp}`;
+        const { randomBytes } = await import("crypto");
+        const token = randomBytes(32).toString("hex");
+        tokenStore.set(token, { email, expiresAt: Date.now() + 15 * 60 * 1000 });
+        const verificationLink = `${clientHost}/verify-email?email=${encodeURIComponent(email)}&token=${token}`;
 
         const rendered = await renderEmailTemplate(
           "tpl_verification_link",
@@ -2100,12 +2104,25 @@ export const verifyDeleteAccountOtp = async (req: Request, res: Response, next: 
 
 export const getOtpInfo = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Note: Temporarily removed the production check as requested by the user,
-    // so the OTP is exposed to the frontend during testing.
-    const email = String(req.query.email || "").trim().toLowerCase();
-    if (!email) {
-      return res.status(400).json({ success: false, message: "Email parameter required" });
+    const token = String(req.query.token || "").trim();
+    const emailParam = String(req.query.email || "").trim().toLowerCase();
+
+    let email = emailParam;
+
+    // Resolve token → email
+    if (token) {
+      const tokenRecord = tokenStore.get(token);
+      if (!tokenRecord || tokenRecord.expiresAt < Date.now()) {
+        tokenStore.delete(token);
+        return res.status(404).json({ success: false, message: "No active verification code found or link has expired." });
+      }
+      email = tokenRecord.email;
     }
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Token or email parameter required" });
+    }
+
     const stored = otpStore.get(email);
     if (!stored || stored.expiresAt < Date.now()) {
       return res.status(404).json({ success: false, message: "No active verification code found or link has expired." });
@@ -2140,7 +2157,10 @@ export const sendVerificationLink = async (req: Request, res: Response, next: Ne
       otpStore.set(email, { otp, expiresAt: Date.now() + 15 * 60 * 1000 });
 
     const clientHost = getClientHost(req);
-    const verificationLink = `${clientHost}/verify-email?email=${encodeURIComponent(email)}&code=${otp}`;
+    const { randomBytes: rb } = await import("crypto");
+    const vToken = rb(32).toString("hex");
+    tokenStore.set(vToken, { email, expiresAt: Date.now() + 15 * 60 * 1000 });
+    const verificationLink = `${clientHost}/verify-email?email=${encodeURIComponent(email)}&token=${vToken}`;
 
     const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
     const emailAdapter = new EmailChannelAdapter();

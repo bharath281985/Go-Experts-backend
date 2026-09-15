@@ -13,6 +13,8 @@ import {
   listProjectApplications,
   listClientApplications,
   listClientContracts,
+  listClientMeetings,
+  createClientMeeting,
   getClientProposal,
   shortlistProposal,
   offerProposal,
@@ -99,8 +101,8 @@ router.get("/contracts", listClientContracts as any);
 // router.put("/tasks/:id", updateClientTask as any);
 // router.delete("/tasks/:id", deleteClientTask as any);
 
-// router.get("/meetings", listClientMeetings as any);
-// router.post("/meetings", createClientMeeting as any);
+router.get("/meetings", listClientMeetings as any);
+router.post("/meetings", createClientMeeting as any);
 
 // router.get("/messages", listClientMessages as any);
 // router.post("/messages", createClientMessage as any);
