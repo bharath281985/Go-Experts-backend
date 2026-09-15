@@ -104,7 +104,8 @@ export const getReferralDetails = async (req: AuthenticatedRequest, res: Respons
         activeRules,
         kycVerified: Boolean(user.isVerified || user.verified),
         welcomeBonusEnabled: Boolean(appSettings.welcome_bonus_enabled ?? true),
-        welcomeBonusAmount: Number(appSettings.welcome_bonus_amount ?? 99)
+        welcomeBonusAmount: Number(appSettings.welcome_bonus_amount ?? 99),
+        referralRewardAmount: Number(appSettings.referral_reward_amount ?? 25)
       }
     });
   } catch (err) {

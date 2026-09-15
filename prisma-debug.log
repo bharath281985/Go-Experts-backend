@@ -1103,3 +1103,68 @@ C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\controllers\auth\
 → 2620   const user = await prisma.user.findUnique(
 Server has closed the connection.
 
+[2026-09-15T04:49:46.766Z] PRISMA ERROR:
+
+Invalid `prisma.country.findFirst()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:317:45
+
+  314 }
+  315 
+  316 if (!matchedCountry) {
+→ 317   matchedCountry = await prisma.country.findFirst(
+Authentication failed against database server at `127.0.0.1`, the provided database credentials for `root` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
+
+[2026-09-15T04:49:46.780Z] PRISMA ERROR:
+
+Invalid `prisma.user.count()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\prisma-compat.ts:286:37
+
+  283 const orderByClause = { [orderBy]: ascending ? "asc" : "desc" } as const;
+  284 
+  285 try {
+→ 286   const total = await prisma.user.count(
+Authentication failed against database server at `127.0.0.1`, the provided database credentials for `root` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
+
+[2026-09-15T04:49:46.847Z] PRISMA ERROR:
+
+Invalid `prisma.subscriptionPlan.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:1319:49
+
+  1316   whereCondition.duration = { not: "90_days" };
+  1317 }
+  1318 
+→ 1319 const plans = await prisma.subscriptionPlan.findMany(
+Authentication failed against database server at `127.0.0.1`, the provided database credentials for `root` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
+
+[2026-09-15T04:49:46.900Z] PRISMA ERROR:
+
+Invalid `prisma.user.count()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\prisma-compat.ts:286:37
+
+  283 const orderByClause = { [orderBy]: ascending ? "asc" : "desc" } as const;
+  284 
+  285 try {
+→ 286   const total = await prisma.user.count(
+Authentication failed against database server at `127.0.0.1`, the provided database credentials for `root` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
+
+[2026-09-15T04:49:46.930Z] PRISMA ERROR:
+
+Invalid `prisma.subscriptionPlan.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:1319:49
+
+  1316   whereCondition.duration = { not: "90_days" };
+  1317 }
+  1318 
+→ 1319 const plans = await prisma.subscriptionPlan.findMany(
+Authentication failed against database server at `127.0.0.1`, the provided database credentials for `root` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
+

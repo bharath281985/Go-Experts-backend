@@ -18,8 +18,29 @@ const ensureReferralCode = async (userId: string, existingCode?: string | null) 
 
 export const getMyReferrals = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
+    let appSettings: any = {};
+    if (settingsRecord) {
+      try {
+        appSettings = JSON.parse(settingsRecord.value);
+      } catch(e) {}
+    }
+
+    const publicSettings = {
+      welcomeBonusEnabled: Boolean(appSettings.welcome_bonus_enabled ?? true),
+      welcomeBonusAmount: Number(appSettings.welcome_bonus_amount ?? 99),
+      referralRewardAmount: Number(appSettings.referral_reward_amount ?? 25)
+    };
+
     if (!req.user?.id) {
-      return res.status(401).json(errorResponse('Unauthorized', 'UNAUTHORIZED'));
+      return res.json(successResponse('Referrals retrieved', {
+        ...publicSettings,
+        referralCode: null,
+        referralLink: null,
+        qrCode: null,
+        stats: { total: 0, pending: 0, rewarded: 0, totalReward: 0 },
+        history: [],
+      }));
     }
 
     const userId = req.user.id;
@@ -47,6 +68,7 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
     const referralLink = `https://goexperts.com/ref/${referralCode}`;
 
     return res.json(successResponse('Referrals retrieved', {
+      ...publicSettings,
       referralCode,
       referralLink,
       qrCode: `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(referralLink)}`,
