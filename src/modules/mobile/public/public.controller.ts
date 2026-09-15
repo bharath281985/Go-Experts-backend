@@ -1646,7 +1646,13 @@ export const getBlogs = async (req: Request, res: Response, next: NextFunction) 
 };
 
 export const getFaqs = async (req: Request, res: Response, next: NextFunction) => {
-  try { return res.json(successResponse('FAQs retrieved', [])); } catch (error) { next(error); }
+  try {
+    const faqs = await prisma.faq.findMany({
+      where: { status: 'PUBLISHED' },
+      orderBy: { sortOrder: 'asc' }
+    });
+    return res.json(successResponse('FAQs retrieved', faqs));
+  } catch (error) { next(error); }
 };
 
 export const getTestimonials = async (req: Request, res: Response, next: NextFunction) => {

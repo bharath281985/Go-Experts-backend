@@ -24,7 +24,10 @@ export const createTicket = async (req: AuthRequest, res: Response, next: NextFu
 
 export const getTicket = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const ticket = await prisma.supportTicket.findFirst({ where: { id: req.params.id, requesterId: req.user.id } });
+    const ticket = await prisma.supportTicket.findFirst({
+      where: { id: req.params.id, requesterId: req.user.id },
+      include: { messages: { orderBy: { createdAt: 'asc' } } }
+    });
     return res.json(successResponse('Ticket details', ticket));
   } catch (error) { next(error); }
 };

@@ -46,6 +46,7 @@ export const getAppConfig = async (req: any, res: Response, next: NextFunction) 
       currentVersion: '1.0.0',
       minSupportedVersion: '1.0.0',
       supportEmail: 'servicedesk@goexperts.in',
+      supportPhone: '+919441457677',
       defaultLanguage: 'en',
       ...configCache.app
     };
