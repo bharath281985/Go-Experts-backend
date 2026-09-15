@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getClientDashboard, listClientReviews, getClientProfile, updateClientProfile, listClientProjects, getClientPipeline, createClientProject, getClientProject, updateClientProject, deleteClientProject, listProjectApplications, listClientApplications, listClientContracts, getClientProposal, shortlistProposal, offerProposal, rejectProposal, interviewProposal, inviteFreelancer, listSavedFreelancers, toggleSavedFreelancer, removeSavedFreelancer, listClientInvitations, listClientTeam, addClientTeamMember, updateClientTeamMember, resendClientTeamInvite, deleteClientTeamMember, listClientRoles, listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead, getClientAnalytics } from "../../controllers/client/client.controller.js";
+import { getClientDashboard, listClientReviews, getClientProfile, updateClientProfile, listClientProjects, getClientPipeline, createClientProject, getClientProject, updateClientProject, deleteClientProject, listProjectApplications, listClientApplications, listClientContracts, listClientMeetings, createClientMeeting, getClientProposal, shortlistProposal, offerProposal, rejectProposal, interviewProposal, inviteFreelancer, listSavedFreelancers, toggleSavedFreelancer, removeSavedFreelancer, listClientInvitations, listClientTeam, addClientTeamMember, updateClientTeamMember, resendClientTeamInvite, deleteClientTeamMember, listClientRoles, listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead, getClientAnalytics } from "../../controllers/client/client.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
 import { portalRoleMiddleware } from "../../middlewares/role.middleware.js";
@@ -56,8 +56,8 @@ router.get("/contracts", listClientContracts);
 // router.patch("/tasks/:id", updateClientTask as any);
 // router.put("/tasks/:id", updateClientTask as any);
 // router.delete("/tasks/:id", deleteClientTask as any);
-// router.get("/meetings", listClientMeetings as any);
-// router.post("/meetings", createClientMeeting as any);
+router.get("/meetings", listClientMeetings);
+router.post("/meetings", createClientMeeting);
 // router.get("/messages", listClientMessages as any);
 // router.post("/messages", createClientMessage as any);
 // router.get("/wallet", getClientWallet as any);

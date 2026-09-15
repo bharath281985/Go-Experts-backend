@@ -373,6 +373,8 @@ const searchColumnsMapping: Record<string, string[]> = {
 };
 
 const freelancerInclude = { authIdentities: true,
+  subscriptions: { include: { plan: true }, where: { status: 'active' } },
+  
   // Avoid selecting optional JSON columns that may not exist on older production DBs.
   freelancerProfile: {
     select: {
@@ -413,6 +415,8 @@ const freelancerInclude = { authIdentities: true,
 };
 
 const clientInclude = { authIdentities: true,
+  subscriptions: { include: { plan: true }, where: { status: 'active' } },
+  
   clientProfile: true,
   clientContracts: {
     include: { project: true },
@@ -430,6 +434,8 @@ const clientInclude = { authIdentities: true,
 };
 
 const investorInclude = { authIdentities: true,
+  subscriptions: { include: { plan: true }, where: { status: 'active' } },
+  
   investorProfile: true,
   wallet: {
     include: {
@@ -442,6 +448,8 @@ const investorInclude = { authIdentities: true,
 };
 
 const founderInclude = { authIdentities: true,
+  subscriptions: { include: { plan: true }, where: { status: 'active' } },
+  
   founderProfile: true,
   wallet: {
     include: {

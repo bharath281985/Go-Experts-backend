@@ -5,8 +5,68 @@ import { NotificationService } from "../notifications/notification.service.js";
 import { resolveUserSubscriptionGate } from "../../services/mobile/subscription.service.js";
 import fs from "fs";
 import path from "path";
+import { getInactivityWarningEmail } from "../notifications/templates/inactivity-warning.js";
 
 export function registerSystemJobs() {
+  // 4. User Inactivity Lifecycle
+  SchedulerService.registerHandler("User Inactivity Lifecycle", async () => {
+    const now = new Date();
+    
+    // Day 27 to Day 30 boundaries
+    const day27 = new Date(now.getTime() - 27 * 24 * 60 * 60 * 1000);
+    const day31 = new Date(now.getTime() - 31 * 24 * 60 * 60 * 1000);
+    
+    // Find users who haven't logged in for 27-30 days to send reminders
+    const usersToRemind = await prisma.user.findMany({
+      where: {
+        lastLoginAt: {
+          lte: day27,
+          gt: day31
+        },
+        status: "active",
+        deletedAt: null
+      },
+      include: {
+        clientProfile: true,
+        founderProfile: true
+      }
+    });
+    
+    for (const user of usersToRemind) {
+      // Send reminder
+      const industry = user.clientProfile?.industry || user.founderProfile?.industry || "";
+      const emailHtml = getInactivityWarningEmail(user.fullName, industry, Math.floor((now.getTime() - user.lastLoginAt.getTime()) / (1000 * 60 * 60 * 24)));
+      
+      await NotificationService.enqueue({
+        userId: user.id,
+        channel: "email",
+        type: "system_alert",
+        title: "Action Required: Keep Your Account Active",
+        message: emailHtml
+      });
+      console.log(`[SYSTEM JOB] Sent inactivity reminder to ${user.email}`);
+    }
+    
+    // Find users >= 31 days inactive and mark them inactive
+    const usersToDeactivate = await prisma.user.findMany({
+      where: {
+        lastLoginAt: {
+          lte: day31
+        },
+        status: "active",
+        deletedAt: null
+      }
+    });
+    
+    for (const user of usersToDeactivate) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: "inactive" }
+      });
+      console.log(`[SYSTEM JOB] Marked user ${user.email} as inactive due to 31 days of inactivity`);
+    }
+  });
+
   // 1. Subscription Expiry Check
   SchedulerService.registerHandler("Subscription Expiry Check", async () => {
     const now = new Date();

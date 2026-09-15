@@ -12,6 +12,7 @@ export const SETTINGS_DEFAULTS = {
     maintenanceMode: false,
     welcomeBonusEnabled: true,
     welcomeBonusAmount: 99,
+    referralCashbackPercent: 5,
   },
   branding: {
     primaryColor: "#E30613",
@@ -377,6 +378,36 @@ export const SETTINGS_DEFAULTS = {
 
             <div style="text-align: center; margin-top: 32px;">
               <a href="{{app_url}}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block;">Explore Platform Now &rarr;</a>
+            </div>
+          </div>
+        </div>
+      `,
+      isDefault: true,
+    },
+    {
+      id: "tpl_referral_cashback",
+      name: "Referral Cashback Received",
+      subject: "You've earned ₹{{cashback_amount}} cashback! 💰",
+      body: "Hello {{full_name}},\n\nGreat news! Your friend {{friend_name}} just purchased a subscription plan. As a thank you for referring them, we've credited ₹{{cashback_amount}} (5% of the plan value) to your wallet.\n\nYour new wallet balance is ₹{{total_balance}}.\n\nBest regards,\nGo Experts Team",
+      html: `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748; background: #ffffff; border-radius: 12px; border: 1px solid #eaedf1; overflow: hidden;">
+          <div style="padding: 24px; text-align: center; border-bottom: 3px solid #E30613;">
+            <img src="https://goexperts.in/assets/img/logo.png" alt="Go Experts" style="max-height: 44px;" />
+          </div>
+          <div style="padding: 32px 24px;">
+            <h2 style="color: #1a202c; font-size: 22px; font-weight: 800; margin-bottom: 12px;">You earned cashback! 💰</h2>
+            <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Hello <strong>{{full_name}}</strong>,</p>
+            <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Great news! Your friend <strong>{{friend_name}}</strong> just purchased a subscription plan on Go Experts.</p>
+            
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 20px; margin: 24px 0;">
+              <h3 style="margin: 0 0 10px 0; color: #166534; font-size: 16px; font-weight: 700;">₹{{cashback_amount}} Credited</h3>
+              <p style="margin: 0; font-size: 14px; color: #15803d;">We've added 5% of their plan value to your wallet as a thank you for referring them.</p>
+            </div>
+
+            <p style="font-size: 15px; color: #4a5568; line-height: 1.6;">Your updated wallet balance is now <strong>₹{{total_balance}}</strong>.</p>
+            
+            <div style="text-align: center; margin-top: 32px;">
+              <a href="{{app_url}}" target="_blank" style="background-color: #E30613; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; display: inline-block;">View Wallet &rarr;</a>
             </div>
           </div>
         </div>

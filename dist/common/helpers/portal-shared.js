@@ -38,7 +38,7 @@ export function money(n, currency = "INR") {
     }
 }
 function userNeedles(user, extra = []) {
-    return [user.fullName, user.email, ...extra].map((v) => String(v || "").trim()).filter(Boolean);
+    return [user.id, user.fullName, user.email, ...extra].map((v) => String(v || "").trim()).filter(Boolean);
 }
 // ==========================================
 // WALLET
@@ -326,10 +326,14 @@ export async function createMeetingForUser(user, body, selfSide) {
     if (!date || !time)
         throw new HttpError("date and time are required");
     const data = {
+        title: body.title ? String(body.title).trim() : "Meeting",
+        agenda: body.agenda || body.description || body.notes ? String(body.agenda || body.description || body.notes).trim() : null,
         date,
         time,
         mode: body.mode ? String(body.mode) : "Online",
         status: body.status ? String(body.status) : "Scheduled",
+        meetingLink: body.meetingLink || body.meeting_link ? String(body.meetingLink || body.meeting_link).trim() : null,
+        createdBy: user.id,
     };
     if (selfSide === "investor") {
         data.investor = user.fullName;

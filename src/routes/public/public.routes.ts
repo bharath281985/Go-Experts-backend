@@ -1446,6 +1446,7 @@ router.get("/investment_modes", async (_req: Request, res: Response) => {
   return res.json({ success: true, data: modes, rows: modes });
 });
 
+
 router.get("/investor-goals", async (_req: Request, res: Response) => {
   const goals = await fetchMasterOptions("investor_goal");
   return res.json({ success: true, data: goals, rows: goals });

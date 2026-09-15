@@ -1,5 +1,7 @@
 import { prisma } from '../../config/database.js';
-import { sendPlanExpiredEmail } from './email.service.js';
+import { sendPlanExpiredEmail, sendReferralCashbackEmail } from './email.service.js';
+import { NotificationEngine } from './notification.engine.js';
+import { getSettingsSection } from '../settings/settings.service.js';
 
 export type BillingCycle = 'monthly' | 'yearly';
 
@@ -124,6 +126,83 @@ export const activateUserSubscription = async (
   });
 
   await reactivateAccountAfterPlanUpgrade(userId);
+
+  // --- Dynamic Referral Cashback Logic ---
+  if (plan.amount > 0) {
+    try {
+      const referral = await prisma.referral.findUnique({
+        where: { refereeId: userId },
+        include: { referrer: true, referee: true },
+      });
+
+      if (referral && referral.referrer) {
+        // Fetch app_settings from DB for cashback config
+        const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
+        let appSettings: any = {};
+        if (settingsRecord) {
+          try {
+            appSettings = JSON.parse(settingsRecord.value);
+          } catch (e) {}
+        }
+        
+        const cashbackPercent = Number(appSettings.cashback_percent ?? 5);
+        const cashbackMultiplier = cashbackPercent / 100;
+        
+        const cashbackAmount = parseFloat((plan.amount * cashbackMultiplier).toFixed(2));
+        if (cashbackAmount > 0) {
+          const referrerId = referral.referrer.id;
+          
+          let referrerWallet = await prisma.wallet.findUnique({ where: { userId: referrerId } });
+          if (!referrerWallet) {
+            referrerWallet = await prisma.wallet.create({
+              data: { userId: referrerId, balance: 0 },
+            });
+          }
+
+          const newBalance = referrerWallet.balance + cashbackAmount;
+
+          const updatedWallet = await prisma.wallet.update({
+            where: { id: referrerWallet.id },
+            data: { balance: newBalance },
+          });
+
+          await prisma.walletTransaction.create({
+            data: {
+              walletId: updatedWallet.id,
+              type: 'referral_cashback',
+              amount: cashbackAmount,
+              direction: 'credit',
+              description: `${cashbackPercent}% Cashback for referral subscription purchase by ${referral.referee.fullName}`,
+              balanceAfter: newBalance,
+              status: 'completed',
+            },
+          });
+
+          // Send Email
+          await sendReferralCashbackEmail(
+            referral.referrer.email,
+            referral.referrer.fullName,
+            cashbackAmount,
+            referral.referee.fullName,
+            newBalance
+          ).catch(console.error);
+
+          // Send In-App Notification
+          await NotificationEngine.queueNotification({
+            userId: referrerId,
+            type: 'referral_cashback',
+            title: 'Cashback Received! 💰',
+            message: `You received ₹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
+            channel: 'in_app',
+            payload: { amount: cashbackAmount, friend: referral.referee.fullName },
+          }).catch(console.error);
+        }
+      }
+    } catch (err) {
+      console.error('Error processing referral cashback:', err);
+    }
+  }
+  // -----------------------------------
 
   return subscription;
 };
