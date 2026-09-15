@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database.js';
+import { sendPlanExpiredEmail } from './email.service.js';
 
 export type BillingCycle = 'monthly' | 'yearly';
 
@@ -122,6 +123,8 @@ export const activateUserSubscription = async (
     include: { plan: true },
   });
 
+  await reactivateAccountAfterPlanUpgrade(userId);
+
   return subscription;
 };
 
@@ -132,6 +135,10 @@ export type SubscriptionGate = {
   status: 'active' | 'expired' | 'none';
   planId: string | null;
   planName: string | null;
+  planExpired: boolean;
+  upgradeRequired: boolean;
+  reason: string | null;
+  expiredAt: Date | null;
   subscription: {
     id: string;
     userId: string;
@@ -147,6 +154,105 @@ export type SubscriptionGate = {
 /**
  * Source of truth for whether the user may skip SubscriptionSelectionPage.
  */
+const parseRegistrationData = (raw: unknown): Record<string, any> => {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+  return typeof raw === 'object' ? { ...(raw as Record<string, any>) } : {};
+};
+
+const inactiveBecausePlanExpired = (registrationData: unknown) => {
+  const reg = parseRegistrationData(registrationData);
+  return reg.accountInactiveReason === 'subscription_expired' || reg.planExpired === true;
+};
+
+const markSubscriptionExpired = async (sub: any, planName: string | null) => {
+  const now = new Date();
+  const user = await prisma.user.findUnique({ where: { id: sub.userId } }).catch(() => null);
+  const reg = parseRegistrationData(user?.registrationData);
+  const alreadyEmailedForSubscription = reg.planExpiredEmailSubscriptionId === sub.id;
+
+  await prisma.subscription.update({
+    where: { id: sub.id },
+    data: { status: 'expired' },
+  }).catch(() => null);
+
+  if (user && user.status === 'active') {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        status: 'inactive',
+        registrationData: JSON.stringify({
+          ...reg,
+          planExpired: true,
+          planExpiredAt: sub.endDate?.toISOString?.() || now.toISOString(),
+          planExpiredSubscriptionId: sub.id,
+          planExpiredPlanId: sub.planId,
+          planExpiredPlanName: planName,
+          accountInactiveReason: 'subscription_expired',
+        }),
+      },
+    }).catch(() => null);
+  } else if (user && inactiveBecausePlanExpired(user.registrationData)) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        registrationData: JSON.stringify({
+          ...reg,
+          planExpired: true,
+          planExpiredAt: reg.planExpiredAt || sub.endDate?.toISOString?.() || now.toISOString(),
+          planExpiredSubscriptionId: sub.id,
+          planExpiredPlanId: sub.planId,
+          planExpiredPlanName: planName,
+          accountInactiveReason: 'subscription_expired',
+        }),
+      },
+    }).catch(() => null);
+  }
+
+  if (user?.email && !alreadyEmailedForSubscription) {
+    const emailResult = await sendPlanExpiredEmail(user.email, user.fullName || 'User', user.role || 'user', planName, sub.endDate).catch(() => false);
+    if (emailResult === true) {
+      const latest = parseRegistrationData((await prisma.user.findUnique({ where: { id: user.id }, select: { registrationData: true } }).catch(() => null))?.registrationData ?? user.registrationData);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          registrationData: JSON.stringify({
+            ...latest,
+            planExpiredEmailSentAt: now.toISOString(),
+            planExpiredEmailSubscriptionId: sub.id,
+          }),
+        },
+      }).catch(() => null);
+    }
+  }
+};
+
+export const isAccountInactiveBecausePlanExpired = async (userId: string) => {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { registrationData: true } }).catch(() => null);
+  return inactiveBecausePlanExpired(user?.registrationData);
+};
+
+export const reactivateAccountAfterPlanUpgrade = async (userId: string) => {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { status: true, registrationData: true } }).catch(() => null);
+  if (user?.status !== 'inactive' || !inactiveBecausePlanExpired(user.registrationData)) return;
+
+  const reg = parseRegistrationData(user.registrationData);
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      status: 'active',
+      registrationData: JSON.stringify({
+        ...reg,
+        planExpired: false,
+        accountInactiveReason: null,
+        planReactivatedAt: new Date().toISOString(),
+      }),
+    },
+  }).catch(() => null);
+};
+
 export const resolveUserSubscriptionGate = async (
   userId: string
 ): Promise<SubscriptionGate> => {
@@ -157,21 +263,39 @@ export const resolveUserSubscriptionGate = async (
   });
 
   if (!sub) {
-    return { status: 'none', planId: null, planName: null, subscription: null };
+    const expiredSub = await prisma.subscription.findFirst({
+      where: { userId, status: 'expired' },
+      include: { plan: true },
+      orderBy: { endDate: 'desc' },
+    });
+    if (expiredSub) {
+      return {
+        status: 'expired',
+        planId: expiredSub.planId,
+        planName: expiredSub.plan?.name ?? null,
+        planExpired: true,
+        upgradeRequired: true,
+        reason: 'subscription_expired',
+        expiredAt: expiredSub.endDate,
+        subscription: expiredSub,
+      };
+    }
+    return { status: 'none', planId: null, planName: null, planExpired: false, upgradeRequired: true, reason: 'no_subscription', expiredAt: null, subscription: null };
   }
 
   const planName = sub.plan?.name ?? null;
 
   if (sub.endDate.getTime() < Date.now()) {
-    await prisma.subscription.update({
-      where: { id: sub.id },
-      data: { status: 'expired' },
-    });
+    await markSubscriptionExpired(sub, planName);
     return {
       status: 'expired',
       planId: sub.planId,
       planName,
-      subscription: sub,
+      planExpired: true,
+      upgradeRequired: true,
+      reason: 'subscription_expired',
+      expiredAt: sub.endDate,
+      subscription: { ...sub, status: 'expired' },
     };
   }
 
@@ -179,6 +303,10 @@ export const resolveUserSubscriptionGate = async (
     status: 'active',
     planId: sub.planId,
     planName,
+    planExpired: false,
+    upgradeRequired: false,
+    reason: null,
+    expiredAt: null,
     subscription: sub,
   };
 };
@@ -189,6 +317,10 @@ export const shapeCurrentSubscriptionResponse = (gate: SubscriptionGate) => {
       status: gate.status,
       planId: null,
       planName: null,
+      planExpired: gate.planExpired,
+      upgradeRequired: gate.upgradeRequired,
+      reason: gate.reason,
+      expiredAt: gate.expiredAt,
       plan: null,
     };
   }
@@ -197,6 +329,10 @@ export const shapeCurrentSubscriptionResponse = (gate: SubscriptionGate) => {
     status: gate.status,
     planId: gate.planId,
     planName: gate.planName,
+    planExpired: gate.planExpired,
+    upgradeRequired: gate.upgradeRequired,
+    reason: gate.reason,
+    expiredAt: gate.expiredAt,
     plan: gate.subscription.plan ?? null,
   };
 };

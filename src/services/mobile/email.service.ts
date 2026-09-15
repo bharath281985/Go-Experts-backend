@@ -768,6 +768,48 @@ export const sendWelcomeBonusEmail = (to: string, name: string, amount: number) 
   return sendEmail(to, '🎉 Welcome Bonus Credited — GoExperts', shell(`Your KYC is approved and your ₹${amount} welcome bonus is in your wallet!`, body));
 };
 
+
+export const sendPlanExpiredEmail = (to: string, name: string, role: string, planName?: string | null, expiredAt?: Date | string | null) => {
+  const firstName = (name || 'User').split(' ')[0];
+  const roleName = role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : 'Member';
+  const safePlanName = planName || 'your subscription';
+  const expiredDate = expiredAt ? new Date(expiredAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'recently';
+
+  const body = `
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:8px;">
+      <tr><td>${badge(roleName, '#fff7ed', '#c2410c')}</td></tr>
+    </table>
+    <h1 style="margin:12px 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your plan has expired</h1>
+    <p style="margin:0 0 22px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
+
+    ${alertBox('??', 'Upgrade required', `Your <strong>${safePlanName}</strong> plan expired on <strong>${expiredDate}</strong>. Your account access is limited until you upgrade or renew your plan.`, '#fff7ed', '#f97316', '#c2410c', '#9a3412')}
+
+    <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">
+      You can still sign in to Go Experts to review your account and complete your upgrade. After upgrading, your account will be reactivated automatically and full platform access will resume.
+    </p>
+
+    ${featureList([
+      { icon: '??', text: 'Login remains available for account and billing access' },
+      { icon: '??', text: 'Upgrade or renew your plan to reactivate your workspace' },
+      { icon: '?', text: 'Your profile, projects, and data remain safely stored' },
+    ], '#f97316')}
+
+    ${ctaButton(`${FRONTEND_URL}/pricing`, 'Upgrade Your Plan', '#E30613')}
+
+    <p style="margin:0 0 4px;color:#374151;font-size:13px;font-weight:600;">Need help choosing a plan?</p>
+    <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">
+      Reply to this email or contact <a href="mailto:servicedesk@goexperts.in" style="color:#f97316;text-decoration:none;">servicedesk@goexperts.in</a> and our team will help you reactivate your account.
+    </p>
+    <p style="margin:16px 0 0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
+  `;
+
+  return sendEmail(
+    to,
+    'Your Go Experts plan has expired ? upgrade required',
+    shell(`Your ${safePlanName} plan has expired. Please upgrade to continue using Go Experts.`, body)
+  );
+};
+
 export const sendCashbackEmail = (to: string, name: string, amount: number, planName: string) => {
   const firstName = (name || 'User').split(' ')[0];
   const body = `

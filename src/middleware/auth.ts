@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/db.js';
 import { errorResponse } from '../core/response.js';
+import { isAccountInactiveBecausePlanExpired } from '../services/mobile/subscription.service.js';
 
 const JWT_SECRET =
   process.env.JWT_SECRET ||
@@ -50,9 +51,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     if (user.status !== 'active') {
-      return res.status(403).json(
-        errorResponse('Your account is inactive. Please contact support.', 'ACCOUNT_INACTIVE')
-      );
+      const canAccessForUpgrade = user.status === 'inactive' && await isAccountInactiveBecausePlanExpired(user.id).catch(() => false);
+      if (!canAccessForUpgrade) {
+        return res.status(403).json(
+          errorResponse('Your account is inactive. Please contact support.', 'ACCOUNT_INACTIVE')
+        );
+      }
     }
 
     if (typeof decoded.epoch === 'number') {
@@ -99,7 +103,7 @@ export const authenticateOptional = async (req: AuthRequest, _res: Response, nex
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
     });
-    if (user && user.status === 'active') {
+    if (user && (user.status === 'active' || (user.status === 'inactive' && await isAccountInactiveBecausePlanExpired(user.id).catch(() => false)))) {
       if (typeof decoded.epoch === 'number') {
         const epoch = await getAuthEpoch(user.id);
         if (decoded.epoch !== epoch) return next();

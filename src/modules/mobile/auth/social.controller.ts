@@ -68,6 +68,8 @@ const issueAuthResponse = async (
   ]);
 
   const hasActiveSubscription = subscriptionGate.status === 'active';
+  const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+  const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
 
   const userData = {
     id: user.id,
@@ -75,7 +77,7 @@ const issueAuthResponse = async (
     fullName: user.fullName,
     role: user.role,
     avatarUrl: user.avatarUrl,
-    status: user.status,
+    status: effectiveStatus,
     isVerified: user.isVerified,
     isSocialLogin: isSocial,
     onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
@@ -87,6 +89,10 @@ const issueAuthResponse = async (
     subscriptionStatus: subscriptionGate.status,
     subscriptionPlanId: subscriptionGate.planId,
     subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+    planExpired: isPlanExpired,
+    upgradeRequired: subscriptionGate.upgradeRequired !== false,
+    planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+    expiredAt: subscriptionGate.expiredAt ?? null,
   };
 
   return {
@@ -97,6 +103,11 @@ const issueAuthResponse = async (
     subscriptionPlan: hasActiveSubscription,
     hasSubscription: hasActiveSubscription,
     isSubscribed: hasActiveSubscription,
+    subscriptionStatus: subscriptionGate.status,
+    planExpired: isPlanExpired,
+    upgradeRequired: subscriptionGate.upgradeRequired !== false,
+    planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+    expiredAt: subscriptionGate.expiredAt ?? null,
     user: userData,
   };
 };
@@ -147,7 +158,9 @@ const findOrCreateSocialUser = async (
       return created;
     });
   } else {
-    if (user.status !== 'active') {
+    const subscriptionGate = await resolveUserSubscriptionGate(user.id).catch(() => null);
+    const isExpiredPlanInactive = String(user.status).toLowerCase() === 'inactive' && subscriptionGate?.status === 'expired';
+    if (user.status !== 'active' && !isExpiredPlanInactive) {
       throw new Error('ACCOUNT_INACTIVE');
     }
     // Ensure registrationData records social login intent if missing

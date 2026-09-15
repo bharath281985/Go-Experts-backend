@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
 import { randomUUID } from "crypto";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
+import { reactivateAccountAfterPlanUpgrade } from "../../services/mobile/subscription.service.js";
 
 
 // ============================================================
@@ -224,6 +225,8 @@ export async function purchaseSubscription(req: Request, res: Response) {
       return { subscription, payment, invoice };
     });
 
+    await reactivateAccountAfterPlanUpgrade(userId).catch(() => null);
+
     // Enqueue notification alerts
     try {
       const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
@@ -305,6 +308,8 @@ export async function renewSubscription(req: Request, res: Response) {
 
       return { subscription: updated, payment, invoice };
     });
+
+    await reactivateAccountAfterPlanUpgrade(result.subscription.userId).catch(() => null);
 
     // Enqueue renewal notifications
     try {
@@ -420,6 +425,8 @@ export async function upgradeSubscription(req: Request, res: Response) {
 
       return { subscription: updated, payment, credit };
     });
+
+    await reactivateAccountAfterPlanUpgrade(result.subscription.userId).catch(() => null);
 
     res.json({ success: true, data: result });
   } catch (e: any) {

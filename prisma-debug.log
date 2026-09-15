@@ -1168,3 +1168,443 @@ Authentication failed against database server at `127.0.0.1`, the provided datab
 
 Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
 
+[2026-09-15T05:40:31.771Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:40:32.842Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:40:35.766Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:40:37.011Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:40:46.133Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:40:47.382Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:41:00.807Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:41:02.042Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:41:11.293Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:41:12.527Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+
+[2026-09-15T05:41:25.564Z] PRISMA ERROR:
+
+Invalid `prisma.masterOption.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\crud-factory.ts:107:47
+
+  104 const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+  105 
+  106 const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+→ 107 const mos = await prisma.masterOption.findMany({
+        where: {
+          id: {
+            in: [
+              "3837dfac-c0ed-40e0-95fc-1226a94d43de",
+              "05287399-272f-4b03-a37e-4ed1c642f165",
+              "2819d222-0af1-4f3b-b069-9a113b674837",
+              "5d3a03e3-41f5-4609-87c9-46306fd2a004",
+              "0d01fe50-a980-4c6f-b589-27db5659bbc8"
+            ]
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          ~~~~
+      ?   type?: true,
+      ?   label?: true,
+      ?   value?: true,
+      ?   min?: true,
+      ?   max?: true,
+      ?   groupKey?: true,
+      ?   sortOrder?: true,
+      ?   metadata?: true,
+      ?   status?: true,
+      ?   createdAt?: true,
+      ?   updatedAt?: true
+        }
+      })
+
+Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+

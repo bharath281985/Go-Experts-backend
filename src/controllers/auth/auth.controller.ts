@@ -124,10 +124,10 @@ async function getRoleColor(user: any): Promise<string> {
     const { prisma } = await import("../../config/database.js");
     const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
     const colors = setting?.value ? JSON.parse(setting.value) : SETTINGS_DEFAULTS.industry_colors;
-    
+
     // Match based on user role (case-insensitive)
     const userRole = (user?.role || "").toLowerCase();
-    
+
     // Find matching role color in the JSON keys
     let matchedColor = DEFAULT_COLOR;
     for (const [key, color] of Object.entries(colors)) {
@@ -179,8 +179,8 @@ export async function resolveUserTeamMembership(userId: string, email: string) {
     let modulePermissions: any = {};
     if (membership.permissions) {
       try {
-        const parsed = typeof membership.permissions === "string" 
-          ? JSON.parse(membership.permissions) 
+        const parsed = typeof membership.permissions === "string"
+          ? JSON.parse(membership.permissions)
           : membership.permissions;
         if (Array.isArray(parsed.permittedDashboards) && parsed.permittedDashboards.length > 0) {
           permittedDashboards = parsed.permittedDashboards;
@@ -377,12 +377,26 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
     }
 
+    let subscriptionGate: any = { status: 'none', planId: null, planName: null, planExpired: false, upgradeRequired: true };
+    try {
+      const { resolveUserSubscriptionGate } = await import("../../services/mobile/subscription.service.js");
+      subscriptionGate = await resolveUserSubscriptionGate(user.id).catch(() => subscriptionGate);
+    } catch {
+      // fallback
+    }
+
     const userStatus = String(user.status).toLowerCase();
-    if (userStatus === "suspended") {
+    const isExpiredPlanInactive = userStatus === "inactive" && subscriptionGate.status === "expired";
+    if (["suspended", "inactive", "pending"].includes(userStatus) && !isExpiredPlanInactive) {
+      const reason = userStatus === "suspended" ? "Account suspended" : `Account ${userStatus}`;
+      const msg = userStatus === "suspended"
+        ? "Your account is suspended. Please contact support."
+        : `Your account is currently ${userStatus}. Please contact support or wait for approval.`;
+
       prisma.loginAttempt
-        .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Account suspended" } })
+        .create({ data: { email, ipAddress, userAgent, success: false, failReason: reason } })
         .catch(() => {});
-      return res.status(403).json({ success: false, message: "Your account is suspended. Please contact support." });
+      return res.status(403).json({ success: false, message: msg });
     }
 
     const teamInfo = await resolveUserTeamMembership(user.id, user.email);
@@ -410,8 +424,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     if (req.body?.latitude && req.body?.longitude) {
       let currentRegData: any = {};
       try {
-        currentRegData = typeof user.registrationData === 'string' 
-          ? JSON.parse(user.registrationData) 
+        currentRegData = typeof user.registrationData === 'string'
+          ? JSON.parse(user.registrationData)
           : (user.registrationData || {});
       } catch (e) {}
       currentRegData.latitude = req.body.latitude;
@@ -427,21 +441,16 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       .catch(() => {});
 
     let completion: any = { profileCompletion: 100, isProfileComplete: true, completedSteps: [], pendingSteps: [] };
-    let subscriptionGate: any = { status: 'none', planId: null, planName: null };
     try {
       const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
-      const { resolveUserSubscriptionGate } = await import("../../services/mobile/subscription.service.js");
-      const [c, s] = await Promise.all([
-        resolveProfileCompletion(user.id).catch(() => completion),
-        resolveUserSubscriptionGate(user.id).catch(() => subscriptionGate),
-      ]);
-      completion = c;
-      subscriptionGate = s;
+      completion = await resolveProfileCompletion(user.id).catch(() => completion);
     } catch {
       // fallback
     }
 
     const hasActiveSubscription = subscriptionGate.status === 'active';
+    const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+    const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
     const kycReadiness = buildKycReadiness(user);
 
     const userPayload = {
@@ -466,7 +475,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         permittedDashboards: teamInfo.permittedDashboards,
         modulePermissions: teamInfo.modulePermissions,
       } : null,
-      status: user.status,
+      status: effectiveStatus,
       onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
       currentStep: user.currentStep,
       country: user.country,
@@ -487,6 +496,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+      planExpired: isPlanExpired,
+      upgradeRequired: subscriptionGate.upgradeRequired !== false,
+      planExpiredMessage: subscriptionGate.status === 'expired' ? 'Your plan has expired. Please upgrade your plan.' : null,
+      expiredAt: subscriptionGate.expiredAt ?? null,
       profileReadiness: {
         role: (user.role || "").toUpperCase(),
         profileCompletion: completion.profileCompletion,
@@ -507,6 +520,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       subscriptionPlan: hasActiveSubscription,
       hasSubscription: hasActiveSubscription,
       isSubscribed: hasActiveSubscription,
+      subscriptionStatus: subscriptionGate.status,
+      planExpired: isPlanExpired,
+      upgradeRequired: subscriptionGate.upgradeRequired !== false,
+      planExpiredMessage: subscriptionGate.status === 'expired' ? 'Your plan has expired. Please upgrade your plan.' : null,
       user: userPayload,
       data: {
         token: accessToken,
@@ -515,6 +532,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         subscriptionPlan: hasActiveSubscription,
         hasSubscription: hasActiveSubscription,
         isSubscribed: hasActiveSubscription,
+        subscriptionStatus: subscriptionGate.status,
+        planExpired: subscriptionGate.planExpired === true || subscriptionGate.status === 'expired',
+        upgradeRequired: subscriptionGate.upgradeRequired !== false,
+        planExpiredMessage: subscriptionGate.status === 'expired' ? 'Your plan has expired. Please upgrade your plan.' : null,
         user: userPayload,
       }
     });
@@ -581,7 +602,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const registrationData = Object.keys(restData).length > 0 ? restData : undefined;
 
     const trialEndsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-    
+
     // Generate unique referral code for the new user
     let baseCode = (fullName.split(' ')[0] || "USER").toUpperCase().replace(/[^A-Z]/g, '');
     if (baseCode.length < 3) baseCode = "GEX" + baseCode;
@@ -651,7 +672,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       if (referrer && created) {
         // Find default campaign (if exists)
         const campaign = await tx.referralCampaign.findFirst({ where: { status: "ACTIVE" } });
-        
+
         const referral = await tx.referral.create({
           data: {
             referrerId: referrer.id,
@@ -1072,6 +1093,15 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
       }
     };
 
+    const safeSubscriptionGate = async (userId: string) => {
+      try {
+        const { resolveUserSubscriptionGate } = await import("../../services/mobile/subscription.service.js");
+        return await resolveUserSubscriptionGate(userId);
+      } catch {
+        return { status: 'none', planId: null, planName: null, planExpired: false, upgradeRequired: true, expiredAt: null };
+      }
+    };
+
     if (req.user.type === "portal") {
       const user = await prisma.user.findFirst({
         where: { id: req.user.id, deletedAt: null },
@@ -1085,7 +1115,12 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
       if (!user) {
         return res.status(404).json({ success: false, message: "User not found" });
       }
-      const completion: any = await safeProfileCompletion(user.id);
+      const [completion, subscriptionGate]: any[] = await Promise.all([
+        safeProfileCompletion(user.id),
+        safeSubscriptionGate(user.id),
+      ]);
+      const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+      const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
 
       let sanitized: any;
       try {
@@ -1100,7 +1135,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           status: user.status,
         };
       }
-      
+
       try {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const uuids = new Set<string>();
@@ -1110,7 +1145,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
             if (i.industryName && uuidRegex.test(i.industryName)) uuids.add(i.industryId);
           });
         }
-        
+
         if (uuids.size > 0) {
           const ids = Array.from(uuids);
           const [dbIndustries, moSkills] = await Promise.all([
@@ -1120,7 +1155,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           const resolvedMap = new Map();
           dbIndustries.forEach(s => resolvedMap.set(s.id, s.name));
           moSkills.forEach((s: any) => resolvedMap.set(s.id, s.label || s.value));
-          
+
           if (resolvedMap.has(sanitized.title)) {
             const mapped = resolvedMap.get(sanitized.title);
             sanitized.title = mapped;
@@ -1157,6 +1192,17 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         user: {
           ...sanitized,
           role: effectiveRole,
+          status: effectiveStatus,
+          subscriptionStatus: subscriptionGate.status,
+          subscriptionPlanId: subscriptionGate.planId,
+          subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+          subscriptionPlan: subscriptionGate.status === 'active',
+          hasSubscription: subscriptionGate.status === 'active',
+          isSubscribed: subscriptionGate.status === 'active',
+          planExpired: isPlanExpired,
+          upgradeRequired: subscriptionGate.upgradeRequired !== false,
+          planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+          expiredAt: subscriptionGate.expiredAt ?? null,
           isOwner: !teamInfo,
           accountType: teamInfo ? "team_member" : "owner",
           permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
@@ -1213,7 +1259,12 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
         },
       });
       if (user) {
-        const completion: any = await safeProfileCompletion(user.id);
+        const [completion, subscriptionGate]: any[] = await Promise.all([
+          safeProfileCompletion(user.id),
+          safeSubscriptionGate(user.id),
+        ]);
+        const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+        const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
 
         let sanitizedFallback: any;
         try {
@@ -1228,7 +1279,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
             status: user.status,
           };
         }
-        
+
         try {
           const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           const uuids = new Set<string>();
@@ -1238,7 +1289,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
               if (i.industryName && uuidRegex.test(i.industryName)) uuids.add(i.industryId);
             });
           }
-          
+
           if (uuids.size > 0) {
             const ids = Array.from(uuids);
             const [dbIndustries, moSkills] = await Promise.all([
@@ -1248,7 +1299,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
             const resolvedMap = new Map();
             dbIndustries.forEach(s => resolvedMap.set(s.id, s.name));
             moSkills.forEach((s: any) => resolvedMap.set(s.id, s.label || s.value));
-            
+
             if (resolvedMap.has(sanitizedFallback.title)) {
               const mapped = resolvedMap.get(sanitizedFallback.title);
               sanitizedFallback.title = mapped;
@@ -1278,6 +1329,17 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           user: {
             ...sanitizedFallback,
               role: effectiveRole,
+              status: effectiveStatus,
+              subscriptionStatus: subscriptionGate.status,
+              subscriptionPlanId: subscriptionGate.planId,
+              subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+              subscriptionPlan: subscriptionGate.status === 'active',
+              hasSubscription: subscriptionGate.status === 'active',
+              isSubscribed: subscriptionGate.status === 'active',
+              planExpired: isPlanExpired,
+              upgradeRequired: subscriptionGate.upgradeRequired !== false,
+              planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+              expiredAt: subscriptionGate.expiredAt ?? null,
               isOwner: !teamInfo,
               accountType: teamInfo ? "team_member" : "owner",
               permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
@@ -1607,7 +1669,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
         where: { name: "email", status: "active" },
       });
       const config = channel?.config ? JSON.parse(channel.config) : null;
-      
+
       const smtpHost = config?.host || process.env.SMTP_HOST;
       const smtpPort = Number(config?.port || process.env.SMTP_PORT) || 587;
       const smtpUser = config?.user || process.env.SMTP_USER;
@@ -1626,7 +1688,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
           secure: smtpSecure,
           auth: { user: smtpUser, pass: smtpPass },
         });
-        
+
         console.log(`[password-reset] Sending mail...`);
         const info = await transporter.sendMail({
           from: smtpFrom,
@@ -1644,8 +1706,8 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       return res.status(500).json({ success: false, message: `SMTP ERROR: ${mailErr.message || mailErr}` });
     }
 
-    const payload: Record<string, unknown> = { 
-      success: true, 
+    const payload: Record<string, unknown> = {
+      success: true,
       message: okMessage,
     };
     if (env.NODE_ENV !== "production") {
@@ -2269,12 +2331,12 @@ export const updateVerificationData = async (req: AuthenticatedRequest, res: Res
     let currentData = {};
     if (user.registrationData) {
       try {
-        currentData = typeof user.registrationData === 'string' 
-          ? JSON.parse(user.registrationData) 
+        currentData = typeof user.registrationData === 'string'
+          ? JSON.parse(user.registrationData)
           : user.registrationData;
       } catch (e) {}
     }
-    
+
     // Update main user email/mobile if provided
     const updateData: any = {
       registrationData: JSON.stringify({
@@ -2282,7 +2344,7 @@ export const updateVerificationData = async (req: AuthenticatedRequest, res: Res
         ...req.body,
       })
     };
-    
+
     if (req.body.email) {
       updateData.email = req.body.email;
     }
@@ -2369,8 +2431,8 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
     let currentRegData = {};
     if (user.registrationData) {
       try {
-        currentRegData = typeof user.registrationData === 'string' 
-          ? JSON.parse(user.registrationData) 
+        currentRegData = typeof user.registrationData === 'string'
+          ? JSON.parse(user.registrationData)
           : user.registrationData;
       } catch (e) {}
     }
@@ -2453,7 +2515,7 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
             githubUrl: getStringVal(gitUrl) || undefined,
             dribbbleUrl: getStringVal(dribUrl) || undefined,
             industry: joinArray(industry),
-           
+
           },
           update: {
             ...(titleHeadline !== undefined && { titleHeadline: getStringVal(titleHeadline) }),

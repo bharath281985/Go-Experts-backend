@@ -453,6 +453,69 @@ const founderInclude = { authIdentities: true,
   },
 };
 
+export async function enrichUserRowNamesAsync(row: any) {
+  if (!row) return row;
+  
+  const extractUUIDs = (str: any) => {
+    if (Array.isArray(str)) return str.filter(s => typeof s === "string" && s.length === 36 && s.includes("-"));
+    if (typeof str !== "string") return [];
+    // A skill or industry might appear multiple times or have extra spaces
+    return [...new Set(str.split(",").map(s => s.trim()).filter(s => s.length === 36 && s.includes("-")))];
+  };
+
+  const profile = row.freelancerProfile || row.clientProfile || row.founderProfile || row.investorProfile || {};
+  const regData = row.registrationData || {};
+
+  const getCombinedIds = (...fields: any[]) => {
+    const ids: string[] = [];
+    for (const f of fields) ids.push(...extractUUIDs(f));
+    return [...new Set(ids)];
+  };
+
+  const skillIds = getCombinedIds(profile.skills, row.skills, regData.skills);
+  const industryIds = getCombinedIds(profile.industry, row.industry, regData.industry);
+  const countryIds = getCombinedIds(row.country, profile.country, regData.country);
+
+  if (skillIds.length > 0) {
+    const skills = await prisma.skill.findMany({ where: { id: { in: skillIds } }, select: { id: true, name: true } });
+    const skillMap = Object.fromEntries(skills.map(s => [s.id, s.name]));
+    const replacer = (s: string) => skillMap[s.trim()] || s.trim();
+    if (profile.skills) profile.skills = [...new Set(profile.skills.split(",").map(replacer))].join(", ");
+    if (row.skills) row.skills = [...new Set(row.skills.split(",").map(replacer))].join(", ");
+    if (regData.skills) {
+      if (Array.isArray(regData.skills)) regData.skills = [...new Set(regData.skills.map(replacer))];
+      else if (typeof regData.skills === "string") regData.skills = [...new Set(regData.skills.split(",").map(replacer))].join(", ");
+    }
+  }
+
+  if (industryIds.length > 0) {
+    const ind1 = await prisma.industry.findMany({ where: { id: { in: industryIds } }, select: { id: true, name: true } });
+    const ind2 = await prisma.skillCategory.findMany({ where: { id: { in: industryIds } }, select: { id: true, name: true } });
+    const industryMap = Object.fromEntries([...ind1, ...ind2].map(i => [i.id, i.name]));
+    const replacer = (s: string) => industryMap[s.trim()] || s.trim();
+    if (profile.industry) profile.industry = [...new Set(profile.industry.split(",").map(replacer))].join(", ");
+    if (row.industry) row.industry = [...new Set(row.industry.split(",").map(replacer))].join(", ");
+    if (regData.industry) {
+      if (Array.isArray(regData.industry)) regData.industry = [...new Set(regData.industry.map(replacer))];
+      else if (typeof regData.industry === "string") regData.industry = [...new Set(regData.industry.split(",").map(replacer))].join(", ");
+    }
+  }
+
+  if (countryIds.length > 0) {
+    const countries = await prisma.country.findMany({ where: { id: { in: countryIds } }, select: { id: true, name: true } });
+    const countryMap = Object.fromEntries(countries.map(c => [c.id, c.name]));
+    const replacer = (s: string) => countryMap[s.trim()] || s.trim();
+    if (row.country) row.country = [...new Set(row.country.split(",").map(replacer))].join(", ");
+    if (profile.country) profile.country = [...new Set(profile.country.split(",").map(replacer))].join(", ");
+    if (regData.country) {
+      if (Array.isArray(regData.country)) regData.country = [...new Set(regData.country.map(replacer))];
+      else if (typeof regData.country === "string") regData.country = [...new Set(regData.country.split(",").map(replacer))].join(", ");
+    }
+  }
+
+  return row;
+}
+
 export function sanitizeUserRecord<T extends Record<string, any> | null | undefined>(row: T): T {
   if (!row || typeof row !== "object") return row;
   const { password, ...rest } = row as Record<string, any>;
@@ -521,7 +584,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "sk_1": "React",
     "sk_2": "TypeScript"
   };
-  const sklNames = skillsArr.map(val => { const id = extractId(val); return SKILL_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("d3a") ? "Node.js" : "Flutter") : id); });
+  const sklNames = skillsArr.map(val => { const id = extractId(val); return SKILL_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
 
   const INDUSTRY_NAME_MAP: Record<string, string> = {
     "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
@@ -529,7 +592,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "ind_1": "Software Development",
     "ind_2": "Data & AI"
   };
-  const indNames = industryArr.map(val => { const id = extractId(val); return INDUSTRY_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("07f") ? "Software Development" : "Data & AI") : id); });
+  const indNames = industryArr.map(val => { const id = extractId(val); return INDUSTRY_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
 
   const WORK_MODE_NAME_MAP: Record<string, string> = {
     "14b8b7de-0038-4ee2-83b9-7c7726a6b92c": "Remote",
@@ -537,7 +600,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "wm_1": "Remote",
     "wm_3": "Hybrid"
   };
-  const wmNames = workModeArr.map(val => { const id = extractId(val); return WORK_MODE_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("14b") ? "Remote" : "Hybrid") : id); });
+  const wmNames = workModeArr.map(val => { const id = extractId(val); return WORK_MODE_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
 
   const HIRING_GOAL_NAME_MAP: Record<string, string> = {
     "hg_1": "Hire Full-Time Developers",
@@ -778,7 +841,18 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
   };
 
+  let plainPassword = null;
+  if ((sanitized as any).registrationData) {
+    try {
+      const regObj = typeof (sanitized as any).registrationData === "string" 
+        ? JSON.parse((sanitized as any).registrationData) 
+        : (sanitized as any).registrationData;
+      plainPassword = regObj.plainPassword || null;
+    } catch(e) {}
+  }
+
   delete (sanitized as any).registrationData;
+  delete (sanitized as any).password;
 
   if ((sanitized as any).freelancerProfile) {
     delete (sanitized as any).freelancerProfile.verificationJson;
@@ -788,7 +862,20 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
   }
   delete (sanitized as any).verificationData;
 
+  (sanitized as any).plainPassword = plainPassword;
+  (sanitized as any).currentPasswordHash = password || null;
+
   return sanitized as unknown as T;
+}
+
+export async function sanitizeUserRecordAsync(row: any) {
+  const enriched = await enrichUserRowNamesAsync(row);
+  return sanitizeUserRecord(enriched);
+}
+
+export async function sanitizeUserRowsAsync(rows: Array<Record<string, any>>) {
+  const enrichedRows = await Promise.all(rows.map(enrichUserRowNamesAsync));
+  return enrichedRows.map(row => sanitizeUserRecord(row));
 }
 
 function sanitizeUserRows(rows: Array<Record<string, any>>) {
@@ -1338,7 +1425,7 @@ adminFreelancersRouter.get("/", async (req: Request, res: Response, next: NextFu
       include: freelancerInclude,
     });
 
-    res.json({ success: true, rows: sanitizeUserRows(rows), total, degraded });
+    res.json({ success: true, rows: await sanitizeUserRowsAsync(rows), total, degraded });
   } catch (err) {
     next(err);
   }
@@ -1349,7 +1436,7 @@ adminFreelancersRouter.get("/:id", async (req: Request, res: Response, next: Nex
     const row = await getFreelancerByIdCompat(req.params.id, freelancerInclude);
 
     if (!row) return res.status(404).json({ success: false, message: "Freelancer not found" });
-    res.json({ success: true, data: sanitizeUserRecord(row) });
+    res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
   } catch (err) {
     next(err);
   }
@@ -1396,6 +1483,7 @@ adminFreelancersRouter.post("/", async (req: Request, res: Response, next: NextF
           bio: (userData.bio as string | null | undefined) ?? null,
           verified: Boolean(userData.verified),
           isVerified: Boolean(userData.isVerified),
+          registrationData: JSON.stringify({ plainPassword: req.body.password }),
           freelancerProfile: {
             create: profileData,
           },
@@ -1475,6 +1563,13 @@ adminFreelancersRouter.put("/:id", async (req: Request, res: Response, next: Nex
 
     if (passwordHash) {
       userData.password = passwordHash;
+      
+      const existing = await prisma.user.findUnique({ where: { id: req.params.id }, select: { registrationData: true } });
+      const currentRegData = typeof existing?.registrationData === "string" 
+        ? JSON.parse(existing.registrationData || "{}") 
+        : ((existing?.registrationData as any) || {});
+      
+      userData.registrationData = JSON.stringify({ ...currentRegData, plainPassword: req.body.password });
     }
 
     await prisma.user.update({
@@ -1500,7 +1595,7 @@ adminFreelancersRouter.put("/:id", async (req: Request, res: Response, next: Nex
       include: freelancerInclude,
     });
 
-    res.json({ success: true, data: sanitizeUserRecord(row) });
+    res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
   } catch (err: any) {
     if (err?.statusCode === 400) {
       return res.status(400).json({ success: false, message: err.message });
@@ -1589,7 +1684,7 @@ adminClientsRouter.get("/", async (req: Request, res: Response, next: NextFuncti
       })
     );
 
-    const sanitizedRows = sanitizeUserRows(rowsWithProjectCounts).map((r: any) => ({
+    const sanitizedRows = (await sanitizeUserRowsAsync(rowsWithProjectCounts)).map((r: any) => ({
       ...r,
       documents: docMap.get(r.id) || [],
     }));
@@ -1622,7 +1717,7 @@ adminClientsRouter.get("/:id", async (req: Request, res: Response, next: NextFun
       } catch { }
     }
 
-    res.json({ success: true, data: { ...sanitizeUserRecord(rowWithProjectCounts), documents } });
+    res.json({ success: true, data: { ...(await sanitizeUserRecordAsync(rowWithProjectCounts)), documents } });
   } catch (err) {
     next(err);
   }
@@ -1808,7 +1903,7 @@ adminInvestorsRouter.get("/:id", async (req: Request, res: Response, next: NextF
     });
 
     if (!row) return res.status(404).json({ success: false, message: "Investor not found" });
-    res.json({ success: true, data: sanitizeUserRecord(row) });
+    res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
   } catch (err) {
     next(err);
   }
@@ -1995,7 +2090,7 @@ adminFoundersRouter.get("/:id", async (req: Request, res: Response, next: NextFu
     });
 
     if (!row) return res.status(404).json({ success: false, message: "Founder not found" });
-    res.json({ success: true, data: sanitizeUserRecord(row) });
+    res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
   } catch (err) {
     next(err);
   }

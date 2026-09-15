@@ -825,7 +825,7 @@ export async function purchaseSubscriptionForSelf(
     return result; // contains paymentUrl
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.subscription.updateMany({ where: { userId, status: "active" }, data: { status: "expired" } });
 
     const now = new Date();
@@ -880,6 +880,10 @@ export async function purchaseSubscriptionForSelf(
 
     return { subscription, payment, invoice, plan };
   });
+
+  const { reactivateAccountAfterPlanUpgrade } = await import("../../services/mobile/subscription.service.js");
+  await reactivateAccountAfterPlanUpgrade(userId).catch(() => null);
+  return result;
 }
 
 export async function listSubscriptionsForUser(userId: string) {

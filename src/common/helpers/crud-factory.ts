@@ -89,7 +89,40 @@ export function createCrudRouter(
         ...(include ? { include } : {}),
       });
 
-      res.json({ success: true, rows: rows.map(formatRecord), total });
+      let finalRows = rows;
+      if (modelName === "Project" && rows.length > 0) {
+        const clientIds = [...new Set(rows.map((r: any) => r.client).filter(Boolean))];
+        const clients = await prisma.user.findMany({ where: { id: { in: clientIds as string[] } }, select: { id: true, fullName: true } });
+        const clientMap = Object.fromEntries(clients.map((c: any) => [c.id, c.fullName]));
+        
+        const catIds = [...new Set(rows.map((r: any) => r.category).filter(Boolean))];
+        const cats = await prisma.skillCategory.findMany({ where: { id: { in: catIds as string[] } }, select: { id: true, name: true } });
+        const catMap = Object.fromEntries(cats.map((c: any) => [c.id, c.name]));
+        
+        const techIds = [...new Set(rows.flatMap((r: any) => (r.technology || "").split(",")).filter(Boolean))];
+        const techs = await prisma.skill.findMany({ where: { id: { in: techIds as string[] } }, select: { id: true, name: true } });
+        const techMap = Object.fromEntries(techs.map((c: any) => [c.id, c.name]));
+        
+        const moIds = [...new Set(rows.flatMap((r: any) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+        const mos = await prisma.masterOption.findMany({ where: { id: { in: moIds as string[] } }, select: { id: true, label: true } });
+        const moMap = Object.fromEntries(mos.map((m: any) => [m.id, m.label]));
+
+        const mapExp = (slug: string) => slug === "mo_experience_level_intermediate" ? "Intermediate" : 
+                                         slug === "mo_experience_level_expert" ? "Expert" : 
+                                         slug === "mo_experience_level_entry" ? "Entry Level" : slug;
+
+        finalRows = rows.map((r: any) => ({
+          ...r,
+          client: clientMap[r.client] || r.client,
+          category: catMap[r.category] || r.category,
+          technology: (r.technology || "").split(",").map((id: string) => techMap[id] || id).join(", "),
+          budgetRangeId: moMap[r.budgetRangeId] || r.budgetRangeId,
+          workMode: moMap[r.workMode] || r.workMode,
+          experienceLevel: r.experienceLevel ? mapExp(r.experienceLevel) : r.experienceLevel
+        }));
+      }
+
+      res.json({ success: true, rows: finalRows.map(formatRecord), total });
     } catch (err) {
       next(err);
     }

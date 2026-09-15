@@ -156,7 +156,7 @@ const buildAuthPayload = async (user: AuthUser) => {
   const refreshToken = await createRefreshToken(user);
 
   let completion = { profileCompletion: 0, isProfileComplete: false };
-  let subscriptionGate: any = { status: 'active', planId: 'Free_Trial', planName: 'Starter' };
+  let subscriptionGate: any = { status: 'active', planId: 'Free_Trial', planName: 'Starter', planExpired: false, upgradeRequired: false, expiredAt: null };
   let isSocial = false;
 
   try {
@@ -244,6 +244,8 @@ const buildAuthPayload = async (user: AuthUser) => {
   } catch (err) {}
 
   const hasActiveSubscription = subscriptionGate.status === 'active';
+  const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+  const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
 
   return {
     accessToken,
@@ -253,6 +255,11 @@ const buildAuthPayload = async (user: AuthUser) => {
     subscriptionPlan: hasActiveSubscription,
     hasSubscription: hasActiveSubscription,
     isSubscribed: hasActiveSubscription,
+    subscriptionStatus: subscriptionGate.status,
+    planExpired: isPlanExpired,
+    upgradeRequired: subscriptionGate.upgradeRequired !== false,
+    planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+    expiredAt: subscriptionGate.expiredAt ?? null,
     profileCompletedPer: completion.profileCompletion,
     profileCompletedPercentage: completion.profileCompletion,
     profileCompletion: completion.profileCompletion,
@@ -262,7 +269,7 @@ const buildAuthPayload = async (user: AuthUser) => {
       fullName: user.fullName,
       role: user.role,
       avatarUrl: user.avatarUrl,
-      status: user.status,
+      status: effectiveStatus,
       isVerified: user.isVerified,
       isSocialLogin: isSocial,
       onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
@@ -277,6 +284,10 @@ const buildAuthPayload = async (user: AuthUser) => {
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+      planExpired: isPlanExpired,
+      upgradeRequired: subscriptionGate.upgradeRequired !== false,
+      planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+      expiredAt: subscriptionGate.expiredAt ?? null,
 
       // Role Access Management
       isOwner: finalIsOwner,
@@ -347,7 +358,9 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       );
     }
 
-    if (user.status !== 'active') {
+    const loginSubscriptionGate = await resolveUserSubscriptionGate(user.id).catch(() => null);
+    const isExpiredPlanInactive = String(user.status).toLowerCase() === 'inactive' && loginSubscriptionGate?.status === 'expired';
+    if (user.status !== 'active' && !isExpiredPlanInactive) {
       await safeTrackLoginAttempt(rawEmail, false, req, 'ACCOUNT_INACTIVE');
       return res.status(403).json(
         errorResponse('Your account is inactive. Please contact support.', 'ACCOUNT_INACTIVE')
@@ -1145,6 +1158,10 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       subscriptionStatus: subscriptionGate.status,
       subscriptionPlanId: subscriptionGate.planId,
       subscriptionPlan: subscriptionGate.planName ?? subscriptionGate.planId,
+      planExpired: subscriptionGate.planExpired === true || subscriptionGate.status === 'expired',
+      upgradeRequired: subscriptionGate.upgradeRequired !== false,
+      planExpiredMessage: subscriptionGate.status === 'expired' ? 'Your plan has expired. Please upgrade your plan.' : null,
+      expiredAt: subscriptionGate.expiredAt ?? null,
       
       // Role Access Management
       isOwner,
