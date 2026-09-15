@@ -53,7 +53,9 @@ app.use("/api", rejectLocalFilePaths);
 // Static Uploads
 // ==========================================
 app.use("/uploads", express.static(UPLOADS_DIR));
-app.use("/uploads", (req, res) => {
+app.use("/api/v1/mobile/uploads", express.static(UPLOADS_DIR));
+app.use("/api/mobile/uploads", express.static(UPLOADS_DIR));
+app.use(["/uploads", "/api/v1/mobile/uploads", "/api/mobile/uploads"], (req, res) => {
     res.status(404).json({ error: "File not found" });
 });
 // ==========================================

@@ -735,7 +735,7 @@ export async function purchaseSubscriptionForSelf(userId, planId, gateway = "wal
         });
         return result; // contains paymentUrl
     }
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
         await tx.subscription.updateMany({ where: { userId, status: "active" }, data: { status: "expired" } });
         const now = new Date();
         const endDate = addDuration(now, plan.duration);
@@ -783,6 +783,9 @@ export async function purchaseSubscriptionForSelf(userId, planId, gateway = "wal
         });
         return { subscription, payment, invoice, plan };
     });
+    const { reactivateAccountAfterPlanUpgrade } = await import("../../services/mobile/subscription.service.js");
+    await reactivateAccountAfterPlanUpgrade(userId).catch(() => null);
+    return result;
 }
 export async function listSubscriptionsForUser(userId) {
     return prisma.subscription.findMany({

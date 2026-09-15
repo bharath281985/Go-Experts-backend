@@ -4,29 +4,127 @@ const SECTION_KEY_PREFIX = "settings:section:";
 function sectionKey(section) {
     return `${SECTION_KEY_PREFIX}${section}`;
 }
-export async function getSettingsSection(section) {
+function requestBaseUrl(req) {
+    const envUrl = process.env.BASE_URL || process.env.APP_URL || process.env.PUBLIC_URL;
+    if (envUrl && !String(envUrl).includes("localhost"))
+        return String(envUrl).replace(/\/+$/, "");
+    if (req?.get) {
+        const host = req.get("host");
+        const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+        if (host)
+            return `${proto}://${host}`.replace(/\/+$/, "");
+    }
+    return envUrl ? String(envUrl).replace(/\/+$/, "") : "https://apiai.goexperts.in";
+}
+function requestUploadBasePath(req) {
+    const originalUrl = String(req?.originalUrl || req?.url || "");
+    if (originalUrl.includes("/api/v1/mobile/"))
+        return "/api/v1/mobile/uploads";
+    if (originalUrl.includes("/api/mobile/"))
+        return "/api/mobile/uploads";
+    return "/uploads";
+}
+function buildSettingsFileUrl(filepath, req) {
+    if (!filepath)
+        return "";
+    if (/^https?:\/\//i.test(filepath))
+        return filepath;
+    const normalizedPath = String(filepath)
+        .replace(/^\/+/, "")
+        .replace(/\\/g, "/")
+        .replace(/^uploads\//, "");
+    return `${requestBaseUrl(req)}${requestUploadBasePath(req)}/${normalizedPath}`;
+}
+function normalizeSplashSettingsData(value, req) {
+    const defaults = SETTINGS_DEFAULTS.splash;
+    const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    const sourceSplash = source.splash && typeof source.splash === "object" && !Array.isArray(source.splash)
+        ? source.splash
+        : {};
+    const sourceOnboarding = source.onboarding && typeof source.onboarding === "object" && !Array.isArray(source.onboarding)
+        ? source.onboarding
+        : {};
+    const sourceLogo = source.logo && typeof source.logo === "object" && !Array.isArray(source.logo)
+        ? source.logo
+        : {};
+    const oldMediaUrl = typeof sourceSplash.mediaUrl === "string"
+        ? sourceSplash.mediaUrl
+        : typeof source.mediaUrl === "string"
+            ? source.mediaUrl
+            : "";
+    const oldMediaName = typeof sourceSplash.mediaName === "string"
+        ? sourceSplash.mediaName
+        : typeof source.mediaName === "string"
+            ? source.mediaName
+            : "";
+    const oldMediaType = sourceSplash.mediaType === "video" || source.mediaType === "video" ? "video" : "image";
+    const toPublicUrl = (url) => buildSettingsFileUrl(url, req);
+    const steps = defaults.onboarding.steps.map((defaultStep, index) => {
+        const step = {
+            ...defaultStep,
+            ...(Array.isArray(sourceOnboarding.steps) && sourceOnboarding.steps[index]
+                ? sourceOnboarding.steps[index]
+                : {}),
+        };
+        return {
+            ...step,
+            mediaUrl: toPublicUrl(step.mediaUrl),
+        };
+    });
+    if (!source.onboarding && (source.title || source.description)) {
+        steps[0] = {
+            ...steps[0],
+            title: String(source.title || steps[0].title || ""),
+            description: String(source.description || steps[0].description || ""),
+        };
+    }
+    return {
+        enabled: Boolean(source.enabled ?? defaults.enabled),
+        splash: {
+            imageUrl: toPublicUrl(String(sourceSplash.imageUrl || (oldMediaType === "image" ? oldMediaUrl : "") || defaults.splash.imageUrl || "")),
+            imageName: String(sourceSplash.imageName || (oldMediaType === "image" ? oldMediaName : "") || ""),
+            videoUrl: toPublicUrl(String(sourceSplash.videoUrl || (oldMediaType === "video" ? oldMediaUrl : "") || defaults.splash.videoUrl || "")),
+            videoName: String(sourceSplash.videoName || (oldMediaType === "video" ? oldMediaName : "") || ""),
+        },
+        onboarding: { steps },
+        logo: {
+            ...defaults.logo,
+            ...sourceLogo,
+            logoUrl: toPublicUrl(String(sourceLogo.logoUrl || source.logoUrl || "")),
+        },
+    };
+}
+function normalizeSettingsSectionData(section, data, req) {
+    if (section === "splash") {
+        return normalizeSplashSettingsData(data, req);
+    }
+    return data;
+}
+export async function getSettingsSection(section, req) {
     const defaults = SETTINGS_DEFAULTS[section];
     try {
         const row = await prisma.setting.findUnique({
             where: { key: sectionKey(section) },
         });
         if (!row?.value) {
-            return { section, data: defaults };
+            return { section, data: normalizeSettingsSectionData(section, defaults, req) };
         }
         const parsed = JSON.parse(row.value);
+        const merged = Array.isArray(defaults)
+            ? parsed
+            : { ...defaults, ...parsed };
         return {
             section,
-            data: Array.isArray(defaults)
-                ? parsed
-                : { ...defaults, ...parsed },
+            data: normalizeSettingsSectionData(section, merged, req),
         };
     }
     catch {
-        return { section, data: defaults };
+        return { section, data: normalizeSettingsSectionData(section, defaults, req) };
     }
 }
 export async function saveSettingsSection(section, data) {
-    const payload = JSON.stringify(data);
+    const normalizedData = normalizeSettingsSectionData(section, data);
+    const payload = JSON.stringify(normalizedData);
     await prisma.setting.upsert({
         where: { key: sectionKey(section) },
         create: {
@@ -39,7 +137,7 @@ export async function saveSettingsSection(section, data) {
             category: section,
         },
     });
-    return { section, data };
+    return { section, data: normalizedData };
 }
 export async function renderEmailTemplate(templateId, variables, fallback) {
     if (!fallback) {

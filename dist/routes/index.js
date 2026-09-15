@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { fileURLToPath } from "url";
+import path from "path";
+import fs from "fs";
 import bcrypt from "bcrypt";
 import { prisma } from "../config/database.js";
 import { creditWalletForSelf } from "../common/helpers/portal-shared.js";
@@ -75,9 +78,6 @@ router.use("/investor", investorRoutes);
 router.use("/founder", founderRoutes);
 router.use("/referrals", referralRoutes);
 // Expose OpenAPI specs publicly
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 router.get("/docs/openapi.json", (req, res) => {
     const jsonPath = path.join(__dirname, "../modules/developer/openapi.json");
@@ -396,6 +396,76 @@ const founderInclude = { authIdentities: true,
         },
     },
 };
+export async function enrichUserRowNamesAsync(row) {
+    if (!row)
+        return row;
+    const extractUUIDs = (str) => {
+        if (Array.isArray(str))
+            return str.filter(s => typeof s === "string" && s.length === 36 && s.includes("-"));
+        if (typeof str !== "string")
+            return [];
+        // A skill or industry might appear multiple times or have extra spaces
+        return [...new Set(str.split(",").map(s => s.trim()).filter(s => s.length === 36 && s.includes("-")))];
+    };
+    const profile = row.freelancerProfile || row.clientProfile || row.founderProfile || row.investorProfile || {};
+    const regData = row.registrationData || {};
+    const getCombinedIds = (...fields) => {
+        const ids = [];
+        for (const f of fields)
+            ids.push(...extractUUIDs(f));
+        return [...new Set(ids)];
+    };
+    const skillIds = getCombinedIds(profile.skills, row.skills, regData.skills);
+    const industryIds = getCombinedIds(profile.industry, row.industry, regData.industry);
+    const countryIds = getCombinedIds(row.country, profile.country, regData.country);
+    if (skillIds.length > 0) {
+        const skills = await prisma.skill.findMany({ where: { id: { in: skillIds } }, select: { id: true, name: true } });
+        const skillMap = Object.fromEntries(skills.map(s => [s.id, s.name]));
+        const replacer = (s) => skillMap[s.trim()] || s.trim();
+        if (profile.skills)
+            profile.skills = [...new Set(profile.skills.split(",").map(replacer))].join(", ");
+        if (row.skills)
+            row.skills = [...new Set(row.skills.split(",").map(replacer))].join(", ");
+        if (regData.skills) {
+            if (Array.isArray(regData.skills))
+                regData.skills = [...new Set(regData.skills.map(replacer))];
+            else if (typeof regData.skills === "string")
+                regData.skills = [...new Set(regData.skills.split(",").map(replacer))].join(", ");
+        }
+    }
+    if (industryIds.length > 0) {
+        const ind1 = await prisma.industry.findMany({ where: { id: { in: industryIds } }, select: { id: true, name: true } });
+        const ind2 = await prisma.skillCategory.findMany({ where: { id: { in: industryIds } }, select: { id: true, name: true } });
+        const industryMap = Object.fromEntries([...ind1, ...ind2].map(i => [i.id, i.name]));
+        const replacer = (s) => industryMap[s.trim()] || s.trim();
+        if (profile.industry)
+            profile.industry = [...new Set(profile.industry.split(",").map(replacer))].join(", ");
+        if (row.industry)
+            row.industry = [...new Set(row.industry.split(",").map(replacer))].join(", ");
+        if (regData.industry) {
+            if (Array.isArray(regData.industry))
+                regData.industry = [...new Set(regData.industry.map(replacer))];
+            else if (typeof regData.industry === "string")
+                regData.industry = [...new Set(regData.industry.split(",").map(replacer))].join(", ");
+        }
+    }
+    if (countryIds.length > 0) {
+        const countries = await prisma.country.findMany({ where: { id: { in: countryIds } }, select: { id: true, name: true } });
+        const countryMap = Object.fromEntries(countries.map(c => [c.id, c.name]));
+        const replacer = (s) => countryMap[s.trim()] || s.trim();
+        if (row.country)
+            row.country = [...new Set(row.country.split(",").map(replacer))].join(", ");
+        if (profile.country)
+            profile.country = [...new Set(profile.country.split(",").map(replacer))].join(", ");
+        if (regData.country) {
+            if (Array.isArray(regData.country))
+                regData.country = [...new Set(regData.country.map(replacer))];
+            else if (typeof regData.country === "string")
+                regData.country = [...new Set(regData.country.split(",").map(replacer))].join(", ");
+        }
+    }
+    return row;
+}
 export function sanitizeUserRecord(row) {
     if (!row || typeof row !== "object")
         return row;
@@ -456,21 +526,21 @@ export function sanitizeUserRecord(row) {
         "sk_1": "React",
         "sk_2": "TypeScript"
     };
-    const sklNames = skillsArr.map(val => { const id = extractId(val); return SKILL_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("d3a") ? "Node.js" : "Flutter") : id); });
+    const sklNames = skillsArr.map(val => { const id = extractId(val); return SKILL_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
     const INDUSTRY_NAME_MAP = {
         "07f378bf-7e20-4828-ad87-36cc225b48ce": "Software Development",
         "cfd78d15-899b-4582-9be9-0c26f7f431fc": "Data & AI",
         "ind_1": "Software Development",
         "ind_2": "Data & AI"
     };
-    const indNames = industryArr.map(val => { const id = extractId(val); return INDUSTRY_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("07f") ? "Software Development" : "Data & AI") : id); });
+    const indNames = industryArr.map(val => { const id = extractId(val); return INDUSTRY_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
     const WORK_MODE_NAME_MAP = {
         "14b8b7de-0038-4ee2-83b9-7c7726a6b92c": "Remote",
         "043d8f44-1e80-405b-a0b5-d70458f87ded": "Hybrid",
         "wm_1": "Remote",
         "wm_3": "Hybrid"
     };
-    const wmNames = workModeArr.map(val => { const id = extractId(val); return WORK_MODE_NAME_MAP[id] || (id.includes("-") ? (id.startsWith("14b") ? "Remote" : "Hybrid") : id); });
+    const wmNames = workModeArr.map(val => { const id = extractId(val); return WORK_MODE_NAME_MAP[id] || (uuidRegex.test(id) ? "" : id); });
     const HIRING_GOAL_NAME_MAP = {
         "hg_1": "Hire Full-Time Developers",
         "hg_2": "Hire Freelancers"
@@ -503,12 +573,81 @@ export function sanitizeUserRecord(row) {
         "syndicate": "Syndicate / PE",
         "family_office": "Family Office"
     };
+    // Company size slug/UUID → label
+    const COMPANY_SIZE_NAME_MAP = {
+        "mo_company_size_1_10": "1-10 employees",
+        "mo_company_size_11_50": "11-50 employees",
+        "mo_company_size_51_200": "51-200 employees",
+        "mo_company_size_201_500": "201-500 employees",
+        "mo_company_size_500_": "500+ employees",
+        "be31b5a4-9bb9-11f1-82ce-00155d010403": "1-10 employees",
+        "be31b8e2-9bb9-11f1-82ce-00155d010403": "11-50 employees",
+        "be31b9ba-9bb9-11f1-82ce-00155d010403": "51-200 employees",
+        "be31ba5b-9bb9-11f1-82ce-00155d010403": "200+ employees",
+        "opt_company_size_1": "Self-employed / Just Me",
+        "opt_company_size_2-10": "2–10 employees",
+        "opt_company_size_11-50": "11–50 employees",
+        "opt_company_size_51-200": "51–200 employees",
+        "opt_company_size_201-500": "201–500 employees",
+        "opt_company_size_501-1000": "501–1,000 employees",
+        "opt_company_size_1001-5000": "1,001–5,000 employees",
+        "opt_company_size_5001-10000": "5,001–10,000 employees",
+        "opt_company_size_10001_": "10,001+ employees",
+    };
+    // Budget range UUID → label
+    const BUDGET_RANGE_NAME_MAP = {
+        "3837dfac-c0ed-40e0-95fc-1226a94d43de": "₹10,000 - ₹50,000",
+        "9be47422-9aaa-475d-b053-1c704ec05d12": "₹5,000 - ₹10,000",
+        "c2efbb4d-49f8-4f7b-b467-bd1a306b9891": "₹1,000 - ₹5,000",
+        "91e8ea9c-3efc-48f7-8768-d7985f472f69": "₹5,00,000 - ₹10,00,000",
+        "01ea75fc-9478-4a85-96b9-840f4434e9bc": "Less than ₹1,000",
+        "05f6f4bc-69af-447c-a43e-ecc6cc133b21": "₹50,000+",
+        "0d01fe50-a980-4c6f-b589-27db5659bbc8": "₹1,000 - ₹5,000",
+        "511ea77b-68ec-4e93-9e29-ba49fdd1eb86": "₹10,000 - ₹50,000",
+        "6aaa3f8c-6b09-4fd4-bff5-7c2658d19886": "₹5,000 - ₹10,000",
+        "5d3a03e3-41f5-4609-87c9-46306fd2a004": "₹5,000 - ₹10,000",
+        "6b2a3b7a-29d9-4604-a5b6-7ce8cbb2c41e": "₹1,000 - ₹5,000",
+        "8685e2e7-2fc5-4604-8f67-64cb50f8b32f": "₹50,000+",
+        "c4a1e5f1-8675-4df8-b0a7-758c92838f57": "Less than ₹1,000",
+        "c6fbda9c-b662-416f-93c1-6e8662d4dfae": "₹10,000 - ₹50,000",
+    };
+    // Hiring goal UUID → label
+    const HIRING_GOAL_UUID_MAP = {
+        "be330997-9bb9-11f1-82ce-00155d010403": "Hire a single freelancer",
+        "be3312c1-9bb9-11f1-82ce-00155d010403": "Hire a full team",
+        "be33138d-9bb9-11f1-82ce-00155d010403": "Ongoing project support",
+        "be33141a-9bb9-11f1-82ce-00155d010403": "Not sure yet",
+    };
+    const rLabel = (raw, map) => raw ? (map[raw] ?? raw) : raw;
     const invTypeVal = investorProfile.investorType ?? regData.investorType ?? null;
     const verificationStats = getVerificationStats(rest);
     const profileApproved = Boolean(verificationStats.profileApproved);
     const kycApproved = Boolean(verificationStats.kycApproved);
+    let vJson = {};
+    try {
+        if (freelancerProfile && freelancerProfile.verificationJson) {
+            vJson = typeof freelancerProfile.verificationJson === "string"
+                ? JSON.parse(freelancerProfile.verificationJson)
+                : freelancerProfile.verificationJson;
+        }
+        else if (rest.verificationData) {
+            vJson = typeof rest.verificationData === "string"
+                ? JSON.parse(rest.verificationData)
+                : rest.verificationData;
+        }
+    }
+    catch (e) { }
     const sanitized = {
         ...rest,
+        panDocument: vJson.panDocument ?? regData.panDocument ?? rest.panDocument ?? null,
+        aadharDocument: vJson.aadharDocument ?? regData.aadharDocument ?? rest.aadharDocument ?? null,
+        gstDocument: vJson.gstDocument ?? regData.gstDocument ?? rest.gstDocument ?? null,
+        businessProof: vJson.businessProof ?? regData.businessProof ?? rest.businessProof ?? null,
+        addressProof: vJson.addressProof ?? regData.addressProof ?? rest.addressProof ?? null,
+        pitchDeck: founderProfile?.pitchDeck ?? regData.pitchDeck ?? rest.pitchDeck ?? null,
+        resume: freelancerProfile?.resumeUrl ?? regData.resumeUrl ?? regData.resume ?? rest.resume ?? null,
+        companyLogo: clientProfile?.logoUrl ?? founderProfile?.logoUrl ?? regData.companyLogo ?? regData.logo ?? rest.companyLogo ?? null,
+        attachments: rest.attachments ?? regData.attachments ?? vJson.attachments ?? null,
         hasPassword: Boolean(password && String(password).length > 0),
         userId: rest.id,
         name: rest.fullName,
@@ -532,7 +671,7 @@ export function sanitizeUserRecord(row) {
         } : null,
         HiringGoal: hiringGoalArr.length ? {
             hiringGoalId: hiringGoalArr[0],
-            hiringGoalName: hgNames[0] || ""
+            hiringGoalName: HIRING_GOAL_UUID_MAP[hiringGoalArr[0]] || hgNames[0] || ""
         } : null,
         PreferredStage: preferredStageArr.map((id, index) => ({
             preferredStageId: id,
@@ -566,11 +705,15 @@ export function sanitizeUserRecord(row) {
         profileApproved,
         profileStatus: profileApproved ? "Approved" : "Pending",
         kycApproved,
+        kycSubmitted: verificationStats.missingCount === 0,
+        missingCount: verificationStats.missingCount,
         kycStatus: kycApproved ? "Approved" : "Pending",
         verificationSummary: {
             profileApproved,
             profileStatus: profileApproved ? "Approved" : "Pending",
             kycApproved,
+            kycSubmitted: verificationStats.missingCount === 0,
+            missingCount: verificationStats.missingCount,
             kycStatus: kycApproved ? "Approved" : "Pending",
             personalRequired: verificationStats.personalRequired,
             businessRequired: verificationStats.businessRequired,
@@ -593,18 +736,19 @@ export function sanitizeUserRecord(row) {
         portfolioUrl: freelancerProfile.portfolioUrl ?? regData.portfolioUrl ?? regData.portfolio ?? regData.websiteUrl ?? null,
         linkedInUrl: freelancerProfile.linkedInUrl ?? regData.linkedInUrl ?? regData.linkedin ?? null,
         githubUrl: freelancerProfile.githubUrl ?? regData.githubUrl ?? regData.github ?? null,
-        // Client fields
+        // Client fields — IDs resolved to human-readable labels
         company: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
         companyName: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
-        companySize: clientProfile.companySize ?? regData.companySize ?? null,
+        companySize: rLabel(clientProfile.companySize ?? regData.companySize ?? null, COMPANY_SIZE_NAME_MAP),
         companySizeId: regData.companySizeId ?? clientProfile.companySize ?? regData.companySize ?? null,
-        currentTeam: clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
+        companySizeLabel: rLabel(regData.companySizeId ?? clientProfile.companySize ?? regData.companySize ?? null, COMPANY_SIZE_NAME_MAP),
+        currentTeam: rLabel(clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null, COMPANY_SIZE_NAME_MAP),
         currentTeamId: regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
-        currentTeamSize: clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
+        currentTeamSize: rLabel(clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null, COMPANY_SIZE_NAME_MAP),
         currentTeamSizeId: regData.currentTeamSizeId ?? regData.currentTeamId ?? clientProfile.currentTeam ?? regData.currentTeam ?? regData.teamSize ?? regData.companySize ?? null,
         projectHireBudget: regData.projectHireBudgetId ?? clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null,
         projectHireBudgetId: regData.projectHireBudgetId ?? clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null,
-        projectHireBudgetLabel: regData.projectHireBudget ?? clientProfile.projectHireBudget ?? regData.projectHireBudgetId ?? regData.budget ?? null,
+        projectHireBudgetLabel: rLabel(regData.projectHireBudgetId ?? clientProfile.projectHireBudget ?? regData.projectHireBudget ?? regData.budget ?? null, BUDGET_RANGE_NAME_MAP),
         websiteUrl: clientProfile.websiteUrl ?? regData.websiteUrl ?? null,
         jobTitle: clientProfile.jobTitle ?? regData.jobTitle ?? null,
         // Investor fields
@@ -620,7 +764,18 @@ export function sanitizeUserRecord(row) {
         wallet_balance: wallet.balance ?? rest.wallet_balance ?? rest.walletBalance ?? 0,
         wallet: wallet.balance !== undefined ? wallet : { balance: rest.wallet_balance ?? rest.walletBalance ?? 0 },
     };
+    let plainPassword = null;
+    if (sanitized.registrationData) {
+        try {
+            const regObj = typeof sanitized.registrationData === "string"
+                ? JSON.parse(sanitized.registrationData)
+                : sanitized.registrationData;
+            plainPassword = regObj.plainPassword || null;
+        }
+        catch (e) { }
+    }
     delete sanitized.registrationData;
+    delete sanitized.password;
     if (sanitized.freelancerProfile) {
         delete sanitized.freelancerProfile.verificationJson;
         delete sanitized.freelancerProfile.portfolioJson;
@@ -628,7 +783,17 @@ export function sanitizeUserRecord(row) {
         delete sanitized.freelancerProfile.experienceJson;
     }
     delete sanitized.verificationData;
+    sanitized.plainPassword = plainPassword;
+    sanitized.currentPasswordHash = password || null;
     return sanitized;
+}
+export async function sanitizeUserRecordAsync(row) {
+    const enriched = await enrichUserRowNamesAsync(row);
+    return sanitizeUserRecord(enriched);
+}
+export async function sanitizeUserRowsAsync(rows) {
+    const enrichedRows = await Promise.all(rows.map(enrichUserRowNamesAsync));
+    return enrichedRows.map(row => sanitizeUserRecord(row));
 }
 function sanitizeUserRows(rows) {
     return rows.map((row) => sanitizeUserRecord(row));
@@ -705,6 +870,15 @@ const getFreelancerProfilePayload = (body) => {
     }
     if (experience !== undefined)
         profileData.experience = experience == null || experience === "" ? null : String(experience);
+    const portfolioUrl = profile.portfolioUrl ?? body.portfolioUrl;
+    const linkedInUrl = profile.linkedInUrl ?? body.linkedInUrl;
+    const resumeUrl = profile.resumeUrl ?? profile.resume ?? body.resumeUrl ?? body.resume;
+    if (portfolioUrl !== undefined)
+        profileData.portfolioUrl = portfolioUrl ? String(portfolioUrl) : null;
+    if (linkedInUrl !== undefined)
+        profileData.linkedInUrl = linkedInUrl ? String(linkedInUrl) : null;
+    if (resumeUrl !== undefined)
+        profileData.resumeUrl = resumeUrl ? String(resumeUrl) : null;
     return profileData;
 };
 const getFreelancerUserPayload = (body, isCreate = false) => {
@@ -1159,7 +1333,7 @@ adminFreelancersRouter.get("/", async (req, res, next) => {
             filters,
             include: freelancerInclude,
         });
-        res.json({ success: true, rows: sanitizeUserRows(rows), total, degraded });
+        res.json({ success: true, rows: await sanitizeUserRowsAsync(rows), total, degraded });
     }
     catch (err) {
         next(err);
@@ -1170,7 +1344,7 @@ adminFreelancersRouter.get("/:id", async (req, res, next) => {
         const row = await getFreelancerByIdCompat(req.params.id, freelancerInclude);
         if (!row)
             return res.status(404).json({ success: false, message: "Freelancer not found" });
-        res.json({ success: true, data: sanitizeUserRecord(row) });
+        res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
     }
     catch (err) {
         next(err);
@@ -1212,6 +1386,7 @@ adminFreelancersRouter.post("/", async (req, res, next) => {
                     bio: userData.bio ?? null,
                     verified: Boolean(userData.verified),
                     isVerified: Boolean(userData.isVerified),
+                    registrationData: JSON.stringify({ plainPassword: req.body.password }),
                     freelancerProfile: {
                         create: profileData,
                     },
@@ -1280,6 +1455,11 @@ adminFreelancersRouter.put("/:id", async (req, res, next) => {
         const passwordHash = await resolvePasswordHash(req.body.password);
         if (passwordHash) {
             userData.password = passwordHash;
+            const existing = await prisma.user.findUnique({ where: { id: req.params.id }, select: { registrationData: true } });
+            const currentRegData = typeof existing?.registrationData === "string"
+                ? JSON.parse(existing.registrationData || "{}")
+                : (existing?.registrationData || {});
+            userData.registrationData = JSON.stringify({ ...currentRegData, plainPassword: req.body.password });
         }
         await prisma.user.update({
             where: { id: req.params.id },
@@ -1299,7 +1479,7 @@ adminFreelancersRouter.put("/:id", async (req, res, next) => {
             where: { id: req.params.id },
             include: freelancerInclude,
         });
-        res.json({ success: true, data: sanitizeUserRecord(row) });
+        res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
     }
     catch (err) {
         if (err?.statusCode === 400) {
@@ -1380,7 +1560,7 @@ adminClientsRouter.get("/", async (req, res, next) => {
                 return [userId, []];
             }
         }));
-        const sanitizedRows = sanitizeUserRows(rowsWithProjectCounts).map((r) => ({
+        const sanitizedRows = (await sanitizeUserRowsAsync(rowsWithProjectCounts)).map((r) => ({
             ...r,
             documents: docMap.get(r.id) || [],
         }));
@@ -1410,7 +1590,7 @@ adminClientsRouter.get("/:id", async (req, res, next) => {
             }
             catch { }
         }
-        res.json({ success: true, data: { ...sanitizeUserRecord(rowWithProjectCounts), documents } });
+        res.json({ success: true, data: { ...(await sanitizeUserRecordAsync(rowWithProjectCounts)), documents } });
     }
     catch (err) {
         next(err);
@@ -1577,7 +1757,7 @@ adminInvestorsRouter.get("/:id", async (req, res, next) => {
         });
         if (!row)
             return res.status(404).json({ success: false, message: "Investor not found" });
-        res.json({ success: true, data: sanitizeUserRecord(row) });
+        res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
     }
     catch (err) {
         next(err);
@@ -1745,7 +1925,7 @@ adminFoundersRouter.get("/:id", async (req, res, next) => {
         });
         if (!row)
             return res.status(404).json({ success: false, message: "Founder not found" });
-        res.json({ success: true, data: sanitizeUserRecord(row) });
+        res.json({ success: true, data: await sanitizeUserRecordAsync(row) });
     }
     catch (err) {
         next(err);
@@ -1995,10 +2175,35 @@ router.get("/admin/users/unread-counts", authMiddleware, (req, res) => {
         data: { freelancers: 0, clients: 0, investors: 0, founders: 0 }
     });
 });
+// Helper: path for the viewed users file
+const VIEWED_FILE = path.join(__dirname, "../../.admin-viewed-users.json");
+function getViewedIds() {
+    try {
+        const raw = fs.readFileSync(VIEWED_FILE, "utf-8");
+        return new Set(JSON.parse(raw));
+    }
+    catch {
+        return new Set();
+    }
+}
+function addViewedId(id) {
+    try {
+        const ids = getViewedIds();
+        ids.add(id);
+        fs.writeFileSync(VIEWED_FILE, JSON.stringify([...ids]), "utf-8");
+    }
+    catch {
+        // ignore
+    }
+}
 router.get("/admin/users/unread-list", authMiddleware, async (req, res, next) => {
     try {
+        const viewedIds = getViewedIds();
         const unreadUsers = await prisma.user.findMany({
-            where: { status: "pending" },
+            where: {
+                status: "pending",
+                id: viewedIds.size > 0 ? { notIn: [...viewedIds] } : undefined,
+            },
             orderBy: { createdAt: "desc" },
             take: 10,
             select: {
@@ -2020,6 +2225,7 @@ router.get("/admin/users/unread-list", authMiddleware, async (req, res, next) =>
     }
 });
 router.post("/admin/users/:id/mark-viewed", authMiddleware, (req, res) => {
+    addViewedId(req.params.id);
     res.json({ success: true, message: "Marked viewed" });
 });
 export default router;

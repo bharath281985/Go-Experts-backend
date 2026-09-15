@@ -75,7 +75,34 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                 orderBy: orderBy ? { [orderBy]: ascending ? "asc" : "desc" } : { createdAt: "desc" },
                 ...(include ? { include } : {}),
             });
-            res.json({ success: true, rows: rows.map(formatRecord), total });
+            let finalRows = rows;
+            if (String(modelName).toLowerCase() === "project" && rows.length > 0) {
+                const clientIds = [...new Set(rows.map((r) => r.client).filter(Boolean))];
+                const clients = await prisma.user.findMany({ where: { id: { in: clientIds } }, select: { id: true, fullName: true } });
+                const clientMap = Object.fromEntries(clients.map((c) => [c.id, c.fullName]));
+                const catIds = [...new Set(rows.map((r) => r.category).filter(Boolean))];
+                const cats = await prisma.skillCategory.findMany({ where: { id: { in: catIds } }, select: { id: true, name: true } });
+                const catMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
+                const techIds = [...new Set(rows.flatMap((r) => (r.technology || "").split(",")).filter(Boolean))];
+                const techs = await prisma.skill.findMany({ where: { id: { in: techIds } }, select: { id: true, name: true } });
+                const techMap = Object.fromEntries(techs.map((c) => [c.id, c.name]));
+                const moIds = [...new Set(rows.flatMap((r) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
+                const mos = await prisma.masterOption.findMany({ where: { id: { in: moIds } }, select: { id: true, label: true } });
+                const moMap = Object.fromEntries(mos.map((m) => [m.id, m.label]));
+                const mapExp = (slug) => slug === "mo_experience_level_intermediate" ? "Intermediate" :
+                    slug === "mo_experience_level_expert" ? "Expert" :
+                        slug === "mo_experience_level_entry" ? "Entry Level" : slug;
+                finalRows = rows.map((r) => ({
+                    ...r,
+                    client: clientMap[r.client] || r.client,
+                    category: catMap[r.category] || r.category,
+                    technology: (r.technology || "").split(",").map((id) => techMap[id] || id).join(", "),
+                    budgetRangeId: moMap[r.budgetRangeId] || r.budgetRangeId,
+                    workMode: moMap[r.workMode] || r.workMode,
+                    experienceLevel: r.experienceLevel ? mapExp(r.experienceLevel) : r.experienceLevel
+                }));
+            }
+            res.json({ success: true, rows: finalRows.map(formatRecord), total });
         }
         catch (err) {
             next(err);

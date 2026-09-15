@@ -2,23 +2,68 @@ import { prisma } from "../../config/database.js";
 import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, money, } from "../../common/helpers/portal-shared.js";
 import { logActivityEvent } from "../../services/activity/activity.service.js";
-/** Resolve an industry string (name or id) to {id, name}, or null if empty */
-async function resolveIndustry(raw) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function parseIndustryValues(raw) {
     if (!raw || !raw.trim())
-        return null;
+        return [];
     const val = raw.trim();
     try {
-        const found = await prisma.industry.findFirst({
-            where: { OR: [{ id: val }, { name: val }] },
-            select: { id: true, name: true },
-        });
-        if (found)
-            return { id: found.id, name: found.name };
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+            return parsed.map((item) => String(item).trim()).filter(Boolean);
+        }
     }
     catch { /* ignore */ }
-    // fallback: construct a slug id from the name
-    const slugId = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-    return { id: slugId, name: val };
+    return val.split(',').map((item) => item.trim()).filter(Boolean);
+}
+function uniqueValues(values) {
+    return [...new Set(values.filter(Boolean))];
+}
+/** Resolve industry/category strings (names, ids, or comma-separated ids) to display names. */
+async function resolveIndustry(raw) {
+    const values = uniqueValues(parseIndustryValues(raw));
+    if (values.length === 0)
+        return null;
+    const industryMap = new Map();
+    try {
+        const [industries, categories, options] = await Promise.all([
+            prisma.industry.findMany({
+                where: { OR: [{ id: { in: values } }, { name: { in: values } }] },
+                select: { id: true, name: true },
+            }),
+            prisma.skillCategory.findMany({
+                where: { OR: [{ id: { in: values } }, { name: { in: values } }] },
+                select: { id: true, name: true },
+            }),
+            prisma.masterOption?.findMany({
+                where: { OR: [{ id: { in: values } }, { value: { in: values } }, { label: { in: values } }] },
+                select: { id: true, label: true, value: true },
+            }).catch(() => []) ?? Promise.resolve([]),
+        ]);
+        industries.forEach((item) => {
+            industryMap.set(item.id, item);
+            industryMap.set(item.name, item);
+        });
+        categories.forEach((item) => {
+            industryMap.set(item.id, item);
+            industryMap.set(item.name, item);
+        });
+        options.forEach((item) => {
+            const mapped = { id: item.id || item.value || item.label, name: item.label || item.value || item.id };
+            industryMap.set(item.id, mapped);
+            industryMap.set(item.value, mapped);
+            industryMap.set(item.label, mapped);
+        });
+    }
+    catch { /* ignore */ }
+    const resolved = values
+        .map((value) => industryMap.get(value) ?? (UUID_RE.test(value) ? null : { id: value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''), name: value }))
+        .filter((item) => Boolean(item?.name));
+    if (resolved.length === 0)
+        return null;
+    const names = uniqueValues(resolved.map((item) => item.name));
+    const ids = uniqueValues(resolved.map((item) => item.id));
+    return { id: ids.join(','), name: names.join(', ') };
 }
 /** Resolve a country string (name, code or id) to a clean display name */
 async function resolveCountry(raw) {

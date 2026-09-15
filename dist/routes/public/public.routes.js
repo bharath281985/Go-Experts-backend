@@ -90,7 +90,7 @@ router.get("/settings/general", async (req, res) => {
     res.json(result);
 });
 router.get("/settings/splash", async (req, res) => {
-    const result = await getSettingsSection("splash");
+    const result = await getSettingsSection("splash", req);
     res.json(result);
 });
 const COUNTRY_INFO_MAP = {

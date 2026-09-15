@@ -329,12 +329,25 @@ export const login = async (req, res, next) => {
             const hashed = await bcrypt.hash(password, 10);
             await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
         }
+        let subscriptionGate = { status: 'none', planId: null, planName: null, planExpired: false, upgradeRequired: true };
+        try {
+            const { resolveUserSubscriptionGate } = await import("../../services/mobile/subscription.service.js");
+            subscriptionGate = await resolveUserSubscriptionGate(user.id).catch(() => subscriptionGate);
+        }
+        catch {
+            // fallback
+        }
         const userStatus = String(user.status).toLowerCase();
-        if (userStatus === "suspended") {
+        const isExpiredPlanInactive = userStatus === "inactive" && subscriptionGate.status === "expired";
+        if (["suspended", "inactive", "pending"].includes(userStatus) && !isExpiredPlanInactive) {
+            const reason = userStatus === "suspended" ? "Account suspended" : `Account ${userStatus}`;
+            const msg = userStatus === "suspended"
+                ? "Your account is suspended. Please contact support."
+                : `Your account is currently ${userStatus}. Please contact support or wait for approval.`;
             prisma.loginAttempt
-                .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Account suspended" } })
+                .create({ data: { email, ipAddress, userAgent, success: false, failReason: reason } })
                 .catch(() => { });
-            return res.status(403).json({ success: false, message: "Your account is suspended. Please contact support." });
+            return res.status(403).json({ success: false, message: msg });
         }
         const teamInfo = await resolveUserTeamMembership(user.id, user.email);
         let effectiveRole = user.role;
@@ -375,21 +388,16 @@ export const login = async (req, res, next) => {
             .create({ data: { email, ipAddress, userAgent, success: true } })
             .catch(() => { });
         let completion = { profileCompletion: 100, isProfileComplete: true, completedSteps: [], pendingSteps: [] };
-        let subscriptionGate = { status: 'none', planId: null, planName: null };
         try {
             const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
-            const { resolveUserSubscriptionGate } = await import("../../services/mobile/subscription.service.js");
-            const [c, s] = await Promise.all([
-                resolveProfileCompletion(user.id).catch(() => completion),
-                resolveUserSubscriptionGate(user.id).catch(() => subscriptionGate),
-            ]);
-            completion = c;
-            subscriptionGate = s;
+            completion = await resolveProfileCompletion(user.id).catch(() => completion);
         }
         catch {
             // fallback
         }
         const hasActiveSubscription = subscriptionGate.status === 'active';
+        const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+        const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
         const kycReadiness = buildKycReadiness(user);
         const userPayload = {
             id: user.id,
@@ -413,7 +421,7 @@ export const login = async (req, res, next) => {
                 permittedDashboards: teamInfo.permittedDashboards,
                 modulePermissions: teamInfo.modulePermissions,
             } : null,
-            status: user.status,
+            status: effectiveStatus,
             onboardingStatus: user.onboardingStatus ?? 'COMPLETED',
             currentStep: user.currentStep,
             country: user.country,
@@ -434,6 +442,10 @@ export const login = async (req, res, next) => {
             subscriptionStatus: subscriptionGate.status,
             subscriptionPlanId: subscriptionGate.planId,
             subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+            planExpired: isPlanExpired,
+            upgradeRequired: subscriptionGate.upgradeRequired !== false,
+            planExpiredMessage: subscriptionGate.status === 'expired' ? 'Your plan has expired. Please upgrade your plan.' : null,
+            expiredAt: subscriptionGate.expiredAt ?? null,
             profileReadiness: {
                 role: (user.role || "").toUpperCase(),
                 profileCompletion: completion.profileCompletion,
@@ -453,6 +465,10 @@ export const login = async (req, res, next) => {
             subscriptionPlan: hasActiveSubscription,
             hasSubscription: hasActiveSubscription,
             isSubscribed: hasActiveSubscription,
+            subscriptionStatus: subscriptionGate.status,
+            planExpired: isPlanExpired,
+            upgradeRequired: subscriptionGate.upgradeRequired !== false,
+            planExpiredMessage: subscriptionGate.status === 'expired' ? 'Your plan has expired. Please upgrade your plan.' : null,
             user: userPayload,
             data: {
                 token: accessToken,
@@ -461,6 +477,10 @@ export const login = async (req, res, next) => {
                 subscriptionPlan: hasActiveSubscription,
                 hasSubscription: hasActiveSubscription,
                 isSubscribed: hasActiveSubscription,
+                subscriptionStatus: subscriptionGate.status,
+                planExpired: subscriptionGate.planExpired === true || subscriptionGate.status === 'expired',
+                upgradeRequired: subscriptionGate.upgradeRequired !== false,
+                planExpiredMessage: subscriptionGate.status === 'expired' ? 'Your plan has expired. Please upgrade your plan.' : null,
                 user: userPayload,
             }
         });
@@ -978,6 +998,15 @@ export const me = async (req, res, next) => {
                 };
             }
         };
+        const safeSubscriptionGate = async (userId) => {
+            try {
+                const { resolveUserSubscriptionGate } = await import("../../services/mobile/subscription.service.js");
+                return await resolveUserSubscriptionGate(userId);
+            }
+            catch {
+                return { status: 'none', planId: null, planName: null, planExpired: false, upgradeRequired: true, expiredAt: null };
+            }
+        };
         if (req.user.type === "portal") {
             const user = await prisma.user.findFirst({
                 where: { id: req.user.id, deletedAt: null },
@@ -991,7 +1020,12 @@ export const me = async (req, res, next) => {
             if (!user) {
                 return res.status(404).json({ success: false, message: "User not found" });
             }
-            const completion = await safeProfileCompletion(user.id);
+            const [completion, subscriptionGate] = await Promise.all([
+                safeProfileCompletion(user.id),
+                safeSubscriptionGate(user.id),
+            ]);
+            const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+            const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
             let sanitized;
             try {
                 sanitized = sanitizeUserRecord(user);
@@ -1060,6 +1094,17 @@ export const me = async (req, res, next) => {
                 user: {
                     ...sanitized,
                     role: effectiveRole,
+                    status: effectiveStatus,
+                    subscriptionStatus: subscriptionGate.status,
+                    subscriptionPlanId: subscriptionGate.planId,
+                    subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+                    subscriptionPlan: subscriptionGate.status === 'active',
+                    hasSubscription: subscriptionGate.status === 'active',
+                    isSubscribed: subscriptionGate.status === 'active',
+                    planExpired: isPlanExpired,
+                    upgradeRequired: subscriptionGate.upgradeRequired !== false,
+                    planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+                    expiredAt: subscriptionGate.expiredAt ?? null,
                     isOwner: !teamInfo,
                     accountType: teamInfo ? "team_member" : "owner",
                     permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],
@@ -1114,7 +1159,12 @@ export const me = async (req, res, next) => {
                 },
             });
             if (user) {
-                const completion = await safeProfileCompletion(user.id);
+                const [completion, subscriptionGate] = await Promise.all([
+                    safeProfileCompletion(user.id),
+                    safeSubscriptionGate(user.id),
+                ]);
+                const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
+                const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
                 let sanitizedFallback;
                 try {
                     sanitizedFallback = sanitizeUserRecord(user);
@@ -1177,6 +1227,17 @@ export const me = async (req, res, next) => {
                     user: {
                         ...sanitizedFallback,
                         role: effectiveRole,
+                        status: effectiveStatus,
+                        subscriptionStatus: subscriptionGate.status,
+                        subscriptionPlanId: subscriptionGate.planId,
+                        subscriptionPlanName: subscriptionGate.planName ?? subscriptionGate.planId,
+                        subscriptionPlan: subscriptionGate.status === 'active',
+                        hasSubscription: subscriptionGate.status === 'active',
+                        isSubscribed: subscriptionGate.status === 'active',
+                        planExpired: isPlanExpired,
+                        upgradeRequired: subscriptionGate.upgradeRequired !== false,
+                        planExpiredMessage: isPlanExpired ? 'Your plan has expired. Please upgrade your plan.' : null,
+                        expiredAt: subscriptionGate.expiredAt ?? null,
                         isOwner: !teamInfo,
                         accountType: teamInfo ? "team_member" : "owner",
                         permittedDashboards: teamInfo ? teamInfo.permittedDashboards : [effectiveRole],

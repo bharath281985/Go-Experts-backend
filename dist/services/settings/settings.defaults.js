@@ -9,6 +9,8 @@ export const SETTINGS_DEFAULTS = {
         defaultLanguage: "English",
         description: "Go Experts connects freelancers, clients, investors and startup founders on a single trusted platform.",
         maintenanceMode: false,
+        welcomeBonusEnabled: true,
+        welcomeBonusAmount: 99,
     },
     branding: {
         primaryColor: "#E30613",
@@ -508,9 +510,10 @@ export const SETTINGS_DEFAULTS = {
     splash: {
         enabled: true,
         splash: {
-            mediaUrl: "",
-            mediaName: "",
-            mediaType: "image",
+            imageUrl: "",
+            imageName: "",
+            videoUrl: "",
+            videoName: "",
         },
         onboarding: {
             steps: [

@@ -90,7 +90,7 @@ export function createCrudRouter(
       });
 
       let finalRows = rows;
-      if (modelName === "Project" && rows.length > 0) {
+      if (String(modelName).toLowerCase() === "project" && rows.length > 0) {
         const clientIds = [...new Set(rows.map((r: any) => r.client).filter(Boolean))];
         const clients = await prisma.user.findMany({ where: { id: { in: clientIds as string[] } }, select: { id: true, fullName: true } });
         const clientMap = Object.fromEntries(clients.map((c: any) => [c.id, c.fullName]));

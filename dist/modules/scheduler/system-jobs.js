@@ -2,6 +2,7 @@ import { prisma } from "../../config/database.js";
 import { SchedulerService } from "./scheduler.service.js";
 import { AutomationEngine } from "./automation.engine.js";
 import { NotificationService } from "../notifications/notification.service.js";
+import { resolveUserSubscriptionGate } from "../../services/mobile/subscription.service.js";
 import fs from "fs";
 import path from "path";
 export function registerSystemJobs() {
@@ -19,10 +20,7 @@ export function registerSystemJobs() {
             },
         });
         for (const sub of expiredSubs) {
-            await prisma.subscription.update({
-                where: { id: sub.id },
-                data: { status: "expired" },
-            });
+            await resolveUserSubscriptionGate(sub.userId).catch(() => null);
             await prisma.subscriptionHistory.create({
                 data: {
                     userId: sub.userId,
@@ -87,10 +85,7 @@ export function registerSystemJobs() {
             },
         });
         for (const sub of graceSubs) {
-            await prisma.subscription.update({
-                where: { id: sub.id },
-                data: { status: "expired" },
-            });
+            await resolveUserSubscriptionGate(sub.userId).catch(() => null);
             console.log(`[SYSTEM JOB] Grace period expired. Terminated subscription ${sub.id}`);
             await AutomationEngine.trigger("grace_period_expired", sub.id, {
                 userId: sub.userId,
