@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import { getVerificationStats, applyVerificationUpdate } from "../../common/helpers/verification.js";
+import type { VerificationItem } from "../../common/helpers/verification.js";
 
 import { getSettingsSection } from "../../services/settings/settings.service.js";
 
@@ -56,6 +57,63 @@ async function triggerWelcomeBonus(user: any) {
         await sendWelcomeBonusEmail(user.email, user.fullName || 'User', amount);
     } catch (e) {
         console.error("Welcome bonus error:", e);
+    }
+}
+
+
+type KycStatusEmailDocument = {
+    label: string;
+    status: string;
+    reason?: string | null;
+};
+
+function getKycUpdatesFromPayload(updatePayload: any) {
+    const rawUpdates = Array.isArray(updatePayload?.kycData)
+        ? updatePayload.kycData
+        : updatePayload?.key
+            ? [updatePayload]
+            : [];
+
+    return rawUpdates
+        .map((update: any) => ({
+            key: String(update?.key || "").trim().toLowerCase(),
+            status: String(update?.status || "").trim().toLowerCase()
+        }))
+        .filter((update: any) => update.key && ["verified", "rejected"].includes(update.status));
+}
+
+async function sendKycStatusEmailForAdminUpdate(userId: string, updatePayload: any, stats: any) {
+    const changedUpdates = getKycUpdatesFromPayload(updatePayload);
+    if (!changedUpdates.length || !stats?.items?.length) return;
+
+    const changedKeys = new Set(changedUpdates.map((update: any) => update.key));
+    const documents: KycStatusEmailDocument[] = (stats.items as VerificationItem[])
+        .filter((item) => changedKeys.has(item.key) && ["verified", "rejected"].includes(item.status))
+        .map((item) => ({
+            label: item.label || item.key,
+            status: item.status,
+            reason: item.rejectReason || null
+        }));
+
+    if (!documents.length) return;
+
+    const userObj = await prisma.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        select: { email: true, fullName: true, role: true }
+    });
+    if (!userObj?.email) return;
+
+    try {
+        const { sendKycDocumentStatusEmail } = await import("../../services/mobile/email.service.js");
+        await sendKycDocumentStatusEmail(
+            userObj.email,
+            userObj.fullName || "User",
+            userObj.role || "user",
+            documents,
+            stats.kycStatus || null
+        );
+    } catch (emailError) {
+        console.error("KYC status email error:", emailError);
     }
 }
 
@@ -158,6 +216,8 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
             });
             stats = freshUser ? getVerificationStats(freshUser) : getVerificationStats(user);
         }
+
+        await sendKycStatusEmailForAdminUpdate(id, updatePayload, stats);
 
         // Auto-approve user if all required documents are verified
         if (stats && stats.requiredVerified >= stats.requiredTotal) {

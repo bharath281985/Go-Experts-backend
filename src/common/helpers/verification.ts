@@ -238,7 +238,11 @@ export async function applyVerificationUpdate(userId: string, body: any, isAdmin
         value,
         status: nextStatus,
         documentUrl: body.documentUrl != null ? String(body.documentUrl).trim() || null : stored[key]?.documentUrl || null,
-        rejectReason: body.reason != null ? String(body.reason).trim() : stored[key]?.rejectReason || null,
+        rejectReason: body.reason != null
+            ? String(body.reason).trim()
+            : nextStatus === "rejected"
+                ? stored[key]?.rejectReason || null
+                : null,
     };
 
     if (key === "phone" && body.value) {

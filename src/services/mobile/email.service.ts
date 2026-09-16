@@ -776,6 +776,123 @@ export const sendWelcomeBonusEmail = (to: string, name: string, amount: number) 
 };
 
 
+type KycStatusDocument = {
+  label: string;
+  status: string;
+  reason?: string | null;
+};
+
+const escapeHtml = (value: string) => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const formatKycStatus = (status: string) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'verified') return 'Verified';
+  if (normalized === 'rejected') return 'Rejected';
+  if (normalized === 'pending') return 'Pending Review';
+  return 'Updated';
+};
+
+const kycStatusPill = (status: string) => {
+  const normalized = String(status || '').toLowerCase();
+  const styles = normalized === 'verified'
+    ? { bg: '#dcfce7', color: '#166534' }
+    : normalized === 'rejected'
+      ? { bg: '#fee2e2', color: '#991b1b' }
+      : { bg: '#fef3c7', color: '#92400e' };
+
+  return `<span style="display:inline-block;background:${styles.bg};color:${styles.color};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:5px 10px;border-radius:999px;">${formatKycStatus(normalized)}</span>`;
+};
+
+export const sendKycDocumentStatusEmail = (
+  to: string,
+  name: string,
+  role: string,
+  documents: KycStatusDocument[],
+  overallStatus?: string | null
+) => {
+  const firstName = escapeHtml((name || 'User').split(' ')[0]);
+  const roleName = escapeHtml(role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : 'Member');
+  const safeDocuments = documents.filter((doc) => doc && doc.label && doc.status);
+  const rejectedDocs = safeDocuments.filter((doc) => String(doc.status).toLowerCase() === 'rejected');
+  const verifiedDocs = safeDocuments.filter((doc) => String(doc.status).toLowerCase() === 'verified');
+  const statusLabel = rejectedDocs.length ? 'Action Required' : overallStatus ? escapeHtml(formatKycStatus(overallStatus)) : 'KYC Updated';
+  const subject = rejectedDocs.length
+    ? 'Action required: Re-upload rejected KYC document(s)'
+    : 'Your KYC document status has been updated';
+
+  const rowsHtml = safeDocuments.map((doc) => {
+    const normalized = String(doc.status || '').toLowerCase();
+    const isRejected = normalized === 'rejected';
+    const reason = escapeHtml(doc.reason || 'Reason not provided by admin.');
+    return `
+      <tr>
+        <td style="padding:16px;border-bottom:1px solid #e2e8f0;vertical-align:top;">
+          <p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">${escapeHtml(doc.label)}</p>
+          ${isRejected ? `<p style="margin:8px 0 0;color:#991b1b;font-size:13px;line-height:1.6;"><strong>Reason:</strong> ${reason}</p>` : ''}
+          ${isRejected ? `<p style="margin:6px 0 0;color:#7f1d1d;font-size:13px;line-height:1.6;"><strong>Required action:</strong> Please re-upload this document from your KYC section.</p>` : ''}
+        </td>
+        <td align="right" style="padding:16px;border-bottom:1px solid #e2e8f0;vertical-align:top;white-space:nowrap;">${kycStatusPill(normalized)}</td>
+      </tr>`;
+  }).join('');
+
+  const rejectedList = rejectedDocs.length ? featureList(
+    rejectedDocs.map((doc) => ({ icon: '!', text: `<strong>${escapeHtml(doc.label)}</strong> needs to be re-uploaded${doc.reason ? `: ${escapeHtml(doc.reason)}` : '.'}` })),
+    '#ef4444'
+  ) : '';
+
+  const verifiedList = verifiedDocs.length ? featureList(
+    verifiedDocs.map((doc) => ({ icon: 'OK', text: `<strong>${escapeHtml(doc.label)}</strong> has been verified.` })),
+    '#22c55e'
+  ) : '';
+
+  const body = `
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:8px;">
+      <tr><td>${badge(roleName, '#eff6ff', '#1d4ed8')}</td></tr>
+    </table>
+    <h1 style="margin:12px 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">KYC document status update</h1>
+    <p style="margin:0 0 22px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
+
+    ${alertBox(
+      rejectedDocs.length ? '!' : 'OK',
+      statusLabel,
+      rejectedDocs.length
+        ? 'Some KYC document(s) were rejected by our admin team. Please review the reason and re-upload the rejected document(s) to continue verification.'
+        : 'Your submitted KYC document(s) were reviewed by our admin team. The verified document(s) are listed below.',
+      rejectedDocs.length ? '#fef2f2' : '#f0fdf4',
+      rejectedDocs.length ? '#ef4444' : '#22c55e',
+      rejectedDocs.length ? '#991b1b' : '#15803d',
+      rejectedDocs.length ? '#7f1d1d' : '#166534'
+    )}
+
+    ${rejectedList ? `<p style="margin:0 0 12px;color:#0f172a;font-size:14px;font-weight:700;">Documents to re-upload</p>${rejectedList}${divider()}` : ''}
+    ${verifiedList ? `<p style="margin:0 0 12px;color:#0f172a;font-size:14px;font-weight:700;">Verified documents</p>${verifiedList}${divider()}` : ''}
+
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border:1px solid #e2e8f0;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 24px;">
+      <tr>
+        <td style="background:#f8fafc;color:#475569;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #e2e8f0;">Document</td>
+        <td align="right" style="background:#f8fafc;color:#475569;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:12px 16px;border-bottom:1px solid #e2e8f0;">Status</td>
+      </tr>
+      ${rowsHtml}
+    </table>
+
+    ${rejectedDocs.length ? ctaButton(`${FRONTEND_URL}/profile`, 'Re-upload KYC Documents', '#E30613') : ctaButton(`${FRONTEND_URL}/profile`, 'View KYC Status', '#22c55e')}
+
+    <p style="margin:0 0 4px;color:#374151;font-size:13px;font-weight:600;">Need help?</p>
+    <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">
+      Reply to this email or contact <a href="mailto:servicedesk@goexperts.in" style="color:#f97316;text-decoration:none;">servicedesk@goexperts.in</a>. Our team will help you complete verification.
+    </p>
+    <p style="margin:16px 0 0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
+  `;
+
+  return sendEmail(to, subject, shell(`Your Go Experts KYC document status was updated. ${rejectedDocs.length ? 'Please re-upload rejected document(s).' : 'Reviewed document(s) are listed inside.'}`, body));
+};
+
+
 export const sendPlanExpiredEmail = (to: string, name: string, role: string, planName?: string | null, expiredAt?: Date | string | null) => {
   const firstName = (name || 'User').split(' ')[0];
   const roleName = role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : 'Member';
