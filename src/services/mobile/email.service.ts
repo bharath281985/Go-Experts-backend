@@ -1,5 +1,7 @@
 
 import nodemailer from 'nodemailer';
+import { prisma } from '../../config/database.js';
+import { sendPushNotification } from './push.service.js';
 
 const host = process.env.SMTP_HOST || 'mail.goexperts.in';
 const port = parseInt(process.env.SMTP_PORT || '465');
@@ -26,6 +28,21 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
       html,
     });
     console.log(`[EMAIL SENT] To: ${to} | Subject: "${subject}" | ID: ${info.messageId}`);
+    
+    // Trigger FCM Push notification to complement the email
+    try {
+      const dbUser = await prisma.user.findFirst({ where: { email: to } });
+      if (dbUser) {
+        let plainText = html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        let bodyText = plainText.length > 150 ? plainText.substring(0, 150) + '...' : plainText;
+        if (!bodyText) bodyText = "You have a new notification.";
+        
+        await sendPushNotification(dbUser.id, subject, bodyText);
+      }
+    } catch (pushErr) {
+      console.error('[PUSH FROM EMAIL FAILED]', pushErr);
+    }
+    
     return true;
   } catch (error: any) {
     console.error(`[EMAIL FAILED] To: ${to} | Error:`, error);

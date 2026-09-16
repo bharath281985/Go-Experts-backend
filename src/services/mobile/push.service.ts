@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import { prisma } from '../../config/database.js';
+import { SETTINGS_DEFAULTS } from '../settings/settings.defaults.js';
 
 // Initialize Firebase Admin safely
 const initFirebaseAdmin = () => {
@@ -82,9 +83,54 @@ export const sendPushNotification = async (userId: string, title: string, body: 
       return false; // Can't deliver, maybe retry later
     }
 
-    const messages = tokens.map(t => ({
-      token: t.token,
-      notification: { title, body },
+      const dbUser = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      let notificationColor = '#E30613'; // Default Go Experts Red
+      
+      if (dbUser?.role) {
+        try {
+          const setting = await prisma.setting.findUnique({ where: { key: "settings:industry_colors" } });
+          const colors = setting?.value ? JSON.parse(setting.value) : SETTINGS_DEFAULTS.industry_colors;
+          const roleKey = dbUser.role.toLowerCase();
+          
+          for (const [key, color] of Object.entries(colors)) {
+            if (key.toLowerCase() === roleKey || key.toLowerCase() === roleKey + 's') {
+              notificationColor = String(color);
+              break;
+            }
+          }
+        } catch (colorError) {
+          console.warn('Error fetching dynamic role color for push:', colorError);
+        }
+      }
+
+      const messages = tokens.map(t => ({
+        token: t.token,
+        notification: { 
+          title, 
+          body,
+          ...(data?.imageUrl ? { imageUrl: data.imageUrl } : {})
+        },
+        android: {
+          notification: {
+            sound: 'default',
+            color: notificationColor,
+            icon: 'ic_notification', // Custom notification icon if available in android/app/src/main/res/drawable
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          defaultLightSettings: true,
+          defaultVibrateTimings: true,
+          defaultSound: true,
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+            mutableContent: true,
+          }
+        },
+        fcmOptions: data?.imageUrl ? { imageUrl: data.imageUrl } : undefined,
+      },
       data: data || {}
     }));
 
