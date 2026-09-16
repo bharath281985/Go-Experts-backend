@@ -644,8 +644,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               registrationData,
               // IMPORTANT: Clear soft-delete so the account is restored/visible
               deletedAt: null,
-              isVerified: false,
-              verified: false,
+              isVerified: true,
+              verified: true,
             },
           })
         : await tx.user.create({
@@ -665,6 +665,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               bio,
               registrationData,
               referralCode,
+              isVerified: true,
+              verified: true,
             },
           });
 
