@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login, register, registerAdmin, logout, refresh, me, forgotPassword, resetPassword, changePassword, updateProfile, uploadAvatar, sendOtp, verifyOtp, getOtpInfo, sendVerificationLink, updateVerificationData, saveOnboardingDraft, checkEmailVerification, } from "../../controllers/auth/auth.controller.js";
+import { login, register, registerAdmin, logout, refresh, me, forgotPassword, verifyPasswordResetOtp, resetPassword, changePassword, updateProfile, uploadAvatar, sendOtp, verifyOtp, getOtpInfo, sendVerificationLink, updateVerificationData, saveOnboardingDraft, checkEmailVerification, } from "../../controllers/auth/auth.controller.js";
 import { googleAuthStart, googleAuthCallback, appleAuthStart, appleAuthCallback, selectSocialRole, linkSocialAccount, } from "../../controllers/auth/social-auth.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/upload.middleware.js";
@@ -12,6 +12,7 @@ router.post("/admin/signup", registerAdmin);
 router.post("/logout", authMiddleware, logout);
 router.post("/refresh", refresh);
 router.post("/forgot-password", forgotPassword);
+router.post("/verify-password-reset-otp", verifyPasswordResetOtp);
 router.post("/reset-password", resetPassword);
 router.post("/change-password", authMiddleware, changePassword);
 router.get("/me", authMiddleware, me);

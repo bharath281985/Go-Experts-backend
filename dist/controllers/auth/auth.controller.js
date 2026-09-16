@@ -339,7 +339,7 @@ export const login = async (req, res, next) => {
         }
         const userStatus = String(user.status).toLowerCase();
         const isExpiredPlanInactive = userStatus === "inactive" && subscriptionGate.status === "expired";
-        if (["suspended", "inactive", "pending"].includes(userStatus) && !isExpiredPlanInactive) {
+        if (["suspended", "inactive"].includes(userStatus) && !isExpiredPlanInactive) {
             const reason = userStatus === "suspended" ? "Account suspended" : `Account ${userStatus}`;
             const msg = userStatus === "suspended"
                 ? "Your account is suspended. Please contact support."
@@ -1519,15 +1519,10 @@ export const forgotPassword = async (req, res, next) => {
         const subject = admin
             ? { id: admin.id, email: admin.email, type: "admin" }
             : { id: portalUser.id, email: portalUser.email, type: "portal" };
-        const resetToken = jwt.sign({ id: subject.id, email: subject.email, type: subject.type, purpose: "password_reset" }, env.JWT_SECRET, { expiresIn: "1h" });
-        const settingKey = `password_reset:${subject.type}:${subject.id}`;
-        await prisma.setting.upsert({
-            where: { key: settingKey },
-            update: { value: resetToken, category: "security" },
-            create: { key: settingKey, value: resetToken, category: "security" },
-        });
-        const resetUrl = `${env.FRONTEND_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(resetToken)}`;
-        console.log(`[password-reset] ${subject.email} → ${resetUrl}`);
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const key = `pwreset_${subject.email}`;
+        otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+        console.log(`[password-reset] ${subject.email} → OTP: ${otp}`);
         // Attempt email through the active SMTP channel and report delivery failures.
         try {
             const nodemailer = await import("nodemailer");
@@ -1551,13 +1546,35 @@ export const forgotPassword = async (req, res, next) => {
                     secure: smtpSecure,
                     auth: { user: smtpUser, pass: smtpPass },
                 });
+                const htmlBody = `
+          <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Security</p>
+          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request 🔑</h1>
+          <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Use the code below to securely verify your identity.</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
+            <tr>
+              <td align="center" style="background:#0f172a;border-radius:12px;padding:28px 24px;">
+                <p style="margin:0 0 10px;color:#94a3b8;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;">Reset Code</p>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                  <tr>
+                    ${otp.split('').map(digit => `
+                    <td style="padding:0 4px;">
+                      <div style="width:44px;height:56px;background:#1e293b;border:2px solid #f97316;border-radius:8px;text-align:center;line-height:56px;color:#f97316;font-size:28px;font-weight:800;font-family:monospace;">${digit}</div>
+                    </td>`).join('')}
+                  </tr>
+                </table>
+                <p style="margin:14px 0 0;color:#475569;font-size:12px;"> Expires in <strong style="color:#f59e0b;">10 minutes</strong></p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
+        `;
                 console.log(`[password-reset] Sending mail...`);
                 const info = await transporter.sendMail({
                     from: smtpFrom,
                     to: subject.email,
                     subject: "Go Experts — Password Reset",
-                    text: `Reset your password using this link (valid 1 hour):\n\n${resetUrl}\n`,
-                    html: `<p>Reset your password using this link (valid 1 hour):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+                    text: `Reset your password using this code (valid 10 minutes):\n\n${otp}\n`,
+                    html: htmlBody,
                 });
                 console.log(`[password-reset] Email sent successfully: ${info.messageId}`);
             }
@@ -1574,10 +1591,51 @@ export const forgotPassword = async (req, res, next) => {
             message: okMessage,
         };
         if (env.NODE_ENV !== "production") {
-            payload.resetToken = resetToken;
-            payload.resetUrl = resetUrl;
+            payload.otp = otp;
         }
         return res.json(payload);
+    }
+    catch (err) {
+        next(err);
+    }
+};
+export const verifyPasswordResetOtp = async (req, res, next) => {
+    try {
+        const { email, otp } = req.body || {};
+        if (!email || !otp) {
+            return res.status(400).json(errorResponse("Email and OTP are required", "VALIDATION_ERROR"));
+        }
+        const cleanEmail = String(email).trim().toLowerCase();
+        const cleanOtp = String(otp).trim();
+        const key = `pwreset_${cleanEmail}`;
+        const stored = otpStore.get(key);
+        if (!stored || stored.expiresAt <= Date.now()) {
+            return res.status(400).json(errorResponse("The verification code has expired.", "INVALID_OTP"));
+        }
+        if (stored.otp !== cleanOtp) {
+            return res.status(400).json(errorResponse("The verification code is incorrect.", "INVALID_OTP"));
+        }
+        otpStore.delete(key);
+        const admin = await prisma.adminUser.findFirst({
+            where: { OR: [{ email: cleanEmail }, { email: String(req.body?.email || "").trim() }] },
+        });
+        const portalUser = !admin
+            ? await prisma.user.findFirst({ where: { email: cleanEmail, deletedAt: null } })
+            : null;
+        if (!admin && !portalUser) {
+            return res.status(404).json({ success: false, message: "Account not found" });
+        }
+        const subject = admin
+            ? { id: admin.id, email: admin.email, type: "admin" }
+            : { id: portalUser.id, email: portalUser.email, type: "portal" };
+        const resetToken = jwt.sign({ id: subject.id, email: subject.email, type: subject.type, purpose: "password_reset" }, env.JWT_SECRET, { expiresIn: "1h" });
+        const settingKey = `password_reset:${subject.type}:${subject.id}`;
+        await prisma.setting.upsert({
+            where: { key: settingKey },
+            update: { value: resetToken, category: "security" },
+            create: { key: settingKey, value: resetToken, category: "security" },
+        });
+        return res.json(successResponse("OTP verified successfully", { token: resetToken }));
     }
     catch (err) {
         next(err);
