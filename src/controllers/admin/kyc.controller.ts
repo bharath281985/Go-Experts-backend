@@ -3,56 +3,81 @@ import { prisma } from "../../config/database.js";
 import { getVerificationStats, applyVerificationUpdate } from "../../common/helpers/verification.js";
 import type { VerificationItem } from "../../common/helpers/verification.js";
 
-import { getSettingsSection } from "../../services/settings/settings.service.js";
+async function getWelcomeBonusConfig() {
+    const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
+    let settings: any = {};
+    if (settingsRecord?.value) {
+        try {
+            settings = JSON.parse(settingsRecord.value);
+        } catch {
+            settings = {};
+        }
+    }
+
+    const generalSettings = settings.general || settings;
+    const enabled = generalSettings.welcomeBonusEnabled ?? generalSettings.welcome_bonus_enabled ?? true;
+    const amount = Number(generalSettings.welcomeBonusAmount ?? generalSettings.welcome_bonus_amount ?? 99);
+
+    return {
+        enabled: enabled !== false,
+        amount: Number.isFinite(amount) && amount > 0 ? amount : 99,
+    };
+}
 
 async function triggerWelcomeBonus(user: any) {
     if (!user || !user.id || !user.email) return;
 
     try {
-        const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
-        if (!settingsRecord) return;
-        
-        let settings: any = {};
-        try {
-            settings = JSON.parse(settingsRecord.value);
-        } catch(e) {}
-        
-        if (!settings.welcome_bonus_enabled) return;
+        const { enabled, amount } = await getWelcomeBonusConfig();
+        if (!enabled) return;
 
-        const amount = Number(settings.welcome_bonus_amount) || 99;
-
-        // Check if bonus already given
-        const existingTxn = await prisma.walletTransaction.findFirst({
-            where: {
-                wallet: { userId: user.id },
-                description: "Welcome Bonus"
-            }
-        });
-        
-        if (existingTxn) return; // already got it
-
-        await prisma.$transaction(async (tx) => {
-            let wallet = await tx.wallet.findFirst({ where: { userId: user.id } });
+        const result = await prisma.$transaction(async (tx) => {
+            let wallet = await tx.wallet.findUnique({ where: { userId: user.id } });
             if (!wallet) {
                 wallet = await tx.wallet.create({ data: { userId: user.id, balance: 0, currency: "INR" } });
             }
+
+            const existingTxn = await tx.walletTransaction.findFirst({
+                where: {
+                    walletId: wallet.id,
+                    direction: "credit",
+                    OR: [
+                        { type: "welcome_bonus" },
+                        { type: "Bonus", description: "Welcome Bonus" },
+                        { description: "Welcome Bonus" },
+                    ],
+                },
+            });
+            if (existingTxn) return null;
+
             const updatedWallet = await tx.wallet.update({
                 where: { id: wallet.id },
                 data: { balance: { increment: amount } }
             });
-            await tx.walletTransaction.create({
+            const transaction = await tx.walletTransaction.create({
                 data: {
                     walletId: wallet.id,
-                    type: "Bonus",
+                    type: "welcome_bonus",
                     direction: "credit",
-                    amount: amount,
+                    amount,
                     description: "Welcome Bonus",
                     balanceAfter: updatedWallet.balance
                 }
             });
+            await tx.walletBonus.create({
+                data: {
+                    walletId: wallet.id,
+                    amount,
+                    reason: "Welcome Bonus",
+                    status: "active",
+                },
+            }).catch(() => null);
+
+            return transaction;
         });
 
-        // Send Email
+        if (!result) return;
+
         const { sendWelcomeBonusEmail } = await import("../../services/mobile/email.service.js");
         await sendWelcomeBonusEmail(user.email, user.fullName || 'User', amount);
     } catch (e) {
@@ -219,20 +244,24 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
 
         await sendKycStatusEmailForAdminUpdate(id, updatePayload, stats);
 
-        // Auto-approve user if all required documents are verified
-        if (stats && stats.requiredVerified >= stats.requiredTotal) {
+        // Auto-approve user and credit welcome bonus if all required documents are verified.
+        // Bonus credit is idempotent, so already-verified users who missed it can receive it now.
+        if (stats && stats.requiredTotal > 0 && stats.requiredVerified >= stats.requiredTotal) {
             const freshUserForCheck = await prisma.user.findFirst({ where: { id, deletedAt: null } });
-            if (freshUserForCheck && (!freshUserForCheck.verified || !freshUserForCheck.isVerified)) {
-                await prisma.user.update({
-                    where: { id },
-                    data: { verified: true, isVerified: true }
-                });
-                const { sendAccountActiveEmail, sendPlanActivationEmail } = await import("../../services/mobile/email.service.js");
-                if (freshUserForCheck.email) {
-                    await sendAccountActiveEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
-                    await sendPlanActivationEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
-                    await triggerWelcomeBonus(freshUserForCheck);
+            if (freshUserForCheck) {
+                const wasAlreadyVerified = Boolean(freshUserForCheck.verified && freshUserForCheck.isVerified);
+                if (!wasAlreadyVerified) {
+                    await prisma.user.update({
+                        where: { id },
+                        data: { verified: true, isVerified: true }
+                    });
+                    const { sendAccountActiveEmail, sendPlanActivationEmail } = await import("../../services/mobile/email.service.js");
+                    if (freshUserForCheck.email) {
+                        await sendAccountActiveEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
+                        await sendPlanActivationEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
+                    }
                 }
+                await triggerWelcomeBonus(freshUserForCheck);
             }
         }
 
