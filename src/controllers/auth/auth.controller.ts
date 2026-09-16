@@ -2731,8 +2731,15 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
     // Send welcome email ONLY when all steps are completed and it hasn't been sent before
     if (isCompleted) {
       const freshUser = await prisma.user.findUnique({ where: { id: userId } });
-      const regData: any = freshUser?.registrationData || {};
-      const alreadySentWelcome = (typeof regData === 'object' ? regData : {}).welcomeEmailSent === true;
+      
+      let parsedRegData: any = {};
+      if (typeof freshUser?.registrationData === 'string' && freshUser.registrationData) {
+        try { parsedRegData = JSON.parse(freshUser.registrationData); } catch (e) {}
+      } else if (typeof freshUser?.registrationData === 'object' && freshUser.registrationData !== null) {
+        parsedRegData = freshUser.registrationData;
+      }
+
+      const alreadySentWelcome = parsedRegData.welcomeEmailSent === true;
 
       if (!alreadySentWelcome) {
         try {
@@ -2767,11 +2774,11 @@ export const saveOnboardingDraft = async (req: AuthenticatedRequest, res: Respon
           );
 
           // Mark welcome email as sent to prevent duplicates
-          const latestRegData = typeof freshUser?.registrationData === 'object' ? freshUser?.registrationData : {};
+          parsedRegData.welcomeEmailSent = true;
           await prisma.user.update({
             where: { id: userId },
             data: {
-              registrationData: JSON.stringify({ ...(latestRegData as object), welcomeEmailSent: true }),
+              registrationData: JSON.stringify(parsedRegData),
             },
           });
 

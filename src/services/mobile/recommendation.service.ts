@@ -29,26 +29,36 @@ export class RecommendationEngine {
     }).catch(() => []);
     const activeClientIds = activeClients.map((c) => c.id);
 
-    const recommendedProjects = activeClientIds.length === 0 ? [] : await prisma.project.findMany({
+    const projects = activeClientIds.length === 0 ? [] : await prisma.project.findMany({
       where: {
         status: { in: ['open', 'approved', 'active', 'Published', 'Open', 'Approved', 'Active'] },
         deletedAt: null,
         client: { in: activeClientIds },
       },
       orderBy: { createdAt: 'desc' },
-      take: limit
+      take: limit * 3
     });
+
+    const scoredProjects = projects.map(p => ({
+      ...p,
+      _score: RecommendationEngine.computeProjectScore(p, user?.freelancerProfile)
+    })).sort((a, b) => b._score - a._score).slice(0, limit);
 
     // Recommended Clients: active clients with most posted projects
-    const recommendedClients = await prisma.user.findMany({
+    const clients = await prisma.user.findMany({
       where: { role: 'client', status: 'active', deletedAt: null },
       include: { clientProfile: true },
-      take: limit
+      take: limit * 2
     });
 
+    const scoredClients = clients.map(c => ({
+      ...c,
+      _score: RecommendationEngine.computeClientScore(c, user?.freelancerProfile)
+    })).sort((a, b) => b._score - a._score).slice(0, limit);
+
     return {
-      recommendedProjects: RecommendationEngine.scoreAndSort(recommendedProjects, []),
-      recommendedClients: recommendedClients.slice(0, limit),
+      recommendedProjects: scoredProjects,
+      recommendedClients: scoredClients,
       recommendedSkills: ['React Native', 'Node.js', 'Python', 'Flutter', 'AWS'] // derived from top market demand
     };
   }
@@ -62,17 +72,20 @@ export class RecommendationEngine {
       include: { clientProfile: true }
     });
 
+    const clientProjects = await prisma.project.findMany({ where: { client: userId, status: { in: ['open', 'Open'] } } });
+    const clientTechs = clientProjects.map(p => p.technology).filter(Boolean).join(',');
+
     // Recommend highly active freelancers with complete profiles
     const recommendedFreelancers = await prisma.user.findMany({
       where: { role: 'freelancer', status: 'active', deletedAt: null, isVerified: true },
       include: { freelancerProfile: true },
-      take: limit * 2
+      take: limit * 3
     });
 
-    // Score by profile completeness and verified status
+    // Score by profile completeness, verified status, and skill match
     const scored = recommendedFreelancers.map(f => ({
       ...f,
-      _score: RecommendationEngine.computeUserScore(f)
+      _score: RecommendationEngine.computeFreelancerScore(f, user?.clientProfile, clientTechs)
     })).sort((a, b) => b._score - a._score).slice(0, limit);
 
     return {
@@ -157,16 +170,42 @@ export class RecommendationEngine {
 
   // ─── SCORING UTILITIES ───
 
-  private static computeUserScore(user: any): number {
+  private static checkMatch(strA?: string | null, strB?: string | null): boolean {
+    if (!strA || !strB) return false;
+    const arrA = strA.split(',').map(s => s.trim().toLowerCase());
+    const arrB = strB.split(',').map(s => s.trim().toLowerCase());
+    return arrA.some(a => arrB.includes(a));
+  }
+
+  private static computeProjectScore(project: any, freelancerProfile: any): number {
+    let score = 50;
+    if (RecommendationEngine.checkMatch(project.technology, freelancerProfile?.skills)) score += 30;
+    if (RecommendationEngine.checkMatch(project.category, freelancerProfile?.industry)) score += 20;
+    return score;
+  }
+
+  private static computeClientScore(client: any, freelancerProfile: any): number {
+    let score = 50;
+    if (client.isVerified) score += 20;
+    if (client.clientProfile?.totalSpend && client.clientProfile.totalSpend > 0) score += 10;
+    if (RecommendationEngine.checkMatch(client.clientProfile?.industry, freelancerProfile?.industry)) score += 20;
+    return score;
+  }
+
+  private static computeFreelancerScore(freelancer: any, clientProfile: any, clientTechs: string): number {
     let score = 0;
-    if (user.isVerified) score += 30;
-    if (user.avatarUrl) score += 10;
-    if (user.bio) score += 10;
-    if (user.city) score += 5;
-    if (user.phone) score += 5;
-    if (user.subscriptions?.length > 0) score += 20;
-    if (user.freelancerProfile?.skills) score += 15;
-    if (user.isOnline) score += 5;
+    if (freelancer.isVerified) score += 30;
+    if (freelancer.avatarUrl) score += 10;
+    if (freelancer.bio) score += 10;
+    if (freelancer.city) score += 5;
+    if (freelancer.phone) score += 5;
+    if (freelancer.subscriptions?.length > 0) score += 20;
+    if (freelancer.freelancerProfile?.skills) score += 15;
+    if (freelancer.isOnline) score += 5;
+    
+    if (RecommendationEngine.checkMatch(freelancer.freelancerProfile?.skills, clientTechs)) score += 30;
+    if (RecommendationEngine.checkMatch(freelancer.freelancerProfile?.industry, clientProfile?.industry)) score += 20;
+    
     return score;
   }
 
@@ -176,7 +215,7 @@ export class RecommendationEngine {
     if (startup.founderProfile?.teamSize && startup.founderProfile.teamSize > 1) score += 10;
     if (startup.isVerified) score += 25;
     if (startup.founderProfile?.stage) score += 10;
-    if (startup.founderProfile?.industry && investorProfile?.focusAreas?.includes(startup.founderProfile.industry)) score += 30;
+    if (RecommendationEngine.checkMatch(startup.founderProfile?.industry, investorProfile?.focusAreas)) score += 30;
     return score;
   }
 
@@ -185,15 +224,8 @@ export class RecommendationEngine {
     if (investor.investorProfile?.ticketMin && investor.investorProfile?.ticketMax) score += 20;
     if (investor.isVerified) score += 25;
     if (investor.investorProfile?.deals > 0) score += 15;
-    if (investor.investorProfile?.focusAreas && founderProfile?.industry && investor.investorProfile.focusAreas.includes(founderProfile.industry)) score += 30;
+    if (RecommendationEngine.checkMatch(investor.investorProfile?.focusAreas, founderProfile?.industry)) score += 30;
     if (investor.isOnline) score += 10;
     return score;
-  }
-
-  private static scoreAndSort(items: any[], boostIds: string[]): any[] {
-    return items.map(item => ({
-      ...item,
-      _score: boostIds.includes(item.id) ? 100 : 50
-    })).sort((a, b) => b._score - a._score);
   }
 }
