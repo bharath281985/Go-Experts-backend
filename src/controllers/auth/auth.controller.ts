@@ -1898,6 +1898,17 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
       return res.status(400).json({ success: false, message: "Email or mobile number is required" });
     }
 
+    const isSignup = req.body?.isSignup === true || req.body?.isSignup === "true";
+    if (isSignup && email) {
+      const existingUser = await prisma.user.findFirst({
+        where: { email },
+        select: { id: true },
+      });
+      if (existingUser) {
+        return res.status(409).json({ success: false, message: "A user with this email already exists. Please use a different email address or log in." });
+      }
+    }
+
     const crypto = await import("crypto");
     const otp = crypto.randomInt(100000, 1000000).toString();
     const key = (email || mobile).toLowerCase();
