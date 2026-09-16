@@ -1,5 +1,5 @@
 import { prisma } from "../../config/database.js";
-
+import { getVerificationStats } from "../../common/helpers/verification.js";
 export async function activateFreeTrialOnKycApproval(userId: string) {
   try {
     if (!userId) return { success: false, message: "Missing userId" };
@@ -8,6 +8,10 @@ export async function activateFreeTrialOnKycApproval(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
+        freelancerProfile: true,
+        clientProfile: true,
+        founderProfile: true,
+        investorProfile: true,
         subscriptions: {
           where: { status: "active" },
           include: { plan: true },
@@ -19,7 +23,12 @@ export async function activateFreeTrialOnKycApproval(userId: string) {
       return { success: false, message: "User not found" };
     }
 
-    // 2. Always mark as verified/active when admin approves, even if trial already exists
+
+    const verificationStats = getVerificationStats(user);
+    if (!verificationStats.kycApproved) {
+      return { success: false, message: "KYC is not approved yet" };
+    }
+// 2. Always mark as verified/active when admin approves, even if trial already exists
     await prisma.user.update({
       where: { id: user.id },
       data: { isVerified: true, verified: true, status: "active" },
@@ -111,7 +120,7 @@ export async function activateFreeTrialOnKycApproval(userId: string) {
         data: {
           userId: user.id,
           type: "system",
-          title: "🎉 KYC Approved & 90-Day Free Plan Activated!",
+          title: "Ã°Å¸Å½â€° KYC Approved & 90-Day Free Plan Activated!",
           message: `Congratulations ${user.fullName || ""}! Your KYC has been approved. You have been granted a 90-Day Free Access Plan until ${endDate.toLocaleDateString("en-IN")}.`,
           channel: "in_app",
           priority: "high",
@@ -122,7 +131,7 @@ export async function activateFreeTrialOnKycApproval(userId: string) {
       console.error("[FreeTrialService] Failed to send notification:", notifErr);
     }
 
-    console.log(`[FreeTrialService] ✅ Activated 90-day free plan for ${user.id} (${user.email}) until ${endDate.toISOString()}`);
+    console.log(`[FreeTrialService] Ã¢Å“â€¦ Activated 90-day free plan for ${user.id} (${user.email}) until ${endDate.toISOString()}`);
 
     return { success: true, subscription: createdSub, expiresAt: endDate };
   } catch (err: any) {
