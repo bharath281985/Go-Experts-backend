@@ -335,7 +335,7 @@ export const SETTINGS_DEFAULTS = {
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2d3748; background: #ffffff; border-radius: 12px; border: 1px solid #eaedf1; overflow: hidden;">
           <div style="padding: 24px; text-align: center; border-bottom: 3px solid #E30613;">
-            <img src="https://goexperts.in/assets/img/logo.png" alt="Go Experts" style="max-height: 44px;" />
+            <img src="https://goexperts.in/logo.png" alt="Go Experts" style="max-height: 44px;" />
           </div>
           <div style="padding: 32px 24px;">
             <h2 style="color: #1a202c; font-size: 22px; font-weight: 800; margin-bottom: 12px;">Verify Your Email Address 📧</h2>
@@ -351,6 +351,10 @@ export const SETTINGS_DEFAULTS = {
             </div>
             
             <p style="font-size: 13px; color: #718096; margin-top: 24px;">Button not working? Copy and paste this link:<br/><a href="{{verification_link}}" style="color: #E30613;">{{verification_link}}</a></p>
+          </div>
+          <div style="background-color: #fafbfc; padding: 24px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #edf2f7;">
+            <p style="margin: 0 0 6px 0; font-weight: 600; color: #4a5568;">Go Experts &bull; Working With You. For You.</p>
+            <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:servicedesk@goexperts.in" style="color: #E30613; text-decoration: none;">servicedesk@goexperts.in</a></p>
           </div>
         </div>
       `,
