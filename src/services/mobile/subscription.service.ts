@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database.js';
-import { sendPlanExpiredEmail, sendReferralCashbackEmail } from './email.service.js';
+import { sendFreePlanActivatedEmail, sendPlanExpiredEmail, sendReferralCashbackEmail } from './email.service.js';
 import { NotificationEngine } from './notification.engine.js';
 import { getSettingsSection } from '../settings/settings.service.js';
 
@@ -88,6 +88,136 @@ export const computeSubscriptionEndDate = (billingCycle: BillingCycle = 'monthly
     endDate.setMonth(endDate.getMonth() + 1);
   }
   return endDate;
+};
+
+const normalizeRoleForPlan = (role?: string | null) => {
+  const value = String(role || 'freelancer').toLowerCase().trim();
+  if (value.includes('client') || value.includes('business') || value.includes('employer')) return 'client';
+  if (value.includes('founder') || value.includes('startup')) return 'founder';
+  if (value.includes('investor')) return 'investor';
+  return 'freelancer';
+};
+
+const computePlanEndDate = (duration?: string | null) => {
+  const endDate = new Date();
+  const normalized = String(duration || 'monthly').toLowerCase().trim();
+  if (normalized.includes('year')) endDate.setFullYear(endDate.getFullYear() + 1);
+  else if (normalized.includes('quarter')) endDate.setMonth(endDate.getMonth() + 3);
+  else if (normalized.includes('week')) endDate.setDate(endDate.getDate() + 7);
+  else if (normalized.includes('day')) endDate.setDate(endDate.getDate() + 1);
+  else if (normalized.includes('90')) endDate.setDate(endDate.getDate() + 90);
+  else endDate.setMonth(endDate.getMonth() + 1);
+  return endDate;
+};
+
+const resolveRoleFreePlan = async (role?: string | null) => {
+  const normalizedRole = normalizeRoleForPlan(role);
+  const roleLabel = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
+  const freeNameFilters = [
+    { name: { contains: 'Starter' } },
+    { name: { contains: 'Free' } },
+    { name: { contains: 'starter' } },
+    { name: { contains: 'free' } },
+  ];
+
+  const rolePlan = await prisma.subscriptionPlan.findFirst({
+    where: {
+      status: 'active',
+      role: normalizedRole,
+      OR: [{ amount: 0 }, ...freeNameFilters],
+    },
+    orderBy: { amount: 'asc' },
+  });
+  if (rolePlan) return rolePlan;
+
+  const planName = `${roleLabel} Starter`;
+  return prisma.subscriptionPlan.create({
+    data: {
+      name: planName,
+      role: normalizedRole,
+      amount: 0,
+      currency: 'INR',
+      duration: 'monthly',
+      features: JSON.stringify(['Role dashboard access', 'Verified account tools', 'Basic discovery access']),
+      limits: JSON.stringify({ projects: 1, proposals: 5, connections: 10 }),
+      visibility: 'public',
+      status: 'active',
+    },
+  }).catch(async () => {
+    const fallback = await prisma.subscriptionPlan.findFirst({
+      where: { status: 'active', role: normalizedRole, OR: [{ amount: 0 }, ...freeNameFilters] },
+      orderBy: { amount: 'asc' },
+    });
+    return fallback || ensureFreeStarterPlan(normalizedRole);
+  });
+};
+
+export const activateFreePlanAfterKyc = async (userId: string) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user?.email) return null;
+
+  const existingActive = await prisma.subscription.findFirst({
+    where: { userId, status: 'active' },
+    include: { plan: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (existingActive) return existingActive;
+
+  const plan = await resolveRoleFreePlan(user.role);
+  const now = new Date();
+
+  const subscription = await prisma.$transaction(async (tx) => {
+    await tx.subscription.updateMany({
+      where: { userId, status: { in: ['pending', 'trial'] } },
+      data: { status: 'cancelled', cancelledAt: now, cancellationReason: 'Free plan activated after KYC verification' },
+    }).catch(() => null);
+
+    const created = await tx.subscription.create({
+      data: {
+        userId,
+        planId: plan.id,
+        status: 'active',
+        startDate: now,
+        endDate: computePlanEndDate(plan.duration),
+        autoRenew: false,
+      },
+      include: { plan: true },
+    });
+
+    await tx.subscriptionHistory.create({
+      data: {
+        userId,
+        planId: plan.id,
+        action: 'free_plan_activated_after_kyc',
+        metadata: JSON.stringify({ source: 'kyc_verified', activatedAt: now.toISOString() }),
+      },
+    }).catch(() => null);
+
+    await tx.subscriptionTransaction.create({
+      data: {
+        subscriptionId: created.id,
+        type: 'free_activation',
+        amount: 0,
+        currency: plan.currency || 'INR',
+        gateway: 'system',
+        transactionRef: `free-kyc-${created.id}`,
+        status: 'success',
+      },
+    }).catch(() => null);
+
+    return created;
+  });
+
+  await reactivateAccountAfterPlanUpgrade(userId).catch(() => null);
+  await sendFreePlanActivatedEmail(
+    user.email,
+    user.fullName || 'User',
+    user.role || 'user',
+    subscription.plan?.name || plan.name || 'Free Plan',
+    subscription.endDate,
+  ).catch((error) => console.error('Free plan activation email error:', error));
+
+  return subscription;
 };
 
 /**
@@ -191,8 +321,8 @@ export const activateUserSubscription = async (
           await NotificationEngine.queueNotification({
             userId: referrerId,
             type: 'referral_cashback',
-            title: 'Cashback Received! 💰',
-            message: `You received ₹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
+            title: 'Cashback Received! ðŸ’°',
+            message: `You received â‚¹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
             channel: 'in_app',
             payload: { amount: cashbackAmount, friend: referral.referee.fullName },
           }).catch(console.error);

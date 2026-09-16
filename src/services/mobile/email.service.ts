@@ -131,7 +131,7 @@ export const shell = (preheader: string, body: string) => `
             </td>
           </tr>
 
-          <!--  FOOTER — Info Bar  -->
+          <!--  FOOTER Ã¢â‚¬â€ Info Bar  -->
           <tr>
             <td style="background:#0d766e;padding:18px 36px;border-left:1px solid #0d766e;border-right:1px solid #0d766e;">
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
@@ -139,7 +139,7 @@ export const shell = (preheader: string, body: string) => `
                   <td style="vertical-align:middle;">
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                       <tr>
-                        <td style="padding-right:6px;font-size:14px;">🌐</td>
+                        <td style="padding-right:6px;font-size:14px;">Ã°Å¸Å’Â</td>
                         <td>
                           <a href="https://goexperts.in" style="color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;font-family:Inter,Arial,sans-serif;">www.goexperts.in</a>
                         </td>
@@ -149,7 +149,7 @@ export const shell = (preheader: string, body: string) => `
                   <td align="right" style="vertical-align:middle;">
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                       <tr>
-                        <td style="padding-right:6px;font-size:14px;">📧</td>
+                        <td style="padding-right:6px;font-size:14px;">Ã°Å¸â€œÂ§</td>
                         <td>
                           <a href="mailto:servicedesk@goexperts.in" style="color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;font-family:Inter,Arial,sans-serif;">servicedesk@goexperts.in</a>
                         </td>
@@ -161,7 +161,7 @@ export const shell = (preheader: string, body: string) => `
             </td>
           </tr>
 
-          <!--  FOOTER — App Download  -->
+          <!--  FOOTER Ã¢â‚¬â€ App Download  -->
           <tr>
             <td style="background:#f8fafc;padding:28px 36px 24px;text-align:center;border-left:1px solid #e2e8f0;border-right:1px solid #e2e8f0;">
               <p style="margin:0 0 6px;color:#374151;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:Inter,Arial,sans-serif;">Download Our App</p>
@@ -221,7 +221,7 @@ export const shell = (preheader: string, body: string) => `
             </td>
           </tr>
 
-          <!--  FOOTER — Social + Copyright  -->
+          <!--  FOOTER Ã¢â‚¬â€ Social + Copyright  -->
           <tr>
             <td style="background:#f1f5f9;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 14px 14px;padding:20px 36px 24px;text-align:center;">
               <!-- Social icons -->
@@ -239,13 +239,13 @@ export const shell = (preheader: string, body: string) => `
                   </td>
                   <td style="padding:0 6px;">
                     <a href="${INSTAGRAM_URL}" target="_blank" style="text-decoration:none;display:inline-block;">
-                      <div style="width:34px;height:34px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);border-radius:8px;text-align:center;line-height:34px;font-size:18px;">📸</div>
+                      <div style="width:34px;height:34px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);border-radius:8px;text-align:center;line-height:34px;font-size:18px;">Ã°Å¸â€œÂ¸</div>
                     </a>
                   </td>
                 </tr>
               </table>
               <!-- Tagline -->
-              <p style="margin:0 0 10px;color:#475569;font-size:13px;font-weight:600;font-family:Inter,Arial,sans-serif;">GoExperts — Connect. Build. Scale. Globally.</p>
+              <p style="margin:0 0 10px;color:#475569;font-size:13px;font-weight:600;font-family:Inter,Arial,sans-serif;">GoExperts Ã¢â‚¬â€ Connect. Build. Scale. Globally.</p>
               <!-- Divider -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="60%" align="center" style="margin:0 auto 10px;">
                 <tr><td style="border-top:1px solid #e2e8f0;"></td></tr>
@@ -332,28 +332,28 @@ export const sendAccountActiveEmail = (to: string, name: string) => {
 
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Account Status Update</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your account is now active! 🎉</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your account is now active! Ã°Å¸Å½â€°</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
 
-    ${alertBox('✅', 'KYC Verification Approved', 'Your identity has been verified by our admin team. Your Go Experts account is now fully active and ready to use.', '#f0fdf4', '#22c55e', '#15803d', '#166534')}
+    ${alertBox('Ã¢Å“â€¦', 'KYC Verification Approved', 'Your identity has been verified by our admin team. Your Go Experts account is now fully active and ready to use.', '#f0fdf4', '#22c55e', '#15803d', '#166534')}
 
     <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">
-      Welcome to Go Experts — a premium platform that connects top global talent with clients, investors, and founders across every industry.
+      Welcome to Go Experts Ã¢â‚¬â€ a premium platform that connects top global talent with clients, investors, and founders across every industry.
     </p>
 
     ${featureList([
-    { icon: '🔒', text: 'Your account is secured and verified' },
-    { icon: '🌍', text: 'Access the full platform and connect globally' },
-    { icon: '👤', text: 'Your profile is now visible to potential collaborators' },
+    { icon: 'Ã°Å¸â€â€™', text: 'Your account is secured and verified' },
+    { icon: 'Ã°Å¸Å’Â', text: 'Access the full platform and connect globally' },
+    { icon: 'Ã°Å¸â€˜Â¤', text: 'Your profile is now visible to potential collaborators' },
   ], '#22c55e')}
 
     ${divider()}
 
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f8fafc;border-radius:8px;padding:1px;">
       <tr><td style="padding:20px 24px;">
-        <p style="margin:0 0 4px;color:#374151;font-size:13px;font-weight:700;">📨 What happens next?</p>
+        <p style="margin:0 0 4px;color:#374151;font-size:13px;font-weight:700;">Ã°Å¸â€œÂ¨ What happens next?</p>
         <p style="margin:0;color:#64748b;font-size:13px;line-height:1.7;">
-          Check your inbox for a second email from us — it contains a button to <strong>activate your Free 90-Day Plan</strong>. Click it to unlock full platform access.
+          Check your inbox for a second email from us Ã¢â‚¬â€ it contains a button to <strong>activate your Free 90-Day Plan</strong>. Click it to unlock full platform access.
         </p>
       </td></tr>
     </table>
@@ -365,7 +365,7 @@ export const sendAccountActiveEmail = (to: string, name: string) => {
     <p style="margin:8px 0 0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;
 
-  return sendEmail(to, '✅ Your Go Experts Account is Now Active', shell(
+  return sendEmail(to, 'Ã¢Å“â€¦ Your Go Experts Account is Now Active', shell(
     `Great news, ${firstName}! Your KYC has been approved and your account is now active.`,
     body
   ));
@@ -380,7 +380,7 @@ export const sendPlanActivationEmail = (to: string, name: string) => {
 
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Action Required</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Activate your Free Plan 🚀</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Activate your Free Plan Ã°Å¸Å¡â‚¬</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
 
     <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
@@ -395,12 +395,12 @@ export const sendPlanActivationEmail = (to: string, name: string) => {
             <tr>
               <td>
                 <p style="margin:0 0 4px;color:#0369a1;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Free Starter Plan</p>
-                <p style="margin:0 0 16px;color:#0f172a;font-size:22px;font-weight:800;">90 Days Free Access <span style="font-size:14px;color:#64748b;font-weight:400;">— No credit card required</span></p>
+                <p style="margin:0 0 16px;color:#0f172a;font-size:22px;font-weight:800;">90 Days Free Access <span style="font-size:14px;color:#64748b;font-weight:400;">Ã¢â‚¬â€ No credit card required</span></p>
                 ${featureList([
-    { icon: '💼', text: 'Post and browse unlimited projects & proposals' },
-    { icon: '🤝', text: 'Connect with verified clients, freelancers & investors' },
-    { icon: '🔒', text: 'Secure milestone-based payment escrow system' },
-    { icon: '📊', text: 'Access industry analytics and market insights' },
+    { icon: 'Ã°Å¸â€™Â¼', text: 'Post and browse unlimited projects & proposals' },
+    { icon: 'Ã°Å¸Â¤ÂÃ‚Â', text: 'Connect with verified clients, freelancers & investors' },
+    { icon: 'Ã°Å¸â€â€™', text: 'Secure milestone-based payment escrow system' },
+    { icon: 'Ã°Å¸â€œÅ ', text: 'Access industry analytics and market insights' },
   ], '#3b82f6')}
               </td>
             </tr>
@@ -409,20 +409,71 @@ export const sendPlanActivationEmail = (to: string, name: string) => {
       </tr>
     </table>
 
-    ${ctaButton(activationLink, '🔓 Activate My Free Plan', '#f97316')}
+    ${ctaButton(activationLink, 'Ã°Å¸â€â€œ Activate My Free Plan', '#f97316')}
 
     <p style="margin:0 0 4px;text-align:center;color:#94a3b8;font-size:12px;">Button not working? Copy and paste this link:</p>
     <p style="margin:0;text-align:center;"><a href="${activationLink}" style="color:#3b82f6;font-size:12px;word-break:break-all;text-decoration:none;">${activationLink}</a></p>
 
     ${divider()}
 
-    ${alertBox('⏱️', 'This link is for your account only', 'For your security, the plan activation OTP will be sent to this email address. Do not share your OTP with anyone.', '#fefce8', '#f59e0b', '#92400e', '#78350f')}
+    ${alertBox('Ã¢ÂÂ±Ã¯Â¸Â', 'This link is for your account only', 'For your security, the plan activation OTP will be sent to this email address. Do not share your OTP with anyone.', '#fefce8', '#f59e0b', '#92400e', '#78350f')}
 
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;
 
-  return sendEmail(to, '🚀 Activate Your Free 90-Day Plan on Go Experts', shell(
-    `Your Free 90-Day Plan is ready, ${firstName}! Click to activate now — takes less than 1 minute.`,
+  return sendEmail(to, 'Ã°Å¸Å¡â‚¬ Activate Your Free 90-Day Plan on Go Experts', shell(
+    `Your Free 90-Day Plan is ready, ${firstName}! Click to activate now Ã¢â‚¬â€ takes less than 1 minute.`,
+    body
+  ));
+};
+
+export const sendFreePlanActivatedEmail = (to: string, name: string, role: string, planName = 'Free Plan', endDate?: Date | null) => {
+  const firstName = (name || 'User').split(' ')[0];
+  const roleLabel = (role || 'user').replace(/[_-]+/g, ' ').split(' ').filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+  const dashboardPath = String(role || '').toLowerCase().includes('client') || String(role || '').toLowerCase().includes('business')
+    ? '/business'
+    : String(role || '').toLowerCase().includes('founder') || String(role || '').toLowerCase().includes('startup')
+      ? '/founder'
+      : String(role || '').toLowerCase().includes('investor')
+        ? '/investor'
+        : '/dashboard';
+  const dashboardLink = `${FRONTEND_URL}${dashboardPath}`;
+  const validUntil = endDate
+    ? new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'your plan period';
+
+  const body = `
+    <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Plan Activated</p>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your Free Plan is Active</h1>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
+
+    ${alertBox('OK', 'KYC Approved + Free Plan Activated', `Your KYC is verified and your ${planName} for ${roleLabel} has been activated automatically. No payment or manual activation is required.`, '#f0fdf4', '#22c55e', '#15803d', '#166534')}
+
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border:1px solid #e0f2fe;background:linear-gradient(135deg,#eff6ff 0%,#f8fafc 100%);border-radius:12px;margin:0 0 24px;">
+      <tr><td style="padding:24px;">
+        <p style="margin:0 0 4px;color:#0369a1;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Activated Plan</p>
+        <p style="margin:0 0 8px;color:#0f172a;font-size:22px;font-weight:800;">${planName}</p>
+        <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">Valid until <strong>${validUntil}</strong>.</p>
+      </td></tr>
+    </table>
+
+    ${featureList([
+      { icon: '1', text: 'Access your role dashboard and core workspace tools' },
+      { icon: '2', text: 'Connect with verified users across the Go Experts network' },
+      { icon: '3', text: 'Use platform features with your verified account status' },
+      { icon: '4', text: 'Upgrade anytime when you need advanced limits and premium features' },
+    ], '#3b82f6')}
+
+    ${ctaButton(dashboardLink, 'Go to My Dashboard', '#E30613')}
+
+    <p style="margin:24px 0 0;color:#94a3b8;font-size:13px;line-height:1.6;">
+      Need help? Contact us at <a href="mailto:servicedesk@goexperts.in" style="color:#f97316;text-decoration:none;">servicedesk@goexperts.in</a>.
+    </p>
+    <p style="margin:8px 0 0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
+  `;
+
+  return sendEmail(to, 'Your Go Experts Free Plan is Active', shell(
+    `Your ${planName} is active. Start using your verified Go Experts account today.`,
     body
   ));
 };
@@ -432,14 +483,14 @@ export const sendPlanActivationEmail = (to: string, name: string) => {
 // 
 export const sendPlanActivationOtpEmail = (to: string, token: string) => {
   console.log(`\n======================================================================`);
-  console.log(`🔑 [PLAN ACTIVATION OTP DISPATCH]`);
+  console.log(`Ã°Å¸â€â€˜ [PLAN ACTIVATION OTP DISPATCH]`);
   console.log(`   Recipient: ${to}`);
   console.log(`   OTP Code:  ${token}`);
   console.log(`======================================================================\n`);
 
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Verification Code</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your OTP is here 🔑</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your OTP is here Ã°Å¸â€â€˜</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Use the code below to verify your email and activate your Go Experts free plan.</p>
 
     <!-- OTP Box -->
@@ -468,7 +519,7 @@ export const sendPlanActivationOtpEmail = (to: string, token: string) => {
       ${[
       ['1', '#f97316', 'Go back to the verification page in your browser'],
       ['2', '#3b82f6', 'Enter the 6-digit code shown above'],
-      ['3', '#22c55e', 'Click Verify — your plan activates instantly!'],
+      ['3', '#22c55e', 'Click Verify Ã¢â‚¬â€ your plan activates instantly!'],
     ].map(([num, color, text]) => `
       <tr>
         <td style="padding:6px 0;">
@@ -491,7 +542,7 @@ export const sendPlanActivationOtpEmail = (to: string, token: string) => {
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;
 
-  return sendEmail(to, ' Your Plan Activation Code — Go Experts', shell(
+  return sendEmail(to, ' Your Plan Activation Code Ã¢â‚¬â€ Go Experts', shell(
     `Your OTP is ${token}. Use it to activate your Go Experts free plan. Expires in 10 minutes.`,
     body
   ));
@@ -521,8 +572,8 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
       intro: `Your profile is live and visible to hundreds of verified clients across every industry. Here's how to make the most of your first 90 days:`,
       features: [
         { icon: '', title: 'Browse & Bid on Projects', desc: 'Explore active projects filtered by your skills, budget, and industry category.' },
-        { icon: '💬', title: 'Submit Winning Proposals', desc: 'Use our AI-powered proposal tips to stand out from other freelancers.' },
-        { icon: '🔒', title: 'Get Paid Securely', desc: 'Milestone-based escrow ensures you are always paid for your work on time.' },
+        { icon: 'Ã°Å¸â€™Â¬', title: 'Submit Winning Proposals', desc: 'Use our AI-powered proposal tips to stand out from other freelancers.' },
+        { icon: 'Ã°Å¸â€â€™', title: 'Get Paid Securely', desc: 'Milestone-based escrow ensures you are always paid for your work on time.' },
       ],
       cta1Label: ' Browse Open Projects', cta1Url: `${FRONTEND_URL}/projects`, cta1Color: '#3b82f6',
       cta2Label: 'Complete your profile ', cta2Url: `${FRONTEND_URL}/dashboard/profile`,
@@ -535,11 +586,11 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
       subheadline: 'Your project deserves the best talent. We have thousands of verified professionals.',
       intro: `Your account is active and ready. Post your first project in under 5 minutes and start receiving proposals from verified freelancers.`,
       features: [
-        { icon: '📱', title: 'Post a Project for Free', desc: 'Describe your project, set your budget, and receive proposals within hours.' },
+        { icon: 'Ã°Å¸â€œÂ±Ã‚Â', title: 'Post a Project for Free', desc: 'Describe your project, set your budget, and receive proposals within hours.' },
         { icon: '', title: 'Browse Top Talent', desc: 'Filter freelancers by skills, experience, ratings, and industry expertise.' },
         { icon: '', title: 'Hire with Confidence', desc: 'Milestone-based payments protect both you and your freelancer.' },
       ],
-      cta1Label: '📱 Post a Project Now', cta1Url: `${FRONTEND_URL}/post-project`, cta1Color: '#8b5cf6',
+      cta1Label: 'Ã°Å¸â€œÂ±Ã‚Â Post a Project Now', cta1Url: `${FRONTEND_URL}/post-project`, cta1Color: '#8b5cf6',
       cta2Label: 'Browse freelancers ', cta2Url: `${FRONTEND_URL}/freelancers`,
       accentColor: '#8b5cf6',
       tips: ['Clear project descriptions get 60% more quality proposals', 'Set a realistic budget to attract experienced freelancers', 'Use milestone payments to manage project risk effectively'],
@@ -547,14 +598,14 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
     investor: {
       badge: 'Investor', badgeBg: '#f0fdf4', badgeText: '#15803d',
       headline: 'Discover your next investment',
-      subheadline: 'Curated startup opportunities across high-growth industries — verified and ready.',
+      subheadline: 'Curated startup opportunities across high-growth industries Ã¢â‚¬â€ verified and ready.',
       intro: `Your investor profile is now active. Start exploring startups across your preferred sectors, connect with founders, and track the opportunities that match your thesis.`,
       features: [
-        { icon: '🚀', title: 'Browse Verified Startups', desc: 'Explore startups filtered by industry, stage, traction, and funding ask.' },
-        { icon: '📊', title: 'Track & Analyze', desc: 'View detailed financials, team backgrounds, and market analysis for each startup.' },
-        { icon: '🤝', title: 'Connect with Founders', desc: 'Initiate direct conversations with vetted founders looking for strategic investors.' },
+        { icon: 'Ã°Å¸Å¡â‚¬', title: 'Browse Verified Startups', desc: 'Explore startups filtered by industry, stage, traction, and funding ask.' },
+        { icon: 'Ã°Å¸â€œÅ ', title: 'Track & Analyze', desc: 'View detailed financials, team backgrounds, and market analysis for each startup.' },
+        { icon: 'Ã°Å¸Â¤ÂÃ‚Â', title: 'Connect with Founders', desc: 'Initiate direct conversations with vetted founders looking for strategic investors.' },
       ],
-      cta1Label: '🚀 Explore Startups', cta1Url: `${FRONTEND_URL}/startups`, cta1Color: '#10b981',
+      cta1Label: 'Ã°Å¸Å¡â‚¬ Explore Startups', cta1Url: `${FRONTEND_URL}/startups`, cta1Color: '#10b981',
       cta2Label: 'Set investment preferences ', cta2Url: `${FRONTEND_URL}/dashboard/preferences`,
       accentColor: '#10b981',
       tips: ['Set industry filters to get personalized startup recommendations', 'Complete your investor profile to attract inbound from top founders', 'Follow startups you\'re interested in to track their progress'],
@@ -565,14 +616,14 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
       subheadline: 'Connect with investors who believe in your vision and hire the talent to bring it to life.',
       intro: `Your founder profile is live. Investors are actively browsing for startups like yours. Here is how to maximize your visibility and traction on the platform:`,
       features: [
-        { icon: '💡', title: 'Get Discovered by Investors', desc: 'Your startup profile is visible to hundreds of active investors on the platform.' },
+        { icon: 'Ã°Å¸â€™Â¡', title: 'Get Discovered by Investors', desc: 'Your startup profile is visible to hundreds of active investors on the platform.' },
         { icon: '', title: 'Hire Top Freelancers', desc: 'Build your product faster with verified freelance developers, designers, and marketers.' },
-        { icon: '📈', title: 'Track Investor Engagement', desc: 'See which investors have viewed your profile and expressed interest.' },
+        { icon: 'Ã°Å¸â€œË†', title: 'Track Investor Engagement', desc: 'See which investors have viewed your profile and expressed interest.' },
       ],
-      cta1Label: '💡 View Investor Matches', cta1Url: `${FRONTEND_URL}/investors`, cta1Color: '#f59e0b',
+      cta1Label: 'Ã°Å¸â€™Â¡ View Investor Matches', cta1Url: `${FRONTEND_URL}/investors`, cta1Color: '#f59e0b',
       cta2Label: 'Complete your startup profile ', cta2Url: `${FRONTEND_URL}/dashboard/startup`,
       accentColor: '#f59e0b',
-      tips: ['Add a pitch deck to your profile to increase investor interest by 4x', 'List your traction metrics — investors want to see growth', 'Define your funding ask clearly to attract the right investors'],
+      tips: ['Add a pitch deck to your profile to increase investor interest by 4x', 'List your traction metrics Ã¢â‚¬â€ investors want to see growth', 'Define your funding ask clearly to attract the right investors'],
     },
   };
 
@@ -607,14 +658,14 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
         <td>${badge(cfg.badge, cfg.badgeBg, cfg.badgeText)}</td>
       </tr>
     </table>
-    <h1 style="margin:12px 0 4px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">${cfg.headline} 🎯</h1>
+    <h1 style="margin:12px 0 4px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">${cfg.headline} Ã°Å¸Å½Â¯</h1>
     <p style="margin:0 0 8px;color:#64748b;font-size:15px;font-weight:500;">${cfg.subheadline}</p>
     <p style="margin:0 0 24px;color:#64748b;font-size:14px;">Hi <strong>${firstName}</strong>,</p>
 
     <!-- Green success bar -->
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:24px;">
       <tr><td style="padding:14px 20px;">
-        <p style="margin:0;color:#15803d;font-size:14px;font-weight:700;"> Your free plan is active — 90 days remaining</p>
+        <p style="margin:0;color:#15803d;font-size:14px;font-weight:700;"> Your free plan is active Ã¢â‚¬â€ 90 days remaining</p>
         <p style="margin:4px 0 0;color:#166534;font-size:13px;">You have full access to everything Go Experts has to offer.</p>
       </td></tr>
     </table>
@@ -632,7 +683,7 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
     ${divider()}
 
     <!-- Pro Tips -->
-    <p style="margin:0 0 12px;color:#0f172a;font-size:14px;font-weight:700;">💡 Pro tips for your first week:</p>
+    <p style="margin:0 0 12px;color:#0f172a;font-size:14px;font-weight:700;">Ã°Å¸â€™Â¡ Pro tips for your first week:</p>
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:24px;">
       ${tipsHtml}
     </table>
@@ -648,34 +699,34 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
 
   return sendEmail(
     to,
-    `🎯 Welcome aboard, ${firstName}! Here's how to get started`,
+    `Ã°Å¸Å½Â¯ Welcome aboard, ${firstName}! Here's how to get started`,
     shell(`Your Go Experts free plan is active! Here's everything you need to hit the ground running.`, body)
   );
 };
 
-//  Utility emails — upgraded to premium shell 
+//  Utility emails Ã¢â‚¬â€ upgraded to premium shell
 export const sendWelcomeEmail = (to: string, name: string) => {
   const firstName = (name || 'User').split(' ')[0];
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Welcome</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Welcome to GoExperts! 👋</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Welcome to GoExperts! Ã°Å¸â€˜â€¹</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
     <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
-      We're thrilled to have you join the GoExperts community — the premier global talent platform connecting freelancers, clients, investors, and founders.
+      We're thrilled to have you join the GoExperts community Ã¢â‚¬â€ the premier global talent platform connecting freelancers, clients, investors, and founders.
     </p>
-    ${ctaButton(`${FRONTEND_URL}/dashboard`, '🚀 Go to Dashboard', '#f97316')}
+    ${ctaButton(`${FRONTEND_URL}/dashboard`, 'Ã°Å¸Å¡â‚¬ Go to Dashboard', '#f97316')}
     <p style="margin:24px 0 0;color:#94a3b8;font-size:13px;line-height:1.6;">
       Questions? Reach us at <a href="mailto:servicedesk@goexperts.in" style="color:#f97316;text-decoration:none;">servicedesk@goexperts.in</a>
     </p>
     <p style="margin:8px 0 0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
-  return sendEmail(to, '👋 Welcome to GoExperts!', shell(`Welcome aboard, ${firstName}! Your GoExperts journey starts now.`, body));
+  return sendEmail(to, 'Ã°Å¸â€˜â€¹ Welcome to GoExperts!', shell(`Welcome aboard, ${firstName}! Your GoExperts journey starts now.`, body));
 };
 
 export const sendPasswordResetEmail = (to: string, token: string) => {
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Security</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request 🔑</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request Ã°Å¸â€â€˜</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Use the code below to securely verify your identity.</p>
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
       <tr>
@@ -693,21 +744,21 @@ export const sendPasswordResetEmail = (to: string, token: string) => {
         </td>
       </tr>
     </table>
-    ${alertBox('🔒', 'Did not request this?', 'If you did not request a password reset, you can safely ignore this email. Your account remains secure.', '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
+    ${alertBox('Ã°Å¸â€â€™', 'Did not request this?', 'If you did not request a password reset, you can safely ignore this email. Your account remains secure.', '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
-  return sendEmail(to, '🔑 Password Reset Request — GoExperts', shell('A password reset was requested for your GoExperts account.', body));
+  return sendEmail(to, 'Ã°Å¸â€â€˜ Password Reset Request Ã¢â‚¬â€ GoExperts', shell('A password reset was requested for your GoExperts account.', body));
 };
 
 export const sendVerificationEmail = (to: string, token: string) => {
   console.log(`\n======================================================================`);
-  console.log(`🔑 [MOBILE OTP DISPATCH]`);
+  console.log(`Ã°Å¸â€â€˜ [MOBILE OTP DISPATCH]`);
   console.log(`   Recipient: ${to}`);
   console.log(`   OTP Code:  ${token}`);
   console.log(`======================================================================\n`);
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Verification</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email 📧</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Ã°Å¸â€œÂ§</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Use the one-time code below to verify your GoExperts account.</p>
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
       <tr>
@@ -728,7 +779,7 @@ export const sendVerificationEmail = (to: string, token: string) => {
     ${alertBox('', 'Never share this code', 'GoExperts will NEVER ask for your OTP via phone, chat, or any other method.', '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
-  return sendEmail(to, '📧 Verify Your Email — GoExperts', shell(`Your GoExperts verification code is ${token}. Expires in 10 minutes.`, body));
+  return sendEmail(to, 'Ã°Å¸â€œÂ§ Verify Your Email Ã¢â‚¬â€ GoExperts', shell(`Your GoExperts verification code is ${token}. Expires in 10 minutes.`, body));
 };
 
 export const sendAccountDeletedEmail = (to: string, name: string) => {
@@ -772,7 +823,7 @@ export const sendWelcomeBonusEmail = (to: string, name: string, amount: number) 
     </table>
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
-  return sendEmail(to, ' Welcome Bonus Credited — GoExperts', shell(`Your KYC is approved and your ${amount} welcome bonus is in your wallet!`, body));
+  return sendEmail(to, ' Welcome Bonus Credited Ã¢â‚¬â€ GoExperts', shell(`Your KYC is approved and your ${amount} welcome bonus is in your wallet!`, body));
 };
 
 
@@ -960,14 +1011,14 @@ export const sendCashbackEmail = (to: string, name: string, amount: number, plan
     </table>
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
-  return sendEmail(to, ' Your Monthly Cashback is Here — GoExperts', shell(`You just received ${amount} in your GoExperts wallet!`, body));
+  return sendEmail(to, ' Your Monthly Cashback is Here Ã¢â‚¬â€ GoExperts', shell(`You just received ${amount} in your GoExperts wallet!`, body));
 };
 
 export const sendReferralCashbackEmail = (to: string, name: string, amount: number, friendName: string, balanceAfter: number) => {
   const firstName = (name || 'User').split(' ')[0];
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Referral Reward</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:24px;font-weight:800;">You earned cashback! 💰</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:24px;font-weight:800;">You earned cashback! Ã°Å¸â€™Â°</h1>
     <p style="margin:0 0 16px;color:#64748b;font-size:14px;">Hi <strong>${firstName}</strong>,</p>
     <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px;">
       Great news! Your friend <strong>${friendName}</strong> just purchased a subscription plan. We've added 5% of their plan value to your wallet as a thank you for referring them.
@@ -990,5 +1041,5 @@ export const sendReferralCashbackEmail = (to: string, name: string, amount: numb
     </table>
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
-  return sendEmail(to, `You've earned ₹${amount} cashback! 💰`, shell(`You just received ₹${amount} in your wallet for referring ${friendName}!`, body));
+  return sendEmail(to, `You've earned Ã¢â€šÂ¹${amount} cashback! Ã°Å¸â€™Â°`, shell(`You just received Ã¢â€šÂ¹${amount} in your wallet for referring ${friendName}!`, body));
 };

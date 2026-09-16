@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
 import { getVerificationStats, applyVerificationUpdate } from "../../common/helpers/verification.js";
 import type { VerificationItem } from "../../common/helpers/verification.js";
+import { activateFreePlanAfterKyc } from "../../services/mobile/subscription.service.js";
 
 async function getWelcomeBonusConfig() {
     const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
@@ -207,11 +208,11 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
             });
             
             if (isVerified) {
-                const { sendAccountActiveEmail, sendPlanActivationEmail } = await import("../../services/mobile/email.service.js");
+                const { sendAccountActiveEmail } = await import("../../services/mobile/email.service.js");
                 const userObj = await prisma.user.findFirst({ where: { id }, select: { id: true, email: true, fullName: true } });
                 if (userObj && userObj.email) {
                     await sendAccountActiveEmail(userObj.email, userObj.fullName || 'User');
-                    await sendPlanActivationEmail(userObj.email, userObj.fullName || 'User');
+                    await activateFreePlanAfterKyc(userObj.id);
                     await triggerWelcomeBonus(userObj);
                 }
             }
@@ -255,12 +256,12 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                         where: { id },
                         data: { verified: true, isVerified: true }
                     });
-                    const { sendAccountActiveEmail, sendPlanActivationEmail } = await import("../../services/mobile/email.service.js");
+                    const { sendAccountActiveEmail } = await import("../../services/mobile/email.service.js");
                     if (freshUserForCheck.email) {
                         await sendAccountActiveEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
-                        await sendPlanActivationEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
                     }
                 }
+                await activateFreePlanAfterKyc(freshUserForCheck.id);
                 await triggerWelcomeBonus(freshUserForCheck);
             }
         }

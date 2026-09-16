@@ -31,7 +31,10 @@ import {
   resendClientTeamInvite,
   deleteClientTeamMember, listClientRoles,
   listClientNotifications, markAllClientNotificationsRead, markClientNotificationRead,
-  getClientAnalytics
+  getClientAnalytics,
+  getClientWallet,
+  fundClientWallet,
+  withdrawClientWallet
 } from "../../controllers/client/client.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requireOnboarding } from "../../middlewares/onboarding.middleware.js";
@@ -107,9 +110,9 @@ router.post("/meetings", createClientMeeting as any);
 // router.get("/messages", listClientMessages as any);
 // router.post("/messages", createClientMessage as any);
 
-// router.get("/wallet", getClientWallet as any);
-// router.post("/wallet/fund", fundClientWallet as any);
-// router.post("/wallet/withdraw", withdrawClientWallet as any);
+router.get("/wallet", getClientWallet as any);
+router.post("/wallet/fund", fundClientWallet as any);
+router.post("/wallet/withdraw", withdrawClientWallet as any);
 
 // router.get("/invoices", listClientInvoices as any);
 // router.get("/payments", listClientPayments as any);

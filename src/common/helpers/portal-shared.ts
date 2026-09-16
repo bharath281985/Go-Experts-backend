@@ -1,5 +1,4 @@
 import { prisma } from "../../config/database.js";
-import { getVerificationStats } from "./verification.js";
 
 export type PortalUser = {
   id: string;
@@ -85,10 +84,6 @@ async function ensureWelcomeBonusForVerifiedUser(userId: string) {
     },
   });
   if (!user?.email || !(user.verified || user.isVerified)) return;
-
-  const stats = getVerificationStats(user);
-  const kycVerified = stats.kycApproved || stats.requiredVerified >= stats.requiredTotal;
-  if (!kycVerified) return;
 
   const { enabled, amount } = await getWelcomeBonusConfig();
   if (!enabled) return;
