@@ -49,7 +49,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       );
     }
 
-    if (user.status !== 'active') {
+    if (user.status !== 'active' && user.status !== 'pending') {
       return res.status(403).json(
         errorResponse('Your account is inactive. Please contact support.', 'ACCOUNT_INACTIVE')
       );

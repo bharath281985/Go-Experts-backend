@@ -160,7 +160,7 @@ const findOrCreateSocialUser = async (
   } else {
     const subscriptionGate = await resolveUserSubscriptionGate(user.id).catch(() => null);
     const isExpiredPlanInactive = String(user.status).toLowerCase() === 'inactive' && subscriptionGate?.status === 'expired';
-    if (user.status !== 'active' && !isExpiredPlanInactive) {
+    if (user.status !== 'active' && user.status !== 'pending' && !isExpiredPlanInactive) {
       throw new Error('ACCOUNT_INACTIVE');
     }
     // Ensure registrationData records social login intent if missing

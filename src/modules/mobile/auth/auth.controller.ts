@@ -360,7 +360,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     const loginSubscriptionGate = await resolveUserSubscriptionGate(user.id).catch(() => null);
     const isExpiredPlanInactive = String(user.status).toLowerCase() === 'inactive' && loginSubscriptionGate?.status === 'expired';
-    if (user.status !== 'active' && !isExpiredPlanInactive) {
+    if (user.status !== 'active' && user.status !== 'pending' && !isExpiredPlanInactive) {
       await safeTrackLoginAttempt(rawEmail, false, req, 'ACCOUNT_INACTIVE');
       return res.status(403).json(
         errorResponse('Your account is inactive. Please contact support.', 'ACCOUNT_INACTIVE')
