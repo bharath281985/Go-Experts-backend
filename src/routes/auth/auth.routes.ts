@@ -7,6 +7,7 @@ import {
   refresh,
   me,
   forgotPassword,
+  verifyPasswordResetOtp,
   resetPassword,
   changePassword,
   updateProfile,
@@ -40,6 +41,7 @@ router.post("/admin/signup", registerAdmin);
 router.post("/logout", authMiddleware as any, logout as any);
 router.post("/refresh", refresh);
 router.post("/forgot-password", forgotPassword);
+router.post("/verify-password-reset-otp", verifyPasswordResetOtp);
 router.post("/reset-password", resetPassword);
 router.post("/change-password", authMiddleware as any, changePassword as any);
 router.get("/me", authMiddleware as any, me as any);

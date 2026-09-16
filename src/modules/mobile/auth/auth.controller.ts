@@ -8,7 +8,7 @@ import { sendWelcomeEmail, sendPasswordResetEmail, sendVerificationEmail } from 
 import { saveDeviceToken, removeDeviceToken } from '../../../services/mobile/push.service.js';
 import { AuditEngine } from '../../../services/mobile/audit.engine.js';
 import { bootstrapNewUser, bootstrapUserResources, isValidRole } from '../../../services/mobile/auth-bootstrap.service.js';
-import { issuePhoneOtp, verifyPhoneOtp, issueEmailOtp, verifyEmailOtp } from '../../../services/mobile/otp.service.js';
+import { issuePhoneOtp, verifyPhoneOtp, issueEmailOtp, verifyEmailOtp, issuePasswordResetOtp, verifyPasswordResetOtp as verifyPasswordResetOtpService } from '../../../services/mobile/otp.service.js';
 import { resolveProfileCompletion } from '../../../services/mobile/profile-completion.service.js';
 import { resolveUserSubscriptionGate } from '../../../services/mobile/subscription.service.js';
 import dns from 'dns';
@@ -1193,11 +1193,36 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       return res.status(400).json(errorResponse('This account uses social sign-in. Please continue with Google or Apple.', 'PASSWORD_LOGIN_NOT_AVAILABLE'));
     }
 
-    const token = createPasswordResetToken({ id: user.id, password: user.password });
-    await sendPasswordResetEmail(user.email, token);
+    const { code } = await issuePasswordResetOtp(user.email);
+    await sendPasswordResetEmail(user.email, code);
     await AuditEngine.track(user.id, 'password_reset_requested', 'user', user.id, null, null, req);
 
     return res.json(successResponse('Password reset instructions have been sent to your registered email address.'));
+  } catch (error) { next(error); }
+};
+
+export const verifyPasswordResetOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json(errorResponse('Email and OTP are required', 'VALIDATION_ERROR'));
+    }
+    
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+    
+    const result = verifyPasswordResetOtpService(cleanEmail, cleanOtp);
+    if (!result.valid) {
+      return res.status(400).json(errorResponse(result.reason === 'EXPIRED' ? 'The verification code has expired.' : 'The verification code is incorrect.', 'INVALID_OTP'));
+    }
+    
+    const user = await prisma.user.findFirst({ where: { email: cleanEmail, deletedAt: null } });
+    if (!user || !user.password) {
+      return res.status(404).json(errorResponse('Account not found.', 'ACCOUNT_NOT_FOUND'));
+    }
+    
+    const token = createPasswordResetToken({ id: user.id, password: user.password });
+    return res.json(successResponse('OTP verified successfully', { token }));
   } catch (error) { next(error); }
 };
 

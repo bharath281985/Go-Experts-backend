@@ -104,3 +104,23 @@ export const verifyEmailOtp = (email: string, code: string): any => {
   otpStore.delete(key);
   return { valid: true };
 };
+
+export const issuePasswordResetOtp = async (email: string) => {
+  const key = `pwreset:${email.toLowerCase().trim()}`;
+  const code = generateCode();
+  otpStore.set(key, { code, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
+  return { email, code };
+};
+
+export const verifyPasswordResetOtp = (email: string, code: string): any => {
+  const key = `pwreset:${email.toLowerCase().trim()}`;
+  const record = otpStore.get(key);
+  if (!record || record.expiresAt <= Date.now()) return { valid: false, reason: 'EXPIRED' };
+  if (record.code !== code.trim()) {
+    record.attempts += 1;
+    otpStore.set(key, record);
+    return { valid: false, reason: 'INVALID' };
+  }
+  otpStore.delete(key);
+  return { valid: true };
+};

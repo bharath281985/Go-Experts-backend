@@ -673,20 +673,26 @@ export const sendWelcomeEmail = (to: string, name: string) => {
 };
 
 export const sendPasswordResetEmail = (to: string, token: string) => {
-  const resetLink = `${FRONTEND_URL}/reset-password?token=${token}`;
-
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Security</p>
     <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request 🔑</h1>
-    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Click the button below to choose a new password.</p>
-    
-    ${ctaButton(resetLink, 'Reset Password', '#0f172a')}
-
-    <p style="margin:12px 0 24px;color:#475569;font-size:12px;text-align:center;">This link expires in <strong style="color:#f59e0b;">10 minutes</strong>.</p>
-    
-    <p style="margin:0 0 4px;text-align:center;color:#94a3b8;font-size:12px;">Button not working? Copy and paste this link:</p>
-    <p style="margin:0 0 24px;text-align:center;"><a href="${resetLink}" style="color:#3b82f6;font-size:12px;word-break:break-all;text-decoration:none;">${resetLink}</a></p>
-
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Use the code below to securely verify your identity.</p>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
+      <tr>
+        <td align="center" style="background:#0f172a;border-radius:12px;padding:28px 24px;">
+          <p style="margin:0 0 10px;color:#94a3b8;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;">Reset Code</p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+            <tr>
+              ${token.split('').map(digit => `
+              <td style="padding:0 4px;">
+                <div style="width:44px;height:56px;background:#1e293b;border:2px solid #f97316;border-radius:8px;text-align:center;line-height:56px;color:#f97316;font-size:28px;font-weight:800;font-family:monospace;">${digit}</div>
+              </td>`).join('')}
+            </tr>
+          </table>
+          <p style="margin:14px 0 0;color:#475569;font-size:12px;"> Expires in <strong style="color:#f59e0b;">10 minutes</strong></p>
+        </td>
+      </tr>
+    </table>
     ${alertBox('🔒', 'Did not request this?', 'If you did not request a password reset, you can safely ignore this email. Your account remains secure.', '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
