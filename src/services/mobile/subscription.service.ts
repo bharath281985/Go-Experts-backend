@@ -2,6 +2,7 @@ import { prisma } from '../../config/database.js';
 import { sendFreePlanActivatedEmail, sendPlanExpiredEmail, sendReferralCashbackEmail } from './email.service.js';
 import { NotificationEngine } from './notification.engine.js';
 import { getSettingsSection } from '../settings/settings.service.js';
+import { getVerificationStats } from '../../common/helpers/verification.js';
 
 export type BillingCycle = 'monthly' | 'yearly';
 
@@ -220,6 +221,29 @@ export const activateFreePlanAfterKyc = async (userId: string) => {
   return subscription;
 };
 
+
+export const getKycApprovedCurrentSubscription = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      freelancerProfile: true,
+      clientProfile: true,
+      founderProfile: true,
+      investorProfile: true,
+    },
+  });
+
+  if (!user) return null;
+
+  const verificationStats = getVerificationStats(user);
+  if (!verificationStats.kycApproved) return null;
+
+  return prisma.subscription.findFirst({
+    where: { userId, status: 'active' },
+    include: { plan: true },
+    orderBy: { createdAt: 'desc' },
+  });
+};
 /**
  * Activates (or replaces) the user's active subscription for the given plan.
  */
@@ -321,8 +345,8 @@ export const activateUserSubscription = async (
           await NotificationEngine.queueNotification({
             userId: referrerId,
             type: 'referral_cashback',
-            title: 'Cashback Received! ðŸ’°',
-            message: `You received â‚¹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
+            title: 'Cashback Received! Ã°Å¸â€™Â°',
+            message: `You received Ã¢â€šÂ¹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
             channel: 'in_app',
             payload: { amount: cashbackAmount, friend: referral.referee.fullName },
           }).catch(console.error);

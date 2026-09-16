@@ -3,6 +3,7 @@ import { prisma } from '../../../config/database.js';
 import { successResponse, errorResponse } from '../../../core/response.js';
 import { AuthRequest } from '../../../middlewares/auth.js';
 import { initiatePaymentService } from '../payments/payments.service.js';
+import { getKycApprovedCurrentSubscription } from '../../../services/mobile/subscription.service.js';
 
 export const getPlans = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -20,10 +21,7 @@ export const getPlans = async (req: AuthRequest, res: Response, next: NextFuncti
 
 export const getCurrent = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const subscription = await prisma.subscription.findFirst({
-      where: { userId: req.user.id, status: 'active' },
-      include: { plan: true },
-    });
+    const subscription = await getKycApprovedCurrentSubscription(req.user.id);
     return res.json(successResponse('Current subscription retrieved', subscription));
   } catch (error) {
     next(error);

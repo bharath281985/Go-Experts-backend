@@ -2,14 +2,12 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { getKycApprovedCurrentSubscription } from '../../../../services/mobile/subscription.service.js';
 import { initiatePaymentService } from '../../payments/payments.service.js';
 
 export const getCurrentPlan = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const subscription = await prisma.subscription.findFirst({
-      where: { userId: req.user.id, status: 'active' },
-      include: { plan: true },
-    });
+    const subscription = await getKycApprovedCurrentSubscription(req.user.id);
     return res.json(successResponse('Current plan', subscription));
   } catch (error) { next(error); }
 };
