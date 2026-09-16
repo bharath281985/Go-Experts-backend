@@ -288,7 +288,7 @@ function sanitizeModelData(modelName: string, data: any) {
               role: (row.role || "user").toUpperCase(),
               trial_days: "90",
               trial_ends_at: trialDateStr,
-              selected_plan: "90-Day Free Trial",
+              selected_plan: "Free plan after KYC approval",
               app_url: process.env.CLIENT_URL || "https://goexperts.in",
             });
             

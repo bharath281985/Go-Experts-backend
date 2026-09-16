@@ -94,14 +94,45 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
 router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const referrals = await prisma.referral.findMany({
-      where: { status: "PENDING" },
       include: {
         referrer: { select: { fullName: true, email: true, role: true } },
         referee: { select: { fullName: true, email: true, isVerified: true, verified: true } },
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json({ success: true, data: referrals });
+
+    const mappedReferrals = referrals.map(r => ({ ...r, type: "REFERRAL" }));
+
+    const welcomeBonuses = await prisma.walletTransaction.findMany({
+      where: { type: "welcome_bonus" },
+      include: {
+        wallet: {
+          include: {
+            user: { select: { fullName: true, email: true, role: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const mappedWelcomeBonuses = welcomeBonuses.map(tx => ({
+      id: tx.id,
+      campaignId: null,
+      referrerId: tx.wallet.userId,
+      refereeId: null,
+      link: null,
+      qrCode: null,
+      status: tx.status || "CREDITED",
+      createdAt: tx.createdAt,
+      updatedAt: tx.createdAt,
+      type: "WELCOME",
+      referrer: tx.wallet.user,
+      referee: null,
+    }));
+
+    const combinedData = [...mappedReferrals, ...mappedWelcomeBonuses].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json({ success: true, data: combinedData });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error fetching pending referrals" });
   }

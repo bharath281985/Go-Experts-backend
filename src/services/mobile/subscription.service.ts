@@ -345,8 +345,8 @@ export const activateUserSubscription = async (
           await NotificationEngine.queueNotification({
             userId: referrerId,
             type: 'referral_cashback',
-            title: 'Cashback Received! Ã°Å¸â€™Â°',
-            message: `You received Ã¢â€šÂ¹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
+            title: 'Cashback Received! ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â°',
+            message: `You received ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
             channel: 'in_app',
             payload: { amount: cashbackAmount, friend: referral.referee.fullName },
           }).catch(console.error);

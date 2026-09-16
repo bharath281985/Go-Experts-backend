@@ -240,7 +240,7 @@ export async function creditWalletForSelf(userId: string, amount: number, type: 
           userId,
           type: "wallet",
           title: "Wallet Credited",
-          message: `Your wallet has been credited with ₹${amt.toLocaleString()} by Super Admin.`,
+          message: `Your wallet has been credited with â‚¹${amt.toLocaleString()} by Super Admin.`,
           channel: "in_app",
           priority: "high",
           status: "unread",
@@ -285,7 +285,7 @@ export async function debitWalletForSelf(userId: string, amount: number, type: s
           userId,
           type: "wallet",
           title: "Wallet Debited / Withdrawal Requested",
-          message: `Your wallet transaction of ₹${amt.toLocaleString()} has been processed.`,
+          message: `Your wallet transaction of â‚¹${amt.toLocaleString()} has been processed.`,
           channel: "in_app",
           priority: "high",
           status: "unread",
@@ -695,7 +695,7 @@ export async function createMessageForUser(
     },
   });
 
-  const activePlanName = fullUser?.subscriptions?.[0]?.plan?.name || (fullUser?.registrationData as any)?.subscriptionPlan || "90-Day Free Trial";
+  const activePlanName = fullUser?.subscriptions?.[0]?.plan?.name || (fullUser?.registrationData as any)?.subscriptionPlan || "No Plan";
   const isPaid = activePlanName && activePlanName !== "90-Day Free Trial" && !activePlanName.toLowerCase().includes("free");
   if (!isPaid) {
     throw new HttpError(

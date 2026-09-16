@@ -120,7 +120,7 @@ export async function activateFreeTrialOnKycApproval(userId: string) {
         data: {
           userId: user.id,
           type: "system",
-          title: "Ã°Å¸Å½â€° KYC Approved & 90-Day Free Plan Activated!",
+          title: "ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Â° KYC Approved & 90-Day Free Plan Activated!",
           message: `Congratulations ${user.fullName || ""}! Your KYC has been approved. You have been granted a 90-Day Free Access Plan until ${endDate.toLocaleDateString("en-IN")}.`,
           channel: "in_app",
           priority: "high",
@@ -131,7 +131,7 @@ export async function activateFreeTrialOnKycApproval(userId: string) {
       console.error("[FreeTrialService] Failed to send notification:", notifErr);
     }
 
-    console.log(`[FreeTrialService] Ã¢Å“â€¦ Activated 90-day free plan for ${user.id} (${user.email}) until ${endDate.toISOString()}`);
+    console.log(`[FreeTrialService] ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Activated 90-day free plan for ${user.id} (${user.email}) until ${endDate.toISOString()}`);
 
     return { success: true, subscription: createdSub, expiresAt: endDate };
   } catch (err: any) {
