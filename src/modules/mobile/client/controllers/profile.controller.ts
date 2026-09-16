@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
 import { resolveMasterOptionsInput } from '../../../../utils/array-option-resolver.js';
+import { toTenDigitPhone } from '../../../../common/helpers/phone.js';
 
 /** Resolve an industry string (name or id) to {id, name}, or null if empty */
 async function resolveIndustry(raw: string | null | undefined): Promise<{ id: string; name: string } | null> {
@@ -124,6 +125,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
 
     const fullNameVal = b.fullName || b.name;
     const phoneVal = b.phone || b.mobile || b.phoneNumber;
+    const normalizedPhone = phoneVal != null ? toTenDigitPhone(phoneVal) : null;
     const bioVal = b.bio;
     const cityVal = b.city;
     const countryVal = b.country;
@@ -137,7 +139,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     const userUpdateData: Record<string, any> = {};
     if (fullNameVal != null) userUpdateData.fullName = String(fullNameVal).trim();
     if (bioVal != null) userUpdateData.bio = String(bioVal);
-    if (phoneVal != null) userUpdateData.phone = String(phoneVal).trim() || null;
+    if (phoneVal != null) userUpdateData.phone = normalizedPhone || null;
     if (cityVal != null) userUpdateData.city = String(cityVal).trim() || null;
     if (countryVal != null) userUpdateData.country = String(countryVal).trim() || null;
 
@@ -150,9 +152,9 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     const updatedReg = {
       ...currentReg,
       fullName: fullNameVal != null ? String(fullNameVal).trim() : currentReg.fullName,
-      phone: phoneVal != null ? String(phoneVal).trim() : currentReg.phone,
-      mobile: phoneVal != null ? String(phoneVal).trim() : currentReg.mobile,
-      phoneNumber: phoneVal != null ? String(phoneVal).trim() : currentReg.phoneNumber,
+      phone: phoneVal != null ? normalizedPhone : currentReg.phone,
+      mobile: phoneVal != null ? normalizedPhone : currentReg.mobile,
+      phoneNumber: phoneVal != null ? normalizedPhone : currentReg.phoneNumber,
       phoneCode: b.phoneCode || b.countryCode || currentReg.phoneCode,
       countryCode: b.countryCode || currentReg.countryCode,
       bio: bioVal != null ? String(bioVal) : currentReg.bio,

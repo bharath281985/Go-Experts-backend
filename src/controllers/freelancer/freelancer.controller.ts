@@ -1,5 +1,6 @@
 import { Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
+import { toTenDigitPhone } from "../../common/helpers/phone.js";
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { logActivityEvent } from "../../services/activity/activity.service.js";
 
@@ -1162,7 +1163,7 @@ export const updateFreelancerProfile = async (
 
     const avatarUrl =
       body.avatarUrl != null ? String(body.avatarUrl).trim() || null : existing.avatarUrl;
-    const phone = body.phone != null ? String(body.phone).trim() || null : existing.phone;
+    const phone = body.phone != null ? toTenDigitPhone(body.phone) || null : existing.phone;
 
     let status = existing.status;
     if (body.status != null) {

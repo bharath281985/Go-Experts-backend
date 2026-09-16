@@ -1,5 +1,6 @@
 import { Response, NextFunction } from "express";
 import { prisma } from "../../config/database.js";
+import { toTenDigitPhone } from "../../common/helpers/phone.js";
 import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import {
@@ -183,7 +184,7 @@ export const updateFounderProfile = async (req: AuthenticatedRequest, res: Respo
       where: { id: userId },
       data: {
         fullName,
-        phone: body.phone != null ? String(body.phone).trim() || null : existing.phone,
+        phone: body.phone != null ? toTenDigitPhone(body.phone) || null : existing.phone,
         bio: body.bio != null ? String(body.bio) : existing.bio,
         avatarUrl: body.avatarUrl != null ? String(body.avatarUrl).trim() || null : existing.avatarUrl,
         city: body.city != null ? String(body.city).trim() || null : existing.city,
