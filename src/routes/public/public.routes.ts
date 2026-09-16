@@ -31,6 +31,7 @@ import {
   getFounderTypes,
   getBusinessTypes,
   getInvestorTypes,
+  getTicketSizes,
   getWorkModes,
   getHiringGoals,
   getInvestorStages,
@@ -56,6 +57,7 @@ router.get("/founder-types", getFounderTypes);
 router.get("/business-types", getBusinessTypes);
 router.get("/investor-types", getInvestorTypes);
 router.get("/investor_types", getInvestorTypes);
+router.get("/ticket-sizes", getTicketSizes);
 router.get("/work-modes", getWorkModes);
 router.get("/hiring-goals", getHiringGoals);
 router.get("/hiring_goals", getHiringGoals);

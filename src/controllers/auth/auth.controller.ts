@@ -387,7 +387,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     const userStatus = String(user.status).toLowerCase();
     const isExpiredPlanInactive = userStatus === "inactive" && subscriptionGate.status === "expired";
-    if (["suspended", "inactive", "pending"].includes(userStatus) && !isExpiredPlanInactive) {
+    if (["suspended", "inactive"].includes(userStatus) && !isExpiredPlanInactive) {
       const reason = userStatus === "suspended" ? "Account suspended" : `Account ${userStatus}`;
       const msg = userStatus === "suspended"
         ? "Your account is suspended. Please contact support."
