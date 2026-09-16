@@ -189,6 +189,20 @@ export async function renderEmailTemplate(
       rawHtml = fallback.html;
     }
 
+    // Dynamic patch for legacy database templates missing the logo or footer
+    if (templateId === "tpl_verification_link") {
+      if (rawHtml.includes('https://goexperts.in/assets/img/logo.png')) {
+        rawHtml = rawHtml.replace(/https:\/\/goexperts\.in\/assets\/img\/logo\.png/g, 'https://goexperts.in/logo.png');
+      }
+      if (!rawHtml.includes('Go Experts &bull; Working With You. For You.')) {
+        const searchStr = `</a></p>\n          </div>\n        </div>`;
+        const replacement = `</a></p>\n          </div>\n          <div style="background-color: #fafbfc; padding: 24px; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #edf2f7;">\n            <p style="margin: 0 0 6px 0; font-weight: 600; color: #4a5568;">Go Experts &bull; Working With You. For You.</p>\n            <p style="margin: 0;">Need support? Contact us anytime at <a href="mailto:servicedesk@goexperts.in" style="color: #E30613; text-decoration: none;">servicedesk@goexperts.in</a></p>\n          </div>\n        </div>`;
+        if (rawHtml.includes(searchStr)) {
+          rawHtml = rawHtml.replace(searchStr, replacement);
+        }
+      }
+    }
+
     const allVars: Record<string, string> = {
       app_name: "Go Experts",
       company_name: "Go Experts Inc.",
