@@ -90,7 +90,7 @@ const loadCategoryRows = async (search: string, industryId?: string): Promise<Ca
   try {
     let categories = await prisma.skillCategory.findMany({
       where,
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      orderBy: { name: 'asc' },
       select: { id: true, name: true, sortOrder: true, industryId: true },
     });
 
@@ -99,7 +99,7 @@ const loadCategoryRows = async (search: string, industryId?: string): Promise<Ca
       if (search) fallbackWhere.name = { contains: search };
       categories = await prisma.skillCategory.findMany({
         where: fallbackWhere,
-        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        orderBy: { name: 'asc' },
         select: { id: true, name: true, sortOrder: true, industryId: true },
       });
     }
@@ -431,6 +431,17 @@ function deduplicateMasterOptions(items: Array<any>): Array<any> {
   return result;
 }
 
+function sortNumericalOptions(items: Array<any>): Array<any> {
+  return items.sort((a, b) => {
+    const extractMin = (val: string) => {
+      if (!val) return 0;
+      const match = val.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+    return extractMin(a.label || a.value) - extractMin(b.label || b.value);
+  });
+}
+
 export const getCompanySizes = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const sizes = await (prisma as any).masterOption?.findMany({
@@ -439,7 +450,7 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
-    return res.json(successResponse('Company sizes retrieved', deduplicateMasterOptions(sizes || [])));
+    return res.json(successResponse('Company sizes retrieved', sortNumericalOptions(deduplicateMasterOptions(sizes || []))));
   } catch (error) { next(error); }
 };
 
@@ -703,7 +714,7 @@ export const getTeamSizes = async (req: Request, res: Response, next: NextFuncti
     }).catch(() => []);
 
     if (sizes && sizes.length > 0) {
-      return res.json(successResponse('Team sizes retrieved', deduplicateMasterOptions(sizes)));
+      return res.json(successResponse('Team sizes retrieved', sortNumericalOptions(deduplicateMasterOptions(sizes))));
     }
 
     return res.json(successResponse('Team sizes retrieved', []));

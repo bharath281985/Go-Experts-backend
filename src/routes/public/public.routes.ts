@@ -1341,6 +1341,17 @@ function deduplicateMasterOptions(items: Array<{ id: string; label: string; valu
   return result;
 }
 
+function sortNumericalOptions(items: Array<{ id: string; label: string; value: string }>) {
+  return items.sort((a, b) => {
+    const extractMin = (val: string) => {
+      if (!val) return 0;
+      const match = val.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+    return extractMin(a.label || a.value) - extractMin(b.label || b.value);
+  });
+}
+
 async function fetchMasterOptions(type: string | string[]): Promise<Array<{ id: string; label: string; value: string }>> {
   try {
     const types = Array.isArray(type) ? type : [type];
@@ -1349,12 +1360,21 @@ async function fetchMasterOptions(type: string | string[]): Promise<Array<{ id: 
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
       select: { id: true, label: true, value: true }
     });
-    return deduplicateMasterOptions(rows || []);
+    
+    let resultRows = deduplicateMasterOptions(rows || []);
+    if (types.includes("team_size") || types.includes("company_size")) {
+      resultRows = sortNumericalOptions(resultRows);
+    }
+    return resultRows;
   } catch {
     const types = Array.isArray(type) ? type : [type];
     const typeStr = types.map(t => `'${t}'`).join(',');
     const rawRows = await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type IN (${typeStr}) AND status = 'active' ORDER BY sort_order ASC, label ASC`).catch(() => []);
-    return deduplicateMasterOptions(rawRows || []);
+    let resultRows = deduplicateMasterOptions(rawRows || []);
+    if (types.includes("team_size") || types.includes("company_size")) {
+      resultRows = sortNumericalOptions(resultRows);
+    }
+    return resultRows;
   }
 }
 
