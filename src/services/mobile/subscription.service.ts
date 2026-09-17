@@ -332,6 +332,14 @@ export const activateUserSubscription = async (
             },
           });
 
+          await prisma.referralReward.create({
+            data: {
+              referralId: referral.id,
+              amount: cashbackAmount,
+              points: 0,
+            }
+          });
+
           // Send Email
           await sendReferralCashbackEmail(
             referral.referrer.email,

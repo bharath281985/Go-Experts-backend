@@ -4,6 +4,73 @@ import { getVerificationStats, applyVerificationUpdate } from "../../common/help
 import type { VerificationItem } from "../../common/helpers/verification.js";
 import { activateFreePlanAfterKyc } from "../../services/mobile/subscription.service.js";
 
+
+async function triggerReferralBonus(user: any) {
+    if (!user || !user.id) return;
+    try {
+        const referral = await prisma.referral.findFirst({
+            where: { refereeId: user.id, status: 'pending' },
+            include: { referrer: true }
+        });
+        if (!referral) return;
+
+        let settings: any = {};
+        const settingsJson = await prisma.appSettings.findFirst({ where: { key: 'global_settings' } });
+        if (settingsJson?.value) {
+            try { settings = JSON.parse(settingsJson.value as string); } catch (e) {}
+        }
+        const generalSettings = settings.general || settings;
+        const amount = Number(generalSettings.referral_reward_amount ?? 25);
+
+        await prisma.$transaction(async (tx) => {
+            await tx.referral.update({
+                where: { id: referral.id },
+                data: { status: 'completed', rewardAmount: amount }
+            });
+            await tx.referralReward.create({
+                data: {
+                    referralId: referral.id,
+                    amount: amount,
+                    status: 'paid'
+                }
+            }).catch(() => null);
+
+            let wallet = await tx.wallet.findUnique({ where: { userId: referral.referrerId } });
+            if (!wallet) {
+                wallet = await tx.wallet.create({ data: { userId: referral.referrerId, balance: 0, currency: "INR" } });
+            }
+
+            const updatedWallet = await tx.wallet.update({
+                where: { id: wallet.id },
+                data: { balance: { increment: amount } }
+            });
+
+            await tx.walletTransaction.create({
+                data: {
+                    walletId: wallet.id,
+                    type: "referral_bonus",
+                    direction: "credit",
+                    amount,
+                    description: `Referral Bonus for ${user.fullName || 'User'} verifying KYC`,
+                    balanceAfter: updatedWallet.balance
+                }
+            });
+
+            await tx.walletBonus.create({
+                data: {
+                    walletId: wallet.id,
+                    amount,
+                    reason: `Referral Bonus (${user.fullName || 'User'})`,
+                    status: "active",
+                },
+            }).catch(() => null);
+        });
+        console.log(`[Referral] Credited referral bonus of ${amount} to ${referral.referrerId} for referring ${user.id}`);
+    } catch (e) {
+        console.error("Referral bonus error:", e);
+    }
+}
+
 async function getWelcomeBonusConfig() {
     const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
     let settings: any = {};
@@ -263,6 +330,7 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                 }
                 await activateFreePlanAfterKyc(freshUserForCheck.id);
                 await triggerWelcomeBonus(freshUserForCheck);
+                await triggerReferralBonus(freshUserForCheck);
             }
         }
 

@@ -609,7 +609,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const randStr = Math.floor(1000 + Math.random() * 9000).toString();
     const referralCode = `GOEXPERTS-${baseCode}${randStr}`;
 
-    const ref = req.body?.ref || req.query?.ref;
+    const ref = req.body?.ref || req.body?.referralCode || req.query?.ref;
     let referrer = null;
     let referralClick = null;
     if (ref) {

@@ -225,7 +225,7 @@ router.get("/cashback_stats", async (req: AuthenticatedRequest, res: Response) =
   try {
     // Get all cashback transactions
     const cashbackTxns = await prisma.walletTransaction.findMany({
-      where: { type: "Cashback" },
+      where: { type: "referral_cashback" },
       include: {
         wallet: {
           include: {

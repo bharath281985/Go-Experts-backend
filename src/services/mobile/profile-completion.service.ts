@@ -444,7 +444,7 @@ export const resolveProfileCompletion = async (
     capabilities: evaluation.capabilities,
     
     // Legacy fields mapped exactly as they were
-    isProfileComplete: evaluation.score >= 75,
+    isProfileComplete: evaluation.score >= 70,
     completedSteps,
     pendingSteps,
     totalSteps,

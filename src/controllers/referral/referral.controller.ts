@@ -100,7 +100,10 @@ export const getReferralDetails = async (req: AuthenticatedRequest, res: Respons
         referralLink,
         totalReferrals: referrals.length,
         totalEarned,
-        history: referrals,
+        history: referrals.map(r => ({
+          ...r,
+          rewardAmount: r.rewards?.reduce((s, rw) => s + (rw.amount || 0), 0) || 0
+        })),
         activeRules,
         kycVerified: Boolean(user.isVerified || user.verified),
         welcomeBonusEnabled: Boolean(appSettings.welcome_bonus_enabled ?? true),
