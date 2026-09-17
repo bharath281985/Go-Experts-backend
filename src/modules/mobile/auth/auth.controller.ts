@@ -11,6 +11,7 @@ import { bootstrapNewUser, bootstrapUserResources, isValidRole } from '../../../
 import { issuePhoneOtp, verifyPhoneOtp, issueEmailOtp, verifyEmailOtp, issuePasswordResetOtp, verifyPasswordResetOtp as verifyPasswordResetOtpService } from '../../../services/mobile/otp.service.js';
 import { resolveProfileCompletion } from '../../../services/mobile/profile-completion.service.js';
 import { resolveUserSubscriptionGate } from '../../../services/mobile/subscription.service.js';
+import { calculateOnboardingProgress } from '../../../config/onboarding.js';
 import dns from 'dns';
 
 const dnsPromises = dns.promises;
@@ -432,6 +433,8 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const targetRole = role || 'client';
 
     const user = await prisma.$transaction(async (tx) => {
+      const progress = calculateOnboardingProgress(targetRole, 1, false);
+
       const created = await tx.user.create({
         data: {
           email: cleanEmail,
@@ -447,8 +450,13 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           bio: bioVal ? String(bioVal).trim() : null,
           avatarUrl: avatarUrlVal ? String(avatarUrlVal).trim() : null,
           isVerified: isEmailVerified,
-          registrationData: JSON.stringify(b),
+          registrationData: JSON.stringify({ ...b, lastStep: 1 }),
           status: 'active',
+          onboardingStatus: progress.status,
+          completedSteps: progress.completedSteps ? JSON.stringify(progress.completedSteps) : undefined,
+          currentStep: progress.currentStep,
+          nextStepKey: progress.nextStepKey,
+          completionPercentage: progress.percentage
         },
       });
       await bootstrapNewUser(created.id, targetRole, tx);
@@ -1813,12 +1821,19 @@ export const selectSocialRole = async (req: AuthRequest, res: Response, next: Ne
     registrationData.selectedRole = role;
     registrationData.onboardingStatus = registrationData.onboardingStatus || 'draft';
 
+    const progress = calculateOnboardingProgress(role, 1, false);
+
     const updatedUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
         where: { id: req.user.id },
         data: {
           role,
-          registrationData: JSON.stringify(registrationData),
+          registrationData: JSON.stringify({ ...registrationData, lastStep: 1 }),
+          onboardingStatus: progress.status,
+          completedSteps: progress.completedSteps ? JSON.stringify(progress.completedSteps) : undefined,
+          currentStep: progress.currentStep,
+          nextStepKey: progress.nextStepKey,
+          completionPercentage: progress.percentage
         },
       });
 

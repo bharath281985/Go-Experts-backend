@@ -2353,15 +2353,19 @@ export const selectSocialRole = async (req: AuthenticatedRequest, res: Response,
     registrationData.selectedRole = role;
     registrationData.onboardingStatus = registrationData.onboardingStatus || "draft";
 
+    const progress = calculateOnboardingProgress(role, 1, false);
+
     const updatedUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
         where: { id: existing.id },
         data: {
           role,
-          registrationData: JSON.stringify(registrationData),
-          onboardingStatus: existing.onboardingStatus === "NOT_STARTED" ? "DRAFT" : existing.onboardingStatus,
-          currentStep: existing.currentStep || "2",
-          completionPercentage: existing.completionPercentage || 20,
+          registrationData: JSON.stringify({ ...registrationData, lastStep: 1 }),
+          onboardingStatus: progress.status,
+          completedSteps: progress.completedSteps ? JSON.stringify(progress.completedSteps) : undefined,
+          currentStep: progress.currentStep,
+          nextStepKey: progress.nextStepKey,
+          completionPercentage: progress.percentage
         },
       });
 
