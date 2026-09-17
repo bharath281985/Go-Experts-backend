@@ -1,0 +1,31 @@
+{
+  "success": true,
+  "data": {
+    "totalDebited": 25.05,
+    "count": 2,
+    "transactions": [
+      {
+        "id": "3061151f-62e3-42f7-8f47-52b39225680f",
+        "amount": 25,
+        "description": "5% Cashback for referral subscription purchase by vinod",
+        "createdAt": "2026-09-17T08:27:50.792Z",
+        "user": {
+          "id": "b3e1fb03-43b0-4ec2-84b2-be5a51ad4b62",
+          "fullName": "Saikiran Goexperts",
+          "email": "saikirangoexperts@gmail.com"
+        }
+      },
+      {
+        "id": "74abadce-384d-4f97-893a-efc85669c5cb",
+        "amount": 0.05,
+        "description": "5% Cashback for referral subscription purchase by vinod",
+        "createdAt": "2026-09-17T07:58:20.287Z",
+        "user": {
+          "id": "b3e1fb03-43b0-4ec2-84b2-be5a51ad4b62",
+          "fullName": "Saikiran Goexperts",
+          "email": "saikirangoexperts@gmail.com"
+        }
+      }
+    ]
+  }
+}

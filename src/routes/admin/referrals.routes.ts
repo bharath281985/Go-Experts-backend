@@ -237,7 +237,10 @@ router.get("/cashback_stats", async (req: AuthenticatedRequest, res: Response) =
       take: 200,
     });
 
+    console.log("CASHBACK TXNS FOUND:", cashbackTxns.length);
+
     const totalDebited = cashbackTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
+    console.log("TOTAL DEBITED:", totalDebited);
 
     res.json({
       success: true,

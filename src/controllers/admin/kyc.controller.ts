@@ -15,7 +15,7 @@ async function triggerReferralBonus(user: any) {
         if (!referral) return;
 
         let settings: any = {};
-        const settingsJson = await prisma.appSettings.findFirst({ where: { key: 'global_settings' } });
+        const settingsJson = await prisma.setting.findUnique({ where: { key: 'app_settings' } });
         if (settingsJson?.value) {
             try { settings = JSON.parse(settingsJson.value as string); } catch (e) {}
         }
@@ -25,7 +25,7 @@ async function triggerReferralBonus(user: any) {
         await prisma.$transaction(async (tx) => {
             await tx.referral.update({
                 where: { id: referral.id },
-                data: { status: 'completed', rewardAmount: amount }
+                data: { status: 'completed' }
             });
             await tx.referralReward.create({
                 data: {

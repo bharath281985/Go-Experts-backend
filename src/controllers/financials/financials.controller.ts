@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
-import { randomUUID } from "crypto";
+import crypto, { randomUUID } from "crypto";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
 import { reactivateAccountAfterPlanUpgrade } from "../../services/mobile/subscription.service.js";
 
