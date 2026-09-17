@@ -1682,7 +1682,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
 
         const htmlBody = `
           <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Security</p>
-          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request ðŸ”‘</h1>
+          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request 🔑 </h1>
           <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Use the code below to securely verify your identity.</p>
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
             <tr>

@@ -738,20 +738,34 @@ interface OptionObj {
   name: string;
 }
 
-const resolveTeamSizeOption = async (teamSize?: number | null): Promise<OptionObj | null> => {
-  const size = Number(teamSize);
-  if (!Number.isFinite(size)) return null;
+const resolveTeamSizeOption = async (teamSize?: any): Promise<OptionObj | null> => {
+  if (!teamSize) return null;
+  const strVal = String(teamSize).trim();
 
-  const option = await (prisma as any).masterOption?.findFirst({
+  let option = await (prisma as any).masterOption?.findFirst({
     where: {
-      type: 'team_size',
+      type: 'company_size',
       status: 'active',
-      min: { lte: size },
-      max: { gte: size },
+      OR: [{ id: strVal }, { value: strVal }, { label: strVal }],
     },
-    orderBy: { sortOrder: 'asc' },
     select: { id: true, label: true, value: true },
   }).catch(() => null);
+
+  if (!option) {
+    const size = Number(teamSize);
+    if (Number.isFinite(size)) {
+      option = await (prisma as any).masterOption?.findFirst({
+        where: {
+          type: 'company_size',
+          status: 'active',
+          min: { lte: size },
+          max: { gte: size },
+        },
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, label: true, value: true },
+      }).catch(() => null);
+    }
+  }
 
   if (!option) return null;
   return { id: option.id, name: option.label || option.value };
@@ -1024,6 +1038,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
        roleProfile.industry = roleProfile.industry || regData.industry || regData.category;
        roleProfile.stage = roleProfile.stage || regData.stage;
        roleProfile.primaryGoal = roleProfile.primaryGoal || regData.primaryGoal;
+       roleProfile.founderRole = roleProfile.founderRole || regData.founderRole;
     } else if (activeUser.role === 'investor') {
        roleProfile.focusAreas = roleProfile.focusAreas || regData.focusAreas;
        roleProfile.preferredStage = roleProfile.preferredStage || regData.preferredStage;
@@ -1165,9 +1180,11 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         formattedProfile.preferredStageId = toSingleOption(roleProfile.preferredStage);
         delete formattedProfile.preferredStage;
         formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
-        delete formattedProfile.investorType;
+        delete formattedProfile.investorType;                       
       } else if (activeUser.role === 'founder') {
-        formattedProfile.teamSize = teamSizeOption;
+        formattedProfile.teamSizeId = teamSizeOption;
+        formattedProfile.companySizeId = teamSizeOption;
+        formattedProfile.teamSize = teamSizeOption?.name || roleProfile.teamSize || null;
         formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);
@@ -1221,6 +1238,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
 
       // Role specific profile details
       profile: formattedProfile,
+      registrationData: regData,
 
       profileCompletion: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
