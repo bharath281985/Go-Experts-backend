@@ -606,7 +606,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     // Generate unique referral code for the new user
     let baseCode = (fullName.split(' ')[0] || "USER").toUpperCase().replace(/[^A-Z]/g, '');
     if (baseCode.length < 3) baseCode = "GEX" + baseCode;
-    const randStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const randStr = Math.floor(1000 + Math.random() * 9000).toString();
     const referralCode = `GOEXPERTS-${baseCode}${randStr}`;
 
     const ref = req.body?.ref || req.query?.ref;
