@@ -93,27 +93,24 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
   // Pending Referrals
   router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Very robust DB-level cleanup for orphaned referrals
-      let rawRefs: any[] = [];
-      try { rawRefs = await prisma.$queryRawUnsafe(`SELECT id, referrer_id, referee_id FROM Referral`); } catch(e) {}
-      if (!rawRefs || rawRefs.length === 0) {
-        try { rawRefs = await prisma.$queryRawUnsafe(`SELECT id, referrer_id, referee_id FROM referral`); } catch(e) {}
-      }
-      if (!rawRefs || rawRefs.length === 0) {
-        try { rawRefs = await prisma.$queryRawUnsafe(`SELECT id, referrer_id, referee_id FROM referrals`); } catch(e) {}
-      }
+      // Find the exact table name from the database metadata to bypass all casing issues
+      const tables: any[] = await prisma.$queryRawUnsafe(`
+        SELECT TABLE_NAME 
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE() 
+        AND LOWER(TABLE_NAME) LIKE '%referral%'
+      `);
       
-      if (rawRefs && rawRefs.length > 0) {
-        for (const r of rawRefs) {
-          const u1 = await prisma.user.findUnique({ where: { id: r.referrer_id } });
-          const u2 = await prisma.user.findUnique({ where: { id: r.referee_id } });
-          if (!u1 || !u2) {
-            // Found orphaned! Let's force delete it from all possible table names
-            await prisma.$executeRawUnsafe(`DELETE FROM Referral WHERE id = '${r.id}'`).catch(()=>{});
-            await prisma.$executeRawUnsafe(`DELETE FROM referral WHERE id = '${r.id}'`).catch(()=>{});
-            await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE id = '${r.id}'`).catch(()=>{});
-          }
-        }
+      const referralTable = tables.find(t => t.TABLE_NAME.toLowerCase() === 'referral' || t.TABLE_NAME.toLowerCase() === 'referrals')?.TABLE_NAME;
+      const userTable = tables.find(t => t.TABLE_NAME.toLowerCase() === 'user' || t.TABLE_NAME.toLowerCase() === 'users')?.TABLE_NAME;
+
+      if (referralTable && userTable) {
+        // Now delete the orphaned records using the exactly correct, dynamically discovered table names
+        await prisma.$executeRawUnsafe(`
+          DELETE FROM \`${referralTable}\` 
+          WHERE referrer_id NOT IN (SELECT id FROM \`${userTable}\`) 
+             OR referee_id NOT IN (SELECT id FROM \`${userTable}\`)
+        `).catch(() => {});
       }
 
       const referrals = await prisma.referral.findMany({
