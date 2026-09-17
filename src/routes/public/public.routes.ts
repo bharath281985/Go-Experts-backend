@@ -994,7 +994,7 @@ router.post("/delete-requests/:id/permanent-delete", async (req: Request, res: R
     await prisma.report.deleteMany({ where: { reportedUserId: id } }).catch(() => { });
     await prisma.contract.deleteMany({ where: { clientId: id } }).catch(() => { });
     await prisma.contract.deleteMany({ where: { freelancerId: id } }).catch(() => { });
-    await prisma.project.deleteMany({ where: { clientId: id } }).catch(() => { });
+    await prisma.project.deleteMany({ where: { client: id } }).catch(() => { });
     await prisma.referral.deleteMany({ where: { referrerId: id } }).catch(() => { });
     await prisma.referral.deleteMany({ where: { refereeId: id } }).catch(() => { });
 
@@ -1049,7 +1049,7 @@ router.delete("/delete-requests/:id", async (req: Request, res: Response, next: 
     await prisma.report.deleteMany({ where: { reportedUserId: id } }).catch(() => { });
     await prisma.contract.deleteMany({ where: { clientId: id } }).catch(() => { });
     await prisma.contract.deleteMany({ where: { freelancerId: id } }).catch(() => { });
-    await prisma.project.deleteMany({ where: { clientId: id } }).catch(() => { });
+    await prisma.project.deleteMany({ where: { client: id } }).catch(() => { });
     await prisma.referral.deleteMany({ where: { referrerId: id } }).catch(() => { });
     await prisma.referral.deleteMany({ where: { refereeId: id } }).catch(() => { });
 
