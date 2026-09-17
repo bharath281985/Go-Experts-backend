@@ -263,6 +263,7 @@ const tableModelMapping = {
     invoices: "Invoice",
     referrals: "Referral",
     advertisements: "Advertisement",
+    wallet_transactions: "WalletTransaction",
     featured_services: "FeaturedService",
     ad_plans: "AdvertisementPlan",
     notification_templates: "NotificationTemplate",
@@ -306,6 +307,7 @@ const searchColumnsMapping = {
     Meeting: ["founder", "investor"],
     Subscription: ["plan", "user"],
     Payment: ["user", "gateway", "invoice"],
+    WalletTransaction: ["type", "description", "status"],
     Conversation: ["name", "role"],
     CmsPage: ["name", "category"],
     Blog: ["title", "category", "author"],
@@ -2058,6 +2060,7 @@ router.use("/admin/about-page", authMiddleware, aboutRouter);
 Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
     if (["freelancers", "clients", "investors", "founders"].includes(tableName))
         return;
+    console.log("Mounting CRUD router for:", tableName, modelName);
     const searchCols = searchColumnsMapping[modelName] || ["name"];
     const include = modelName === "Task"
         ? { attachments: true, project: { select: { id: true, title: true, category: true } } }
@@ -2067,7 +2070,9 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
                 ? { category: { select: { id: true, name: true } } }
                 : modelName === "City"
                     ? { country: { select: { id: true, name: true } } }
-                    : undefined;
+                    : modelName === "WalletTransaction"
+                        ? { wallet: { include: { user: { select: { id: true, fullName: true, email: true, role: true } } } } }
+                        : undefined;
     // Create router using factory
     const crudRouter = createCrudRouter(modelName, searchCols, include ? { include } : {});
     // We wrap list get request to auto inject default role query filters for user roles

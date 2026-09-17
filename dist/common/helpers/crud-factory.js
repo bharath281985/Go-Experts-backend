@@ -25,6 +25,72 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
             slug: slugVal,
         };
     };
+    const applyCustomMappings = async (mName, rows) => {
+        if (rows.length === 0)
+            return rows;
+        let finalRows = [...rows];
+        if (String(mName).toLowerCase() === "project") {
+            const clientIds = Array.from(new Set(rows.map((r) => r.client).filter(Boolean)));
+            const clients = await prisma.user.findMany({ where: { id: { in: clientIds } }, select: { id: true, fullName: true } });
+            const clientMap = Object.fromEntries(clients.map((c) => [c.id, c.fullName]));
+            const catIds = Array.from(new Set(rows.map((r) => r.category).filter(Boolean)));
+            const cats = await prisma.skillCategory.findMany({ where: { id: { in: catIds } }, select: { id: true, name: true } });
+            const catMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
+            const techIds = Array.from(new Set(rows.flatMap((r) => (r.technology || "").split(",")).filter(Boolean)));
+            const techs = await prisma.skill.findMany({ where: { id: { in: techIds } }, select: { id: true, name: true } });
+            const techMap = Object.fromEntries(techs.map((c) => [c.id, c.name]));
+            const moIds = Array.from(new Set(rows.flatMap((r) => [r.budgetRangeId, r.workMode]).filter(Boolean)));
+            const mos = await prisma.masterOption.findMany({ where: { id: { in: moIds } }, select: { id: true, label: true } });
+            const moMap = Object.fromEntries(mos.map((m) => [m.id, m.label]));
+            const mapExp = (slug) => slug === "mo_experience_level_intermediate" ? "Intermediate" :
+                slug === "mo_experience_level_expert" ? "Expert" :
+                    slug === "mo_experience_level_entry" ? "Entry Level" : slug;
+            finalRows = rows.map((r) => ({
+                ...r,
+                client: clientMap[r.client] || r.client,
+                category: catMap[r.category] || r.category,
+                technology: (r.technology || "").split(",").map((id) => techMap[id] || id).join(", "),
+                budgetRangeId: moMap[r.budgetRangeId] || r.budgetRangeId,
+                workMode: moMap[r.workMode] || r.workMode,
+                experienceLevel: r.experienceLevel ? mapExp(r.experienceLevel) : r.experienceLevel
+            }));
+        }
+        else if (String(mName) === "StartupIdea") {
+            const founderIds = Array.from(new Set(rows.map((r) => r.founder).filter(v => v && v.length > 20)));
+            const founders = await prisma.user.findMany({ where: { id: { in: founderIds } }, select: { id: true, fullName: true, email: true } });
+            const founderMap = Object.fromEntries(founders.map((c) => [c.id, c.fullName || c.email]));
+            const indIds = Array.from(new Set(rows.map((r) => r.industry).filter(v => v && v.length > 20)));
+            const inds = await prisma.industry.findMany({ where: { id: { in: indIds } }, select: { id: true, name: true } });
+            const indMap = Object.fromEntries(inds.map((c) => [c.id, c.name]));
+            const catIds = Array.from(new Set(rows.map((r) => r.category).filter(v => v && v.length > 20)));
+            const cats = await prisma.skillCategory.findMany({ where: { id: { in: catIds } }, select: { id: true, name: true } });
+            const catMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
+            const stageIds = Array.from(new Set(rows.map((r) => r.stage).filter(v => v && v.length > 20)));
+            const stages = await prisma.startupStage.findMany({ where: { id: { in: stageIds } }, select: { id: true, name: true } });
+            const stageMap = Object.fromEntries(stages.map((c) => [c.id, c.name]));
+            finalRows = rows.map((r) => ({
+                ...r,
+                founder: founderMap[r.founder] || r.founder,
+                industry: indMap[r.industry] || r.industry,
+                category: catMap[r.category] || r.category,
+                stage: stageMap[r.stage] || r.stage,
+            }));
+        }
+        else if (String(mName) === "Investment") {
+            const investorIds = Array.from(new Set(rows.map((r) => r.investor).filter(v => v && v.length > 20)));
+            const investors = await prisma.user.findMany({ where: { id: { in: investorIds } }, select: { id: true, fullName: true, email: true } });
+            const investorMap = Object.fromEntries(investors.map((c) => [c.id, c.fullName || c.email]));
+            const startupIds = Array.from(new Set(rows.map((r) => r.startup).filter(v => v && v.length > 20)));
+            const startups = await prisma.startupIdea.findMany({ where: { id: { in: startupIds } }, select: { id: true, startup: true } });
+            const startupMap = Object.fromEntries(startups.map((c) => [c.id, c.startup]));
+            finalRows = rows.map((r) => ({
+                ...r,
+                investor: investorMap[r.investor] || r.investor,
+                startup: startupMap[r.startup] || r.startup,
+            }));
+        }
+        return finalRows;
+    };
     // 1. LIST (with search, pagination, sorting, filters)
     router.get("/", async (req, res, next) => {
         try {
@@ -75,33 +141,7 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                 orderBy: orderBy ? { [orderBy]: ascending ? "asc" : "desc" } : { createdAt: "desc" },
                 ...(include ? { include } : {}),
             });
-            let finalRows = rows;
-            if (String(modelName).toLowerCase() === "project" && rows.length > 0) {
-                const clientIds = [...new Set(rows.map((r) => r.client).filter(Boolean))];
-                const clients = await prisma.user.findMany({ where: { id: { in: clientIds } }, select: { id: true, fullName: true } });
-                const clientMap = Object.fromEntries(clients.map((c) => [c.id, c.fullName]));
-                const catIds = [...new Set(rows.map((r) => r.category).filter(Boolean))];
-                const cats = await prisma.skillCategory.findMany({ where: { id: { in: catIds } }, select: { id: true, name: true } });
-                const catMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
-                const techIds = [...new Set(rows.flatMap((r) => (r.technology || "").split(",")).filter(Boolean))];
-                const techs = await prisma.skill.findMany({ where: { id: { in: techIds } }, select: { id: true, name: true } });
-                const techMap = Object.fromEntries(techs.map((c) => [c.id, c.name]));
-                const moIds = [...new Set(rows.flatMap((r) => [r.budgetRangeId, r.workMode]).filter(Boolean))];
-                const mos = await prisma.masterOption.findMany({ where: { id: { in: moIds } }, select: { id: true, label: true } });
-                const moMap = Object.fromEntries(mos.map((m) => [m.id, m.label]));
-                const mapExp = (slug) => slug === "mo_experience_level_intermediate" ? "Intermediate" :
-                    slug === "mo_experience_level_expert" ? "Expert" :
-                        slug === "mo_experience_level_entry" ? "Entry Level" : slug;
-                finalRows = rows.map((r) => ({
-                    ...r,
-                    client: clientMap[r.client] || r.client,
-                    category: catMap[r.category] || r.category,
-                    technology: (r.technology || "").split(",").map((id) => techMap[id] || id).join(", "),
-                    budgetRangeId: moMap[r.budgetRangeId] || r.budgetRangeId,
-                    workMode: moMap[r.workMode] || r.workMode,
-                    experienceLevel: r.experienceLevel ? mapExp(r.experienceLevel) : r.experienceLevel
-                }));
-            }
+            const finalRows = await applyCustomMappings(String(modelName), rows);
             res.json({ success: true, rows: finalRows.map(formatRecord), total });
         }
         catch (err) {
@@ -138,7 +178,8 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                 orderBy: orderBy ? { [orderBy]: ascending ? "asc" : "desc" } : { createdAt: "desc" },
                 ...(include ? { include } : {}),
             });
-            res.json({ success: true, rows: rows.map(formatRecord), total });
+            const finalRows = await applyCustomMappings(String(modelName), rows);
+            res.json({ success: true, rows: finalRows.map(formatRecord), total });
         }
         catch (err) {
             next(err);
@@ -150,7 +191,8 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
             const rows = await db.findMany();
             res.setHeader("Content-Type", "application/json");
             res.setHeader("Content-Disposition", `attachment; filename=${String(modelName).toLowerCase()}_export.json`);
-            res.json({ success: true, rows: rows.map(formatRecord) });
+            const finalRows = await applyCustomMappings(String(modelName), rows);
+            res.json({ success: true, rows: finalRows.map(formatRecord) });
         }
         catch (err) {
             next(err);
@@ -255,7 +297,7 @@ export function createCrudRouter(modelName, searchColumns = [], options = {}) {
                         role: (row.role || "user").toUpperCase(),
                         trial_days: "90",
                         trial_ends_at: trialDateStr,
-                        selected_plan: "90-Day Free Trial",
+                        selected_plan: "Free plan after KYC approval",
                         app_url: process.env.CLIENT_URL || "https://goexperts.in",
                     });
                     await emailAdapter.send({

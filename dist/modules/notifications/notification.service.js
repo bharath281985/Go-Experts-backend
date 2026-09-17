@@ -82,6 +82,7 @@ export class EmailChannelAdapter {
                 });
                 const previewUrl = nodemailer.getTestMessageUrl(info);
                 console.log(`[EMAIL ADAPTER SUCCESS] Sent email to ${payload.to}, messageId: ${info.messageId}${previewUrl ? ` | Preview: ${previewUrl}` : ''}`);
+                // Push notification removed to prevent duplicate sends when channel='all'
                 return { status: "delivered", providerResponse: `SMTP: Sent Successfully (${info.messageId})` };
             }
             else {
@@ -127,6 +128,7 @@ export class EmailChannelAdapter {
                 console.log(`   Recipient: ${payload.to}`);
                 console.log(`   View Mail: ${previewUrl}`);
                 console.log(`======================================================================\n`);
+                // Push notification removed to prevent duplicate sends when channel='all'
                 return { status: "delivered", providerResponse: `ETHEREAL: ${previewUrl}` };
             }
             catch (fallbackErr) {

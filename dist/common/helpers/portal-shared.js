@@ -43,6 +43,85 @@ function userNeedles(user, extra = []) {
 // ==========================================
 // WALLET
 // ==========================================
+async function getWelcomeBonusConfig() {
+    const settingsRecord = await prisma.setting.findUnique({ where: { key: "app_settings" } });
+    let settings = {};
+    if (settingsRecord?.value) {
+        try {
+            settings = JSON.parse(settingsRecord.value);
+        }
+        catch {
+            settings = {};
+        }
+    }
+    const generalSettings = settings.general || settings;
+    const enabled = generalSettings.welcomeBonusEnabled ?? generalSettings.welcome_bonus_enabled ?? true;
+    const amount = Number(generalSettings.welcomeBonusAmount ?? generalSettings.welcome_bonus_amount ?? 99);
+    return {
+        enabled: enabled !== false,
+        amount: Number.isFinite(amount) && amount > 0 ? amount : 99,
+    };
+}
+async function ensureWelcomeBonusForVerifiedUser(userId) {
+    const user = await prisma.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        include: {
+            freelancerProfile: true,
+            clientProfile: true,
+            founderProfile: true,
+            investorProfile: true,
+        },
+    });
+    if (!user?.email || !(user.verified || user.isVerified))
+        return;
+    const { enabled, amount } = await getWelcomeBonusConfig();
+    if (!enabled)
+        return;
+    const credited = await prisma.$transaction(async (tx) => {
+        let wallet = await tx.wallet.findUnique({ where: { userId } });
+        if (!wallet) {
+            wallet = await tx.wallet.create({ data: { userId, balance: 0, currency: "INR" } });
+        }
+        const existingTxn = await tx.walletTransaction.findFirst({
+            where: {
+                walletId: wallet.id,
+                direction: "credit",
+                OR: [
+                    { type: "welcome_bonus" },
+                    { type: "Bonus", description: "Welcome Bonus" },
+                    { type: "bonus", description: "Welcome Bonus" },
+                    { description: "Welcome Bonus" },
+                ],
+            },
+        });
+        if (existingTxn)
+            return false;
+        const updated = await tx.wallet.update({
+            where: { id: wallet.id },
+            data: { balance: { increment: amount } },
+        });
+        await tx.walletTransaction.create({
+            data: {
+                walletId: wallet.id,
+                type: "welcome_bonus",
+                amount,
+                direction: "credit",
+                description: "Welcome Bonus",
+                balanceAfter: updated.balance,
+            },
+        });
+        await tx.walletBonus.create({
+            data: { walletId: wallet.id, amount, reason: "Welcome Bonus", status: "active" },
+        }).catch(() => null);
+        return true;
+    });
+    if (credited) {
+        const { sendWelcomeBonusEmail } = await import("../../services/mobile/email.service.js");
+        await sendWelcomeBonusEmail(user.email, user.fullName || "User", amount).catch((error) => {
+            console.error("Welcome bonus email error:", error);
+        });
+    }
+}
 export async function getOrCreateWallet(userId, currency = "INR") {
     let wallet = await prisma.wallet.findUnique({ where: { userId } });
     if (!wallet) {
@@ -65,6 +144,7 @@ function mapWalletTx(t) {
     };
 }
 export async function getUserWalletPayload(userId) {
+    await ensureWelcomeBonusForVerifiedUser(userId);
     const wallet = await getOrCreateWallet(userId);
     const transactions = await prisma.walletTransaction.findMany({
         where: { walletId: wallet.id },
@@ -77,10 +157,24 @@ export async function getUserWalletPayload(userId) {
     const totalDebits = transactions
         .filter((t) => t.direction === "debit")
         .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const creditTransactions = transactions.filter((t) => t.direction === "credit");
+    const sumCreditsByKeyword = (keywords) => creditTransactions
+        .filter((t) => {
+        const haystack = `${t.type || ""} ${t.description || ""}`.toLowerCase();
+        return keywords.some((keyword) => haystack.includes(keyword));
+    })
+        .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const bonus = sumCreditsByKeyword(["welcome_bonus", "bonus"]);
+    const referral = sumCreditsByKeyword(["referral"]);
+    const cashback = sumCreditsByKeyword(["cashback"]);
     return {
         id: wallet.id,
         balance: Number(wallet.balance),
         available: Number(wallet.balance),
+        pending: 0,
+        bonus,
+        referral,
+        cashback,
         currency: wallet.currency,
         totalEarnings: totalCredits,
         totalCredits,
@@ -117,7 +211,7 @@ export async function creditWalletForSelf(userId, amount, type, description) {
                     userId,
                     type: "wallet",
                     title: "Wallet Credited",
-                    message: `Your wallet has been credited with ₹${amt.toLocaleString()} by Super Admin.`,
+                    message: `Your wallet has been credited with â‚¹${amt.toLocaleString()} by Super Admin.`,
                     channel: "in_app",
                     priority: "high",
                     status: "unread",
@@ -160,7 +254,7 @@ export async function debitWalletForSelf(userId, amount, type, description, stat
                     userId,
                     type: "wallet",
                     title: "Wallet Debited / Withdrawal Requested",
-                    message: `Your wallet transaction of ₹${amt.toLocaleString()} has been processed.`,
+                    message: `Your wallet transaction of â‚¹${amt.toLocaleString()} has been processed.`,
                     channel: "in_app",
                     priority: "high",
                     status: "unread",
@@ -530,7 +624,7 @@ export async function createMessageForUser(user, { conversationId, content, titl
             registrationData: true,
         },
     });
-    const activePlanName = fullUser?.subscriptions?.[0]?.plan?.name || fullUser?.registrationData?.subscriptionPlan || "90-Day Free Trial";
+    const activePlanName = fullUser?.subscriptions?.[0]?.plan?.name || fullUser?.registrationData?.subscriptionPlan || "No Plan";
     const isPaid = activePlanName && activePlanName !== "90-Day Free Trial" && !activePlanName.toLowerCase().includes("free");
     if (!isPaid) {
         throw new HttpError("Chat messaging is restricted to Premium Subscription members. Please upgrade your plan to start chatting.", 403);

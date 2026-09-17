@@ -338,8 +338,7 @@ export const login = async (req, res, next) => {
             // fallback
         }
         const userStatus = String(user.status).toLowerCase();
-        const isExpiredPlanInactive = userStatus === "inactive" && subscriptionGate.status === "expired";
-        if (["suspended", "inactive"].includes(userStatus) && !isExpiredPlanInactive) {
+        if (["suspended", "inactive"].includes(userStatus)) {
             const reason = userStatus === "suspended" ? "Account suspended" : `Account ${userStatus}`;
             const msg = userStatus === "suspended"
                 ? "Your account is suspended. Please contact support."
@@ -538,13 +537,13 @@ export const register = async (req, res, next) => {
             : Number(longitudeRaw);
         const bio = req.body?.bio ? String(req.body.bio) : null;
         const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, state: _state, city: _city, bio: _bio, latitude: _lat, longitude: _lng, countryId: _countryId, stateId: _stateId, cityId: _cityId, ...restData } = req.body || {};
-        const registrationData = Object.keys(restData).length > 0 ? restData : undefined;
+        const registrationData = Object.keys(restData).length > 0 ? JSON.stringify(restData) : undefined;
         const trialEndsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
         // Generate unique referral code for the new user
         let baseCode = (fullName.split(' ')[0] || "USER").toUpperCase().replace(/[^A-Z]/g, '');
         if (baseCode.length < 3)
             baseCode = "GEX" + baseCode;
-        const randStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const randStr = Math.floor(1000 + Math.random() * 9000).toString();
         const referralCode = `GOEXPERTS-${baseCode}${randStr}`;
         const ref = req.body?.ref || req.query?.ref;
         let referrer = null;
@@ -568,7 +567,7 @@ export const register = async (req, res, next) => {
                         password: hashed,
                         fullName,
                         role,
-                        status: "pending",
+                        status: "active",
                         trialEndsAt,
                         phone,
                         country,
@@ -590,7 +589,7 @@ export const register = async (req, res, next) => {
                         password: hashed,
                         fullName,
                         role,
-                        status: "pending",
+                        status: "active",
                         trialEndsAt,
                         phone,
                         country,
@@ -767,7 +766,7 @@ export const register = async (req, res, next) => {
             }
             return created;
         });
-        // Welcome email is NOT sent here — it is sent after all onboarding steps are completed
+        // Welcome email is NOT sent here â€” it is sent after all onboarding steps are completed
         const tokenPayload = { id: user.id, email: user.email, role: user.role, type: "portal" };
         const accessToken = signAccessToken(tokenPayload);
         const refreshToken = signRefreshToken(tokenPayload);
@@ -1524,7 +1523,7 @@ export const forgotPassword = async (req, res, next) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const key = `pwreset_${subject.email}`;
         otpStore.set(key, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
-        console.log(`[password-reset] ${subject.email} → OTP: ${otp}`);
+        console.log(`[password-reset] ${subject.email} â†’ OTP: ${otp}`);
         // Attempt email through the active SMTP channel and report delivery failures.
         try {
             const nodemailer = await import("nodemailer");
@@ -1550,7 +1549,7 @@ export const forgotPassword = async (req, res, next) => {
                 });
                 const htmlBody = `
           <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Security</p>
-          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request 🔑</h1>
+          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request ðŸ”‘</h1>
           <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Use the code below to securely verify your identity.</p>
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
             <tr>
@@ -1574,7 +1573,7 @@ export const forgotPassword = async (req, res, next) => {
                 const info = await transporter.sendMail({
                     from: smtpFrom,
                     to: subject.email,
-                    subject: "Go Experts — Password Reset",
+                    subject: "Go Experts  Password Reset",
                     text: `Reset your password using this code (valid 10 minutes):\n\n${otp}\n`,
                     html: htmlBody,
                 });
@@ -1742,6 +1741,16 @@ export const sendOtp = async (req, res, next) => {
         if (!email && !mobile) {
             return res.status(400).json({ success: false, message: "Email or mobile number is required" });
         }
+        const isSignup = req.body?.isSignup === true || req.body?.isSignup === "true";
+        if (isSignup && email) {
+            const existingUser = await prisma.user.findFirst({
+                where: { email },
+                select: { id: true },
+            });
+            if (existingUser) {
+                return res.status(409).json({ success: false, message: "A user with this email already exists. Please use a different email address or log in." });
+            }
+        }
         const crypto = await import("crypto");
         const otp = crypto.randomInt(100000, 1000000).toString();
         const key = (email || mobile).toLowerCase();
@@ -1783,7 +1792,7 @@ export const sendOtp = async (req, res, next) => {
                     subject: "Verify Your Go Experts Account",
                     html: shell(`Verify your GoExperts account email to get started.`, `
               <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Email Verification</p>
-              <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address 📧</h1>
+              <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address ðŸ“§</h1>
               <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Thank you for registering with <strong>GoExperts</strong>. Please click the button below to verify your email address and retrieve your OTP verification code:</p>
 
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:28px auto;">
@@ -1797,7 +1806,7 @@ export const sendOtp = async (req, res, next) => {
 
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:1px;margin:0 0 24px;">
                 <tr><td style="padding:14px 18px;">
-                  <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">⏰ Security Notice</p>
+                  <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">â° Security Notice</p>
                   <p style="margin:0;color:#78350f;font-size:13px;line-height:1.6;">This verification link and OTP code will expire in <strong>15 minutes</strong>. Do not share it with anyone.</p>
                 </td></tr>
               </table>
@@ -1909,7 +1918,7 @@ export const sendDeleteAccountOtp = async (req, res, next) => {
         // Dispatch real email via SMTP transporter
         const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e4e4e7; border-radius: 12px; background-color: #ffffff;">
-        <h2 style="color: ${brandColor}; margin-top: 0;">Go Experts — Delete Account Request</h2>
+        <h2 style="color: ${brandColor}; margin-top: 0;">Go Experts  Delete Account Request</h2>
         <p style="color: #3f3f46; font-size: 15px;">You have requested to delete your account registered on Go Experts (<strong>${email}</strong>).</p>
         <p style="color: #3f3f46; font-size: 15px;">Your 6-digit OTP verification code is:</p>
         <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 16px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: ${brandColor}; border-radius: 10px; margin: 20px 0;">
@@ -1917,7 +1926,7 @@ export const sendDeleteAccountOtp = async (req, res, next) => {
         </div>
         <p style="color: #71717a; font-size: 13px;">This verification code is valid for 10 minutes. If you did not request account deletion, please ignore this email or contact support immediately.</p>
         <hr style="border: none; border-top: 1px solid #f4f4f5; margin: 24px 0;" />
-        <p style="font-size: 12px; color: #a1a1aa; margin: 0;">Go Experts Support Team · servicedesk@goexperts.in</p>
+        <p style="font-size: 12px; color: #a1a1aa; margin: 0;">Go Experts Support Team Â· servicedesk@goexperts.in</p>
       </div>
     `;
         await sendEmail(email, "Delete Account Verification Code - Go Experts", emailHtml).catch((e) => {
@@ -1973,7 +1982,7 @@ export const getOtpInfo = async (req, res, next) => {
         const token = String(req.query.token || "").trim();
         const emailParam = String(req.query.email || "").trim().toLowerCase();
         let email = emailParam;
-        // Resolve token → email
+        // Resolve token â†’ email
         if (token) {
             const tokenRecord = tokenStore.get(token);
             if (!tokenRecord || tokenRecord.expiresAt < Date.now()) {
@@ -2043,7 +2052,7 @@ export const sendVerificationLink = async (req, res, next) => {
             subject: "Verify Your Go Experts Account",
             html: shell(`Verify your GoExperts account email to get started.`, `
           <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Email Verification</p>
-          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address 📧</h1>
+          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Verify Your Email Address ðŸ“§</h1>
           <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Thank you for registering with <strong>GoExperts</strong>. Please click the button below to verify your email address and retrieve your OTP code (Expires in 15 minutes):</p>
 
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:28px auto;">
@@ -2057,7 +2066,7 @@ export const sendVerificationLink = async (req, res, next) => {
 
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fff7ed;border-left:4px solid #f97316;border-radius:0 8px 8px 0;padding:1px;margin:0 0 24px;">
             <tr><td style="padding:14px 18px;">
-              <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">⏰ Security Notice</p>
+              <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:700;">â° Security Notice</p>
               <p style="margin:0;color:#78350f;font-size:13px;line-height:1.6;">This verification link and OTP code will expire in <strong>15 minutes</strong>. Do not share it with anyone.</p>
             </td></tr>
           </table>
@@ -2444,8 +2453,17 @@ export const saveOnboardingDraft = async (req, res, next) => {
         // Send welcome email ONLY when all steps are completed and it hasn't been sent before
         if (isCompleted) {
             const freshUser = await prisma.user.findUnique({ where: { id: userId } });
-            const regData = freshUser?.registrationData || {};
-            const alreadySentWelcome = (typeof regData === 'object' ? regData : {}).welcomeEmailSent === true;
+            let parsedRegData = {};
+            if (typeof freshUser?.registrationData === 'string' && freshUser.registrationData) {
+                try {
+                    parsedRegData = JSON.parse(freshUser.registrationData);
+                }
+                catch (e) { }
+            }
+            else if (typeof freshUser?.registrationData === 'object' && freshUser.registrationData !== null) {
+                parsedRegData = freshUser.registrationData;
+            }
+            const alreadySentWelcome = parsedRegData.welcomeEmailSent === true;
             if (!alreadySentWelcome) {
                 try {
                     const { EmailChannelAdapter } = await import("../../modules/notifications/notification.service.js");
@@ -2464,21 +2482,21 @@ export const saveOnboardingDraft = async (req, res, next) => {
                         role: (freshUser.role || "user").toUpperCase(),
                         trial_days: "90",
                         trial_ends_at: trialDateStr,
-                        selected_plan: "90-Day Free Trial",
+                        selected_plan: "Free plan after KYC approval",
                         app_url: process.env.CLIENT_URL || "https://goexperts.in",
                     });
                     await emailAdapter.send({
                         to: freshUser.email,
                         subject: welcomeRendered.subject,
-                        body: `Hello ${freshUser.fullName},\n\nWelcome to Go Experts! Your 90-Day Free Trial is active until ${trialDateStr}.\n\nBest regards,\nGo Experts Team`,
+                        body: `Hello ${freshUser.fullName},\n\nWelcome to Go Experts! Complete your KYC verification to activate your free plan.\n\nBest regards,\nGo Experts Team`,
                         html: welcomeRendered.html,
                     }, parsedConfig);
                     // Mark welcome email as sent to prevent duplicates
-                    const latestRegData = typeof freshUser?.registrationData === 'object' ? freshUser?.registrationData : {};
+                    parsedRegData.welcomeEmailSent = true;
                     await prisma.user.update({
                         where: { id: userId },
                         data: {
-                            registrationData: JSON.stringify({ ...latestRegData, welcomeEmailSent: true }),
+                            registrationData: JSON.stringify(parsedRegData),
                         },
                     });
                     console.log(`[ONBOARDING] Welcome email sent to ${freshUser.email}`);

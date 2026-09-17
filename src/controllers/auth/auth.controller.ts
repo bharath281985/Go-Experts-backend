@@ -1707,7 +1707,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
         const info = await transporter.sendMail({
           from: smtpFrom,
           to: subject.email,
-          subject: "Go Experts â€” Password Reset",
+          subject: "Go Experts  Password Reset",
           text: `Reset your password using this code (valid 10 minutes):\n\n${otp}\n`,
           html: htmlBody,
         });
@@ -2110,7 +2110,7 @@ export const sendDeleteAccountOtp = async (req: Request, res: Response, next: Ne
     // Dispatch real email via SMTP transporter
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e4e4e7; border-radius: 12px; background-color: #ffffff;">
-        <h2 style="color: ${brandColor}; margin-top: 0;">Go Experts â€” Delete Account Request</h2>
+        <h2 style="color: ${brandColor}; margin-top: 0;">Go Experts  Delete Account Request</h2>
         <p style="color: #3f3f46; font-size: 15px;">You have requested to delete your account registered on Go Experts (<strong>${email}</strong>).</p>
         <p style="color: #3f3f46; font-size: 15px;">Your 6-digit OTP verification code is:</p>
         <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 16px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: ${brandColor}; border-radius: 10px; margin: 20px 0;">
