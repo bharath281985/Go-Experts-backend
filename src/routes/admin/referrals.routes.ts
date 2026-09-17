@@ -93,8 +93,17 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
 // Pending Referrals
 router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // Quick cleanup for orphaned referrals (if a user was forced-deleted)
-    await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE referrer_id NOT IN (SELECT id FROM users) OR referee_id NOT IN (SELECT id FROM users)`).catch(()=>{});
+    // Safe Prisma cleanup for orphaned referrals (if a user was forced-deleted)
+    const allRefs = await prisma.referral.findMany();
+    for (const r of allRefs) {
+      const [ref1, ref2] = await Promise.all([
+        prisma.user.findUnique({ where: { id: r.referrerId } }),
+        prisma.user.findUnique({ where: { id: r.refereeId } })
+      ]);
+      if (!ref1 || !ref2) {
+        await prisma.referral.delete({ where: { id: r.id } }).catch(()=>{});
+      }
+    }
 
     const referrals = await prisma.referral.findMany({
       include: {
