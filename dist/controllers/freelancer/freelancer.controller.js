@@ -1,4 +1,5 @@
 import { prisma } from "../../config/database.js";
+import { toTenDigitPhone } from "../../common/helpers/phone.js";
 import { logActivityEvent } from "../../services/activity/activity.service.js";
 function money(n, currency = "USD") {
     const value = Number.isFinite(n) ? n : 0;
@@ -1042,7 +1043,7 @@ export const updateFreelancerProfile = async (req, res, next) => {
         else if (body.headline != null)
             bio = String(body.headline);
         const avatarUrl = body.avatarUrl != null ? String(body.avatarUrl).trim() || null : existing.avatarUrl;
-        const phone = body.phone != null ? String(body.phone).trim() || null : existing.phone;
+        const phone = body.phone != null ? toTenDigitPhone(body.phone) || null : existing.phone;
         let status = existing.status;
         if (body.status != null) {
             status = String(body.status).trim() || existing.status;

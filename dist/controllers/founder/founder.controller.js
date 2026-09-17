@@ -1,4 +1,5 @@
 import { prisma } from "../../config/database.js";
+import { toTenDigitPhone } from "../../common/helpers/phone.js";
 import { requireCapability, ActionRequirementsError } from "../../services/mobile/profile-readiness.service.js";
 import { HttpError, getUserWalletPayload, creditWalletForSelf, debitWalletForSelf, listInvoicesForUser, listMeetingsForUser, createMeetingForUser, listUserNotifications, markNotificationRead, markAllNotificationsRead, getJsonSetting, setJsonSetting, listConversationsForUser, listMessagesForConversation, createMessageForUser, purchaseSubscriptionForSelf, listSubscriptionsForUser, } from "../../common/helpers/portal-shared.js";
 async function loadFounderUser(userId) {
@@ -155,7 +156,7 @@ export const updateFounderProfile = async (req, res, next) => {
             where: { id: userId },
             data: {
                 fullName,
-                phone: body.phone != null ? String(body.phone).trim() || null : existing.phone,
+                phone: body.phone != null ? toTenDigitPhone(body.phone) || null : existing.phone,
                 bio: body.bio != null ? String(body.bio) : existing.bio,
                 avatarUrl: body.avatarUrl != null ? String(body.avatarUrl).trim() || null : existing.avatarUrl,
                 city: body.city != null ? String(body.city).trim() || null : existing.city,

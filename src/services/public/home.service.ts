@@ -183,7 +183,7 @@ export async function getPublicCategories(options?: {
 
     const dbCategories = await prisma.skillCategory.findMany({
       where,
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      orderBy: { name: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }).catch(() => []);

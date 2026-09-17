@@ -110,23 +110,7 @@ export class EmailChannelAdapter implements NotificationChannelAdapter {
         const previewUrl = nodemailer.getTestMessageUrl(info);
         console.log(`[EMAIL ADAPTER SUCCESS] Sent email to ${payload.to}, messageId: ${info.messageId}${previewUrl ? ` | Preview: ${previewUrl}` : ''}`);
         
-        // Trigger FCM Push notification to complement the email
-        try {
-          const { sendPushNotification } = await import('../../services/mobile/push.service.js');
-          const { prisma } = await import('../../config/database.js');
-          const dbUser = await prisma.user.findFirst({ where: { email: payload.to } });
-          if (dbUser) {
-            let bodyText = payload.body || "";
-            if (payload.html && !bodyText) {
-              bodyText = payload.html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-            }
-            bodyText = bodyText.length > 150 ? bodyText.substring(0, 150) + '...' : bodyText;
-            if (!bodyText) bodyText = "You have a new notification.";
-            await sendPushNotification(dbUser.id, payload.subject || "New Notification", bodyText);
-          }
-        } catch (pushErr) {
-          console.error('[PUSH FROM EMAIL FAILED]', pushErr);
-        }
+        // Push notification removed to prevent duplicate sends when channel='all'
         
         return { status: "delivered", providerResponse: `SMTP: Sent Successfully (${info.messageId})` };
       } else {
@@ -173,23 +157,7 @@ export class EmailChannelAdapter implements NotificationChannelAdapter {
         console.log(`   View Mail: ${previewUrl}`);
         console.log(`======================================================================\n`);
         
-        // Trigger FCM Push notification to complement the email (Sandbox mode)
-        try {
-          const { sendPushNotification } = await import('../../services/mobile/push.service.js');
-          const { prisma } = await import('../../config/database.js');
-          const dbUser = await prisma.user.findFirst({ where: { email: payload.to } });
-          if (dbUser) {
-            let bodyText = payload.body || "";
-            if (payload.html && !bodyText) {
-              bodyText = payload.html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-            }
-            bodyText = bodyText.length > 150 ? bodyText.substring(0, 150) + '...' : bodyText;
-            if (!bodyText) bodyText = "You have a new notification.";
-            await sendPushNotification(dbUser.id, payload.subject || "New Notification", bodyText);
-          }
-        } catch (pushErr) {
-          console.error('[PUSH FROM EMAIL FAILED]', pushErr);
-        }
+        // Push notification removed to prevent duplicate sends when channel='all'
         
         return { status: "delivered", providerResponse: `ETHEREAL: ${previewUrl}` };
       } catch (fallbackErr: any) {

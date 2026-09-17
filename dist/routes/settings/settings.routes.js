@@ -3,6 +3,37 @@ import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { createBackupSettings, deleteBackupSettings, getApiKeysSettings, saveApiKeysSettings, getAppsSettings, saveAppsSettings, getAuditTrailsSettings, getBackupsSettings, getBrandingSettings, getCountrySettings, getCurrencySettings, getEmailSettings, getEnvironmentSettings, getGeneralSettings, getGoogleMapsSettings, getPaymentsSettings, getRolesSettings, getSecuritySettings, getSmsSettings, getSplashSettings, getSystemLogsSettings, getWhatsappSettings, saveBrandingSettings, saveCountrySettings, saveCurrencySettings, saveEmailSettings, saveEnvironmentSettings, saveGeneralSettings, saveGoogleMapsSettings, savePaymentsSettings, saveSecuritySettings, saveSmsSettings, saveSplashSettings, saveWhatsappSettings, sendTestEmailHandler, testIntegrationConnection, getEmailTemplates, saveEmailTemplate, deleteEmailTemplate, getIndustryColorsSettings, saveIndustryColorsSettings, } from "../../controllers/settings/settings.controller.js";
 const router = Router();
 router.use(authMiddleware);
+import { prisma } from "../../config/database.js";
+// Root generic settings 
+router.get("/", async (req, res) => {
+    try {
+        const settings = await prisma.setting.findMany();
+        const data = {};
+        for (const s of settings)
+            data[s.key] = s.value;
+        res.json({ success: true, data });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: "Error fetching settings" });
+    }
+});
+router.put("/", async (req, res) => {
+    try {
+        const { key, value } = req.body;
+        if (!key)
+            return res.status(400).json({ success: false, message: "Key required" });
+        const strValue = typeof value === "string" ? value : JSON.stringify(value);
+        await prisma.setting.upsert({
+            where: { key },
+            update: { value: strValue },
+            create: { key, value: strValue, category: "general" }
+        });
+        res.json({ success: true });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: "Error saving setting" });
+    }
+});
 // General Workspace
 router.get("/general", getGeneralSettings);
 router.put("/general", saveGeneralSettings);
