@@ -266,7 +266,7 @@ export const getExperienceLevels = async (req: Request, res: Response, next: Nex
   try {
     const options = await (prisma as any).masterOption?.findMany({
       where: { type: 'experience_level', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -288,7 +288,7 @@ export const getStartupStages = async (req: Request, res: Response, next: NextFu
   try {
     const options = await prisma.masterOption.findMany({
       where: { type: 'startup_stage', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(async () => {
       return prisma.$queryRawUnsafe<Array<{ id: string; label: string; value: string }>>(
@@ -312,7 +312,7 @@ export const getAvailabilityOptions = async (req: Request, res: Response, next: 
   try {
     const dbOptions = await (prisma as any).masterOption?.findMany({
       where: { type: { in: ['availability', 'freelancer_availability'] }, status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -339,7 +339,7 @@ export const getWorkModes = async (req: Request, res: Response, next: NextFuncti
 
     const options = await (prisma as any).masterOption?.findMany({
       where: { type: 'work_mode', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -357,7 +357,7 @@ export const getHiringGoals = async (req: Request, res: Response, next: NextFunc
     try {
       options = await prisma.masterOption.findMany({
         where: { type: 'hiring_goal', status: 'active' },
-        orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+        orderBy: { label: 'asc' },
         select: { id: true, label: true, value: true },
       });
     } catch {
@@ -398,7 +398,7 @@ export const getInvestorStages = async (req: Request, res: Response, next: NextF
 
     const options = await (prisma as any).masterOption?.findMany({
       where: { type: 'investor_stage', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -410,7 +410,7 @@ export const getPlatformGoals = async (req: Request, res: Response, next: NextFu
   try {
     const options = await (prisma as any).masterOption?.findMany({
       where: { type: 'platform_goal', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -446,7 +446,7 @@ export const getCompanySizes = async (req: Request, res: Response, next: NextFun
   try {
     const sizes = await (prisma as any).masterOption?.findMany({
       where: { type: 'company_size', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -538,7 +538,7 @@ export const getMasters = async (req: Request, res: Response, next: NextFunction
 
     const options = await (prisma as any).masterOption?.findMany({
       where: { type: { contains: type }, status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -566,7 +566,7 @@ export const getFounderGoals = async (req: Request, res: Response, next: NextFun
   try {
     const dbGoals = await (prisma as any).masterOption?.findMany({
       where: { type: { in: ['founder_goal', 'startup_goal', 'platform_goal'] }, status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -582,7 +582,7 @@ export const getTicketSizes = async (req: Request, res: Response, next: NextFunc
   try {
     const dbTickets = await (prisma as any).masterOption?.findMany({
       where: { type: 'ticket_size', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true, min: true, max: true }
     }).catch(() => []);
 
@@ -594,7 +594,7 @@ export const getInvestorTypes = async (req: Request, res: Response, next: NextFu
   try {
     const types = await (prisma as any).masterOption?.findMany({
       where: { type: 'investor_type', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -606,7 +606,7 @@ export const getFounderTypes = async (req: Request, res: Response, next: NextFun
   try {
     const types = await (prisma as any).masterOption?.findMany({
       where: { type: 'founder_type', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -618,7 +618,7 @@ export const getFounderRoles = async (req: Request, res: Response, next: NextFun
   try {
     const roles = await (prisma as any).masterOption?.findMany({
       where: { type: { in: ['founder_role'] }, status: 'active' },
-      orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -631,7 +631,7 @@ export const getBusinessTypes = async (req: Request, res: Response, next: NextFu
   try {
     const types = await (prisma as any).masterOption?.findMany({
       where: { type: 'business_type', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(async () => {
       return (await prisma.$queryRawUnsafe<any[]>(`SELECT id, label, value FROM master_options WHERE type = 'business_type' AND status = 'active' ORDER BY sort_order ASC`).catch(() => [])) || [];
@@ -648,7 +648,7 @@ export const getServicesTaxonomy = async (req: Request, res: Response, next: Nex
     if (category) {
       const subCats = await prisma.masterOption.findMany({
         where: { type: 'service_taxonomy', groupKey: category, status: 'active' },
-        orderBy: { sortOrder: 'asc' },
+        orderBy: { label: 'asc' },
         select: { id: true, label: true, value: true }
       });
 
@@ -657,7 +657,7 @@ export const getServicesTaxonomy = async (req: Request, res: Response, next: Nex
 
     const categories = await prisma.masterOption.findMany({
       where: { type: 'service_taxonomy', groupKey: 'category', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true, metadata: true }
     });
 
@@ -680,7 +680,7 @@ export const getProjectCategories = async (req: Request, res: Response, next: Ne
     if (category) {
       const subCats = await (prisma as any).masterOption?.findMany({
         where: { type: 'service_taxonomy', groupKey: category, status: 'active' },
-        orderBy: { sortOrder: 'asc' },
+        orderBy: { label: 'asc' },
         select: { id: true, label: true, value: true }
       }).catch(() => []);
 
@@ -689,7 +689,7 @@ export const getProjectCategories = async (req: Request, res: Response, next: Ne
 
     const categories = await (prisma as any).masterOption?.findMany({
       where: { type: 'service_taxonomy', groupKey: 'category', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true, metadata: true }
     }).catch(() => []);
 
@@ -709,7 +709,7 @@ export const getTeamSizes = async (req: Request, res: Response, next: NextFuncti
   try {
     const sizes = await (prisma as any).masterOption?.findMany({
       where: { type: 'team_size', status: 'active' },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true }
     }).catch(() => []);
 
@@ -1793,7 +1793,7 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const numericTeamSize = profile?.teamSize ?? (reg.teamSize ? parseInt(String(reg.teamSize), 10) || 1 : 1);
       const teamSizeOption = await (prisma as any).masterOption?.findFirst({
         where: { type: 'team_size', status: 'active', min: { lte: numericTeamSize }, max: { gte: numericTeamSize } },
-        orderBy: { sortOrder: 'asc' },
+        orderBy: { label: 'asc' },
         select: { id: true, label: true, value: true },
       }).catch(() => null);
 

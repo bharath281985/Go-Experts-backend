@@ -74,7 +74,7 @@ router.get("/accredited-statuses", async (_req: Request, res: Response, next: Ne
   try {
     const options = await (prisma as any).masterOption.findMany({
       where: { type: 'accredited_status', status: 'active' },
-      orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true },
     }).catch(() => []);
     res.json({ success: true, data: options, rows: options });
@@ -84,7 +84,7 @@ router.get("/accredited_statuses", async (_req: Request, res: Response, next: Ne
   try {
     const options = await (prisma as any).masterOption.findMany({
       where: { type: 'accredited_status', status: 'active' },
-      orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+      orderBy: { label: 'asc' },
       select: { id: true, label: true, value: true },
     }).catch(() => []);
     res.json({ success: true, data: options, rows: options });
@@ -293,7 +293,7 @@ router.get("/technologies", async (_req: Request, res: Response, next: NextFunct
   try {
     const technologies = await (prisma as any).masterOption.findMany({
       where: { type: "technology", status: "active" },
-      orderBy: { sortOrder: "asc" },
+      orderBy: { label: "asc" },
       select: { id: true, label: true, value: true },
     });
     res.json({ success: true, count: technologies.length, data: technologies });
