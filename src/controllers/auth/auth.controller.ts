@@ -386,8 +386,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const userStatus = String(user.status).toLowerCase();
-    const isExpiredPlanInactive = userStatus === "inactive" && subscriptionGate.status === "expired";
-    if (["suspended", "inactive"].includes(userStatus) && !isExpiredPlanInactive) {
+    if (["suspended", "inactive"].includes(userStatus)) {
       const reason = userStatus === "suspended" ? "Account suspended" : `Account ${userStatus}`;
       const msg = userStatus === "suspended"
         ? "Your account is suspended. Please contact support."
@@ -632,7 +631,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               password: hashed,
               fullName,
               role,
-              status: "pending",
+              status: "active",
               trialEndsAt,
               phone,
               country,
@@ -654,7 +653,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               password: hashed,
               fullName,
               role,
-              status: "pending",
+              status: "active",
               trialEndsAt,
               phone,
               country,

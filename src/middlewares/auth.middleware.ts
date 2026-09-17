@@ -80,11 +80,12 @@ export const authMiddleware = async (
 
     if (user) {
       // Account Status Guard
-      if (user.status === "SUSPENDED") {
+      const userStatus = String(user.status).toUpperCase();
+      if (userStatus === "SUSPENDED") {
         return res.status(403).json({ success: false, message: "Account suspended." });
       }
-      if (user.status === "BLOCKED" || user.status === "DELETED") {
-        return res.status(403).json({ success: false, message: "Account unavailable." });
+      if (["BLOCKED", "DELETED", "INACTIVE"].includes(userStatus)) {
+        return res.status(403).json({ success: false, message: `Account ${userStatus.toLowerCase()}.` });
       }
 
       req.user = {
