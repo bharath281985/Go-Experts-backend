@@ -499,6 +499,11 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           const equityVal = equityOfferedRaw != null ? (parseFloat(String(equityOfferedRaw).replace(/[^\d.]/g, '')) || 0) : 0;
           const pitchDeckVal = startupObj.pitchDeck || b.pitchDeck || b.pitchDeckUrl || null;
 
+          const targetRaiseVal = b.targetRaise != null ? (parseFloat(String(b.targetRaise).replace(/[^\d.]/g, '')) || 0) : null;
+          const primaryGoalVal = b.primaryGoal || b.hiringGoal || null;
+          const founderRoleVal = b.founderRole || null;
+          const founderBioVal = b.founderBio || b.bio || null;
+
           await tx.founderProfile.upsert({
             where: { userId: created.id },
             update: {
@@ -507,6 +512,10 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               stage: stageVal ? String(stageVal).trim() : null,
               teamSize: teamSizeVal,
               raised: raisedVal,
+              targetRaise: targetRaiseVal,
+              primaryGoal: primaryGoalVal ? String(primaryGoalVal).trim() : null,
+              founderRole: founderRoleVal ? String(founderRoleVal).trim() : null,
+              founderBio: founderBioVal ? String(founderBioVal).trim() : null,
             },
             create: {
               userId: created.id,
@@ -515,6 +524,10 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
               stage: stageVal ? String(stageVal).trim() : null,
               teamSize: teamSizeVal,
               raised: raisedVal,
+              targetRaise: targetRaiseVal,
+              primaryGoal: primaryGoalVal ? String(primaryGoalVal).trim() : null,
+              founderRole: founderRoleVal ? String(founderRoleVal).trim() : null,
+              founderBio: founderBioVal ? String(founderBioVal).trim() : null,
             }
           });
 
@@ -538,16 +551,28 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       } else if (targetRole === 'client') {
         const companyVal = b.businessName || b.company || b.companyName || null;
         const industryVal = b.industryId || b.industry || null;
+        const projectHireBudgetVal = b.projectHireBudget || b.projectHireBudgetRange || b.budget || null;
+        const hiringGoalVal = b.hiringGoal || b.primaryGoal || null;
+        const companySizeVal = b.companySize || b.currentTeam || b.teamSize || null;
+
         await tx.clientProfile.upsert({
           where: { userId: created.id },
           update: {
             company: companyVal ? String(companyVal).trim() : undefined,
             industry: industryVal ? String(industryVal).trim() : undefined,
+            projectHireBudget: projectHireBudgetVal ? String(projectHireBudgetVal).trim() : undefined,
+            hiringGoal: hiringGoalVal ? String(hiringGoalVal).trim() : undefined,
+            companySize: companySizeVal ? String(companySizeVal).trim() : undefined,
+            currentTeam: companySizeVal ? String(companySizeVal).trim() : undefined,
           },
           create: {
             userId: created.id,
             company: companyVal ? String(companyVal).trim() : null,
             industry: industryVal ? String(industryVal).trim() : null,
+            projectHireBudget: projectHireBudgetVal ? String(projectHireBudgetVal).trim() : null,
+            hiringGoal: hiringGoalVal ? String(hiringGoalVal).trim() : null,
+            companySize: companySizeVal ? String(companySizeVal).trim() : null,
+            currentTeam: companySizeVal ? String(companySizeVal).trim() : null,
           }
         });
 
@@ -1614,7 +1639,8 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
       const targetRaiseVal = targetRaise ?? raised;
       const raisedVal = raised != null && raised !== '' ? parseFloat(String(raised)) : undefined;
 
-      const parsedTeamSize = teamSizeInput ? parseInt(String(teamSizeInput).replace(/\D/g, '') || '1') || 1 : undefined;
+      const parsedTeamSize = teamSizeInput ? parseInt(String(teamSizeInput)) || 1 : undefined;
+
 
       await prisma.founderProfile.upsert({
         where: { userId: req.user.id },
@@ -1803,7 +1829,9 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         formattedProfile.investorTypeId = toSingleOption(roleProfile.investorType);
         delete formattedProfile.investorType;
       } else if (activeUser.role === 'founder') {
-        formattedProfile.teamSize = teamSizeOption;
+        formattedProfile.teamSizeId = teamSizeOption;
+        formattedProfile.companySizeId = teamSizeOption;
+        formattedProfile.teamSize = teamSizeOption?.name || roleProfile.teamSize || null;
         formattedProfile.industryId = toMultiOptions(roleProfile.industry);
         delete formattedProfile.industry;
         formattedProfile.stageId = toSingleOption(roleProfile.stage);

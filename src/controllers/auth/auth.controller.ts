@@ -788,16 +788,28 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           }
         }
 
+        const companySizeVal = req.body?.companySize || req.body?.currentTeam || req.body?.teamSize || null;
+        const projectHireBudgetVal = req.body?.projectHireBudget || req.body?.projectHireBudgetRange || req.body?.budget || null;
+        const hiringGoalVal = req.body?.hiringGoal || req.body?.primaryGoal || null;
+
         await tx.clientProfile.upsert({
           where: { userId: created.id },
           create: {
             userId: created.id,
             company: req.body?.company ? String(req.body.company) : null,
             industry: industryName,
+            companySize: companySizeVal ? String(companySizeVal) : null,
+            currentTeam: companySizeVal ? String(companySizeVal) : null,
+            projectHireBudget: projectHireBudgetVal ? String(projectHireBudgetVal) : null,
+            hiringGoal: hiringGoalVal ? String(hiringGoalVal) : null,
           },
           update: {
             company: req.body?.company ? String(req.body.company) : null,
             industry: industryName,
+            companySize: companySizeVal ? String(companySizeVal) : null,
+            currentTeam: companySizeVal ? String(companySizeVal) : null,
+            projectHireBudget: projectHireBudgetVal ? String(projectHireBudgetVal) : null,
+            hiringGoal: hiringGoalVal ? String(hiringGoalVal) : null,
           },
         });
       }
@@ -824,6 +836,24 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       }
 
       if (role === "founder") {
+        let teamSizeRaw = req.body?.teamSize || req.body?.companySize;
+        let teamSizeVal = 1;
+        if (teamSizeRaw !== undefined && teamSizeRaw !== null) {
+          if (typeof teamSizeRaw === 'number') teamSizeVal = teamSizeRaw;
+          else if (typeof teamSizeRaw === 'string') {
+             const m = teamSizeRaw.match(/\d+/);
+             if (m) teamSizeVal = parseInt(m[0], 10);
+          }
+        }
+        
+        const targetRaiseRaw = req.body?.targetRaise;
+        const targetRaiseVal = targetRaiseRaw != null ? (parseFloat(String(targetRaiseRaw).replace(/[^\d.]/g, '')) || 0) : null;
+        const raisedRaw = req.body?.raised || req.body?.fundingRaised;
+        const raisedVal = raisedRaw != null ? (parseFloat(String(raisedRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+        const primaryGoalVal = req.body?.primaryGoal || req.body?.hiringGoal || null;
+        const founderRoleVal = req.body?.founderRole || null;
+        const founderBioVal = req.body?.founderBio || req.body?.bio || null;
+
         await tx.founderProfile.upsert({
           where: { userId: created.id },
           create: {
@@ -831,11 +861,23 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             startupName: req.body?.startupName || req.body?.company || null,
             industry: req.body?.industry || req.body?.category || null,
             stage: req.body?.stage || null,
+            teamSize: teamSizeVal,
+            targetRaise: targetRaiseVal,
+            raised: raisedVal,
+            primaryGoal: primaryGoalVal ? String(primaryGoalVal) : null,
+            founderRole: founderRoleVal ? String(founderRoleVal) : null,
+            founderBio: founderBioVal ? String(founderBioVal) : null,
           },
           update: {
             startupName: req.body?.startupName || req.body?.company || null,
             industry: req.body?.industry || req.body?.category || null,
             stage: req.body?.stage || null,
+            teamSize: teamSizeVal,
+            targetRaise: targetRaiseVal,
+            raised: raisedVal,
+            primaryGoal: primaryGoalVal ? String(primaryGoalVal) : null,
+            founderRole: founderRoleVal ? String(founderRoleVal) : null,
+            founderBio: founderBioVal ? String(founderBioVal) : null,
           },
         });
       }
