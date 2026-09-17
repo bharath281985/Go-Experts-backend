@@ -97,8 +97,7 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
       const tables: any[] = await prisma.$queryRawUnsafe(`
         SELECT TABLE_NAME 
         FROM information_schema.tables 
-        WHERE table_schema = DATABASE() 
-        AND LOWER(TABLE_NAME) LIKE '%referral%'
+        WHERE table_schema = DATABASE()
       `);
       
       const referralTable = tables.find(t => t.TABLE_NAME.toLowerCase() === 'referral' || t.TABLE_NAME.toLowerCase() === 'referrals')?.TABLE_NAME;
