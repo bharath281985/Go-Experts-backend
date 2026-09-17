@@ -209,10 +209,10 @@ router.post("/checkout", async (req: Request, res: Response) => {
             const kyc = userForKyc ? getVerificationStats(userForKyc) : { kycApproved: false, profileApproved: false };
             
           
-          const isKycVerified = kyc.kycApproved || kyc.profileApproved;
+          const isKycVerified = kyc.kycApproved;
 
-          if (!completion.isProfileComplete || !isKycVerified) {
-            return res.status(403).json({ success: false, message: "Profile and KYC verification required before purchasing a subscription." });
+          if (!isKycVerified) {
+            return res.status(403).json({ success: false, message: "Your KYC verification is required before purchasing a subscription. Please complete your KYC documents and wait for admin approval." });
           }
         } catch (err) {
           console.error("KYC gate check failed:", err);

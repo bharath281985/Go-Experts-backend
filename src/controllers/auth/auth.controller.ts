@@ -1943,10 +1943,31 @@ export const sendOtp = async (req: Request, res: Response, next: NextFunction) =
     if (isSignup && email) {
       const existingUser = await prisma.user.findFirst({
         where: { email },
-        select: { id: true },
+        select: { id: true, isVerified: true, verified: true, role: true, onboardingStatus: true },
       });
       if (existingUser) {
-        return res.status(409).json({ success: false, message: "A user with this email already exists. Please use a different email address or log in." });
+        // Check if onboarding is fully completed using the real schema field
+        const onboardingDone = existingUser.onboardingStatus === "COMPLETED" ||
+          (existingUser.isVerified === true && existingUser.verified === true && existingUser.role && existingUser.role !== "");
+        if (onboardingDone) {
+          // Fully registered user — block and show toast
+          return res.status(409).json({ success: false, message: "This email is already registered. Please log in instead." });
+        } else {
+          // Partially registered — allow them to resume onboarding
+          const jwt = await import("jsonwebtoken");
+          const resumeToken = jwt.default.sign(
+            { id: existingUser.id, email, role: existingUser.role, type: "user" },
+            process.env.JWT_SECRET as string,
+            { expiresIn: "2h" }
+          );
+          return res.status(200).json({
+            success: true,
+            onboardingIncomplete: true,
+            message: "This email is already registered but your registration is not complete. Resuming your previous session...",
+            accessToken: resumeToken,
+            user: { id: existingUser.id, email, role: existingUser.role },
+          });
+        }
       }
     }
 
