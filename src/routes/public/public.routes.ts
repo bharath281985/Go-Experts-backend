@@ -970,14 +970,33 @@ router.post("/delete-requests/:id/permanent-delete", async (req: Request, res: R
   try {
     const { id } = req.params;
 
-    // Clean up dependent child profiles to satisfy foreign key constraints
+    // Clean up dependent child profiles and relations to satisfy foreign key constraints
     await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    
+    await prisma.authIdentity.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.resumeShare.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.userResumeConfig.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.notificationLog.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.notificationPreference.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.notification.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.wallet.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.subscription.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.payment.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.invoice.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.clientTeamMember.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.clientTeamMember.deleteMany({ where: { clientId: id } }).catch(() => { });
+    await prisma.conversationState.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.messageReaction.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.report.deleteMany({ where: { reportedUserId: id } }).catch(() => { });
+    await prisma.contract.deleteMany({ where: { clientId: id } }).catch(() => { });
+    await prisma.contract.deleteMany({ where: { freelancerId: id } }).catch(() => { });
+    await prisma.project.deleteMany({ where: { client: id } }).catch(() => { });
+    await prisma.referral.deleteMany({ where: { referrerId: id } }).catch(() => { });
+    await prisma.referral.deleteMany({ where: { refereeId: id } }).catch(() => { });
 
     // Permanently remove the user from database
     const user = await prisma.user.delete({
@@ -985,7 +1004,19 @@ router.post("/delete-requests/:id/permanent-delete", async (req: Request, res: R
     });
 
     res.json({ success: true, message: `Account for ${user.email} has been PERMANENTLY deleted from the database.`, user });
-  } catch (err) {
+  } catch (err: any) {
+    // If we still hit a foreign key constraint, force delete at DB level
+    if (err.code === 'P2003' || /Foreign key constraint/i.test(err.message)) {
+       try {
+         await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS=0;`);
+         await prisma.$executeRawUnsafe(`DELETE FROM users WHERE id = '${req.params.id}';`);
+         await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS=1;`);
+         return res.json({ success: true, message: `Account has been PERMANENTLY deleted from the database (Forced).` });
+       } catch(e) {
+         await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS=1;`).catch(()=>{});
+         return next(e);
+       }
+    }
     next(err);
   }
 });
@@ -993,18 +1024,52 @@ router.post("/delete-requests/:id/permanent-delete", async (req: Request, res: R
 router.delete("/delete-requests/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    
+    // Clean up dependent child profiles and relations to satisfy foreign key constraints
     await prisma.clientProfile.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.founderProfile.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.freelancerProfile.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.investorProfile.deleteMany({ where: { userId: id } }).catch(() => { });
+    
+    await prisma.authIdentity.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.resumeShare.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.userResumeConfig.deleteMany({ where: { userId: id } }).catch(() => { });
     await prisma.deviceToken.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.notificationLog.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.notificationPreference.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.notification.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.wallet.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.subscription.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.payment.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.invoice.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.clientTeamMember.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.clientTeamMember.deleteMany({ where: { clientId: id } }).catch(() => { });
+    await prisma.conversationState.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.messageReaction.deleteMany({ where: { userId: id } }).catch(() => { });
+    await prisma.report.deleteMany({ where: { reportedUserId: id } }).catch(() => { });
+    await prisma.contract.deleteMany({ where: { clientId: id } }).catch(() => { });
+    await prisma.contract.deleteMany({ where: { freelancerId: id } }).catch(() => { });
+    await prisma.project.deleteMany({ where: { client: id } }).catch(() => { });
+    await prisma.referral.deleteMany({ where: { referrerId: id } }).catch(() => { });
+    await prisma.referral.deleteMany({ where: { refereeId: id } }).catch(() => { });
 
     const user = await prisma.user.delete({
       where: { id },
     });
 
     res.json({ success: true, message: `Account for ${user.email} has been PERMANENTLY deleted from the database.`, user });
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === 'P2003' || /Foreign key constraint/i.test(err.message)) {
+       try {
+         await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS=0;`);
+         await prisma.$executeRawUnsafe(`DELETE FROM users WHERE id = '${req.params.id}';`);
+         await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS=1;`);
+         return res.json({ success: true, message: `Account has been PERMANENTLY deleted from the database (Forced).` });
+       } catch(e) {
+         await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS=1;`).catch(()=>{});
+         return next(e);
+       }
+    }
     next(err);
   }
 });

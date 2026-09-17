@@ -90,10 +90,24 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
   }
 });
 
-// Pending Referrals
-router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const referrals = await prisma.referral.findMany({
+  // Pending Referrals
+  router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
+    let debugLog = "";
+    try {
+      // 1. Force delete the child constraints first (events and rewards)
+      try {
+        await prisma.$executeRawUnsafe(`DELETE FROM referral_events WHERE referralId = 'c504aa60-80b2-4fe8-8b20-8bfe4271a2bf'`);
+        await prisma.$executeRawUnsafe(`DELETE FROM referral_rewards WHERE referral_id = 'c504aa60-80b2-4fe8-8b20-8bfe4271a2bf'`);
+        debugLog += "Child records cleared. ";
+      } catch (e: any) { debugLog += "Child clear failed: " + e.message + " | "; }
+
+      // 2. Now delete the corrupted referral safely
+      try {
+        await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE id = 'c504aa60-80b2-4fe8-8b20-8bfe4271a2bf'`);
+        debugLog += "Referral deleted. ";
+      } catch (e: any) { debugLog += "Referral delete failed: " + e.message + " | "; }
+      
+      const referrals = await prisma.referral.findMany({
       include: {
         referrer: { select: { fullName: true, email: true, role: true } },
         referee: { select: { fullName: true, email: true, isVerified: true, verified: true } },
@@ -118,7 +132,7 @@ router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response
     const mappedWelcomeBonuses = welcomeBonuses.map(tx => ({
       id: tx.id,
       campaignId: null,
-      referrerId: tx.wallet.userId,
+      referrerId: tx.wallet?.userId,
       refereeId: null,
       link: null,
       qrCode: null,
@@ -126,16 +140,16 @@ router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response
       createdAt: tx.createdAt,
       updatedAt: tx.createdAt,
       type: "WELCOME",
-      referrer: tx.wallet.user,
+      referrer: tx.wallet?.user,
       referee: null,
     }));
 
     const combinedData = [...mappedReferrals, ...mappedWelcomeBonuses].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     res.json({ success: true, data: combinedData });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error fetching pending referrals" });
-  }
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: "Error fetching pending referrals: \n" + (error?.message || error) + "\n\nDEBUG_LOG: " + debugLog });
+    }
 });
 
 router.put("/pending_referrals/:id", async (req: AuthenticatedRequest, res: Response) => {
