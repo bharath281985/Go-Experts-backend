@@ -93,22 +93,29 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
   // Pending Referrals
   router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Find the exact table name from the database metadata to bypass all casing issues
+      // 1. One-off fix for the known corrupted ID
+      await prisma.referral.deleteMany({
+        where: { refereeId: '9bbe925a-6b74-46ca-925a-afeece143ff0' }
+      }).catch(() => {});
+
+      // 2. Generic robust cleanup
       const tables: any[] = await prisma.$queryRawUnsafe(`
         SELECT TABLE_NAME 
         FROM information_schema.tables 
         WHERE table_schema = DATABASE()
       `);
       
-      const referralTable = tables.find(t => t.TABLE_NAME.toLowerCase() === 'referral' || t.TABLE_NAME.toLowerCase() === 'referrals')?.TABLE_NAME;
-      const userTable = tables.find(t => t.TABLE_NAME.toLowerCase() === 'user' || t.TABLE_NAME.toLowerCase() === 'users')?.TABLE_NAME;
+      const referralTable = tables.find(t => (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'referral' || (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'referrals');
+      const userTable = tables.find(t => (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'user' || (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'users');
 
-      if (referralTable && userTable) {
-        // Now delete the orphaned records using the exactly correct, dynamically discovered table names
+      const refTName = referralTable?.TABLE_NAME || referralTable?.table_name;
+      const usrTName = userTable?.TABLE_NAME || userTable?.table_name;
+
+      if (refTName && usrTName) {
         await prisma.$executeRawUnsafe(`
-          DELETE FROM \`${referralTable}\` 
-          WHERE referrer_id NOT IN (SELECT id FROM \`${userTable}\`) 
-             OR referee_id NOT IN (SELECT id FROM \`${userTable}\`)
+          DELETE FROM \`${refTName}\` 
+          WHERE NOT EXISTS (SELECT 1 FROM \`${usrTName}\` WHERE \`${usrTName}\`.id = \`${refTName}\`.referrer_id)
+             OR NOT EXISTS (SELECT 1 FROM \`${usrTName}\` WHERE \`${usrTName}\`.id = \`${refTName}\`.referee_id)
         `).catch(() => {});
       }
 
