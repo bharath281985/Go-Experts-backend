@@ -92,33 +92,18 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
 
   // Pending Referrals
   router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
+    let debugLog = "";
     try {
-      // 1. One-off fix for the known corrupted ID
-      await prisma.referral.deleteMany({
-        where: { refereeId: '9bbe925a-6b74-46ca-925a-afeece143ff0' }
-      }).catch(() => {});
+      try {
+        await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE referee_id = '9bbe925a-6b74-46ca-925a-afeece143ff0'`);
+        debugLog += "Raw delete 1 success. ";
+      } catch (e: any) { debugLog += "Raw 1 failed: " + e.message + " | "; }
 
-      // 2. Generic robust cleanup
-      const tables: any[] = await prisma.$queryRawUnsafe(`
-        SELECT TABLE_NAME 
-        FROM information_schema.tables 
-        WHERE table_schema = DATABASE()
-      `);
+      try {
+        await prisma.$executeRawUnsafe(`DELETE FROM referral WHERE referee_id = '9bbe925a-6b74-46ca-925a-afeece143ff0'`);
+        debugLog += "Raw delete 2 success. ";
+      } catch (e: any) { debugLog += "Raw 2 failed: " + e.message + " | "; }
       
-      const referralTable = tables.find(t => (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'referral' || (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'referrals');
-      const userTable = tables.find(t => (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'user' || (t.TABLE_NAME || t.table_name)?.toLowerCase() === 'users');
-
-      const refTName = referralTable?.TABLE_NAME || referralTable?.table_name;
-      const usrTName = userTable?.TABLE_NAME || userTable?.table_name;
-
-      if (refTName && usrTName) {
-        await prisma.$executeRawUnsafe(`
-          DELETE FROM \`${refTName}\` 
-          WHERE NOT EXISTS (SELECT 1 FROM \`${usrTName}\` WHERE \`${usrTName}\`.id = \`${refTName}\`.referrer_id)
-             OR NOT EXISTS (SELECT 1 FROM \`${usrTName}\` WHERE \`${usrTName}\`.id = \`${refTName}\`.referee_id)
-        `).catch(() => {});
-      }
-
       const referrals = await prisma.referral.findMany({
       include: {
         referrer: { select: { fullName: true, email: true, role: true } },
@@ -159,9 +144,9 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
     const combinedData = [...mappedReferrals, ...mappedWelcomeBonuses].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     res.json({ success: true, data: combinedData });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: "Error fetching pending referrals: " + (error?.message || error) });
-  }
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: "Error fetching pending referrals: \n" + (error?.message || error) + "\n\nDEBUG_LOG: " + debugLog });
+    }
 });
 
 router.put("/pending_referrals/:id", async (req: AuthenticatedRequest, res: Response) => {
