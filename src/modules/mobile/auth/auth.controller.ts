@@ -1161,6 +1161,18 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       updatedAt: activeUser.updatedAt,
       onboardingStatus: activeUser.onboardingStatus ?? 'COMPLETED',
       completionPercentage: activeUser.completionPercentage,
+      currentStep: (() => {
+        if (!activeUser.completedSteps) return 1;
+        try {
+          const parsed = typeof activeUser.completedSteps === 'string' ? JSON.parse(activeUser.completedSteps) : activeUser.completedSteps;
+          return Array.isArray(parsed) ? parsed.length + 1 : 1;
+        } catch { return 1; }
+      })(),
+      completedSteps: activeUser.completedSteps ? (
+        typeof activeUser.completedSteps === 'string' 
+          ? (() => { try { return JSON.parse(activeUser.completedSteps); } catch { return []; } })()
+          : activeUser.completedSteps
+      ) : [],
 
       // Role specific profile details
       profile: formattedProfile,
