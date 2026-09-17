@@ -88,6 +88,8 @@ type AuthUser = {
   isVerified: boolean;
   onboardingStatus?: string | null;
   completionPercentage?: number | null;
+  completedSteps?: string | null;
+  currentStep?: string | null;
 };
 
 const buildPhoneNumber = (phone?: string, countryCode?: string) => {
@@ -278,6 +280,18 @@ const buildAuthPayload = async (user: AuthUser) => {
       profileCompletedPercentage: completion.profileCompletion,
       isProfileComplete: completion.isProfileComplete,
       completionPercentage: user.completionPercentage,
+      currentStep: (() => {
+        if (!user.completedSteps) return 1;
+        try {
+          const parsed = typeof user.completedSteps === 'string' ? JSON.parse(user.completedSteps) : user.completedSteps;
+          return Array.isArray(parsed) ? parsed.length + 1 : 1;
+        } catch { return 1; }
+      })(),
+      completedSteps: user.completedSteps ? (
+        typeof user.completedSteps === 'string' 
+          ? (() => { try { return JSON.parse(user.completedSteps); } catch { return []; } })()
+          : user.completedSteps
+      ) : [],
       subscriptionPlan: hasActiveSubscription,
       hasSubscription: hasActiveSubscription,
       isSubscribed: hasActiveSubscription,
