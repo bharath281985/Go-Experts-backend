@@ -130,7 +130,7 @@ router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response
     const mappedWelcomeBonuses = welcomeBonuses.map(tx => ({
       id: tx.id,
       campaignId: null,
-      referrerId: tx.wallet.userId,
+      referrerId: tx.wallet?.userId,
       refereeId: null,
       link: null,
       qrCode: null,
@@ -138,15 +138,15 @@ router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response
       createdAt: tx.createdAt,
       updatedAt: tx.createdAt,
       type: "WELCOME",
-      referrer: tx.wallet.user,
+      referrer: tx.wallet?.user,
       referee: null,
     }));
 
     const combinedData = [...mappedReferrals, ...mappedWelcomeBonuses].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     res.json({ success: true, data: combinedData });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error fetching pending referrals" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "Error fetching pending referrals: " + (error?.message || error) });
   }
 });
 
