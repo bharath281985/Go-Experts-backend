@@ -38,6 +38,7 @@ import {
   getPlatformGoals,
   getCompanySizes,
   getExperienceLevels,
+  getDesignations,
 } from "../../modules/mobile/public/public.controller.js";
 
 const router = Router();
@@ -68,6 +69,7 @@ router.get("/platform-goals", getPlatformGoals);
 router.get("/company-sizes", getCompanySizes);
 router.get("/company_sizes", getCompanySizes);
 router.get("/experience-levels", getExperienceLevels);
+router.get("/designations", getDesignations);
 router.get("/accredited-statuses", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const options = await (prisma as any).masterOption.findMany({
