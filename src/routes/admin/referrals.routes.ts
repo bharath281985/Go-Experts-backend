@@ -93,12 +93,29 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
   // Pending Referrals
   router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
     try {
-      // Safe DB-level cleanup for orphaned referrals (if a user was forced-deleted)
-      // Because Prisma's findMany crashes entirely if a required relation is missing in DB!
-      await prisma.$executeRawUnsafe(`DELETE FROM Referral WHERE referrer_id NOT IN (SELECT id FROM User) OR referee_id NOT IN (SELECT id FROM User)`).catch(()=>{});
-      await prisma.$executeRawUnsafe(`DELETE FROM referral WHERE referrer_id NOT IN (SELECT id FROM user) OR referee_id NOT IN (SELECT id FROM user)`).catch(()=>{});
-      await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE referrer_id NOT IN (SELECT id FROM users) OR referee_id NOT IN (SELECT id FROM users)`).catch(()=>{});
+      // Very robust DB-level cleanup for orphaned referrals
+      let rawRefs: any[] = [];
+      try { rawRefs = await prisma.$queryRawUnsafe(`SELECT id, referrer_id, referee_id FROM Referral`); } catch(e) {}
+      if (!rawRefs || rawRefs.length === 0) {
+        try { rawRefs = await prisma.$queryRawUnsafe(`SELECT id, referrer_id, referee_id FROM referral`); } catch(e) {}
+      }
+      if (!rawRefs || rawRefs.length === 0) {
+        try { rawRefs = await prisma.$queryRawUnsafe(`SELECT id, referrer_id, referee_id FROM referrals`); } catch(e) {}
+      }
       
+      if (rawRefs && rawRefs.length > 0) {
+        for (const r of rawRefs) {
+          const u1 = await prisma.user.findUnique({ where: { id: r.referrer_id } });
+          const u2 = await prisma.user.findUnique({ where: { id: r.referee_id } });
+          if (!u1 || !u2) {
+            // Found orphaned! Let's force delete it from all possible table names
+            await prisma.$executeRawUnsafe(`DELETE FROM Referral WHERE id = '${r.id}'`).catch(()=>{});
+            await prisma.$executeRawUnsafe(`DELETE FROM referral WHERE id = '${r.id}'`).catch(()=>{});
+            await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE id = '${r.id}'`).catch(()=>{});
+          }
+        }
+      }
+
       const referrals = await prisma.referral.findMany({
       include: {
         referrer: { select: { fullName: true, email: true, role: true } },
