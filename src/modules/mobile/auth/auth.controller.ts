@@ -989,11 +989,46 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     ]);
 
     const activeUser = dbUser || user;
-    const roleProfile: any =
+    let regData: any = {};
+    if (activeUser.registrationData) {
+      try {
+        regData = typeof activeUser.registrationData === 'string' 
+          ? JSON.parse(activeUser.registrationData) 
+          : activeUser.registrationData;
+      } catch (e) {}
+    }
+
+    let roleProfile: any =
       activeUser.role === 'freelancer' ? activeUser.freelancerProfile :
         activeUser.role === 'client' ? activeUser.clientProfile :
           activeUser.role === 'investor' ? activeUser.investorProfile :
             activeUser.role === 'founder' ? activeUser.founderProfile : null;
+
+    if (!roleProfile) roleProfile = {};
+
+    activeUser.country = activeUser.country || regData.country;
+    activeUser.state = activeUser.state || regData.state || regData.stateCode;
+    activeUser.city = activeUser.city || regData.city;
+
+    if (activeUser.role === 'client') {
+       roleProfile.company = roleProfile.company || regData.companyName || regData.company;
+       roleProfile.jobTitle = roleProfile.jobTitle || regData.jobTitle || regData.headline;
+       roleProfile.industry = roleProfile.industry || regData.industry || regData.companyCategory || regData.category;
+       roleProfile.projectHireBudget = roleProfile.projectHireBudget || regData.projectHireBudget || regData.budget;
+       roleProfile.companySize = roleProfile.companySize || regData.companySize || regData.teamSize;
+       roleProfile.hiringGoal = roleProfile.hiringGoal || regData.hiringGoal || regData.clientGoals || regData.goals;
+    } else if (activeUser.role === 'freelancer') {
+       roleProfile.industry = roleProfile.industry || regData.industry || regData.category;
+    } else if (activeUser.role === 'founder') {
+       roleProfile.teamSize = roleProfile.teamSize || regData.teamSize || regData.companySize;
+       roleProfile.industry = roleProfile.industry || regData.industry || regData.category;
+       roleProfile.stage = roleProfile.stage || regData.stage;
+       roleProfile.primaryGoal = roleProfile.primaryGoal || regData.primaryGoal;
+    } else if (activeUser.role === 'investor') {
+       roleProfile.focusAreas = roleProfile.focusAreas || regData.focusAreas;
+       roleProfile.preferredStage = roleProfile.preferredStage || regData.preferredStage;
+       roleProfile.investorType = roleProfile.investorType || regData.investorType;
+    }
 
     const rawSkills = roleProfile?.skills ? String(roleProfile.skills).split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -1117,8 +1152,8 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         delete formattedProfile.industry;
         formattedProfile.projectHireBudgetId = clientBudgetOption || toSingleOption(roleProfile.projectHireBudget);
         delete formattedProfile.projectHireBudget;
-        formattedProfile.companySizeId = clientCompanySizeOption || toSingleOption(roleProfile.companySize);
-        formattedProfile.currentTeam = formattedProfile.companySizeId?.name || roleProfile.currentTeam || null;
+        formattedProfile.teamSizeId = clientCompanySizeOption || toSingleOption(roleProfile.companySize);
+        formattedProfile.currentTeam = formattedProfile.teamSizeId?.name || roleProfile.currentTeam || null;
         delete formattedProfile.companySize;
         formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
         delete formattedProfile.hiringGoal;

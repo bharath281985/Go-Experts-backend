@@ -144,7 +144,7 @@ export const shell = (preheader: string, body: string) => `
                   <td style="vertical-align:middle;">
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                       <tr>
-                        <td style="padding-right:6px;font-size:14px;">Ã°Å¸Å’Â</td>
+                        <td style="padding-right:6px;font-size:14px;">🌐</td>
                         <td>
                           <a href="https://goexperts.in" style="color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;font-family:Inter,Arial,sans-serif;">www.goexperts.in</a>
                         </td>
@@ -347,8 +347,8 @@ export const sendAccountActiveEmail = (to: string, name: string) => {
     </p>
 
     ${featureList([
-    { icon: 'Ã°Å¸â€â€™', text: 'Your account is secured and verified' },
-    { icon: 'Ã°Å¸Å’Â', text: 'Access the full platform and connect globally' },
+    { icon: '🔒', text: 'Your account is secured and verified' },
+    { icon: '🌐', text: 'Access the full platform and connect globally' },
     { icon: '👤', text: 'Your profile is now visible to potential collaborators' },
   ], '#22c55e')}
 
@@ -403,8 +403,8 @@ export const sendPlanActivationEmail = (to: string, name: string) => {
                 <p style="margin:0 0 16px;color:#0f172a;font-size:22px;font-weight:800;">90 Days Free Access <span style="font-size:14px;color:#64748b;font-weight:400;">No credit card required</span></p>
                 ${featureList([
     { icon: '💼', text: 'Post and browse unlimited projects & proposals' },
-    { icon: 'Ã°Å¸Â¤ÂÃ‚Â', text: 'Connect with verified clients, freelancers & investors' },
-    { icon: 'Ã°Å¸â€â€™', text: 'Secure milestone-based payment escrow system' },
+    { icon: '🤝', text: 'Connect with verified clients, freelancers & investors' },
+    { icon: '🔒', text: 'Secure milestone-based payment escrow system' },
     { icon: '📊', text: 'Access industry analytics and market insights' },
   ], '#3b82f6')}
               </td>
@@ -421,7 +421,7 @@ export const sendPlanActivationEmail = (to: string, name: string) => {
 
     ${divider()}
 
-    ${alertBox('Ã¢ÂÂ±Ã¯Â¸Â', 'This link is for your account only', 'For your security, the plan activation OTP will be sent to this email address. Do not share your OTP with anyone.', '#fefce8', '#f59e0b', '#92400e', '#78350f')}
+    ${alertBox('⏱️', 'This link is for your account only', 'For your security, the plan activation OTP will be sent to this email address. Do not share your OTP with anyone.', '#fefce8', '#f59e0b', '#92400e', '#78350f')}
 
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;
@@ -452,7 +452,7 @@ export const sendFreePlanActivatedEmail = (to: string, name: string, role: strin
     <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your Free Plan is Active</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
 
-    ${alertBox('OK', 'KYC Approved + Free Plan Activated', `Your KYC is verified and your ${planName} for ${roleLabel} has been activated automatically. No payment or manual activation is required.`, '#f0fdf4', '#22c55e', '#15803d', '#166534')}
+    ${alertBox('✅', 'KYC Approved + Free Plan Activated', `Your KYC is verified and your ${planName} for ${roleLabel} has been activated automatically. No payment or manual activation is required.`, '#f0fdf4', '#22c55e', '#15803d', '#166534')}
 
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border:1px solid #e0f2fe;background:linear-gradient(135deg,#eff6ff 0%,#f8fafc 100%);border-radius:12px;margin:0 0 24px;">
       <tr><td style="padding:24px;">
@@ -488,14 +488,14 @@ export const sendFreePlanActivatedEmail = (to: string, name: string, role: strin
 // 
 export const sendPlanActivationOtpEmail = (to: string, token: string) => {
   console.log(`\n======================================================================`);
-  console.log(`Ã°Å¸â€â€˜ [PLAN ACTIVATION OTP DISPATCH]`);
+  console.log(`🔑 [PLAN ACTIVATION OTP DISPATCH]`);
   console.log(`   Recipient: ${to}`);
   console.log(`   OTP Code:  ${token}`);
   console.log(`======================================================================\n`);
 
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Verification Code</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your OTP is here Ã°Å¸â€â€˜</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your OTP is here 🔑</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">Use the code below to verify your email and activate your Go Experts free plan.</p>
 
     <!-- OTP Box -->
@@ -542,7 +542,7 @@ export const sendPlanActivationOtpEmail = (to: string, token: string) => {
       </tr>`).join('')}
     </table>
 
-    ${alertBox('', 'Never share this code', "Go Experts will NEVER ask for your OTP via phone, chat, or any other method. If someone asks for it, it's a scam.", '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
+    ${alertBox('🔒', 'Never share this code', "Go Experts will NEVER ask for your OTP via phone, chat, or any other method. If someone asks for it, it's a scam.", '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
 
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The Go Experts Team</p>
   `;
@@ -576,9 +576,9 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
       subheadline: 'Top clients are actively looking for your skills right now.',
       intro: `Your profile is live and visible to hundreds of verified clients across every industry. Here's how to make the most of your first 90 days:`,
       features: [
-        { icon: '', title: 'Browse & Bid on Projects', desc: 'Explore active projects filtered by your skills, budget, and industry category.' },
+        { icon: '💼', title: 'Browse & Bid on Projects', desc: 'Explore active projects filtered by your skills, budget, and industry category.' },
         { icon: '💬', title: 'Submit Winning Proposals', desc: 'Use our AI-powered proposal tips to stand out from other freelancers.' },
-        { icon: 'Ã°Å¸â€â€™', title: 'Get Paid Securely', desc: 'Milestone-based escrow ensures you are always paid for your work on time.' },
+        { icon: '🔒', title: 'Get Paid Securely', desc: 'Milestone-based escrow ensures you are always paid for your work on time.' },
       ],
       cta1Label: ' Browse Open Projects', cta1Url: `${FRONTEND_URL}/projects`, cta1Color: '#3b82f6',
       cta2Label: 'Complete your profile ', cta2Url: `${FRONTEND_URL}/dashboard/profile`,
@@ -591,11 +591,11 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
       subheadline: 'Your project deserves the best talent. We have thousands of verified professionals.',
       intro: `Your account is active and ready. Post your first project in under 5 minutes and start receiving proposals from verified freelancers.`,
       features: [
-        { icon: 'Ã°Å¸â€œÂ±Ã‚Â', title: 'Post a Project for Free', desc: 'Describe your project, set your budget, and receive proposals within hours.' },
-        { icon: '', title: 'Browse Top Talent', desc: 'Filter freelancers by skills, experience, ratings, and industry expertise.' },
-        { icon: '', title: 'Hire with Confidence', desc: 'Milestone-based payments protect both you and your freelancer.' },
+        { icon: '📝', title: 'Post a Project for Free', desc: 'Describe your project, set your budget, and receive proposals within hours.' },
+        { icon: '👥', title: 'Browse Top Talent', desc: 'Filter freelancers by skills, experience, ratings, and industry expertise.' },
+        { icon: '🛡️', title: 'Hire with Confidence', desc: 'Milestone-based payments protect both you and your freelancer.' },
       ],
-      cta1Label: 'Ã°Å¸â€œÂ±Ã‚Â Post a Project Now', cta1Url: `${FRONTEND_URL}/post-project`, cta1Color: '#8b5cf6',
+      cta1Label: '📝 Post a Project Now', cta1Url: `${FRONTEND_URL}/post-project`, cta1Color: '#8b5cf6',
       cta2Label: 'Browse freelancers ', cta2Url: `${FRONTEND_URL}/freelancers`,
       accentColor: '#8b5cf6',
       tips: ['Clear project descriptions get 60% more quality proposals', 'Set a realistic budget to attract experienced freelancers', 'Use milestone payments to manage project risk effectively'],
@@ -608,7 +608,7 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
       features: [
         { icon: '🚀', title: 'Browse Verified Startups', desc: 'Explore startups filtered by industry, stage, traction, and funding ask.' },
         { icon: '📊', title: 'Track & Analyze', desc: 'View detailed financials, team backgrounds, and market analysis for each startup.' },
-        { icon: 'Ã°Å¸Â¤ÂÃ‚Â', title: 'Connect with Founders', desc: 'Initiate direct conversations with vetted founders looking for strategic investors.' },
+        { icon: '🤝', title: 'Connect with Founders', desc: 'Initiate direct conversations with vetted founders looking for strategic investors.' },
       ],
       cta1Label: '🚀 Explore Startups', cta1Url: `${FRONTEND_URL}/startups`, cta1Color: '#10b981',
       cta2Label: 'Set investment preferences ', cta2Url: `${FRONTEND_URL}/dashboard/preferences`,
@@ -622,7 +622,7 @@ export const sendDynamicIndustryEmail = (to: string, name: string, role: string)
       intro: `Your founder profile is live. Investors are actively browsing for startups like yours. Here is how to maximize your visibility and traction on the platform:`,
       features: [
         { icon: '💡', title: 'Get Discovered by Investors', desc: 'Your startup profile is visible to hundreds of active investors on the platform.' },
-        { icon: '', title: 'Hire Top Freelancers', desc: 'Build your product faster with verified freelance developers, designers, and marketers.' },
+        { icon: '💼', title: 'Hire Top Freelancers', desc: 'Build your product faster with verified freelance developers, designers, and marketers.' },
         { icon: '📈', title: 'Track Investor Engagement', desc: 'See which investors have viewed your profile and expressed interest.' },
       ],
       cta1Label: '💡 View Investor Matches', cta1Url: `${FRONTEND_URL}/investors`, cta1Color: '#f59e0b',
@@ -731,7 +731,7 @@ export const sendWelcomeEmail = (to: string, name: string) => {
 export const sendPasswordResetEmail = (to: string, token: string) => {
   const body = `
     <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Security</p>
-    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request Ã°Å¸â€â€˜</h1>
+    <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request 🔑</h1>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Use the code below to securely verify your identity.</p>
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
       <tr>
@@ -749,15 +749,15 @@ export const sendPasswordResetEmail = (to: string, token: string) => {
         </td>
       </tr>
     </table>
-    ${alertBox('Ã°Å¸â€â€™', 'Did not request this?', 'If you did not request a password reset, you can safely ignore this email. Your account remains secure.', '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
+    ${alertBox('🔒', 'Did not request this?', 'If you did not request a password reset, you can safely ignore this email. Your account remains secure.', '#fef2f2', '#ef4444', '#991b1b', '#7f1d1d')}
     <p style="margin:0;color:#374151;font-size:13px;font-weight:600;">The GoExperts Team</p>
   `;
-  return sendEmail(to, 'Ã°Å¸â€â€˜ Password Reset Request GoExperts', shell('A password reset was requested for your GoExperts account.', body));
+  return sendEmail(to, '🔑 Password Reset Request GoExperts', shell('A password reset was requested for your GoExperts account.', body));
 };
 
 export const sendVerificationEmail = (to: string, token: string) => {
   console.log(`\n======================================================================`);
-  console.log(`Ã°Å¸â€â€˜ [MOBILE OTP DISPATCH]`);
+  console.log(`🔑 [MOBILE OTP DISPATCH]`);
   console.log(`   Recipient: ${to}`);
   console.log(`   OTP Code:  ${token}`);
   console.log(`======================================================================\n`);
@@ -962,16 +962,16 @@ export const sendPlanExpiredEmail = (to: string, name: string, role: string, pla
     <h1 style="margin:12px 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Your plan has expired</h1>
     <p style="margin:0 0 22px;color:#64748b;font-size:15px;">Hi <strong>${firstName}</strong>,</p>
 
-    ${alertBox('??', 'Upgrade required', `Your <strong>${safePlanName}</strong> plan expired on <strong>${expiredDate}</strong>. Your account access is limited until you upgrade or renew your plan.`, '#fff7ed', '#f97316', '#c2410c', '#9a3412')}
+    ${alertBox('⚠️', 'Upgrade required', `Your <strong>${safePlanName}</strong> plan expired on <strong>${expiredDate}</strong>. Your account access is limited until you upgrade or renew your plan.`, '#fff7ed', '#f97316', '#c2410c', '#9a3412')}
 
     <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">
       You can still sign in to Go Experts to review your account and complete your upgrade. After upgrading, your account will be reactivated automatically and full platform access will resume.
     </p>
 
     ${featureList([
-    { icon: '??', text: 'Login remains available for account and billing access' },
-    { icon: '??', text: 'Upgrade or renew your plan to reactivate your workspace' },
-    { icon: '?', text: 'Your profile, projects, and data remain safely stored' },
+    { icon: '🔑', text: 'Login remains available for account and billing access' },
+    { icon: '🔄', text: 'Upgrade or renew your plan to reactivate your workspace' },
+    { icon: '🛡️', text: 'Your profile, projects, and data remain safely stored' },
   ], '#f97316')}
 
     ${ctaButton(`${FRONTEND_URL}/pricing`, 'Upgrade Your Plan', '#E30613')}
@@ -985,7 +985,7 @@ export const sendPlanExpiredEmail = (to: string, name: string, role: string, pla
 
   return sendEmail(
     to,
-    'Your Go Experts plan has expired ? upgrade required',
+    'Your Go Experts plan has expired ⚠️ upgrade required',
     shell(`Your ${safePlanName} plan has expired. Please upgrade to continue using Go Experts.`, body)
   );
 };

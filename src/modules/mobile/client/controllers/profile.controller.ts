@@ -7,9 +7,10 @@ import { resolveMasterOptionsInput } from '../../../../utils/array-option-resolv
 import { toTenDigitPhone } from '../../../../common/helpers/phone.js';
 
 /** Resolve an industry string (name or id) to {id, name}, or null if empty */
-async function resolveIndustry(raw: string | null | undefined): Promise<{ id: string; name: string } | null> {
-  if (!raw || !raw.trim()) return null;
-  const val = raw.trim();
+async function resolveIndustry(raw: any): Promise<{ id: string; name: string } | null> {
+  if (!raw) return null;
+  const val = String(Array.isArray(raw) ? raw[0] : raw).trim();
+  if (!val) return null;
   try {
     const found = await prisma.industry.findFirst({
       where: { OR: [{ id: val }, { name: val }] },
