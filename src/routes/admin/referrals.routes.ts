@@ -93,6 +93,9 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
 // Pending Referrals
 router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // Quick cleanup for orphaned referrals (if a user was forced-deleted)
+    await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE referrer_id NOT IN (SELECT id FROM users) OR referee_id NOT IN (SELECT id FROM users)`).catch(()=>{});
+
     const referrals = await prisma.referral.findMany({
       include: {
         referrer: { select: { fullName: true, email: true, role: true } },
