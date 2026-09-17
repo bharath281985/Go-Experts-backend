@@ -94,15 +94,18 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
   router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response) => {
     let debugLog = "";
     try {
+      // 1. Force delete the child constraints first (events and rewards)
       try {
-        await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE referee_id = '9bbe925a-6b74-46ca-925a-afeece143ff0'`);
-        debugLog += "Raw delete 1 success. ";
-      } catch (e: any) { debugLog += "Raw 1 failed: " + e.message + " | "; }
+        await prisma.$executeRawUnsafe(`DELETE FROM referral_events WHERE referralId = 'c504aa60-80b2-4fe8-8b20-8bfe4271a2bf'`);
+        await prisma.$executeRawUnsafe(`DELETE FROM referral_rewards WHERE referral_id = 'c504aa60-80b2-4fe8-8b20-8bfe4271a2bf'`);
+        debugLog += "Child records cleared. ";
+      } catch (e: any) { debugLog += "Child clear failed: " + e.message + " | "; }
 
+      // 2. Now delete the corrupted referral safely
       try {
-        await prisma.$executeRawUnsafe(`DELETE FROM referral WHERE referee_id = '9bbe925a-6b74-46ca-925a-afeece143ff0'`);
-        debugLog += "Raw delete 2 success. ";
-      } catch (e: any) { debugLog += "Raw 2 failed: " + e.message + " | "; }
+        await prisma.$executeRawUnsafe(`DELETE FROM referrals WHERE id = 'c504aa60-80b2-4fe8-8b20-8bfe4271a2bf'`);
+        debugLog += "Referral deleted. ";
+      } catch (e: any) { debugLog += "Referral delete failed: " + e.message + " | "; }
       
       const referrals = await prisma.referral.findMany({
       include: {
