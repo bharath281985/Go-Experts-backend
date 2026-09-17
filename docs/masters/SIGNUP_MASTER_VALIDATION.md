@@ -7,7 +7,7 @@ This report confirms how the four website signup flows fetch and utilize the new
 | Signup Flow | Form Dropdown / Selector | Public API Endpoint | Underlying Database Table | Status |
 |---|---|---|---|---|
 | **Freelancer** | Country | `GET /api/public/countries` | `countries` | **ACTIVE** |
-| **Freelancer** | Primary Industry / Domain | `GET /api/public/industries` | `industries` | **ACTIVE** |
+| **Freelancer** | Primary Industry / Sector | `GET /api/public/industries` | `industries` | **ACTIVE** |
 | **Freelancer** | Key Skills | `GET /api/v1/mobile/public/skills` | `skills` | **ACTIVE** |
 | **Freelancer** | Experience Level | `GET /api/public/masters?type=experience_level` | `master_options` | **ACTIVE** |
 | **Client** | Work Country / City | `GET /api/public/countries` | `countries` | **ACTIVE** |
