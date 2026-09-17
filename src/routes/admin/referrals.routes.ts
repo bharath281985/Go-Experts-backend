@@ -96,8 +96,9 @@ router.delete("/referral_rules/:id", async (req: AuthenticatedRequest, res: Resp
       const referrals = await prisma.referral.findMany({
         where: {
           referee: {
-            isNot: null,
-            deletedAt: null,
+            is: {
+              deletedAt: null,
+            },
           },
         },
         include: {
