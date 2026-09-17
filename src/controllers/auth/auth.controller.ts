@@ -599,7 +599,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const bio = req.body?.bio ? String(req.body.bio) : null;
 
     const { email: _email, password: _password, fullName: _fullName, role: _role, phone: _phone, country: _country, state: _state, city: _city, bio: _bio, latitude: _lat, longitude: _lng, countryId: _countryId, stateId: _stateId, cityId: _cityId, ...restData } = req.body || {};
-    const registrationData = Object.keys(restData).length > 0 ? restData : undefined;
+    const registrationData = Object.keys(restData).length > 0 ? JSON.stringify(restData) : undefined;
 
     const trialEndsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
