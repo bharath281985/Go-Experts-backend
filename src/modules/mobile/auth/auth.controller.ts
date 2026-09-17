@@ -1152,8 +1152,10 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         delete formattedProfile.industry;
         formattedProfile.projectHireBudgetId = clientBudgetOption || toSingleOption(roleProfile.projectHireBudget);
         delete formattedProfile.projectHireBudget;
-        formattedProfile.teamSizeId = clientCompanySizeOption || toSingleOption(roleProfile.companySize);
-        formattedProfile.currentTeam = formattedProfile.teamSizeId?.name || roleProfile.currentTeam || null;
+        formattedProfile.companySizeId = clientCompanySizeOption || toSingleOption(roleProfile.companySize);
+        formattedProfile.teamSizeId = formattedProfile.companySizeId;
+        formattedProfile.teamSize = formattedProfile.companySizeId?.name || roleProfile.companySize || null;
+        formattedProfile.currentTeam = formattedProfile.companySizeId?.name || roleProfile.currentTeam || null;
         delete formattedProfile.companySize;
         formattedProfile.hiringGoalId = toMultiOptions(roleProfile.hiringGoal);
         delete formattedProfile.hiringGoal;
