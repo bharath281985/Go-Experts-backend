@@ -52,7 +52,7 @@ import kycRouter from "./admin/kyc.routes.js";
 import adminSupportDeskRouter from "./admin/support-desk.routes.js";
 import adminWithdrawalsRouter from "./admin/withdrawals.routes.js";
 import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
-import { activateFreePlanAfterKyc } from "../services/mobile/subscription.service.js";
+import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import subscriptionRoutes from "./subscription/subscription.routes.js";
 import { getVerificationStats } from "../common/helpers/verification.js";
 
@@ -314,6 +314,7 @@ const tableModelMapping: Record<string, string> = {
   invoices: "Invoice",
   referrals: "Referral",
   advertisements: "Advertisement",
+  wallet_transactions: "WalletTransaction",
   featured_services: "FeaturedService",
   ad_plans: "AdvertisementPlan",
   notification_templates: "NotificationTemplate",
@@ -358,6 +359,7 @@ const searchColumnsMapping: Record<string, string[]> = {
   Meeting: ["founder", "investor"],
   Subscription: ["plan", "user"],
   Payment: ["user", "gateway", "invoice"],
+  WalletTransaction: ["type", "description", "status"],
   Conversation: ["name", "role"],
   CmsPage: ["name", "category"],
   Blog: ["title", "category", "author"],
@@ -461,14 +463,6 @@ const founderInclude = { authIdentities: true,
   },
 };
 
-async function activateFreePlanIfKycApproved(userId: string, include: any) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, include });
-  if (!user) return;
-  const stats = getVerificationStats(user);
-  if (stats.kycApproved) {
-    await activateFreePlanAfterKyc(userId);
-  }
-}
 export async function enrichUserRowNamesAsync(row: any) {
   if (!row) return row;
   
@@ -654,7 +648,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "syndicate": "Syndicate / PE",
     "family_office": "Family Office"
   };
-  // Company size slug/UUID Ã¢â€ â€™ label
+  // Company size slug/UUID → label
   const COMPANY_SIZE_NAME_MAP: Record<string, string> = {
     "mo_company_size_1_10":   "1-10 employees",
     "mo_company_size_11_50":  "11-50 employees",
@@ -666,33 +660,33 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     "be31b9ba-9bb9-11f1-82ce-00155d010403": "51-200 employees",
     "be31ba5b-9bb9-11f1-82ce-00155d010403": "200+ employees",
     "opt_company_size_1":         "Self-employed / Just Me",
-    "opt_company_size_2-10":      "2Ã¢â‚¬â€œ10 employees",
-    "opt_company_size_11-50":     "11Ã¢â‚¬â€œ50 employees",
-    "opt_company_size_51-200":    "51Ã¢â‚¬â€œ200 employees",
-    "opt_company_size_201-500":   "201Ã¢â‚¬â€œ500 employees",
-    "opt_company_size_501-1000":  "501Ã¢â‚¬â€œ1,000 employees",
-    "opt_company_size_1001-5000": "1,001Ã¢â‚¬â€œ5,000 employees",
-    "opt_company_size_5001-10000":"5,001Ã¢â‚¬â€œ10,000 employees",
+    "opt_company_size_2-10":      "2–10 employees",
+    "opt_company_size_11-50":     "11–50 employees",
+    "opt_company_size_51-200":    "51–200 employees",
+    "opt_company_size_201-500":   "201–500 employees",
+    "opt_company_size_501-1000":  "501–1,000 employees",
+    "opt_company_size_1001-5000": "1,001–5,000 employees",
+    "opt_company_size_5001-10000":"5,001–10,000 employees",
     "opt_company_size_10001_":    "10,001+ employees",
   };
-  // Budget range UUID Ã¢â€ â€™ label
+  // Budget range UUID → label
   const BUDGET_RANGE_NAME_MAP: Record<string, string> = {
-    "3837dfac-c0ed-40e0-95fc-1226a94d43de": "Ã¢â€šÂ¹10,000 - Ã¢â€šÂ¹50,000",
-    "9be47422-9aaa-475d-b053-1c704ec05d12": "Ã¢â€šÂ¹5,000 - Ã¢â€šÂ¹10,000",
-    "c2efbb4d-49f8-4f7b-b467-bd1a306b9891": "Ã¢â€šÂ¹1,000 - Ã¢â€šÂ¹5,000",
-    "91e8ea9c-3efc-48f7-8768-d7985f472f69": "Ã¢â€šÂ¹5,00,000 - Ã¢â€šÂ¹10,00,000",
-    "01ea75fc-9478-4a85-96b9-840f4434e9bc": "Less than Ã¢â€šÂ¹1,000",
-    "05f6f4bc-69af-447c-a43e-ecc6cc133b21": "Ã¢â€šÂ¹50,000+",
-    "0d01fe50-a980-4c6f-b589-27db5659bbc8": "Ã¢â€šÂ¹1,000 - Ã¢â€šÂ¹5,000",
-    "511ea77b-68ec-4e93-9e29-ba49fdd1eb86": "Ã¢â€šÂ¹10,000 - Ã¢â€šÂ¹50,000",
-    "6aaa3f8c-6b09-4fd4-bff5-7c2658d19886": "Ã¢â€šÂ¹5,000 - Ã¢â€šÂ¹10,000",
-    "5d3a03e3-41f5-4609-87c9-46306fd2a004": "Ã¢â€šÂ¹5,000 - Ã¢â€šÂ¹10,000",
-    "6b2a3b7a-29d9-4604-a5b6-7ce8cbb2c41e": "Ã¢â€šÂ¹1,000 - Ã¢â€šÂ¹5,000",
-    "8685e2e7-2fc5-4604-8f67-64cb50f8b32f": "Ã¢â€šÂ¹50,000+",
-    "c4a1e5f1-8675-4df8-b0a7-758c92838f57": "Less than Ã¢â€šÂ¹1,000",
-    "c6fbda9c-b662-416f-93c1-6e8662d4dfae": "Ã¢â€šÂ¹10,000 - Ã¢â€šÂ¹50,000",
+    "3837dfac-c0ed-40e0-95fc-1226a94d43de": "₹10,000 - ₹50,000",
+    "9be47422-9aaa-475d-b053-1c704ec05d12": "₹5,000 - ₹10,000",
+    "c2efbb4d-49f8-4f7b-b467-bd1a306b9891": "₹1,000 - ₹5,000",
+    "91e8ea9c-3efc-48f7-8768-d7985f472f69": "₹5,00,000 - ₹10,00,000",
+    "01ea75fc-9478-4a85-96b9-840f4434e9bc": "Less than ₹1,000",
+    "05f6f4bc-69af-447c-a43e-ecc6cc133b21": "₹50,000+",
+    "0d01fe50-a980-4c6f-b589-27db5659bbc8": "₹1,000 - ₹5,000",
+    "511ea77b-68ec-4e93-9e29-ba49fdd1eb86": "₹10,000 - ₹50,000",
+    "6aaa3f8c-6b09-4fd4-bff5-7c2658d19886": "₹5,000 - ₹10,000",
+    "5d3a03e3-41f5-4609-87c9-46306fd2a004": "₹5,000 - ₹10,000",
+    "6b2a3b7a-29d9-4604-a5b6-7ce8cbb2c41e": "₹1,000 - ₹5,000",
+    "8685e2e7-2fc5-4604-8f67-64cb50f8b32f": "₹50,000+",
+    "c4a1e5f1-8675-4df8-b0a7-758c92838f57": "Less than ₹1,000",
+    "c6fbda9c-b662-416f-93c1-6e8662d4dfae": "₹10,000 - ₹50,000",
   };
-  // Hiring goal UUID Ã¢â€ â€™ label
+  // Hiring goal UUID → label
   const HIRING_GOAL_UUID_MAP: Record<string, string> = {
     "be330997-9bb9-11f1-82ce-00155d010403": "Hire a single freelancer",
     "be3312c1-9bb9-11f1-82ce-00155d010403": "Hire a full team",
@@ -827,7 +821,7 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
     portfolioUrl: freelancerProfile.portfolioUrl ?? regData.portfolioUrl ?? regData.portfolio ?? regData.websiteUrl ?? null,
     linkedInUrl: freelancerProfile.linkedInUrl ?? regData.linkedInUrl ?? regData.linkedin ?? null,
     githubUrl: freelancerProfile.githubUrl ?? regData.githubUrl ?? regData.github ?? null,
-    // Client fields Ã¢â‚¬â€ IDs resolved to human-readable labels
+    // Client fields — IDs resolved to human-readable labels
     company: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
     companyName: clientProfile.company ?? regData.companyName ?? regData.company ?? null,
     companySize: rLabel(clientProfile.companySize ?? regData.companySize ?? null, COMPANY_SIZE_NAME_MAP),
@@ -1559,7 +1553,7 @@ adminFreelancersRouter.post("/", async (req: Request, res: Response, next: NextF
     }
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(row.id, freelancerInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(row.id).catch(console.error);
     }
 
     res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
@@ -1603,7 +1597,7 @@ adminFreelancersRouter.put("/:id", async (req: Request, res: Response, next: Nex
     }
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(req.params.id, freelancerInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
     }
 
     const row = await prisma.user.findUnique({
@@ -1786,7 +1780,7 @@ adminClientsRouter.post("/", async (req: Request, res: Response, next: NextFunct
     });
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(row.id, clientInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(row.id).catch(console.error);
     }
 
     res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
@@ -1830,7 +1824,7 @@ adminClientsRouter.put("/:id", async (req: Request, res: Response, next: NextFun
     }
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(req.params.id, clientInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
     }
 
     const row = await prisma.user.findUnique({
@@ -1972,7 +1966,7 @@ adminInvestorsRouter.post("/", async (req: Request, res: Response, next: NextFun
     });
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(row.id, investorInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(row.id).catch(console.error);
     }
 
     res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
@@ -2016,7 +2010,7 @@ adminInvestorsRouter.put("/:id", async (req: Request, res: Response, next: NextF
     }
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(req.params.id, investorInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
     }
 
     const row = await prisma.user.findUnique({
@@ -2159,7 +2153,7 @@ adminFoundersRouter.post("/", async (req: Request, res: Response, next: NextFunc
     });
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(row.id, founderInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(row.id).catch(console.error);
     }
 
     res.status(201).json({ success: true, data: sanitizeUserRecord(row) });
@@ -2203,7 +2197,7 @@ adminFoundersRouter.put("/:id", async (req: Request, res: Response, next: NextFu
     }
 
     if (userData.isVerified || userData.verified || userData.status === "active") {
-      activateFreePlanIfKycApproved(req.params.id, founderInclude).catch(console.error);
+      activateFreeTrialOnKycApproval(req.params.id).catch(console.error);
     }
 
     const row = await prisma.user.findUnique({
@@ -2288,6 +2282,8 @@ router.use("/admin/about-page", authMiddleware as any, aboutRouter);
 Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
   if (["freelancers", "clients", "investors", "founders"].includes(tableName)) return;
 
+  console.log("Mounting CRUD router for:", tableName, modelName);
+
   const searchCols = searchColumnsMapping[modelName] || ["name"];
   const include =
     modelName === "Task"
@@ -2298,7 +2294,9 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
           ? { category: { select: { id: true, name: true } } }
           : modelName === "City"
             ? { country: { select: { id: true, name: true } } }
-            : undefined;
+            : modelName === "WalletTransaction"
+              ? { wallet: { include: { user: { select: { id: true, fullName: true, email: true, role: true } } } } }
+              : undefined;
 
   // Create router using factory
   const crudRouter = createCrudRouter(modelName as any, searchCols, include ? { include } : {});
@@ -2481,3 +2479,7 @@ router.post("/admin/users/:id/mark-viewed", authMiddleware as any, (req, res) =>
 });
 
 export default router;
+
+
+
+

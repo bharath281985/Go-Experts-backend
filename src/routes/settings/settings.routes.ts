@@ -48,6 +48,36 @@ const router = Router();
 
 router.use(authMiddleware as any);
 
+import { prisma } from "../../config/database.js";
+
+// Root generic settings 
+router.get("/", async (req, res) => {
+  try {
+    const settings = await prisma.setting.findMany();
+    const data: Record<string, string> = {};
+    for (const s of settings) data[s.key] = s.value;
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching settings" });
+  }
+});
+
+router.put("/", async (req, res) => {
+  try {
+    const { key, value } = req.body;
+    if (!key) return res.status(400).json({ success: false, message: "Key required" });
+    const strValue = typeof value === "string" ? value : JSON.stringify(value);
+    await prisma.setting.upsert({
+      where: { key },
+      update: { value: strValue },
+      create: { key, value: strValue, category: "general" }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error saving setting" });
+  }
+});
+
 // General Workspace
 router.get("/general", getGeneralSettings);
 router.put("/general", saveGeneralSettings);
@@ -131,3 +161,4 @@ router.get("/audit-trails", getAuditTrailsSettings);
 router.get("/system-logs", getSystemLogsSettings);
 
 export default router;
+

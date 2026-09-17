@@ -134,3 +134,52 @@ export const rejectWithdrawal = async (req: AuthenticatedRequest, res: Response,
     next(err);
   }
 };
+
+// Credit money directly to a user's wallet (Admin action)
+export const creditWallet = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    if (req.user?.type !== "admin" && req.user?.role !== "super_admin") {
+      throw new HttpError("Admin access required", 403);
+    }
+    const { userId, amount, description } = req.body;
+    if (!userId || !amount || Number(amount) <= 0) {
+      throw new HttpError("userId and a positive amount are required");
+    }
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (!wallet) throw new HttpError("Wallet not found for this user", 404);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const newBalance = wallet.balance + Number(amount);
+      const updatedWallet = await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: newBalance }
+      });
+      const txn = await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          type: "credit",
+          direction: "credit",
+          amount: Number(amount),
+          description: description || "Admin credit",
+          balanceAfter: updatedWallet.balance,
+          status: "completed"
+        }
+      });
+      await tx.notification.create({
+        data: {
+          userId,
+          title: "Wallet Credited",
+          message: `₹${amount} has been added to your wallet by admin.`,
+          type: "WALLET_CREDITED",
+          channel: "in-app"
+        }
+      });
+      return { wallet: updatedWallet, transaction: txn };
+    });
+
+    res.json({ success: true, message: `₹${amount} credited to wallet successfully`, data: result });
+  } catch (err) {
+    next(err);
+  }
+};

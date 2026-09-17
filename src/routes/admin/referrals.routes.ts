@@ -138,6 +138,41 @@ router.get("/pending_referrals", async (req: AuthenticatedRequest, res: Response
   }
 });
 
+router.put("/pending_referrals/:id", async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, amount } = req.body;
+
+    // Try WalletTransaction (Welcome Bonus)
+    const wt = await prisma.walletTransaction.findUnique({ where: { id } });
+    if (wt) {
+      await prisma.walletTransaction.update({
+        where: { id },
+        data: { 
+          status: status || wt.status,
+          amount: amount !== undefined ? Number(amount) : wt.amount 
+        }
+      });
+      return res.json({ success: true, message: "Welcome Bonus updated" });
+    }
+
+    // Try Referral (Referral Bonus)
+    const ref = await prisma.referral.findUnique({ where: { id } });
+    if (ref) {
+      await prisma.referral.update({
+        where: { id },
+        data: { status: status || ref.status }
+      });
+      return res.json({ success: true, message: "Referral updated" });
+    }
+
+    return res.status(404).json({ success: false, message: "Record not found" });
+  } catch (error) {
+    console.error("Error updating record", error);
+    res.status(500).json({ success: false, message: "Error updating record" });
+  }
+});
+
 router.post("/pending_referrals/:id/approve", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const referralId = req.params.id;
@@ -224,3 +259,4 @@ router.get("/cashback_stats", async (req: AuthenticatedRequest, res: Response) =
 });
 
 export default router;
+
