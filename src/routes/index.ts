@@ -2336,19 +2336,35 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
 });
 
 // Provide a convenience admin route for downloading invoice PDFs (used by admin UI)
-router.get("/admin/invoices/:id/download", authMiddleware as any, async (req, res, next) => {
-  try {
-    await downloadInvoice(req as any, res as any);
-  } catch (err) { next(err); }
-});
+router.get(
+  "/admin/invoices/:id/download",
+  authMiddleware as any,
+  // audit read
+  auditMiddleware("read", "invoices") as any,
+  async (req, res, next) => {
+    try {
+      await downloadInvoice(req as any, res as any);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // Admin shortcut to resend invoice email with attachment
-router.post("/admin/invoices/:id/resend", authMiddleware as any, async (req, res, next) => {
-  try {
-    const { resendInvoice } = await import("../controllers/financials/financials.controller.js");
-    await resendInvoice(req as any, res as any);
-  } catch (err) { next(err); }
-});
+router.post(
+  "/admin/invoices/:id/resend",
+  authMiddleware as any,
+  // audit mutate
+  auditMiddleware("mutate", "invoices") as any,
+  async (req, res, next) => {
+    try {
+      const { resendInvoice } = await import("../controllers/financials/financials.controller.js");
+      await resendInvoice(req as any, res as any);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 router.post("/admin/users/:id/remind-kyc", authMiddleware as any, async (req, res, next) => {
   try {

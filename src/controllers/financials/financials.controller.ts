@@ -3,6 +3,7 @@ import { prisma } from "../../config/database.js";
 import crypto, { randomUUID } from "crypto";
 import path from "path";
 import { generateInvoicePdf } from "../../services/invoice/invoice.service.js";
+import { adminHasPermission } from "../../common/helpers/permission-checker.js";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
 import { reactivateAccountAfterPlanUpgrade } from "../../services/mobile/subscription.service.js";
 
@@ -997,6 +998,10 @@ export async function getInvoice(req: Request, res: Response) {
 
 export async function downloadInvoice(req: Request, res: Response) {
   try {
+    // Only admin users with invoice permissions can call admin download route
+    if (req.user?.type !== "admin") return res.status(403).json({ success: false, message: "Forbidden" });
+    const allowed = await adminHasPermission(req.user?.id, "invoices");
+    if (!allowed) return res.status(403).json({ success: false, message: "Insufficient permissions" });
     const { id } = req.params;
     const { publicPath } = await generateInvoicePdf(id) as any;
     const host = req.get("host") || process.env.HOST || "localhost";
@@ -1010,6 +1015,11 @@ export async function downloadInvoice(req: Request, res: Response) {
 
 export async function resendInvoice(req: Request, res: Response) {
   try {
+    // Only admin users with invoice permissions can resend
+    if (req.user?.type !== "admin") return res.status(403).json({ success: false, message: "Forbidden" });
+    const allowed = await adminHasPermission(req.user?.id, "invoices", ["manage", "resend"]);
+    if (!allowed) return res.status(403).json({ success: false, message: "Insufficient permissions" });
+
     const { id } = req.params;
     const invoice = await prisma.invoice.findUnique({
       where: { id },
