@@ -879,12 +879,17 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
     if (search) {
       const matchingSkills = await (prisma as any).skill?.findMany({
         where: { name: { contains: search } },
-        select: { id: true }
+        select: { id: true, name: true }
       }).catch(() => []);
 
       const skillIdConditions = (matchingSkills || []).map((s: any) => ({
         freelancerProfile: { is: { skills: { contains: s.id } } }
       }));
+      const skillNameConditions = (matchingSkills || [])
+        .filter((s: any) => s.name)
+        .map((s: any) => ({
+          freelancerProfile: { is: { skills: { contains: s.name } } }
+        }));
 
       where.AND = [
         { OR: [
@@ -893,7 +898,8 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
           { freelancerProfile: { is: { titleHeadline: { contains: search } } } },
           { freelancerProfile: { is: { skills: { contains: search } } } },
           { investorProfile: { is: { focusAreas: { contains: search } } } },
-          ...skillIdConditions
+          ...skillIdConditions,
+          ...skillNameConditions,
         ] },
       ];
     }

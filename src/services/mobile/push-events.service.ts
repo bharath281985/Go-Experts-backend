@@ -28,6 +28,24 @@ export const notifyKycVerified = (userId: string) =>
     payload: { event: 'kyc_verified', route: '/verification' },
   });
 
+export const notifyKycDocumentVerified = (params: {
+  userId: string;
+  documentKey: string;
+  documentLabel?: string;
+}) =>
+  queuePush({
+    userId: params.userId,
+    type: 'KYC_DOCUMENT_VERIFIED',
+    title: 'KYC document verified',
+    message: `${params.documentLabel || 'Your KYC document'} has been verified by our admin team.`,
+    payload: {
+      event: 'kyc_document_verified',
+      documentKey: params.documentKey,
+      documentLabel: params.documentLabel,
+      route: '/verification',
+    },
+  });
+
 export const notifyProfileViewed = (params: {
   profileOwnerId: string;
   viewerId?: string;
