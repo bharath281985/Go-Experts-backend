@@ -8,7 +8,6 @@ import {
   deleteNotification, 
   getPreferences, 
   updatePreferences, 
-  testPush, 
   testEmail 
 } from './controllers/notifications.controller.js';
 import { getQueue, retryFailed } from './controllers/system.controller.js';
@@ -36,7 +35,6 @@ router.get('/preferences', getPreferences);
 router.put('/preferences', updatePreferences);
 
 // Testing
-router.post('/test-push', testPush);
 router.post('/test-email', testEmail);
 
 // System Queue (Admins or System Processes)

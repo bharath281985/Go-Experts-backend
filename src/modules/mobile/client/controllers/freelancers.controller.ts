@@ -117,7 +117,13 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
-    const q = req.query.q as string;
+    const q = String(req.query.search || req.query.q || '').trim();
+    const categoryIds = String(
+      req.query.categoryIds || req.query.categoryId || req.query.industryId || '',
+    )
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
 
     const where: any = {
       role: 'freelancer',
@@ -126,7 +132,79 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
       OR: [{ isVerified: true }, { verified: true }],
     };
     if (req.user?.id) where.id = { not: req.user.id };
-    if (q) where.fullName = { contains: q };
+    if (q) {
+      const matchingSkills = await prisma.skill.findMany({
+        where: { name: { contains: q }, status: 'active' },
+        select: { id: true, name: true },
+      }).catch(() => []);
+
+      const [matchingUsers, matchingProfiles] = await Promise.all([
+        prisma.user.findMany({
+          where: {
+            role: 'freelancer',
+            status: 'active',
+            deletedAt: null,
+            OR: [
+              { fullName: { contains: q } },
+              { city: { contains: q } },
+              { bio: { contains: q } },
+            ],
+          },
+          select: { id: true },
+        }),
+        prisma.freelancerProfile.findMany({
+          where: {
+            OR: [
+              { titleHeadline: { contains: q } },
+              { skills: { contains: q } },
+              ...matchingSkills.flatMap((skill) => [
+                { skills: { contains: skill.id } },
+                { skills: { contains: skill.name } },
+              ]),
+            ],
+          },
+          select: { userId: true },
+        }),
+      ]);
+
+      const matchingUserIds = [
+        ...matchingUsers.map((user) => user.id),
+        ...matchingProfiles.map((profile) => profile.userId),
+      ];
+      where.id = {
+        ...(req.user?.id ? { not: req.user.id } : {}),
+        in: [...new Set(matchingUserIds)],
+      };
+    }
+
+    if (categoryIds.length > 0) {
+      const industries = await prisma.industry.findMany({
+        where: { id: { in: categoryIds }, status: 'active' },
+        select: { id: true, name: true },
+      });
+      const categoryProfiles = await prisma.freelancerProfile.findMany({
+        where: {
+          OR: [
+            { industryId: { in: categoryIds } },
+            ...industries.map((industry) => ({
+              industry: { contains: industry.name },
+            })),
+          ],
+        },
+        select: { userId: true },
+      });
+      const categoryUserIds = new Set(
+        categoryProfiles.map((profile) => profile.userId),
+      );
+      const existingIds = where.id?.in as string[] | undefined;
+      const filteredIds = existingIds
+        ? existingIds.filter((id) => categoryUserIds.has(id))
+        : [...categoryUserIds];
+      where.id = {
+        ...(req.user?.id ? { not: req.user.id } : {}),
+        in: filteredIds,
+      };
+    }
 
     const [freelancers, total] = await Promise.all([
       prisma.user.findMany({ where, include: { freelancerProfile: true }, skip, take: limit }),

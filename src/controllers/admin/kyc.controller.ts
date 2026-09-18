@@ -3,7 +3,11 @@ import { prisma } from "../../config/database.js";
 import { getVerificationStats, applyVerificationUpdate } from "../../common/helpers/verification.js";
 import type { VerificationItem } from "../../common/helpers/verification.js";
 import { activateFreePlanAfterKyc } from "../../services/mobile/subscription.service.js";
-import { notifyAccountStatusChanged, notifyKycVerified } from "../../services/mobile/push-events.service.js";
+import {
+    notifyAccountStatusChanged,
+    notifyKycDocumentVerified,
+    notifyKycVerified,
+} from "../../services/mobile/push-events.service.js";
 
 
 async function triggerReferralBonus(user: any) {
@@ -313,6 +317,21 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
         }
 
         await sendKycStatusEmailForAdminUpdate(id, updatePayload, stats);
+
+        const verifiedDocumentKeys = new Set(
+            getKycUpdatesFromPayload(updatePayload)
+                .filter((update: any) => update.status === "verified")
+                .map((update: any) => update.key),
+        );
+        for (const item of (stats?.items || []) as VerificationItem[]) {
+            if (verifiedDocumentKeys.has(item.key)) {
+                await notifyKycDocumentVerified({
+                    userId: id,
+                    documentKey: item.key,
+                    documentLabel: item.label,
+                }).catch(console.error);
+            }
+        }
 
         // Auto-approve user and credit welcome bonus if all required documents are verified.
         // Bonus credit is idempotent, so already-verified users who missed it can receive it now.
