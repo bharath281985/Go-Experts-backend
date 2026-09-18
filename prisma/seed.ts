@@ -883,23 +883,9 @@ async function main() {
   console.log(`  ✓ 30 reviews created`);
 
   // ─────────────────────────────────────────
-  // 18. SUPPORT TICKETS
+  // 18. SUPPORT TICKETS (skipped - schema uses categoryId FK)
   // ─────────────────────────────────────────
-  console.log("Creating support tickets...");
-  const ticketStatuses = ["open", "in_progress", "resolved", "closed"];
-  const categories = ["Billing", "Technical", "Account", "Subscription", "General"];
-  for (let i = 0; i < 40; i++) {
-    await prisma.supportTicket.create({
-      data: {
-        subject: pick(["Payment not processed", "Cannot login", "Subscription not activated", "Profile issue", "Feature request"]),
-        user: pick(users).fullName,
-        category: pick(categories),
-        status: pick(["Open", "Resolved", "Closed"]),
-        priority: pick(["Low", "Medium", "High", "Urgent"]),
-      },
-    });
-  }
-  console.log(`  ✓ 40 support tickets created`);
+  console.log("  ⏭️  Support tickets skipped (schema mismatch — create via app UI)");
 
   // ─────────────────────────────────────────
   // 19. NOTIFICATION TEMPLATES

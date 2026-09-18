@@ -1059,6 +1059,7 @@ C:\Users\THATIPALLY VINOD\OneDrive\Desktop\goexperts\Go-Experts-backend\src\cont
 
 Unknown field `messages` for include statement on model `SupportTicket`. Available options are marked with ?.
 
+<<<<<<< Updated upstream
 [2026-09-11T08:25:16.443Z] PRISMA ERROR:
 
 Invalid `prisma.project.count()` invocation in
@@ -1117,6 +1118,35 @@ Authentication failed against database server at `127.0.0.1`, the provided datab
 Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
 
 [2026-09-15T04:49:46.780Z] PRISMA ERROR:
+=======
+[2026-09-11T05:36:58.335Z] PRISMA ERROR:
+
+Invalid `prisma.country.findFirst()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:312:45
+
+  309 }
+  310 
+  311 if (!matchedCountry) {
+→ 312   matchedCountry = await prisma.country.findFirst(
+Authentication failed against database server at `localhost`, the provided database credentials for `goexperts_user` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `localhost`.
+
+[2026-09-11T05:36:58.387Z] PRISMA ERROR:
+
+Invalid `prisma.subscriptionPlan.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:1314:49
+
+  1311   whereCondition.duration = { not: "90_days" };
+  1312 }
+  1313 
+→ 1314 const plans = await prisma.subscriptionPlan.findMany(
+Authentication failed against database server at `localhost`, the provided database credentials for `goexperts_user` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `localhost`.
+
+[2026-09-11T05:36:58.390Z] PRISMA ERROR:
+>>>>>>> Stashed changes
 
 Invalid `prisma.user.count()` invocation in
 C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\prisma-compat.ts:286:37
@@ -1125,6 +1155,7 @@ C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\pr
   284 
   285 try {
 → 286   const total = await prisma.user.count(
+<<<<<<< Updated upstream
 Authentication failed against database server at `127.0.0.1`, the provided database credentials for `root` are not valid.
 
 Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
@@ -1143,6 +1174,13 @@ Authentication failed against database server at `127.0.0.1`, the provided datab
 Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
 
 [2026-09-15T04:49:46.900Z] PRISMA ERROR:
+=======
+Authentication failed against database server at `localhost`, the provided database credentials for `goexperts_user` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `localhost`.
+
+[2026-09-11T05:36:58.426Z] PRISMA ERROR:
+>>>>>>> Stashed changes
 
 Invalid `prisma.user.count()` invocation in
 C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\prisma-compat.ts:286:37
@@ -1151,6 +1189,7 @@ C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\pr
   284 
   285 try {
 → 286   const total = await prisma.user.count(
+<<<<<<< Updated upstream
 Authentication failed against database server at `127.0.0.1`, the provided database credentials for `root` are not valid.
 
 Please make sure to provide valid database credentials for the database server at `127.0.0.1`.
@@ -1607,4 +1646,22 @@ C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\common\helpers\cr
       })
 
 Unknown field `name` for select statement on model `MasterOption`. Available options are marked with ?.
+=======
+Authentication failed against database server at `localhost`, the provided database credentials for `goexperts_user` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `localhost`.
+
+[2026-09-11T05:36:58.453Z] PRISMA ERROR:
+
+Invalid `prisma.subscriptionPlan.findMany()` invocation in
+C:\Users\LENOVO\Desktop\vinod\goexperts\Go-Experts-backend\src\routes\public\public.routes.ts:1314:49
+
+  1311   whereCondition.duration = { not: "90_days" };
+  1312 }
+  1313 
+→ 1314 const plans = await prisma.subscriptionPlan.findMany(
+Authentication failed against database server at `localhost`, the provided database credentials for `goexperts_user` are not valid.
+
+Please make sure to provide valid database credentials for the database server at `localhost`.
+>>>>>>> Stashed changes
 
