@@ -866,6 +866,12 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
     const search = String(req.query.search || req.query.q || '').trim();
+    const categoryIds = String(
+      req.query.categoryIds || req.query.categoryId || req.query.industryId || '',
+    )
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
 
     const where: any = {
       role: 'freelancer',
@@ -902,6 +908,34 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
           ...skillNameConditions,
         ] },
       ];
+    }
+
+    if (categoryIds.length > 0) {
+      const industries = await prisma.industry.findMany({
+        where: { id: { in: categoryIds }, status: 'active' },
+        select: { id: true, name: true },
+      });
+      const categoryProfiles = await prisma.freelancerProfile.findMany({
+        where: {
+          OR: [
+            { industryId: { in: categoryIds } },
+            ...industries.map((industry) => ({
+              industry: { contains: industry.name },
+            })),
+          ],
+        },
+        select: { userId: true },
+      });
+      const categoryUserIds = new Set(
+        categoryProfiles.map((profile) => profile.userId),
+      );
+      const existingIds = where.id?.in as string[] | undefined;
+      where.id = {
+        ...(userId ? { not: userId } : {}),
+        in: existingIds
+          ? existingIds.filter((id) => categoryUserIds.has(id))
+          : [...categoryUserIds],
+      };
     }
 
     const [freelancers, total] = await Promise.all([

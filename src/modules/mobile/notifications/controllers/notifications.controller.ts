@@ -103,20 +103,6 @@ export const updatePreferences = async (req: AuthRequest, res: Response, next: N
   } catch (error) { next(error); }
 };
 
-export const testPush = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    await NotificationEngine.queueNotification({
-      userId: req.user.id,
-      type: 'test_push',
-      title: 'Test Push Notification',
-      message: 'This is a test push notification from Go Experts',
-      channel: 'push',
-      payload: { title: 'Test Push', message: 'It works!' }
-    });
-    return res.json(successResponse('Test push notification queued'));
-  } catch (error) { next(error); }
-};
-
 export const testEmail = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     await NotificationEngine.queueNotification({
