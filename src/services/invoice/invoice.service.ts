@@ -41,7 +41,7 @@ export async function generateInvoicePdf(invoiceId: string) {
     html = templateHtml
       .replace(/\{\{\s*invoiceNumber\s*\}\}/gi, invoice.invoiceNumber || "")
       .replace(/\{\{\s*invoiceDate\s*\}\}/gi, new Date(invoice.createdAt).toLocaleDateString())
-      .replace(/\{\{\s*userName\s*\}\}/gi, user.fullName || user.full_name || "")
+      .replace(/\{\{\s*userName\s*\}\}/gi, user.fullName || "")
       .replace(/\{\{\s*userEmail\s*\}\}/gi, user.email || "")
       .replace(/\{\{\s*subtotal\s*\}\}/gi, Number(invoice.subtotal).toFixed(2))
       .replace(/\{\{\s*gst\s*\}\}/gi, Number(invoice.gst).toFixed(2))
@@ -74,7 +74,7 @@ export async function generateInvoicePdf(invoiceId: string) {
             <div class="header">
               <div>
                 <h2>Go Experts</h2>
-                <div>Billing: ${user.fullName || user.full_name || ""}</div>
+                <div>Billing: ${user.fullName || ""}</div>
                 <div>${user.email || ""}</div>
               </div>
               <div style="text-align:right">
