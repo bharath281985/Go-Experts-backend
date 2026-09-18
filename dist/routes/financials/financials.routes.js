@@ -19,7 +19,7 @@ listAdPlans, createAdPlan, listAds, approveAd, rejectAd,
 // Featured
 listFeaturedServices, createFeaturedService, 
 // Invoices
-listInvoices, getInvoice, 
+listInvoices, getInvoice, downloadInvoice, resendInvoice, 
 // Dashboard
 getFinancialDashboard, } from "../../controllers/financials/financials.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
@@ -67,6 +67,8 @@ router.post("/featured-services", createFeaturedService);
 // ── Invoices ──
 router.get("/invoices", listInvoices);
 router.get("/invoices/:id", getInvoice);
+router.get("/invoices/:id/download", downloadInvoice);
+router.post("/invoices/:id/resend", resendInvoice);
 // ── Dashboard ──
 router.get("/dashboard", getFinancialDashboard);
 export default router;
