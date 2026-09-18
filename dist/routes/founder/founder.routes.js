@@ -20,6 +20,7 @@ router.delete("/verification", deleteMyVerification);
 router.get("/startup", getFounderStartup);
 router.patch("/startup", updateFounderStartup);
 router.put("/startup", updateFounderStartup);
+router.post("/startup/logo", upload.single("file"), uploadFile);
 router.get("/business-plan", getBusinessPlan);
 router.put("/business-plan", putBusinessPlan);
 router.get("/pitch-deck", getPitchDeck);

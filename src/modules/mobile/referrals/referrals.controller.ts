@@ -68,11 +68,9 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
     const history = referrals.map((referral) => ({
       id: referral.id,
       user: refereeMap.get(referral.refereeId) || { id: referral.refereeId, fullName: 'Unknown User', email: '', avatarUrl: null },
-      status: String(referral.status || 'pending').toLowerCase() === 'rewarded'
-        ? 'rewarded'
-        : 'pending',
-      reward: referral.rewards.reduce((sum, reward) => sum + reward.amount, 0),
-      points: referral.rewards.reduce((sum, reward) => sum + reward.points, 0),
+      status: String(referral.status || 'pending').toLowerCase(),
+      reward: referral.rewards?.reduce((sum, reward) => sum + (Number(reward.amount) || 0), 0) || 0,
+      points: referral.rewards?.reduce((sum, reward) => sum + (Number(reward.points) || 0), 0) || 0,
       createdAt: referral.createdAt,
     }));
     const totalReward = history.reduce((sum, referral) => sum + referral.reward, 0);

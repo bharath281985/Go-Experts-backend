@@ -8,6 +8,8 @@ import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { SmsChannelAdapter } from "../../modules/notifications/notification.service.js";
 import { renderEmailTemplate } from "../../services/settings/settings.service.js";
 import { sendEmail, shell } from "../../services/mobile/email.service.js";
+import { NotificationEngine } from "../../services/mobile/notification.engine.js";
+import { encryptPassword, decryptPassword } from "../../utils/crypto.util.js";
 
 import { sanitizeUserRecord } from "../../routes/index.js";
 import { calculateOnboardingProgress } from "../../config/onboarding.js";
@@ -86,6 +88,17 @@ async function verifyPassword(password: string, storedHash: string) {
       return false;
     }
   }
+  
+  // AES-256-GCM passwords contain colons (iv:authTag:encryptedText)
+  if (storedHash.includes(":")) {
+    try {
+      const decrypted = decryptPassword(storedHash);
+      return password === decrypted;
+    } catch (err) {
+      return false;
+    }
+  }
+
   // Legacy plain-text passwords (migrate on successful login if needed)
   return password === storedHash;
 }
@@ -371,10 +384,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return res.status(400).json({ success: false, message: "Invalid email or password" });
     }
 
-    // Upgrade legacy plain-text passwords to bcrypt after a successful login
-    if (user.password && !user.password.startsWith("$2")) {
-      const hashed = await bcrypt.hash(password, 10);
-      await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+    // Upgrade legacy plain-text or bcrypt passwords to AES-256-GCM after a successful login
+    if (user.password && !user.password.includes(":")) {
+      const encrypted = encryptPassword(password);
+      await prisma.user.update({ where: { id: user.id }, data: { password: encrypted } });
     }
 
     let subscriptionGate: any = { status: 'none', planId: null, planName: null, planExpired: false, upgradeRequired: true };
@@ -579,7 +592,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     }
     // If user exists but can be reused, we'll restore them below in the transaction.
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed = encryptPassword(password);
     const phone = req.body?.phone ? String(req.body.phone) : null;
     const countryRaw = req.body?.countryId || req.body?.country;
     const country = countryRaw ? String(countryRaw) : null;
@@ -691,6 +704,15 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
             metadata: JSON.stringify({ role: created.role })
           }
         });
+
+        // Notify the referral code owner
+        NotificationEngine.queueNotification({
+          userId: referrer.id,
+          type: "referral_used",
+          title: "Referral Code Used!",
+          message: `${created.fullName} has registered using your referral code.`,
+          channel: "all",
+        }).catch(err => console.error("[Referral Notification Error]:", err));
       }
 
       if (role === "freelancer") {
@@ -946,7 +968,7 @@ export const registerAdmin = async (req: Request, res: Response, next: NextFunct
       });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = encryptPassword(password);
 
     const existing = await prisma.adminUser.findFirst({ where: { email } });
     if (existing) {
@@ -1371,6 +1393,7 @@ export const me = async (req: AuthenticatedRequest, res: Response, next: NextFun
           success: true,
           user: {
             ...sanitizedFallback,
+              originalPassword: user.password?.includes(':') ? decryptPassword(user.password) : null,
               role: effectiveRole,
               status: effectiveStatus,
               subscriptionStatus: subscriptionGate.status,
@@ -1858,7 +1881,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
       return res.status(400).json({ success: false, message: "Reset token already used or invalid" });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed = encryptPassword(password);
 
     if (accountType === "admin") {
       const admin = await prisma.adminUser.findUnique({ where: { id: decoded.id } });
@@ -1897,7 +1920,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response, n
       return res.status(400).json({ success: false, message: "New password must be at least 8 characters" });
     }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const hashed = encryptPassword(newPassword);
 
     if (req.user.type === "portal") {
       const user = await prisma.user.findFirst({ where: { id: req.user.id, deletedAt: null } });
