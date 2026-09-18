@@ -25,6 +25,7 @@ import analyticsInsightsRouter from "./insights/analytics-insights.routes.js";
 import marketingRouter from "./insights/marketing.routes.js";
 import developerRouter from "./developer/developer.routes.js";
 import referralRoutes from "./referral/referral.routes.js";
+import tasksRoutes from "./tasks.routes.js";
 import { parseCatalogListBody, parseSkillsListBody } from "../common/helpers/catalog-body.js";
 import { createCrudRouter } from "../common/helpers/crud-factory.js";
 import {
@@ -95,6 +96,7 @@ router.use("/client", clientRoutes);
 router.use("/investor", investorRoutes);
 router.use("/founder", founderRoutes);
 router.use("/referrals", referralRoutes);
+router.use("/tasks", tasksRoutes);
 
 // Expose OpenAPI specs publicly
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
