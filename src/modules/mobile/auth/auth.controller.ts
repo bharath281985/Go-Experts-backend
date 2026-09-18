@@ -12,6 +12,7 @@ import { issuePhoneOtp, verifyPhoneOtp, issueEmailOtp, verifyEmailOtp, issuePass
 import { resolveProfileCompletion } from '../../../services/mobile/profile-completion.service.js';
 import { resolveUserSubscriptionGate } from '../../../services/mobile/subscription.service.js';
 import { calculateOnboardingProgress } from '../../../config/onboarding.js';
+import { uploadedFileUrl } from '../../../utils/uploaded-file.js';
 import dns from 'dns';
 
 const dnsPromises = dns.promises;
@@ -2009,9 +2010,7 @@ export const updateCoverImage = async (req: AuthRequest, res: Response, next: Ne
       return res.status(400).json(errorResponse('No cover image file provided', 'VALIDATION_ERROR'));
     }
 
-    const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
-    const relativePath = req.file.path.replace(/\\/g, '/');
-    const coverImageUrl = `${BASE_URL}/${relativePath}`;
+    const coverImageUrl = uploadedFileUrl(req.file, req);
 
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
