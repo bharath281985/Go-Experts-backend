@@ -545,7 +545,7 @@ export const register = async (req, res, next) => {
             baseCode = "GEX" + baseCode;
         const randStr = Math.floor(1000 + Math.random() * 9000).toString();
         const referralCode = `GOEXPERTS-${baseCode}${randStr}`;
-        const ref = req.body?.ref || req.query?.ref;
+        const ref = req.body?.ref || req.body?.referralCode || req.query?.ref;
         let referrer = null;
         let referralClick = null;
         if (ref) {
@@ -715,16 +715,27 @@ export const register = async (req, res, next) => {
                         industryName = industryRow.name;
                     }
                 }
+                const companySizeVal = req.body?.companySize || req.body?.currentTeam || req.body?.teamSize || null;
+                const projectHireBudgetVal = req.body?.projectHireBudget || req.body?.projectHireBudgetRange || req.body?.budget || null;
+                const hiringGoalVal = req.body?.hiringGoal || req.body?.primaryGoal || null;
                 await tx.clientProfile.upsert({
                     where: { userId: created.id },
                     create: {
                         userId: created.id,
                         company: req.body?.company ? String(req.body.company) : null,
                         industry: industryName,
+                        companySize: companySizeVal ? String(companySizeVal) : null,
+                        currentTeam: companySizeVal ? String(companySizeVal) : null,
+                        projectHireBudget: projectHireBudgetVal ? String(projectHireBudgetVal) : null,
+                        hiringGoal: hiringGoalVal ? String(hiringGoalVal) : null,
                     },
                     update: {
                         company: req.body?.company ? String(req.body.company) : null,
                         industry: industryName,
+                        companySize: companySizeVal ? String(companySizeVal) : null,
+                        currentTeam: companySizeVal ? String(companySizeVal) : null,
+                        projectHireBudget: projectHireBudgetVal ? String(projectHireBudgetVal) : null,
+                        hiringGoal: hiringGoalVal ? String(hiringGoalVal) : null,
                     },
                 });
             }
@@ -749,6 +760,24 @@ export const register = async (req, res, next) => {
                 });
             }
             if (role === "founder") {
+                let teamSizeRaw = req.body?.teamSize || req.body?.companySize;
+                let teamSizeVal = 1;
+                if (teamSizeRaw !== undefined && teamSizeRaw !== null) {
+                    if (typeof teamSizeRaw === 'number')
+                        teamSizeVal = teamSizeRaw;
+                    else if (typeof teamSizeRaw === 'string') {
+                        const m = teamSizeRaw.match(/\d+/);
+                        if (m)
+                            teamSizeVal = parseInt(m[0], 10);
+                    }
+                }
+                const targetRaiseRaw = req.body?.targetRaise;
+                const targetRaiseVal = targetRaiseRaw != null ? (parseFloat(String(targetRaiseRaw).replace(/[^\d.]/g, '')) || 0) : null;
+                const raisedRaw = req.body?.raised || req.body?.fundingRaised;
+                const raisedVal = raisedRaw != null ? (parseFloat(String(raisedRaw).replace(/[^\d.]/g, '')) || 0) : 0;
+                const primaryGoalVal = req.body?.primaryGoal || req.body?.hiringGoal || null;
+                const founderRoleVal = req.body?.founderRole || null;
+                const founderBioVal = req.body?.founderBio || req.body?.bio || null;
                 await tx.founderProfile.upsert({
                     where: { userId: created.id },
                     create: {
@@ -756,11 +785,23 @@ export const register = async (req, res, next) => {
                         startupName: req.body?.startupName || req.body?.company || null,
                         industry: req.body?.industry || req.body?.category || null,
                         stage: req.body?.stage || null,
+                        teamSize: teamSizeVal,
+                        targetRaise: targetRaiseVal,
+                        raised: raisedVal,
+                        primaryGoal: primaryGoalVal ? String(primaryGoalVal) : null,
+                        founderRole: founderRoleVal ? String(founderRoleVal) : null,
+                        founderBio: founderBioVal ? String(founderBioVal) : null,
                     },
                     update: {
                         startupName: req.body?.startupName || req.body?.company || null,
                         industry: req.body?.industry || req.body?.category || null,
                         stage: req.body?.stage || null,
+                        teamSize: teamSizeVal,
+                        targetRaise: targetRaiseVal,
+                        raised: raisedVal,
+                        primaryGoal: primaryGoalVal ? String(primaryGoalVal) : null,
+                        founderRole: founderRoleVal ? String(founderRoleVal) : null,
+                        founderBio: founderBioVal ? String(founderBioVal) : null,
                     },
                 });
             }
@@ -1549,7 +1590,7 @@ export const forgotPassword = async (req, res, next) => {
                 });
                 const htmlBody = `
           <p style="margin:0 0 4px;color:#64748b;font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">Security</p>
-          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request ðŸ”‘</h1>
+          <h1 style="margin:0 0 8px;color:#0f172a;font-size:26px;font-weight:800;line-height:1.2;">Password Reset Request 🔑 </h1>
           <p style="margin:0 0 24px;color:#64748b;font-size:15px;">We received a request to reset your GoExperts password. Use the code below to securely verify your identity.</p>
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="100%" style="margin:0 0 24px;">
             <tr>
@@ -2124,15 +2165,18 @@ export const selectSocialRole = async (req, res, next) => {
         registrationData.isSocial = true;
         registrationData.selectedRole = role;
         registrationData.onboardingStatus = registrationData.onboardingStatus || "draft";
+        const progress = calculateOnboardingProgress(role, 1, false);
         const updatedUser = await prisma.$transaction(async (tx) => {
             const user = await tx.user.update({
                 where: { id: existing.id },
                 data: {
                     role,
-                    registrationData: JSON.stringify(registrationData),
-                    onboardingStatus: existing.onboardingStatus === "NOT_STARTED" ? "DRAFT" : existing.onboardingStatus,
-                    currentStep: existing.currentStep || "2",
-                    completionPercentage: existing.completionPercentage || 20,
+                    registrationData: JSON.stringify({ ...registrationData, lastStep: 1 }),
+                    onboardingStatus: progress.status,
+                    completedSteps: progress.completedSteps ? JSON.stringify(progress.completedSteps) : undefined,
+                    currentStep: progress.currentStep,
+                    nextStepKey: progress.nextStepKey,
+                    completionPercentage: progress.percentage
                 },
             });
             if (role === "freelancer") {

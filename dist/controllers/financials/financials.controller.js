@@ -1,4 +1,5 @@
 import { prisma } from "../../config/database.js";
+import crypto from "crypto";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
 import { reactivateAccountAfterPlanUpgrade } from "../../services/mobile/subscription.service.js";
 // ============================================================
@@ -583,25 +584,8 @@ export async function processRefund(req, res) {
         }
         const refundAmount = amount || paymentLookup.amount;
         let gatewayRefundId = null;
-        // Best-effort gateway refund call (does not block DB refund)
-        try {
-            if (paymentLookup.gateway === "stripe" && process.env.STRIPE_SECRET_KEY && paymentLookup.transactionId && !String(paymentLookup.transactionId).startsWith("mock_")) {
-                const Stripe = (await import("stripe")).default;
-                const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-                const rf = await stripe.refunds.create({
-                    payment_intent: paymentLookup.transactionId,
-                    amount: Math.round(Number(refundAmount) * 100),
-                });
-                gatewayRefundId = rf.id;
-            }
-            else {
-                gatewayRefundId = `local_re_${Date.now()}`;
-            }
-        }
-        catch (gwErr) {
-            gatewayRefundId = `gateway_error_${Date.now()}`;
-            console.warn("processRefund gateway call failed:", gwErr?.message);
-        }
+        // Refunds are credited directly to the user's wallet, regardless of whether they paid via Stripe, Razorpay, or Wallet.
+        gatewayRefundId = `wallet_re_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
         const result = await prisma.$transaction(async (tx) => {
             const payment = await tx.payment.findUnique({ where: { id: paymentId } });
             if (!payment)

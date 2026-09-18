@@ -14,6 +14,7 @@ import crypto from "crypto";
 import Stripe from "stripe";
 import { prisma } from "../../config/database.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { PaymentReadinessError, requirePaymentReadiness, } from "../../services/mobile/profile-readiness.service.js";
 const router = Router();
 function getStripe() {
     const key = process.env.STRIPE_SECRET_KEY;
@@ -111,7 +112,7 @@ router.get("/public/payment_gateways", async (req, res) => {
 // POST /checkout — supports authenticated users & guest signup checkout
 router.post("/checkout", async (req, res) => {
     try {
-        const { gateway, currency, purpose, metadata, userId: bodyUserId } = req.body;
+        const { gateway, currency, purpose, metadata, userId: bodyUserId, paymentMethod } = req.body;
         let amount = Number(req.body?.amount || 0);
         const planId = String(req.body?.planId || req.body?.plan_id || "").trim();
         if (planId) {
@@ -162,31 +163,92 @@ router.post("/checkout", async (req, res) => {
                 }
             }
         }
-        if (!gateway || !["stripe", "razorpay", "easebuzz"].includes(gateway)) {
+        if (paymentMethod !== "wallet" && (!gateway || !["stripe", "razorpay", "easebuzz"].includes(gateway))) {
             return res.status(400).json({ success: false, message: "gateway must be stripe|razorpay|easebuzz" });
         }
         if (amount == null || Number(amount) <= 0) {
             return res.status(400).json({ success: false, message: "Invalid subscription plan or amount" });
         }
         const userId = await resolveCheckoutUserId(req, bodyUserId, req.body?.email);
-        if (userId && (purpose || planId || "").toUpperCase().startsWith("SUB_")) {
-            try {
-                const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
-                const { getVerificationStats } = await import("../../common/helpers/verification.js");
-                const [completion, kyc] = await Promise.all([
-                    resolveProfileCompletion(userId),
-                    getVerificationStats(userId)
-                ]);
-                if (!completion.isProfileComplete || !kyc.kycApproved) {
-                    return res.status(403).json({ success: false, message: "Profile and KYC verification required before purchasing a subscription." });
-                }
+        const isSubscriptionPayment = String(purpose || "").toLowerCase() === "subscription" ||
+            String(purpose || planId || "").toUpperCase().startsWith("SUB_") ||
+            Boolean(planId);
+        if (isSubscriptionPayment) {
+            if (!userId) {
+                return res.status(401).json({ success: false, message: "Login is required before purchasing a subscription." });
             }
-            catch (err) {
-                console.error("KYC gate check failed:", err);
+            try {
+                await requirePaymentReadiness(userId);
+            }
+            catch (error) {
+                if (error instanceof PaymentReadinessError) {
+                    return res.status(403).json({
+                        success: false,
+                        code: error.code,
+                        message: error.message,
+                        data: {
+                            profileCompletion: error.profileCompletion,
+                            kycStatus: error.kycStatus,
+                            missing: error.missing,
+                        },
+                    });
+                }
+                throw error;
             }
         }
         const cur = (currency || "INR").toUpperCase();
         const metaNote = purpose || (metadata ? JSON.stringify(metadata).slice(0, 200) : undefined);
+        if (paymentMethod === "wallet") {
+            if (!userId) {
+                return res.status(401).json({ success: false, message: "Unauthorized for wallet payment" });
+            }
+            try {
+                await prisma.$transaction(async (tx) => {
+                    // Atomic update to prevent race conditions (Industry Standard)
+                    const { count } = await tx.wallet.updateMany({
+                        where: { userId, balance: { gte: Number(amount) } },
+                        data: { balance: { decrement: Number(amount) } }
+                    });
+                    if (count === 0) {
+                        throw new Error("Insufficient wallet balance or wallet not found");
+                    }
+                    const updatedWallet = await tx.wallet.findUnique({ where: { userId } });
+                    if (!updatedWallet)
+                        throw new Error("Wallet not found");
+                    const p = await tx.payment.create({
+                        data: {
+                            userId,
+                            gateway: "wallet",
+                            amount: Number(amount),
+                            currency: cur,
+                            transactionId: `WAL_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+                            status: "completed",
+                        }
+                    });
+                    await tx.walletTransaction.create({
+                        data: {
+                            walletId: updatedWallet.id,
+                            type: "subscription",
+                            amount: Number(amount),
+                            direction: "debit",
+                            description: `Payment for ${purpose || planId}`,
+                            balanceAfter: updatedWallet.balance
+                        }
+                    });
+                    // If it's a subscription, activate it directly
+                    const purposeStr = String(purpose || planId || "");
+                    if (purposeStr.toUpperCase().startsWith("SUB_")) {
+                        const actualPlanId = purposeStr.startsWith("SUB_") ? purposeStr.slice(4) : planId;
+                        const { activateUserSubscription } = await import("../../services/mobile/subscription.service.js");
+                        await activateUserSubscription(userId, actualPlanId, "monthly");
+                    }
+                });
+                return res.status(200).json({ success: true, message: "Payment successful via Wallet" });
+            }
+            catch (err) {
+                return res.status(400).json({ success: false, message: err.message || "Wallet payment failed" });
+            }
+        }
         if (gateway === "stripe") {
             const stripe = getStripe();
             const mockId = `mock_pi_${crypto.randomBytes(12).toString("hex")}`;
@@ -555,47 +617,9 @@ router.post("/refund", authMiddleware, async (req, res) => {
         const refundAmount = amount != null ? Number(amount) : payment.amount;
         let gatewayRefundId = null;
         let gatewayNote = null;
-        try {
-            if (payment.gateway === "stripe" && process.env.STRIPE_SECRET_KEY && payment.transactionId) {
-                const stripe = getStripe();
-                if (stripe && !payment.transactionId.startsWith("mock_")) {
-                    const rf = await stripe.refunds.create({
-                        payment_intent: payment.transactionId,
-                        amount: Math.round(refundAmount * 100),
-                    });
-                    gatewayRefundId = rf.id;
-                }
-                else {
-                    gatewayRefundId = `mock_re_${crypto.randomBytes(8).toString("hex")}`;
-                    gatewayNote = "mock stripe refund";
-                }
-            }
-            else if (payment.gateway === "razorpay" && process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-                try {
-                    const Razorpay = (await import("razorpay")).default;
-                    const rzp = new Razorpay({
-                        key_id: process.env.RAZORPAY_KEY_ID,
-                        key_secret: process.env.RAZORPAY_KEY_SECRET,
-                    });
-                    // Best-effort: payment.transactionId may be order id; use payments.refund if payment id known
-                    gatewayRefundId = `rzp_re_pending_${Date.now()}`;
-                    gatewayNote = "logged pending; confirm via Razorpay dashboard if order-level";
-                    void rzp;
-                }
-                catch (err) {
-                    gatewayNote = err?.message || "razorpay refund skipped";
-                    gatewayRefundId = `rzp_re_mock_${crypto.randomBytes(6).toString("hex")}`;
-                }
-            }
-            else {
-                gatewayRefundId = `local_re_${crypto.randomBytes(8).toString("hex")}`;
-                gatewayNote = "local/mock refund (no gateway credentials)";
-            }
-        }
-        catch (err) {
-            gatewayNote = err?.message || "gateway refund best-effort failed";
-            gatewayRefundId = gatewayRefundId || `err_re_${Date.now()}`;
-        }
+        // Refunds are credited directly to the user's wallet, regardless of whether they paid via Stripe, Razorpay, or Wallet.
+        gatewayRefundId = `wallet_re_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+        gatewayNote = "Auto-credited to user wallet";
         const result = await prisma.$transaction(async (tx) => {
             const refund = await tx.paymentRefund.create({
                 data: {

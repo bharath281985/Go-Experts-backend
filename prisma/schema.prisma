@@ -103,6 +103,7 @@ model User {
   password                String                  @default("")
   fullName                String                  @map("full_name")
   avatarUrl               String?                 @map("avatar_url")
+  coverImageUrl           String?                 @map("cover_image_url")
   role                    String
   status                  String                  @default("active")
   isVerified              Boolean                 @default(false) @map("is_verified")

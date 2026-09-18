@@ -9,6 +9,7 @@ import {
   parseStartupListQuery,
 } from '../../../services/mobile/project-list-query.service.js';
 import { SETTINGS_DEFAULTS } from '../../../services/settings/settings.defaults.js';
+import { notifyProfileViewed } from '../../../services/mobile/push-events.service.js';
 
 const oneOrMany = <T>(items: T[]): T | T[] => items.length === 1 ? items[0] : items;
 
@@ -582,7 +583,7 @@ export const getTicketSizes = async (req: Request, res: Response, next: NextFunc
   try {
     const dbTickets = await (prisma as any).masterOption?.findMany({
       where: { type: 'ticket_size', status: 'active' },
-      orderBy: { label: 'asc' },
+      orderBy: { min: 'asc' },
       select: { id: true, label: true, value: true, min: true, max: true }
     }).catch(() => []);
 
@@ -1731,6 +1732,13 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       }
 
       const data = formatStartupResponse(idea, userMap.get(idea.founder), fpMap.get(idea.founder), industryMap, optionMap, true, platformRaisedMap);
+      await notifyProfileViewed({
+        profileOwnerId: idea.founder,
+        viewerId: (req as AuthRequest).user?.id,
+        viewerName: (req as AuthRequest).user?.fullName,
+        profileType: 'startup',
+        profileId: idea.id,
+      }).catch(console.error);
       return res.json(successResponse('Details retrieved for startup', { ...data, isSaved, hasInvested }));
     }
 
@@ -1805,6 +1813,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         email: user.email || reg.email || '',
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
         avatar: user.avatarUrl || reg.avatarUrl || null,
+        coverImageUrl: (user as any).coverImageUrl || reg.coverImageUrl || reg.coverUrl || null,
+        coverImage: (user as any).coverImageUrl || reg.coverImageUrl || reg.coverUrl || null,
         bio: user.bio || reg.bio || reg.pitch || '',
         phone: user.phone || reg.phone || reg.mobile || '',
         city: user.city || reg.city || '',
@@ -1877,6 +1887,13 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         startup: startupDetails
       };
 
+      await notifyProfileViewed({
+        profileOwnerId: id,
+        viewerId: (req as AuthRequest).user?.id,
+        viewerName: (req as AuthRequest).user?.fullName,
+        profileType: 'founder',
+        profileId: id,
+      }).catch(console.error);
       return res.json(successResponse('Details retrieved for founder', result));
     }
 
@@ -2034,12 +2051,20 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         } catch { }
       }
 
+      await notifyProfileViewed({
+        profileOwnerId: id,
+        viewerId: (req as AuthRequest).user?.id,
+        viewerName: (req as AuthRequest).user?.fullName,
+        profileType: 'freelancer',
+        profileId: id,
+      }).catch(console.error);
       return res.json(successResponse('Details retrieved for freelancer', {
         id: user.id,
         fullName: user.fullName || reg.fullName || "",
         email: user.email,
         phone: user.phone || reg.phone || reg.mobile || "",
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
+        coverImageUrl: (user as any).coverImageUrl || reg.coverImageUrl || reg.coverUrl || null,
         titleHeadline: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Junior web developer",
         title: user.freelancerProfile?.titleHeadline || reg.titleHeadline || reg.title || "Junior web developer",
         bio: user.bio || reg.bio || reg.overview || "",
@@ -2148,6 +2173,13 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         } catch { }
       }
 
+      await notifyProfileViewed({
+        profileOwnerId: id,
+        viewerId: (req as AuthRequest).user?.id,
+        viewerName: (req as AuthRequest).user?.fullName,
+        profileType: 'client',
+        profileId: id,
+      }).catch(console.error);
       return res.json(successResponse('Details retrieved for client', {
         id: user.id,
         userId: user.id,
@@ -2157,6 +2189,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         phone: user.phone || reg.phone || reg.mobile || '',
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
         avatar: user.avatarUrl || reg.avatarUrl || null,
+        coverImageUrl: (user as any).coverImageUrl || reg.coverImageUrl || reg.coverUrl || null,
+        coverImage: (user as any).coverImageUrl || reg.coverImageUrl || reg.coverUrl || null,
         company: compVal,
         companyName: compVal,
         companySize: csVal,
@@ -2297,6 +2331,13 @@ export const getById = (modelName: string) => async (req: Request, res: Response
       const isSaved = savedIds.has(user.id) || (user.investorProfile?.id && savedIds.has(user.investorProfile.id)) || false;
       const savedData = Boolean(user.investorProfile || Object.keys(reg).length > 0);
 
+      await notifyProfileViewed({
+        profileOwnerId: id,
+        viewerId: (req as AuthRequest).user?.id,
+        viewerName: (req as AuthRequest).user?.fullName,
+        profileType: 'investor',
+        profileId: id,
+      }).catch(console.error);
       return res.json(successResponse('Details retrieved for investor', {
         id: user.id,
         userId: user.id,
@@ -2306,6 +2347,8 @@ export const getById = (modelName: string) => async (req: Request, res: Response
         phone: user.phone || reg.phone || reg.mobile || '',
         avatarUrl: user.avatarUrl || reg.avatarUrl || null,
         avatar: user.avatarUrl || reg.avatarUrl || null,
+        coverImageUrl: (user as any).coverImageUrl || reg.coverImageUrl || reg.coverUrl || null,
+        coverImage: (user as any).coverImageUrl || reg.coverImageUrl || reg.coverUrl || null,
         InvestorType: invTypeRaw ? {
           investorTypeId: invTypeRaw,
           investorTypeName: invTypeName,

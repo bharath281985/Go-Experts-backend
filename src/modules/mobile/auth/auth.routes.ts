@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   login, register, getMe, logout, refresh,
   forgotPassword, resetPassword, changePassword,
-  updateMe, updateAvatar, sendEmailVerification, verifyEmail, deleteAccount,
+  updateMe, updateAvatar, updateCoverImage, sendEmailVerification, verifyEmail, deleteAccount,
   sendOtp, verifyOtp, resendOtp, checkEmail, selectSocialRole,
 } from './auth.controller.js';
 import { validate } from '../../../middleware/validate.js';
@@ -37,6 +37,10 @@ router.put('/me', authenticate, upload.single('file'), handleUploadError, valida
 router.post('/social-role', authenticate, selectSocialRole);
 router.post('/me/avatar', authenticate, upload.single('file'), handleUploadError, updateAvatar);
 router.put('/me/avatar', authenticate, upload.single('file'), handleUploadError, updateAvatar);
+router.post('/me/cover-image', authenticate, upload.single('file'), handleUploadError, updateCoverImage);
+router.put('/me/cover-image', authenticate, upload.single('file'), handleUploadError, updateCoverImage);
+router.post('/cover-image', authenticate, upload.single('file'), handleUploadError, updateCoverImage);
+router.put('/cover-image', authenticate, upload.single('file'), handleUploadError, updateCoverImage);
 router.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), resetPassword);
 router.post('/change-password', authenticate, validate(changePasswordSchema), changePassword);

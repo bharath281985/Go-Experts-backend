@@ -1,8 +1,9 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
-import { AuthRequest } from '../../../../middlewares/auth.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
+import { AuthRequest } from '../../../../middlewares/auth.js';
+import { notifyProjectApplication } from '../../../../services/mobile/push-events.service.js';
 
 const proposalAttachments = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
@@ -127,12 +128,12 @@ export const createProposal = async (req: AuthRequest, res: Response, next: Next
 
     if (project.client) {
       try {
-        await NotificationEngine.queueNotification({
-          userId: project.client,
-          type: 'new_proposal',
-          title: 'New Freelancer Proposal',
-          message: `${req.user.fullName || 'A freelancer'} has submitted a proposal for your project!`,
-          channel: 'all'
+        await notifyProjectApplication({
+          clientId: project.client,
+          freelancerId: req.user.id,
+          freelancerName: req.user.fullName,
+          projectId: project.id,
+          projectTitle: project.title,
         });
       } catch (notifError) {
         console.error('Failed to queue notification for proposal:', notifError);

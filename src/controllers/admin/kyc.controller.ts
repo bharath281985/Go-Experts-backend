@@ -3,6 +3,7 @@ import { prisma } from "../../config/database.js";
 import { getVerificationStats, applyVerificationUpdate } from "../../common/helpers/verification.js";
 import type { VerificationItem } from "../../common/helpers/verification.js";
 import { activateFreePlanAfterKyc } from "../../services/mobile/subscription.service.js";
+import { notifyAccountStatusChanged, notifyKycVerified } from "../../services/mobile/push-events.service.js";
 
 
 async function triggerReferralBonus(user: any) {
@@ -255,6 +256,7 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
             }
         });
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
+        const wasKycApproved = getVerificationStats(user).kycApproved;
 
         // Toggle explicit verified flag on the user record directly
         if (updatePayload.verified !== undefined || updatePayload.isVerified !== undefined) {
@@ -327,11 +329,16 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                     if (freshUserForCheck.email) {
                         await sendAccountActiveEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');
                     }
+                        await notifyAccountStatusChanged(freshUserForCheck.id, 'active').catch(console.error);
                 }
                 await activateFreePlanAfterKyc(freshUserForCheck.id);
                 await triggerWelcomeBonus(freshUserForCheck);
                 await triggerReferralBonus(freshUserForCheck);
             }
+        }
+
+        if (!wasKycApproved && stats?.kycApproved) {
+            await notifyKycVerified(id).catch(console.error);
         }
 
         // Return the updated info using unified format

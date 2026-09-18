@@ -14,6 +14,10 @@ import crypto from "crypto";
 import Stripe from "stripe";
 import { prisma } from "../../config/database.js";
 import { authMiddleware, AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
+import {
+  PaymentReadinessError,
+  requirePaymentReadiness,
+} from "../../services/mobile/profile-readiness.service.js";
 
 const router = Router();
 
@@ -190,32 +194,30 @@ router.post("/checkout", async (req: Request, res: Response) => {
 
       const userId = await resolveCheckoutUserId(req, bodyUserId, req.body?.email);
       
-      if (userId && (purpose || planId || "").toUpperCase().startsWith("SUB_")) {
-          try {
-            const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
-            const { getVerificationStats } = await import("../../common/helpers/verification.js");
-            
-            const userForKyc = await prisma.user.findFirst({
-              where: { id: userId, deletedAt: null },
-              include: {
-                freelancerProfile: true,
-                clientProfile: true,
-                founderProfile: true,
-                investorProfile: true,
-              }
+      const isSubscriptionPayment =
+        String(purpose || "").toLowerCase() === "subscription" ||
+        String(purpose || planId || "").toUpperCase().startsWith("SUB_") ||
+        Boolean(planId);
+      if (isSubscriptionPayment) {
+        if (!userId) {
+          return res.status(401).json({ success: false, message: "Login is required before purchasing a subscription." });
+        }
+        try {
+          await requirePaymentReadiness(userId);
+        } catch (error) {
+          if (error instanceof PaymentReadinessError) {
+            return res.status(403).json({
+              success: false,
+              code: error.code,
+              message: error.message,
+              data: {
+                profileCompletion: error.profileCompletion,
+                kycStatus: error.kycStatus,
+                missing: error.missing,
+              },
             });
-
-            const completion = await resolveProfileCompletion(userId);
-            const kyc = userForKyc ? getVerificationStats(userForKyc) : { kycApproved: false, profileApproved: false };
-            
-          
-          const isKycVerified = kyc.kycApproved;
-
-          if (!isKycVerified) {
-            return res.status(403).json({ success: false, message: "Your KYC verification is required before purchasing a subscription. Please complete your KYC documents and wait for admin approval." });
           }
-        } catch (err) {
-          console.error("KYC gate check failed:", err);
+          throw error;
         }
       }
       const cur = (currency || "INR").toUpperCase();

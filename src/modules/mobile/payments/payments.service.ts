@@ -9,6 +9,7 @@ import {
   parseProductInfo,
 } from '../../../utils/payment-gateways.js';
 import { loadPaymentMeta, storePaymentMeta } from '../../../utils/payment-meta.js';
+import { requirePaymentReadiness } from '../../../services/mobile/profile-readiness.service.js';
 
 export const initiatePaymentService = async (
   userId: string,
@@ -21,6 +22,15 @@ export const initiatePaymentService = async (
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error('USER_NOT_FOUND');
+
+  const paymentPurpose = String(metadata.purpose || metadata.type || '').toLowerCase();
+  const isSubscriptionPayment =
+    paymentPurpose === 'subscription' ||
+    paymentPurpose.startsWith('sub_') ||
+    Boolean(metadata.planId);
+  if (isSubscriptionPayment) {
+    await requirePaymentReadiness(userId);
+  }
 
   const productinfo = buildProductInfo(metadata);
   const enriched = {

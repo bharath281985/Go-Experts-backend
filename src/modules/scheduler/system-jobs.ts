@@ -6,6 +6,7 @@ import { resolveUserSubscriptionGate } from "../../services/mobile/subscription.
 import fs from "fs";
 import path from "path";
 import { getInactivityWarningEmail } from "../notifications/templates/inactivity-warning.js";
+import { notifyAccountStatusChanged } from "../../services/mobile/push-events.service.js";
 
 export function registerSystemJobs() {
   // 4. User Inactivity Lifecycle
@@ -63,6 +64,7 @@ export function registerSystemJobs() {
         where: { id: user.id },
         data: { status: "inactive" }
       });
+      await notifyAccountStatusChanged(user.id, 'inactive').catch(console.error);
       console.log(`[SYSTEM JOB] Marked user ${user.email} as inactive due to 31 days of inactivity`);
     }
   });

@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../../../core/response.js';
 import { AuthRequest } from '../../../middlewares/auth.js';
 import { initiatePaymentService } from '../payments/payments.service.js';
 import { getKycApprovedCurrentSubscription } from '../../../services/mobile/subscription.service.js';
+import { PaymentReadinessError } from '../../../services/mobile/profile-readiness.service.js';
 
 export const getPlans = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -55,6 +56,13 @@ const startPlanPayment = async (req: AuthRequest, res: Response, action: string)
     });
     return res.status(201).json(successResponse(`Subscription ${action} payment initiated`, result));
   } catch (error: any) {
+    if (error instanceof PaymentReadinessError) {
+      return res.status(403).json(errorResponse(error.message, error.code, [{
+        profileCompletion: error.profileCompletion,
+        kycStatus: error.kycStatus,
+        missing: error.missing,
+      }]));
+    }
     return res.status(400).json(errorResponse(error?.message || 'Payment initiation failed', 'PAYMENT_INITIATION_FAILED'));
   }
 };

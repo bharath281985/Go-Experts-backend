@@ -9,6 +9,7 @@ import {
 import { prisma } from '../../../config/database.js';
 import { verifyEasebuzzReverseHash } from './gateways/easebuzz.gateway.js';
 import { listPublicGateways } from '../../../utils/payment-gateways.js';
+import { PaymentReadinessError } from '../../../services/mobile/profile-readiness.service.js';
 
 export const getGateways = async (_req: Request, res: Response, next: NextFunction) => {
   try {
@@ -34,6 +35,15 @@ export const initiatePayment = async (req: AuthRequest, res: Response, next: Nex
     );
     return res.json(successResponse('Payment initiated', payment));
   } catch (error: any) {
+    if (error instanceof PaymentReadinessError) {
+      return res.status(403).json(errorResponse(error.message, error.code, [
+        {
+          profileCompletion: error.profileCompletion,
+          kycStatus: error.kycStatus,
+          missing: error.missing,
+        },
+      ]));
+    }
     if (error.message === 'PAYMENT_GATEWAY_NOT_CONFIGURED') {
       return res.status(400).json(errorResponse('Payment gateway is not configured', 'PAYMENT_GATEWAY_NOT_CONFIGURED'));
     }

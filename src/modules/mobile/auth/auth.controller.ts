@@ -1230,6 +1230,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       fullName: activeUser.fullName,
       role: activeUser.role,
       avatarUrl: activeUser.avatarUrl,
+      coverImageUrl: (activeUser as any).coverImageUrl || regData.coverImageUrl || regData.coverUrl || null,
       status: activeUser.status,
       isVerified: activeUser.isVerified,
       isSocialLogin: isSocialLogin,
@@ -1501,12 +1502,22 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     const educationInput = extractVal(req.body.educationId ?? req.body.education ?? education);
 
     let avatarUrl: string | undefined = undefined;
+    let coverImageUrl: string | undefined = undefined;
     if (req.file) {
       const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
       const relativePath = req.file.path.replace(/\\/g, '/');
-      avatarUrl = `${BASE_URL}/${relativePath}`;
-    } else if (req.body.avatarUrl || req.body.logo || req.body.avatar || req.body.logoUrl) {
+      const isCover = req.body?.isCover === 'true' || req.body?.type === 'cover' || req.query?.type === 'cover';
+      if (isCover) {
+        coverImageUrl = `${BASE_URL}/${relativePath}`;
+      } else {
+        avatarUrl = `${BASE_URL}/${relativePath}`;
+      }
+    }
+    if (req.body.avatarUrl || req.body.logo || req.body.avatar || req.body.logoUrl) {
       avatarUrl = req.body.avatarUrl || req.body.logo || req.body.avatar || req.body.logoUrl;
+    }
+    if (req.body.coverImageUrl || req.body.coverUrl || req.body.coverImage || req.body.bannerUrl) {
+      coverImageUrl = req.body.coverImageUrl || req.body.coverUrl || req.body.coverImage || req.body.bannerUrl;
     }
 
     const updatedUser = await prisma.user.update({
@@ -1519,8 +1530,9 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
         city: cityInput || undefined,
         bio: bio !== undefined ? bio : undefined,
         avatarUrl: avatarUrl || undefined,
+        coverImageUrl: coverImageUrl || undefined,
         isVerified: true,
-      },
+      } as any,
     });
 
     const role = updatedUser.role;
@@ -1981,6 +1993,37 @@ export const updateAvatar = async (req: AuthRequest, res: Response, next: NextFu
       successResponse('Avatar updated successfully', {
         url: avatarUrl,
         avatarUrl,
+        user: {
+          ...updatedUser,
+          profileCompletion: completion.profileCompletion,
+          isProfileComplete: completion.isProfileComplete,
+        },
+      })
+    );
+  } catch (error) { next(error); }
+};
+
+export const updateCoverImage = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json(errorResponse('No cover image file provided', 'VALIDATION_ERROR'));
+    }
+
+    const BASE_URL = process.env.BASE_URL || 'http://localhost:4000';
+    const relativePath = req.file.path.replace(/\\/g, '/');
+    const coverImageUrl = `${BASE_URL}/${relativePath}`;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { coverImageUrl } as any,
+    });
+
+    const completion = await resolveProfileCompletion(req.user.id);
+
+    return res.json(
+      successResponse('Cover image updated successfully', {
+        url: coverImageUrl,
+        coverImageUrl,
         user: {
           ...updatedUser,
           profileCompletion: completion.profileCompletion,
