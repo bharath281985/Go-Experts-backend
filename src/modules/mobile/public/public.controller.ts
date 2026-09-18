@@ -877,11 +877,23 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
       where.id = { not: userId };
     }
     if (search) {
+      const matchingSkills = await (prisma as any).skill?.findMany({
+        where: { name: { contains: search } },
+        select: { id: true }
+      }).catch(() => []);
+
+      const skillIdConditions = (matchingSkills || []).map((s: any) => ({
+        freelancerProfile: { is: { skills: { contains: s.id } } }
+      }));
+
       where.AND = [
         { OR: [
           { fullName: { contains: search } },
           { city: { contains: search } },
+          { freelancerProfile: { is: { titleHeadline: { contains: search } } } },
+          { freelancerProfile: { is: { skills: { contains: search } } } },
           { investorProfile: { is: { focusAreas: { contains: search } } } },
+          ...skillIdConditions
         ] },
       ];
     }
