@@ -13,6 +13,7 @@ import { resolveProfileCompletion } from '../../../services/mobile/profile-compl
 import { resolveUserSubscriptionGate } from '../../../services/mobile/subscription.service.js';
 import { calculateOnboardingProgress } from '../../../config/onboarding.js';
 import { uploadedFileUrl } from '../../../utils/uploaded-file.js';
+import { encryptPassword, decryptPassword } from '../../../utils/crypto.util.js';
 import dns from 'dns';
 
 const dnsPromises = dns.promises;
@@ -251,6 +252,22 @@ const buildAuthPayload = async (user: AuthUser) => {
   const isPlanExpired = subscriptionGate.planExpired === true || subscriptionGate.status === 'expired';
   const effectiveStatus = isPlanExpired ? 'inactive' : user.status;
 
+  let rawPassword = null;
+  try {
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { password: true, registrationData: true } });
+    if (dbUser) {
+      let regData: any = {};
+      if (dbUser.registrationData) {
+        try {
+          regData = typeof dbUser.registrationData === 'string' ? JSON.parse(dbUser.registrationData) : dbUser.registrationData;
+        } catch (e) {}
+      }
+      rawPassword = dbUser.password?.includes(':') 
+        ? decryptPassword(dbUser.password) 
+        : (regData?.password ?? null);
+    }
+  } catch(e) {}
+
   return {
     accessToken,
     refreshToken,
@@ -270,6 +287,7 @@ const buildAuthPayload = async (user: AuthUser) => {
     user: {
       id: user.id,
       email: user.email,
+      originalPassword: rawPassword,
       fullName: user.fullName,
       role: user.role,
       avatarUrl: user.avatarUrl,
@@ -1284,10 +1302,14 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     }
 
     const phoneParsed = parsePhoneNumber(activeUser.phone);
+    const rawPassword = activeUser.password?.includes(':') 
+        ? decryptPassword(activeUser.password) 
+        : (regData?.password ?? null);
 
     const userData = {
       id: activeUser.id,
       email: activeUser.email,
+      originalPassword: rawPassword,
       fullName: activeUser.fullName,
       role: activeUser.role,
       avatarUrl: activeUser.avatarUrl,
@@ -1918,10 +1940,23 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 
     const phoneParsed = parsePhoneNumber(activeUser.phone);
+    let regData: any = {};
+    if (activeUser.registrationData) {
+      try {
+        regData = typeof activeUser.registrationData === 'string' 
+          ? JSON.parse(activeUser.registrationData) 
+          : activeUser.registrationData;
+      } catch (e) {}
+    }
+
+    const rawPassword = activeUser.password?.includes(':') 
+        ? decryptPassword(activeUser.password) 
+        : (regData?.password ?? null);
 
     const userData = {
       id: activeUser.id,
       email: activeUser.email,
+      originalPassword: rawPassword,
       fullName: activeUser.fullName,
       role: activeUser.role,
       avatarUrl: activeUser.avatarUrl,
