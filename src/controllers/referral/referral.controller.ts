@@ -59,25 +59,14 @@ export const getReferralDetails = async (req: AuthenticatedRequest, res: Respons
 
     const referralLink = `${process.env.FRONTEND_URL || "http://localhost:5175"}/register?ref=${user.referralCode}`;
 
-    const rawReferrals = await prisma.referral.findMany({
+    const referrals = await prisma.referral.findMany({
       where: { referrerId: userId },
       include: {
+        referee: { select: { fullName: true, createdAt: true } },
         campaign: { select: { name: true } },
         rewards: { select: { amount: true } }
       }
     });
-
-    const refereeIds = rawReferrals.map(r => r.refereeId).filter(Boolean);
-    const referees = await prisma.user.findMany({
-      where: { id: { in: refereeIds } },
-      select: { id: true, fullName: true, createdAt: true }
-    });
-    const refereeMap = new Map(referees.map(r => [r.id, r]));
-
-    const referrals = rawReferrals.map(r => ({
-      ...r,
-      referee: refereeMap.get(r.refereeId) || { fullName: "Unknown User", createdAt: new Date() }
-    }));
 
     const totalEarned = referrals.reduce((sum, r) => {
       const rewardSum = r.rewards?.reduce((s, rw) => s + (rw.amount || 0), 0) || 0;

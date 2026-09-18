@@ -957,11 +957,11 @@ export async function listInvoices(req: Request, res: Response) {
     if (userId) where.userId = userId;
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
-    const [invoices, total] = await Promise.all([
+    const [invoicesRaw, total] = await Promise.all([
       prisma.invoice.findMany({
         where, skip, take: parseInt(limit as string),
         include: {
-          user: { select: { id: true, fullName: true, email: true } },
+          user: { select: { id: true, fullName: true, email: true, role: true, freelancerProfile: true, clientProfile: true } },
           subscription: { include: { plan: true } },
           items: true,
         },
@@ -969,6 +969,20 @@ export async function listInvoices(req: Request, res: Response) {
       }),
       prisma.invoice.count({ where }),
     ]);
+
+    // Attach industry info resolved from user profiles for admin listing
+    const invoices = invoicesRaw.map((inv: any) => {
+      const user = inv.user || {};
+      let industry: string | null = null;
+      if (user.clientProfile && user.clientProfile.industry) industry = user.clientProfile.industry;
+      else if (user.freelancerProfile && user.freelancerProfile.industry) industry = user.freelancerProfile.industry;
+      else industry = null;
+
+      return {
+        ...inv,
+        industry,
+      };
+    });
 
     res.json({
       success: true, data: invoices,
