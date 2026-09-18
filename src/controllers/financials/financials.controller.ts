@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
 import { prisma } from "../../config/database.js";
 import crypto, { randomUUID } from "crypto";
 import path from "path";
@@ -996,7 +997,7 @@ export async function getInvoice(req: Request, res: Response) {
   }
 }
 
-export async function downloadInvoice(req: Request, res: Response) {
+export async function downloadInvoice(req: AuthenticatedRequest, res: Response) {
   try {
     // Only admin users with invoice permissions can call admin download route
     if (req.user?.type !== "admin") return res.status(403).json({ success: false, message: "Forbidden" });
@@ -1013,7 +1014,7 @@ export async function downloadInvoice(req: Request, res: Response) {
   }
 }
 
-export async function resendInvoice(req: Request, res: Response) {
+export async function resendInvoice(req: AuthenticatedRequest, res: Response) {
   try {
     // Only admin users with invoice permissions can resend
     if (req.user?.type !== "admin") return res.status(403).json({ success: false, message: "Forbidden" });
