@@ -38,6 +38,29 @@ export const sendEmail = async (to: string, subject: string, html: string): Prom
   }
 };
 
+// Send email with attachments (files)
+export const sendEmailWithAttachment = async (
+  to: string,
+  subject: string,
+  html: string,
+  attachments: { filename?: string; path?: string; content?: any }[] = []
+): Promise<boolean | string> => {
+  try {
+    const info = await transporter.sendMail({
+      from: `"Go Experts" <${fromEmail}>`,
+      to,
+      subject,
+      html,
+      attachments,
+    });
+    console.log(`[EMAIL SENT] To: ${to} | Subject: "${subject}" | ID: ${info.messageId}`);
+    return true;
+  } catch (error: any) {
+    console.error(`[EMAIL FAILED] To: ${to} | Error:`, error);
+    return error.message || "Unknown SMTP Error";
+  }
+};
+
 //  Base email shell (table-based, works in Outlook/Gmail/Apple Mail) 
 const PLAY_STORE_URL = process.env.PLAY_STORE_URL || 'https://play.google.com/store';
 const APP_STORE_URL = process.env.APP_STORE_URL || 'https://apps.apple.com';

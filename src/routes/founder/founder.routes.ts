@@ -69,6 +69,7 @@ router.delete("/verification", deleteMyVerification as any);
 router.get("/startup", getFounderStartup as any);
 router.patch("/startup", updateFounderStartup as any);
 router.put("/startup", updateFounderStartup as any);
+router.post("/startup/logo", upload.single("file"), uploadFile as any);
 
 router.get("/business-plan", getBusinessPlan as any);
 router.put("/business-plan", putBusinessPlan as any);
