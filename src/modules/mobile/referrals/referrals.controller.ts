@@ -49,7 +49,6 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
       prisma.referral.findMany({
         where: { referrerId: userId },
         include: {
-          referee: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
           rewards: {
             where: { status: { in: ['active', 'ACTIVE', 'pending', 'PENDING', 'rewarded', 'REWARDED'] } },
             orderBy: { createdAt: 'desc' },
@@ -58,6 +57,13 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
         orderBy: { createdAt: 'desc' },
       }),
     ]);
+
+    const refereeIds = referrals.map(r => r.refereeId).filter(Boolean);
+    const referees = await prisma.user.findMany({
+      where: { id: { in: refereeIds } },
+      select: { id: true, fullName: true, email: true, avatarUrl: true }
+    });
+    const refereeMap = new Map(referees.map(r => [r.id, r]));
 
     const history = referrals.map((referral) => {
       const status = String(referral.status || 'pending').toLowerCase();
@@ -70,7 +76,7 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
 
       return {
         id: referral.id,
-        user: referral.referee || { id: referral.refereeId, fullName: 'Unknown User', email: '', avatarUrl: null },
+        user: refereeMap.get(referral.refereeId) || { id: referral.refereeId, fullName: 'Unknown User', email: '', avatarUrl: null },
         status,
         reward: rewardSum,
         points: referral.rewards?.reduce((sum, reward) => sum + (Number(reward.points) || 0), 0) || 0,
