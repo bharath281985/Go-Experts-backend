@@ -54,13 +54,21 @@ export class NotificationEngine {
     });
 
     // Create Queue Item
-    await prisma.notificationQueue.create({
+    const queueItem = await prisma.notificationQueue.create({
       data: {
         notificationId: notification.id,
         status: 'pending',
         scheduledAt
-      }
+      },
+      include: { notification: true }
     });
+
+    if (!scheduledAt) {
+      // Attempt immediate delivery in the background
+      setTimeout(() => {
+        this.processItem(queueItem).catch(err => console.error('Immediate delivery error:', err));
+      }, 0);
+    }
   }
 
   /**

@@ -433,6 +433,25 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const hashedPassword = await bcrypt.hash(password || 'password123', 12);
     const targetRole = role || 'client';
 
+    // Generate unique referral code for the new user
+    let baseCode = (nameVal.split(' ')[0] || "USER").toUpperCase().replace(/[^A-Z]/g, '');
+    if (baseCode.length < 3) baseCode = "GEX" + baseCode;
+    const randStr = Math.floor(1000 + Math.random() * 9000).toString();
+    const referralCode = `GOEXPERTS-${baseCode}${randStr}`;
+
+    const ref = b.ref || b.referralCode || req.query?.ref;
+    let referrer: any = null;
+    let referralClick: any = null;
+    if (ref) {
+      referrer = await prisma.user.findUnique({ where: { referralCode: String(ref) } });
+      if (!referrer) {
+        referralClick = await prisma.referralClick.findUnique({ where: { id: String(ref) }, include: { referrer: true } });
+        if (referralClick) {
+          referrer = referralClick.referrer;
+        }
+      }
+    }
+
     const user = await prisma.$transaction(async (tx) => {
       const progress = calculateOnboardingProgress(targetRole, 1, false);
 
@@ -443,23 +462,64 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           fullName: String(nameVal).trim(),
           role: targetRole,
           phone: buildPhoneNumber(phoneVal, phoneCodeVal),
-          city: cityVal ? String(cityVal).trim() : null,
-          state: stateVal ? String(stateVal).trim() : null,
-          country: countryVal ? String(countryVal).trim() : null,
-          latitude: Number.isFinite(latitudeVal) ? latitudeVal : null,
-          longitude: Number.isFinite(longitudeVal) ? longitudeVal : null,
+          country: countryVal ? String(countryVal) : null,
+          state: stateVal ? String(stateVal) : null,
+          city: cityVal ? String(cityVal) : null,
+          latitude: latitudeVal,
+          longitude: longitudeVal,
           bio: bioVal ? String(bioVal).trim() : null,
-          avatarUrl: avatarUrlVal ? String(avatarUrlVal).trim() : null,
-          isVerified: isEmailVerified,
-          registrationData: JSON.stringify({ ...b, lastStep: 1 }),
+          avatarUrl: avatarUrlVal,
           status: 'active',
+          isVerified: isEmailVerified,
+          verified: isEmailVerified,
           onboardingStatus: progress.status,
           completedSteps: progress.completedSteps ? JSON.stringify(progress.completedSteps) : undefined,
           currentStep: progress.currentStep,
           nextStepKey: progress.nextStepKey,
-          completionPercentage: progress.percentage
+          completionPercentage: progress.percentage,
+          referralCode,
+          registrationData: b,
         },
       });
+
+      // Handle Referral Creation
+      if (referrer && created) {
+        const campaign = await tx.referralCampaign.findFirst({ where: { status: "ACTIVE" } });
+        const referral = await tx.referral.create({
+          data: {
+            referrerId: referrer.id,
+            refereeId: created.id,
+            campaignId: campaign?.id,
+            clickId: referralClick?.id,
+            status: "PENDING",
+          }
+        });
+        await tx.referralEvent.create({
+          data: {
+            referralId: referral.id,
+            eventType: "SIGNED_UP",
+            metadata: JSON.stringify({ role: created.role })
+          }
+        });
+        
+        try {
+          const { NotificationEngine } = await import('../../../services/mobile/notification.engine.js');
+          
+          const title = "Referral Code Used!";
+          const message = `${created.fullName} has registered using your referral code.`;
+          
+          NotificationEngine.queueNotification({
+            userId: referrer.id,
+            type: "referral_used",
+            title,
+            message,
+            channel: "all",
+          }).catch(err => console.error("[Referral Notification Error]:", err));
+        } catch (error) {
+          console.error("Error sending referral notification:", error);
+        }
+      }
+
       await bootstrapNewUser(created.id, targetRole, tx);
 
       // Populate initial role profile fields if provided during signup

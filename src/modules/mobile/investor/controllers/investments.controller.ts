@@ -36,7 +36,7 @@ const notifyFounder = async (
       type,
       title,
       message,
-      channel: 'in_app',
+      channel: 'all',
     }),
     sendEmail(
       founderUser.email,

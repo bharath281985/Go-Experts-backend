@@ -705,14 +705,14 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           }
         });
 
-        // Notify the referral code owner
-        NotificationEngine.queueNotification({
-          userId: referrer.id,
-          type: "referral_used",
-          title: "Referral Code Used!",
-          message: `${created.fullName} has registered using your referral code.`,
-          channel: "all",
-        }).catch(err => console.error("[Referral Notification Error]:", err));
+          // Notify the referral code owner
+          NotificationEngine.queueNotification({
+            userId: referrer.id,
+            type: "referral_used",
+            title: "Referral Code Used!",
+            message: `${created.fullName} has registered using your referral code.`,
+            channel: "all",
+          }).catch(err => console.error("[Referral Notification Error]:", err));
       }
 
       if (role === "freelancer") {
