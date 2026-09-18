@@ -25,7 +25,6 @@ import analyticsInsightsRouter from "./insights/analytics-insights.routes.js";
 import marketingRouter from "./insights/marketing.routes.js";
 import developerRouter from "./developer/developer.routes.js";
 import referralRoutes from "./referral/referral.routes.js";
-import tasksRoutes from "./tasks.routes.js";
 import { parseCatalogListBody, parseSkillsListBody } from "../common/helpers/catalog-body.js";
 import { createCrudRouter } from "../common/helpers/crud-factory.js";
 import {
@@ -57,6 +56,7 @@ import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import subscriptionRoutes from "./subscription/subscription.routes.js";
 import { getVerificationStats } from "../common/helpers/verification.js";
+import tasksRoutes from "./tasks.routes.js";
 
 import mobileRoutes from "../modules/mobile/index.js";
 import { saveInvestor, unsaveInvestor } from "../modules/mobile/public/public.controller.js";

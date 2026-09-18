@@ -3,34 +3,19 @@ import { prisma } from '../../config/database.js';
 import { successResponse, errorResponse } from '../../core/response.js';
 import { AuthRequest } from '../../middleware/auth.js';
 
-export const getTasks = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const listTasks = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { projectId } = req.query;
+    const { projectId, status, assignedTo } = req.query;
     
-    // Determine user access logic here if needed (e.g. only tasks they are assigned to, or on projects they own)
-    // For now, if projectId is provided, fetch tasks for it
-    const whereClause: any = { deletedAt: null };
-    if (projectId) {
-      whereClause.projectId = String(projectId);
-    } else {
-      // If no project ID is provided, return tasks assigned to the current user
-      if (req.user?.id) {
-        whereClause.assignedTo = req.user.id;
-      }
-    }
+    const where: any = { deletedAt: null };
+    
+    if (projectId) where.projectId = String(projectId);
+    if (status) where.status = String(status);
+    if (assignedTo) where.assignedTo = String(assignedTo);
 
     const tasks = await prisma.task.findMany({
-      where: whereClause,
-      include: {
-        project: {
-          select: {
-            id: true,
-            title: true,
-          }
-        },
-        checklists: true,
-      },
-      orderBy: { createdAt: 'desc' },
+      where,
+      orderBy: { createdAt: 'desc' }
     });
 
     return res.json(successResponse('Tasks retrieved successfully', tasks));
@@ -39,22 +24,12 @@ export const getTasks = async (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
-export const getTaskById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getTask = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     
     const task = await prisma.task.findUnique({
-      where: { id },
-      include: {
-        project: {
-          select: { id: true, title: true }
-        },
-        checklists: true,
-        comments: {
-          orderBy: { createdAt: 'desc' }
-        },
-        attachments: true
-      }
+      where: { id }
     });
 
     if (!task || task.deletedAt) {
@@ -69,25 +44,25 @@ export const getTaskById = async (req: AuthRequest, res: Response, next: NextFun
 
 export const createTask = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { projectId, title, priority, status, dueDate, assignedTo, progress } = req.body;
+    const { projectId, title, assignedTo, priority, status, dueDate, progress } = req.body;
 
     if (!projectId || !title) {
       return res.status(400).json(errorResponse('Project ID and Title are required'));
     }
 
-    const newTask = await prisma.task.create({
+    const task = await prisma.task.create({
       data: {
         projectId,
         title,
+        assignedTo: assignedTo || null,
         priority: priority || 'Medium',
         status: status || 'todo',
-        dueDate: dueDate ? String(dueDate) : null,
-        assignedTo: assignedTo || null,
-        progress: progress ? parseInt(progress, 10) : 0,
+        dueDate: dueDate || null,
+        progress: progress ? Number(progress) : 0,
       }
     });
 
-    return res.status(201).json(successResponse('Task created successfully', newTask));
+    return res.status(201).json(successResponse('Task created successfully', task));
   } catch (error) {
     next(error);
   }
@@ -96,26 +71,26 @@ export const createTask = async (req: AuthRequest, res: Response, next: NextFunc
 export const updateTask = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { title, priority, status, dueDate, assignedTo, progress } = req.body;
+    const { title, assignedTo, priority, status, dueDate, progress } = req.body;
 
-    const existingTask = await prisma.task.findUnique({ where: { id } });
-    if (!existingTask || existingTask.deletedAt) {
+    const existing = await prisma.task.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt) {
       return res.status(404).json(errorResponse('Task not found'));
     }
 
-    const updatedTask = await prisma.task.update({
+    const task = await prisma.task.update({
       where: { id },
       data: {
-        ...(title !== undefined && { title }),
-        ...(priority !== undefined && { priority }),
-        ...(status !== undefined && { status }),
-        ...(dueDate !== undefined && { dueDate: dueDate ? String(dueDate) : null }),
-        ...(assignedTo !== undefined && { assignedTo }),
-        ...(progress !== undefined && { progress: parseInt(progress, 10) }),
+        title: title !== undefined ? title : existing.title,
+        assignedTo: assignedTo !== undefined ? assignedTo : existing.assignedTo,
+        priority: priority !== undefined ? priority : existing.priority,
+        status: status !== undefined ? status : existing.status,
+        dueDate: dueDate !== undefined ? dueDate : existing.dueDate,
+        progress: progress !== undefined ? Number(progress) : existing.progress,
       }
     });
 
-    return res.json(successResponse('Task updated successfully', updatedTask));
+    return res.json(successResponse('Task updated successfully', task));
   } catch (error) {
     next(error);
   }
@@ -125,18 +100,17 @@ export const deleteTask = async (req: AuthRequest, res: Response, next: NextFunc
   try {
     const { id } = req.params;
     
-    const existingTask = await prisma.task.findUnique({ where: { id } });
-    if (!existingTask || existingTask.deletedAt) {
+    const existing = await prisma.task.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt) {
       return res.status(404).json(errorResponse('Task not found'));
     }
 
-    // Soft delete
     await prisma.task.update({
       where: { id },
       data: { deletedAt: new Date() }
     });
 
-    return res.json(successResponse('Task deleted successfully'));
+    return res.json(successResponse('Task deleted successfully', null));
   } catch (error) {
     next(error);
   }
