@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { 
   listTasks, 
   getTask, 
@@ -11,7 +11,7 @@ import {
 const router = Router();
 
 // All task routes require authentication
-router.use(requireAuth);
+router.use(authMiddleware as any);
 
 router.get('/', listTasks);
 router.post('/', createTask);

@@ -1,9 +1,9 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../config/database.js';
 import { successResponse, errorResponse } from '../../core/response.js';
-import { AuthRequest } from '../../middleware/auth.js';
+import { AuthenticatedRequest } from '../../middlewares/auth.middleware.js';
 
-export const listTasks = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const listTasks = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { projectId, status, assignedTo } = req.query;
     
@@ -24,7 +24,7 @@ export const listTasks = async (req: AuthRequest, res: Response, next: NextFunct
   }
 };
 
-export const getTask = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getTask = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     
@@ -42,7 +42,7 @@ export const getTask = async (req: AuthRequest, res: Response, next: NextFunctio
   }
 };
 
-export const createTask = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const createTask = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { projectId, title, assignedTo, priority, status, dueDate, progress } = req.body;
 
@@ -68,7 +68,7 @@ export const createTask = async (req: AuthRequest, res: Response, next: NextFunc
   }
 };
 
-export const updateTask = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const updateTask = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { title, assignedTo, priority, status, dueDate, progress } = req.body;
@@ -96,7 +96,7 @@ export const updateTask = async (req: AuthRequest, res: Response, next: NextFunc
   }
 };
 
-export const deleteTask = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const deleteTask = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     
