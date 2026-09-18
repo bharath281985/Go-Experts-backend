@@ -49,41 +49,20 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
       prisma.referral.findMany({
         where: { referrerId: userId },
         include: {
-<<<<<<< HEAD
           referee: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
-          rewards: { where: { status: 'active' }, orderBy: { createdAt: 'desc' } },
-=======
           rewards: {
             where: { status: { in: ['active', 'ACTIVE', 'pending', 'PENDING', 'rewarded', 'REWARDED'] } },
             orderBy: { createdAt: 'desc' },
           },
->>>>>>> 50ae2827f58ea8156f08fe55228866fd924d2dd7
         },
         orderBy: { createdAt: 'desc' },
       }),
     ]);
 
-<<<<<<< HEAD
-    const history = referrals.map((referral) => ({
-      id: referral.id,
-      user: referral.referee,
-      status: referral.status,
-      reward: referral.rewards.reduce((sum, reward) => sum + reward.amount, 0),
-      points: referral.rewards.reduce((sum, reward) => sum + reward.points, 0),
-      createdAt: referral.createdAt,
-    }));
-=======
-    const refereeIds = referrals.map(r => r.refereeId).filter(Boolean);
-    const referees = await prisma.user.findMany({
-      where: { id: { in: refereeIds } },
-      select: { id: true, fullName: true, email: true, avatarUrl: true }
-    });
-    const refereeMap = new Map(referees.map(r => [r.id, r]));
-
     const history = referrals.map((referral) => {
       const status = String(referral.status || 'pending').toLowerCase();
       const isSuccess = ['rewarded', 'completed', 'successful'].includes(status);
-      
+
       let rewardSum = referral.rewards?.reduce((sum, reward) => sum + (Number(reward.amount) || 0), 0) || 0;
       if (rewardSum === 0 && isSuccess) {
         rewardSum = publicSettings.referralRewardAmount;
@@ -91,14 +70,13 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
 
       return {
         id: referral.id,
-        user: refereeMap.get(referral.refereeId) || { id: referral.refereeId, fullName: 'Unknown User', email: '', avatarUrl: null },
+        user: referral.referee || { id: referral.refereeId, fullName: 'Unknown User', email: '', avatarUrl: null },
         status,
         reward: rewardSum,
         points: referral.rewards?.reduce((sum, reward) => sum + (Number(reward.points) || 0), 0) || 0,
         createdAt: referral.createdAt,
       };
     });
->>>>>>> 50ae2827f58ea8156f08fe55228866fd924d2dd7
     const totalReward = history.reduce((sum, referral) => sum + referral.reward, 0);
     const referralLink = `https://goexperts.com/ref/${referralCode}`;
 
