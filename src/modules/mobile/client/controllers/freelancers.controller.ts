@@ -117,7 +117,7 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const skip = (page - 1) * limit;
-    const q = req.query.q as string;
+    const q = String(req.query.search || req.query.q || '').trim();
 
     const where: any = {
       role: 'freelancer',
@@ -126,7 +126,26 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
       OR: [{ isVerified: true }, { verified: true }],
     };
     if (req.user?.id) where.id = { not: req.user.id };
-    if (q) where.fullName = { contains: q };
+    if (q) {
+      const matchingSkills = await prisma.skill.findMany({
+        where: { name: { contains: q }, status: 'active' },
+        select: { id: true, name: true },
+      }).catch(() => []);
+
+      const skillConditions = matchingSkills.flatMap((skill) => [
+        { freelancerProfile: { is: { skills: { contains: skill.id } } } },
+        { freelancerProfile: { is: { skills: { contains: skill.name } } } },
+      ]);
+
+      where.OR = [
+        { fullName: { contains: q } },
+        { city: { contains: q } },
+        { bio: { contains: q } },
+        { freelancerProfile: { is: { titleHeadline: { contains: q } } } },
+        { freelancerProfile: { is: { skills: { contains: q } } } },
+        ...skillConditions,
+      ];
+    }
 
     const [freelancers, total] = await Promise.all([
       prisma.user.findMany({ where, include: { freelancerProfile: true }, skip, take: limit }),
