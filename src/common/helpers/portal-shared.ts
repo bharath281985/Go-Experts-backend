@@ -83,7 +83,16 @@ async function ensureWelcomeBonusForVerifiedUser(userId: string) {
       investorProfile: true,
     },
   });
+
+  // Guard 1: Basic account-level verification flag must be true
   if (!user?.email || !(user.verified || user.isVerified)) return;
+
+  // Guard 2: KYC documents must actually be verified — not just the account flag.
+  // This prevents the bonus from being credited if admin toggled `verified` manually
+  // without the user having submitted and had their KYC documents approved.
+  const { getVerificationStats } = await import("./verification.js");
+  const stats = getVerificationStats(user);
+  if (!stats.kycApproved) return;
 
   const { enabled, amount } = await getWelcomeBonusConfig();
   if (!enabled) return;

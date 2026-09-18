@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../../config/database.js";
 import crypto, { randomUUID } from "crypto";
+import path from "path";
+import { generateInvoicePdf } from "../../services/invoice/invoice.service.js";
 import { NotificationService } from "../../modules/notifications/notification.service.js";
 import { reactivateAccountAfterPlanUpgrade } from "../../services/mobile/subscription.service.js";
 
@@ -990,6 +992,54 @@ export async function getInvoice(req: Request, res: Response) {
     res.json({ success: true, data: invoice });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e.message });
+  }
+}
+
+export async function downloadInvoice(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { publicPath } = await generateInvoicePdf(id) as any;
+    const host = req.get("host") || process.env.HOST || "localhost";
+    const proto = req.protocol || (process.env.NODE_ENV === "production" ? "https" : "http");
+    return res.json({ success: true, data: { url: `${proto}://${host}${publicPath}` } });
+  } catch (e: any) {
+    console.error("Failed to generate invoice PDF:", e);
+    res.status(500).json({ success: false, message: e.message || "Error generating invoice PDF" });
+  }
+}
+
+export async function resendInvoice(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { user: true, items: true, subscription: { include: { plan: true } } },
+    });
+    if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" });
+
+    // Ensure PDF exists (generate if missing)
+    const { filePath, publicPath } = await generateInvoicePdf(id) as any;
+
+    // Send email with attachment
+    const { sendEmailWithAttachment, shell } = await import("../../services/mobile/email.service.js");
+    const to = invoice.user?.email || "";
+    if (!to) return res.status(400).json({ success: false, message: "No recipient email for invoice" });
+
+    const subject = `Your Go Experts Invoice #${invoice.invoiceNumber || invoice.id}`;
+    const body = `<p>Hi ${invoice.user?.fullName || 'Customer'},</p><p>Please find attached your invoice <strong>#${invoice.invoiceNumber}</strong>.</p><p>Thank you,<br/>Go Experts</p>`;
+
+    const attachRes = await sendEmailWithAttachment(to, subject, shell('Your invoice is attached', body), [ { filename: path.basename(filePath), path: filePath } ]);
+
+    // Mark as emailed
+    try { await prisma.invoice.update({ where: { id }, data: { emailSent: true } }); } catch { }
+
+    const host = req.get("host") || process.env.HOST || "localhost";
+    const proto = req.protocol || (process.env.NODE_ENV === "production" ? "https" : "http");
+
+    res.json({ success: true, message: "Invoice resent", data: { url: `${proto}://${host}${publicPath}`, emailResult: attachRes } });
+  } catch (e: any) {
+    console.error("Failed to resend invoice:", e);
+    res.status(500).json({ success: false, message: e.message || "Error resending invoice" });
   }
 }
 

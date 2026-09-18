@@ -17,8 +17,18 @@ export const getInvoice = async (req: AuthRequest, res: Response, next: NextFunc
   } catch (error) { next(error); }
 };
 
+import { generateInvoicePdf } from '../../../services/invoice/invoice.service.js';
+
 export const downloadInvoice = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    return res.json(successResponse('Invoice download link generated'));
+    const id = req.params.id;
+    // Verify ownership
+    const inv = await prisma.invoice.findUnique({ where: { id } });
+    if (!inv) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    if (inv.userId !== req.user.id) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const { publicPath } = await generateInvoicePdf(id) as any;
+    const base = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    return res.json(successResponse('Invoice download link generated', { url: `${base}${publicPath}` }));
   } catch (error) { next(error); }
 };

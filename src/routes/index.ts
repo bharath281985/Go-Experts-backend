@@ -11,6 +11,7 @@ import notificationRoutes, { queueRouter, logsRouter } from "./notifications/not
 import mediaRoutes from "./media/media.routes.js";
 import workflowsRoutes from "./workflows/workflows.routes.js";
 import financialsRoutes from "./financials/financials.routes.js";
+import { downloadInvoice } from "../controllers/financials/financials.controller.js";
 import jobsRouter from "./scheduler/jobs.routes.js";
 import automationRulesRouter from "./scheduler/automation.routes.js";
 import systemOpsRouter from "./scheduler/system-ops.routes.js";
@@ -2332,6 +2333,21 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
     auditMiddleware("mutate", tableName) as any,
     crudRouter
   );
+});
+
+// Provide a convenience admin route for downloading invoice PDFs (used by admin UI)
+router.get("/admin/invoices/:id/download", authMiddleware as any, async (req, res, next) => {
+  try {
+    await downloadInvoice(req as any, res as any);
+  } catch (err) { next(err); }
+});
+
+// Admin shortcut to resend invoice email with attachment
+router.post("/admin/invoices/:id/resend", authMiddleware as any, async (req, res, next) => {
+  try {
+    const { resendInvoice } = await import("../controllers/financials/financials.controller.js");
+    await resendInvoice(req as any, res as any);
+  } catch (err) { next(err); }
 });
 
 router.post("/admin/users/:id/remind-kyc", authMiddleware as any, async (req, res, next) => {

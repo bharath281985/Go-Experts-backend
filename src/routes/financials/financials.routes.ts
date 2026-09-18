@@ -20,7 +20,8 @@ import {
   // Featured
   listFeaturedServices, createFeaturedService,
   // Invoices
-  listInvoices, getInvoice,
+  listInvoices, getInvoice, downloadInvoice,
+  resendInvoice,
   // Dashboard
   getFinancialDashboard,
 } from "../../controllers/financials/financials.controller.js";
@@ -80,6 +81,8 @@ router.post("/featured-services", createFeaturedService as any);
 // ── Invoices ──
 router.get("/invoices", listInvoices as any);
 router.get("/invoices/:id", getInvoice as any);
+router.get("/invoices/:id/download", downloadInvoice as any);
+router.post("/invoices/:id/resend", resendInvoice as any);
 
 // ── Dashboard ──
 router.get("/dashboard", getFinancialDashboard as any);
