@@ -3,6 +3,13 @@ import { PrismaClient } from "@prisma/client";
 import { sendCashbackEmail } from "../services/mobile/email.service.js";
 
 const prisma = new PrismaClient();
+const GST_RATE_FOR_INCLUDED_PLAN_PRICE = 0.18;
+
+const getPlanBaseAmountExcludingGst = (amountIncludingGst: number) => {
+  const amount = Number(amountIncludingGst || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  return parseFloat((amount / (1 + GST_RATE_FOR_INCLUDED_PLAN_PRICE)).toFixed(2));
+};
 
 // Run every day at 00:00 (Midnight)
 export const initCashbackJob = () => {
@@ -40,12 +47,12 @@ export const initCashbackJob = () => {
         // 1. monthsSinceStart > cashbackMonthsPaid (meaning they entered a new month)
         // 2. cashbackMonthsPaid < totalTermMonths (meaning we haven't paid out all months of the term)
         if (monthsSinceStart > sub.cashbackMonthsPaid && sub.cashbackMonthsPaid < totalTermMonths) {
-          // Calculate 5% of the plan cost
-          // We'll use the plan's price for calculation
+          // Calculate 5% on the GST-exclusive base amount.
           const planPrice = sub.plan.amount || 0;
           if (planPrice <= 0) continue; // Free plan, no cashback
+          const planBaseAmount = getPlanBaseAmountExcludingGst(planPrice);
 
-          const cashbackAmount = parseFloat((planPrice * 0.05).toFixed(2));
+          const cashbackAmount = parseFloat((planBaseAmount * 0.05).toFixed(2));
 
           // Use transaction to ensure consistency
           await prisma.$transaction(async (tx) => {
@@ -68,7 +75,7 @@ export const initCashbackJob = () => {
                 type: "Cashback",
                 direction: "credit",
                 amount: cashbackAmount,
-                description: `5% Monthly Cashback for ${sub.plan.name} Plan`,
+                description: `5% Monthly Cashback on GST-exclusive base amount for ${sub.plan.name} Plan`,
                 balanceAfter: updatedWallet.balance,
               },
             });

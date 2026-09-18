@@ -6,6 +6,14 @@ import { getVerificationStats } from '../../common/helpers/verification.js';
 
 export type BillingCycle = 'monthly' | 'yearly';
 
+const GST_RATE_FOR_INCLUDED_PLAN_PRICE = 0.18;
+
+const getPlanBaseAmountExcludingGst = (amountIncludingGst: number) => {
+  const amount = Number(amountIncludingGst || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  return parseFloat((amount / (1 + GST_RATE_FOR_INCLUDED_PLAN_PRICE)).toFixed(2));
+};
+
 const isFreeAlias = (value: string) => {
   const v = value.trim().toLowerCase();
   return v === 'free' || v === 'starter' || v.includes('free') || v.includes('starter');
@@ -301,8 +309,9 @@ export const activateUserSubscription = async (
         
         const cashbackPercent = Number(appSettings.cashback_percent ?? 5);
         const cashbackMultiplier = cashbackPercent / 100;
+        const planBaseAmount = getPlanBaseAmountExcludingGst(plan.amount);
         
-        const cashbackAmount = parseFloat((plan.amount * cashbackMultiplier).toFixed(2));
+        const cashbackAmount = parseFloat((planBaseAmount * cashbackMultiplier).toFixed(2));
         if (cashbackAmount > 0) {
           const referrerId = referral.referrer.id;
           
@@ -326,7 +335,7 @@ export const activateUserSubscription = async (
               type: 'referral_cashback',
               amount: cashbackAmount,
               direction: 'credit',
-              description: `${cashbackPercent}% Cashback for referral subscription purchase by ${referral.referee.fullName}`,
+              description: `${cashbackPercent}% Cashback on GST-exclusive subscription base amount for ${referral.referee.fullName}`,
               balanceAfter: newBalance,
               status: 'completed',
             },
@@ -353,10 +362,10 @@ export const activateUserSubscription = async (
           await NotificationEngine.queueNotification({
             userId: referrerId,
             type: 'referral_cashback',
-            title: 'Cashback Received! ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â°',
-            message: `You received ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
+            title: 'Cashback Received! ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â°',
+            message: `You received ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹${cashbackAmount} cashback (${cashbackPercent}%) because your friend ${referral.referee.fullName} bought a subscription plan!`,
             channel: 'in_app',
-            payload: { amount: cashbackAmount, friend: referral.referee.fullName },
+            payload: { amount: cashbackAmount, baseAmount: planBaseAmount, grossAmount: plan.amount, friend: referral.referee.fullName },
           }).catch(console.error);
         }
       }
