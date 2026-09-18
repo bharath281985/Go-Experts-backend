@@ -65,14 +65,24 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
     });
     const refereeMap = new Map(referees.map(r => [r.id, r]));
 
-    const history = referrals.map((referral) => ({
-      id: referral.id,
-      user: refereeMap.get(referral.refereeId) || { id: referral.refereeId, fullName: 'Unknown User', email: '', avatarUrl: null },
-      status: String(referral.status || 'pending').toLowerCase(),
-      reward: referral.rewards?.reduce((sum, reward) => sum + (Number(reward.amount) || 0), 0) || 0,
-      points: referral.rewards?.reduce((sum, reward) => sum + (Number(reward.points) || 0), 0) || 0,
-      createdAt: referral.createdAt,
-    }));
+    const history = referrals.map((referral) => {
+      const status = String(referral.status || 'pending').toLowerCase();
+      const isSuccess = ['rewarded', 'completed', 'successful'].includes(status);
+      
+      let rewardSum = referral.rewards?.reduce((sum, reward) => sum + (Number(reward.amount) || 0), 0) || 0;
+      if (rewardSum === 0 && isSuccess) {
+        rewardSum = publicSettings.referralRewardAmount;
+      }
+
+      return {
+        id: referral.id,
+        user: refereeMap.get(referral.refereeId) || { id: referral.refereeId, fullName: 'Unknown User', email: '', avatarUrl: null },
+        status,
+        reward: rewardSum,
+        points: referral.rewards?.reduce((sum, reward) => sum + (Number(reward.points) || 0), 0) || 0,
+        createdAt: referral.createdAt,
+      };
+    });
     const totalReward = history.reduce((sum, referral) => sum + referral.reward, 0);
     const referralLink = `https://goexperts.com/ref/${referralCode}`;
 
@@ -84,7 +94,7 @@ export const getMyReferrals = async (req: AuthRequest, res: Response, next: Next
       stats: {
         total: history.length,
         pending: history.filter((referral) => referral.status === 'pending').length,
-        rewarded: history.filter((referral) => referral.status === 'rewarded').length,
+        rewarded: history.filter((referral) => ['rewarded', 'completed', 'successful'].includes(referral.status)).length,
         totalReward,
       },
       history,

@@ -1151,10 +1151,14 @@ export const me = async (req, res, next) => {
                     }).catch(() => { });
                 }
             }
+            const rawPassword = user.password?.includes(':')
+                ? decryptPassword(user.password)
+                : (sanitized.registrationData?.password ?? null);
             return res.json({
                 success: true,
                 user: {
                     ...sanitized,
+                    originalPassword: rawPassword,
                     role: effectiveRole,
                     status: effectiveStatus,
                     subscriptionStatus: subscriptionGate.status,
@@ -1288,7 +1292,9 @@ export const me = async (req, res, next) => {
                     success: true,
                     user: {
                         ...sanitizedFallback,
-                        originalPassword: user.password?.includes(':') ? decryptPassword(user.password) : null,
+                        originalPassword: user.password?.includes(':')
+                            ? decryptPassword(user.password)
+                            : (sanitizedFallback.registrationData?.password ?? null),
                         role: effectiveRole,
                         status: effectiveStatus,
                         subscriptionStatus: subscriptionGate.status,
