@@ -81,6 +81,16 @@ const resolveConversation = async (
   const trueUserId = await resolveTrueUserId(targetId);
 
   if (trueUserId) {
+    if (!projectId) {
+      const [a, b] = [viewerId, trueUserId].sort();
+      const conn = await prisma.connection.findUnique({
+        where: { userOneId_userTwoId: { userOneId: a, userTwoId: b } }
+      });
+      // If not connected, DO NOT auto-create a DM conversation
+      if (!conn || conn.status !== 'ACTIVE') {
+        return null;
+      }
+    }
     return findOrCreateDm(viewerId, viewerRole, trueUserId, projectId);
   }
 
@@ -262,11 +272,20 @@ export const getConversation = async (req: AuthRequest, res: Response, next: Nex
 
 export const sendMessage = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { conversationId, text, recipientId, projectId, attachmentUrl } = req.body || {};
+    let { conversationId, text, recipientId, projectId, attachmentUrl } = req.body || {};
     const trimmedText = String(text || '').trim();
 
+    // Flutter sometimes passes a User ID as `conversationId`. Let's normalize it.
+    if (conversationId && !recipientId) {
+      const convExists = await prisma.conversation.findUnique({ where: { id: conversationId } }).catch(() => null);
+      if (!convExists) {
+        recipientId = conversationId;
+        conversationId = undefined;
+      }
+    }
+
     // If starting a new chat via recipientId, intercept to check Connections
-    if (!conversationId && recipientId) {
+    if (!conversationId && recipientId && !projectId) {
       const trueRecipientId = await resolveTrueUserId(recipientId);
       if (!trueRecipientId) {
         return res.status(404).json(errorResponse('Recipient not found', 'NOT_FOUND'));

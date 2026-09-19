@@ -1709,21 +1709,36 @@ export const getBlogs = async (req: Request, res: Response, next: NextFunction) 
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
+
+    const allBlogs = await prisma.blog.findMany({
+      where: { status: 'active' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const now = new Date();
+    const visibleBlogs = allBlogs.filter((blog) => {
+      if (!blog.publishDate) return true;
+      
+      const pDate = new Date(blog.publishDate);
+      if (blog.publishTime) {
+        const parts = blog.publishTime.split(':');
+        if (parts.length >= 2) {
+          const hours = parseInt(parts[0], 10);
+          const minutes = parseInt(parts[1], 10);
+          if (!isNaN(hours) && !isNaN(minutes)) {
+            pDate.setHours(hours, minutes, 0, 0);
+          }
+        }
+      }
+      
+      return pDate <= now;
+    });
+
+    const total = visibleBlogs.length;
     const skip = (page - 1) * limit;
+    const paginatedBlogs = visibleBlogs.slice(skip, skip + limit);
 
-    const [blogs, total] = await Promise.all([
-      prisma.blog.findMany({
-        where: { status: 'active' },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.blog.count({
-        where: { status: 'active' }
-      })
-    ]);
-
-    return res.json(successResponse('Blogs retrieved', blogs, {
+    return res.json(successResponse('Blogs retrieved', paginatedBlogs, {
       pagination: {
         page,
         limit,

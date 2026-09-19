@@ -1107,10 +1107,8 @@ model Blog {
   title           String
   description     String?   @db.Text
   bannerUrl       String?   @map("banner_url")
-  date            DateTime?
-  location        String?
-  isOnline        Boolean   @default(false) @map("is_online")
-  attendeeAvatars String?   @map("attendee_avatars") @db.Text
+  publishDate     DateTime? @map("publish_date")
+  publishTime     String?   @map("publish_time")
   category        String
   author          String
   views           Int       @default(0)
