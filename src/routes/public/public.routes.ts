@@ -20,6 +20,7 @@ import {
   listPublicProjects,
 } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
+import { getHowItWorksPage } from "../../controllers/public/how-it-works.controller.js";
 import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
 import {
   getCountries,
@@ -47,6 +48,10 @@ router.get("/countries", getCountries);
 router.get("/states", getStates);
 router.get("/skills", getSkills);
 router.get("/industries", getIndustries);
+
+// How It Works Dynamic Page
+router.get("/how-it-works", getHowItWorksPage);
+
 router.get("/budget-ranges", getBudgetRanges);
 router.get("/hiring-budgets", getBudgetRanges);
 router.get("/hiring-budget-ranges", getBudgetRanges);
