@@ -186,7 +186,7 @@ export const rejectInvitation = async (req: AuthRequest, res: Response, next: Ne
     
     const invitation = await prisma.connectionInvitation.findUnique({ where: { id } });
 
-    if (!invitation || invitation.receiverId !== req.user.id) {
+    if (!invitation || (invitation.receiverId !== req.user.id && invitation.senderId !== req.user.id)) {
       return res.status(404).json(errorResponse('Invitation not found', 'NOT_FOUND'));
     }
 
@@ -194,12 +194,30 @@ export const rejectInvitation = async (req: AuthRequest, res: Response, next: Ne
       return res.status(400).json(errorResponse('Invitation is no longer pending', 'INVALID_STATUS'));
     }
 
+    // Sender is withdrawing their own invitation -> Delete it
+    if (invitation.senderId === req.user.id) {
+       await prisma.connectionInvitation.delete({ where: { id } });
+       return res.json(successResponse('Invitation withdrawn successfully', { id }));
+    }
+
+    // Receiver is rejecting it -> Update status
     const updated = await prisma.connectionInvitation.update({
       where: { id },
       data: { status: 'REJECTED', rejectedAt: new Date() }
     });
 
-    return res.json(successResponse('Invitation rejected', updated));
+    // Clear any orphaned Direct Message conversations between the two users
+    await prisma.conversation.deleteMany({
+      where: {
+        OR: [
+          { userA: invitation.senderId, userB: invitation.receiverId },
+          { userA: invitation.receiverId, userB: invitation.senderId }
+        ],
+        projectId: null
+      }
+    });
+
+    return res.json(successResponse('Invitation rejected successfully', updated));
   } catch (error) { next(error); }
 };
 
