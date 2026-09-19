@@ -22,13 +22,39 @@ export const getNotifications = async (req: AuthRequest, res: Response, next: Ne
       prisma.notification.count({ where })
     ]);
 
-    const shaped = notifications.map((n) => ({
-      ...n,
-      body: n.message,
-      isRead: Boolean(n.readAt),
-      read: Boolean(n.readAt),
-      category: n.type || 'system',
-    }));
+    const shaped = notifications.map((n) => {
+      let metadata: Record<string, unknown> = {};
+      if (n.metadata) {
+        try {
+          const parsed = JSON.parse(n.metadata);
+          if (parsed && typeof parsed === 'object') {
+            metadata = parsed as Record<string, unknown>;
+          }
+        } catch (_) {
+          // Ignore malformed legacy metadata and return the notification itself.
+        }
+      }
+
+      const contextId = metadata.contextId ??
+        metadata.context_id ??
+        metadata.projectId ??
+        metadata.project_id ??
+        metadata.entityId ??
+        metadata.entity_id ??
+        null;
+
+      return {
+        ...n,
+        body: n.message,
+        isRead: Boolean(n.readAt),
+        read: Boolean(n.readAt),
+        category: n.type || 'system',
+        contextId,
+        entityId: contextId,
+        projectId: metadata.projectId ?? metadata.project_id ?? null,
+        role: metadata.role ?? metadata.userRole ?? metadata.inviterRole ?? null,
+      };
+    });
 
     return res.json(successResponse('Notifications retrieved', shaped, { page, limit, total, totalPages: Math.ceil(total / limit) }));
   } catch (error) { next(error); }

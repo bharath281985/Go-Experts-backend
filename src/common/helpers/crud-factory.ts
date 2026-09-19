@@ -306,10 +306,26 @@ function sanitizeModelData(modelName: string, data: any) {
   return fallbackData;
 }
 
+function ensureBlogAdminAuthor(modelName: string, data: any, req: AuthenticatedRequest) {
+  if (String(modelName) !== "Blog") return data;
+  const adminName = req.user?.fullName || req.user?.name || req.user?.email || "Admin";
+  const nextData = { ...data };
+
+  if (!nextData.author || String(nextData.author).trim() === "") {
+    nextData.author = adminName;
+  }
+
+  return nextData;
+}
+
   // 5. CREATE
   router.post("/", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const sanitized = sanitizeModelData(String(modelName), req.body);
+      const sanitized = ensureBlogAdminAuthor(
+        String(modelName),
+        sanitizeModelData(String(modelName), req.body),
+        req,
+      );
       const row = await db.create({ data: sanitized });
       res.status(201).json({ success: true, data: row });
     } catch (err) {
@@ -320,7 +336,11 @@ function sanitizeModelData(modelName: string, data: any) {
     // 6. UPDATE
     router.put("/:id", async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const sanitized = sanitizeModelData(String(modelName), req.body);
+        const sanitized = ensureBlogAdminAuthor(
+          String(modelName),
+          sanitizeModelData(String(modelName), req.body),
+          req,
+        );
 
         // Fetch old user if this is a user update
         let oldUser: any = null;
