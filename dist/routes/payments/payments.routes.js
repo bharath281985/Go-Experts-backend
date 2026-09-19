@@ -237,10 +237,18 @@ router.post("/checkout", async (req, res) => {
                     });
                     // If it's a subscription, activate it directly
                     const purposeStr = String(purpose || planId || "");
-                    if (purposeStr.toUpperCase().startsWith("SUB_")) {
-                        const actualPlanId = purposeStr.startsWith("SUB_") ? purposeStr.slice(4) : planId;
+                    const isSubscription = purposeStr.toLowerCase() === "subscription" ||
+                        purposeStr.toUpperCase().startsWith("SUB_") ||
+                        Boolean(planId);
+                    if (isSubscription && planId) {
+                        const actualPlanId = purposeStr.toUpperCase().startsWith("SUB_")
+                            ? purposeStr.slice(4)
+                            : planId;
+                        const billingCycle = String(metadata?.billingCycle || "monthly").toLowerCase() === "yearly"
+                            ? "yearly"
+                            : "monthly";
                         const { activateUserSubscription } = await import("../../services/mobile/subscription.service.js");
-                        await activateUserSubscription(userId, actualPlanId, "monthly");
+                        await activateUserSubscription(userId, actualPlanId, billingCycle);
                     }
                 });
                 return res.status(200).json({ success: true, message: "Payment successful via Wallet" });
