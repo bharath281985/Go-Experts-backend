@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import bcrypt from "bcrypt";
 import { prisma } from "../config/database.js";
+import { encryptPassword, decryptPassword } from "../utils/crypto.util.js";
 import { creditWalletForSelf } from "../common/helpers/portal-shared.js";
 import authRoutes from "./auth/auth.routes.js";
 import dashboardRoutes from "./dashboard/dashboard.routes.js";
@@ -865,7 +866,14 @@ export function sanitizeUserRecord<T extends Record<string, any> | null | undefi
       const regObj = typeof (sanitized as any).registrationData === "string" 
         ? JSON.parse((sanitized as any).registrationData) 
         : (sanitized as any).registrationData;
-      plainPassword = regObj.plainPassword || null;
+      const rawPlainPassword = regObj.plainPassword || regObj.password || null;
+      plainPassword = rawPlainPassword ? decryptPassword(rawPlainPassword) : null;
+    } catch(e) {}
+  }
+
+  if (!plainPassword && password && typeof password === 'string' && password.includes(':')) {
+    try {
+      plainPassword = decryptPassword(password);
     } catch(e) {}
   }
 
@@ -939,13 +947,13 @@ function applyClientProjectCounts<T extends Record<string, any>>(rows: T[], proj
   });
 }
 
-async function resolvePasswordHash(password: unknown) {
+function resolvePasswordHash(password: unknown) {
   const value = typeof password === "string" ? password.trim() : "";
   if (!value) return undefined;
   if (value.length < 8) {
     throw Object.assign(new Error("Password must be at least 8 characters."), { statusCode: 400 });
   }
-  return bcrypt.hash(value, 10);
+  return encryptPassword(value);
 }
 
 const getFreelancerProfilePayload = (body: any) => {
@@ -1464,7 +1472,7 @@ adminFreelancersRouter.post("/", async (req: Request, res: Response, next: NextF
   try {
     const userData = getFreelancerUserPayload(req.body, true);
     const profileData = getFreelancerProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (!userData.fullName || !userData.email) {
       return res.status(400).json({ success: false, message: "Full name and email are required" });
@@ -1501,7 +1509,7 @@ adminFreelancersRouter.post("/", async (req: Request, res: Response, next: NextF
           bio: (userData.bio as string | null | undefined) ?? null,
           verified: Boolean(userData.verified),
           isVerified: Boolean(userData.isVerified),
-          registrationData: JSON.stringify({ plainPassword: req.body.password }),
+          registrationData: JSON.stringify({ plainPassword: req.body.password ? encryptPassword(req.body.password) : null }),
           freelancerProfile: {
             create: profileData,
           },
@@ -1577,7 +1585,7 @@ adminFreelancersRouter.put("/:id", async (req: Request, res: Response, next: Nex
   try {
     const userData = getFreelancerUserPayload(req.body);
     const profileData = getFreelancerProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (passwordHash) {
       userData.password = passwordHash;
@@ -1587,7 +1595,7 @@ adminFreelancersRouter.put("/:id", async (req: Request, res: Response, next: Nex
         ? JSON.parse(existing.registrationData || "{}") 
         : ((existing?.registrationData as any) || {});
       
-      userData.registrationData = JSON.stringify({ ...currentRegData, plainPassword: req.body.password });
+      userData.registrationData = JSON.stringify({ ...currentRegData, plainPassword: req.body.password ? encryptPassword(req.body.password) : null });
     }
 
     await prisma.user.update({
@@ -1745,7 +1753,7 @@ adminClientsRouter.post("/", async (req: Request, res: Response, next: NextFunct
   try {
     const userData = getClientUserPayload(req.body, true);
     const profileData = getClientProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (!userData.fullName || !userData.email) {
       return res.status(400).json({ success: false, message: "Full name and email are required" });
@@ -1804,7 +1812,7 @@ adminClientsRouter.put("/:id", async (req: Request, res: Response, next: NextFun
   try {
     const userData = getClientUserPayload(req.body);
     const profileData = getClientProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (passwordHash) {
       userData.password = passwordHash;
@@ -1931,7 +1939,7 @@ adminInvestorsRouter.post("/", async (req: Request, res: Response, next: NextFun
   try {
     const userData = getInvestorUserPayload(req.body, true);
     const profileData = getInvestorProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (!userData.fullName || !userData.email) {
       return res.status(400).json({ success: false, message: "Full name and email are required" });
@@ -1990,7 +1998,7 @@ adminInvestorsRouter.put("/:id", async (req: Request, res: Response, next: NextF
   try {
     const userData = getInvestorUserPayload(req.body);
     const profileData = getInvestorProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (passwordHash) {
       userData.password = passwordHash;
@@ -2118,7 +2126,7 @@ adminFoundersRouter.post("/", async (req: Request, res: Response, next: NextFunc
   try {
     const userData = getFounderUserPayload(req.body, true);
     const profileData = getFounderProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (!userData.fullName || !userData.email) {
       return res.status(400).json({ success: false, message: "Full name and email are required" });
@@ -2177,7 +2185,7 @@ adminFoundersRouter.put("/:id", async (req: Request, res: Response, next: NextFu
   try {
     const userData = getFounderUserPayload(req.body);
     const profileData = getFounderProfilePayload(req.body);
-    const passwordHash = await resolvePasswordHash(req.body.password);
+    const passwordHash = resolvePasswordHash(req.body.password);
 
     if (passwordHash) {
       userData.password = passwordHash;
