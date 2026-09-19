@@ -264,7 +264,7 @@ const buildAuthPayload = async (user: AuthUser) => {
       }
       rawPassword = dbUser.password?.includes(':') 
         ? decryptPassword(dbUser.password) 
-        : (regData?.password ?? null);
+        : (regData?.password ? decryptPassword(regData.password) : null);
     }
   } catch(e) {}
 
@@ -383,7 +383,14 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       );
     }
 
-    const isMatch = await bcrypt.compare(password || '', user.password);
+    let isMatch = false;
+    if (user.password.startsWith('$2')) {
+      isMatch = await bcrypt.compare(password || '', user.password);
+    } else if (user.password.includes(':')) {
+      isMatch = decryptPassword(user.password) === (password || '');
+    } else {
+      isMatch = (password || '') === user.password;
+    }
     if (!isMatch) {
       await safeTrackLoginAttempt(rawEmail, false, req, 'INVALID_CREDENTIALS');
       await AuditEngine.track(user.id, 'failed_login', 'user', user.id, null, null, req).catch(() => null);
@@ -448,7 +455,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password || 'password123', 12);
+    const hashedPassword = encryptPassword(password || 'password123');
     const targetRole = role || 'client';
 
     // Generate unique referral code for the new user
@@ -496,7 +503,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           nextStepKey: progress.nextStepKey,
           completionPercentage: progress.percentage,
           referralCode,
-          registrationData: b,
+          registrationData: b.password ? { ...b, password: encryptPassword(b.password) } : b,
         },
       });
 
@@ -1304,7 +1311,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     const phoneParsed = parsePhoneNumber(activeUser.phone);
     const rawPassword = activeUser.password?.includes(':') 
         ? decryptPassword(activeUser.password) 
-        : (regData?.password ?? null);
+        : (regData?.password ? decryptPassword(regData.password) : null);
 
     const userData = {
       id: activeUser.id,
@@ -1444,7 +1451,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
     jwt.verify(token, `${PASSWORD_RESET_SECRET}:${user.password}`);
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = encryptPassword(newPassword);
     await prisma.user.update({
       where: { id: user.id },
       data: { password: hashedPassword }
@@ -1468,10 +1475,17 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
 
     if (!user || !user.password) return res.status(400).json(errorResponse('Invalid request'));
 
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    let isMatch = false;
+    if (user.password.startsWith('$2')) {
+      isMatch = await bcrypt.compare(oldPassword, user.password);
+    } else if (user.password.includes(':')) {
+      isMatch = decryptPassword(user.password) === oldPassword;
+    } else {
+      isMatch = oldPassword === user.password;
+    }
     if (!isMatch) return res.status(401).json(errorResponse('Incorrect old password'));
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = encryptPassword(newPassword);
     await prisma.user.update({
       where: { id: user.id },
       data: { password: hashedPassword }
@@ -1951,7 +1965,7 @@ export const updateMe = async (req: AuthRequest, res: Response, next: NextFuncti
 
     const rawPassword = activeUser.password?.includes(':') 
         ? decryptPassword(activeUser.password) 
-        : (regData?.password ?? null);
+        : (regData?.password ? decryptPassword(regData.password) : null);
 
     const userData = {
       id: activeUser.id,
