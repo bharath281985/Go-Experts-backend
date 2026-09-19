@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { sendMessage as chatSendMessage } from '../../chat/controllers/chat.controller.js';
 import { notifyNewMessage } from '../../../../utils/notify-message.js';
 import { NotificationEngine } from '../../../../services/mobile/notification.engine.js';
 

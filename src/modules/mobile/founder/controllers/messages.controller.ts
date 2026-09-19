@@ -3,6 +3,7 @@ import path from 'path';
 import { prisma } from '../../../../config/database.js';
 import { successResponse, errorResponse } from '../../../../core/response.js';
 import { AuthRequest } from '../../../../middlewares/auth.js';
+import { sendMessage as chatSendMessage } from '../../chat/controllers/chat.controller.js';
 import { respondWithUploadedFile, uploadedFileUrl } from '../../../../utils/uploaded-file.js';
 import { notifyNewMessage } from '../../../../utils/notify-message.js';
 
@@ -254,76 +255,7 @@ export const getConversation = async (req: AuthRequest, res: Response, next: Nex
   }
 };
 
-export const sendMessage = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { conversationId, text, recipientId, projectId, attachmentUrl } = req.body || {};
-    const trimmedText = String(text || '').trim();
-
-    if (!trimmedText && !attachmentUrl && (recipientId || conversationId)) {
-      const conv = await resolveConversation(req.user.id, req.user.role, conversationId, recipientId, projectId);
-      if (conv) {
-        return res.status(200).json(
-          successResponse('Conversation ready', {
-            id: '',
-            conversationId: conv.id,
-            from: 'me',
-            senderId: req.user.id,
-            isMine: true,
-            text: '',
-            time: new Date().toISOString(),
-          })
-        );
-      }
-    }
-    if (!trimmedText && !attachmentUrl) {
-      return res.status(400).json(errorResponse('text is required', 'VALIDATION_ERROR'));
-    }
-
-    const conv = await resolveConversation(req.user.id, req.user.role, conversationId, recipientId, projectId);
-    if (!conv) {
-      return res
-        .status(400)
-        .json(errorResponse('conversationId or recipientId is required', 'VALIDATION_ERROR'));
-    }
-
-    const message = await prisma.message.create({
-      data: {
-        conversationId: conv.id,
-        from: 'me',
-        text: trimmedText || (attachmentUrl ? '[Attachment]' : ''),
-        time: new Date().toISOString(),
-        ...({
-          senderId: req.user.id,
-          attachmentUrl: attachmentUrl || null,
-        } as any),
-      },
-    });
-
-    await prisma.conversation.update({
-      where: { id: conv.id },
-      data: { msg: message.text, time: new Date().toISOString(), updatedAt: new Date() },
-    }).catch(() => null);
-
-    await notifyNewMessage(conv.id, {
-      ...message,
-      isMine: false,
-      conversationId: conv.id,
-      senderId: req.user.id,
-    }).catch(() => null);
-
-    return res.status(201).json(
-      successResponse('Message sent', {
-        ...message,
-        conversationId: conv.id,
-        from: 'me',
-        senderId: req.user.id,
-        isMine: true,
-      })
-    );
-  } catch (error) {
-    next(error);
-  }
-};
+export const sendMessage = chatSendMessage;
 
 export const markMessageRead = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

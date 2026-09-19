@@ -67,7 +67,12 @@ export const getReceivedInvitations = async (req: AuthRequest, res: Response, ne
       orderBy: { createdAt: 'desc' }
     });
 
-    return res.json(successResponse('Received invitations retrieved', invitations));
+    const censoredInvitations = invitations.map(inv => ({
+      ...inv,
+      firstMessage: inv.status === 'PENDING' ? null : inv.firstMessage
+    }));
+
+    return res.json(successResponse('Received invitations retrieved', censoredInvitations));
   } catch (error) { next(error); }
 };
 

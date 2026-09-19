@@ -284,13 +284,20 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       }
     }
 
-    // If starting a new chat via recipientId, intercept to check Connections
-    if (!conversationId && recipientId && !projectId) {
-      const trueRecipientId = await resolveTrueUserId(recipientId);
-      if (!trueRecipientId) {
-        return res.status(404).json(errorResponse('Recipient not found', 'NOT_FOUND'));
+    // Always enforce Connections for Direct Messages (no projectId)
+    let trueRecipientId = null;
+    if (!projectId) {
+      if (recipientId) {
+        trueRecipientId = await resolveTrueUserId(recipientId);
+      } else if (conversationId) {
+        const convCheck = await prisma.conversation.findUnique({ where: { id: conversationId } }).catch(() => null);
+        if (convCheck) {
+          trueRecipientId = convCheck.userA === req.user.id ? convCheck.userB : convCheck.userA;
+        }
       }
+    }
 
+    if (trueRecipientId && !projectId) {
       const [a, b] = [req.user.id, trueRecipientId].sort();
       const connection = await prisma.connection.findUnique({
         where: { userOneId_userTwoId: { userOneId: a, userTwoId: b } }
