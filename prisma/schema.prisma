@@ -577,6 +577,41 @@ model Subscription {
   @@map("subscriptions")
 }
 
+model CmsHowItWorks {
+  id          String   @id @default(uuid())
+  sectionName String   @map("section_name") 
+  roleType    String?  @map("role_type") 
+  title       String
+  subtitle    String?
+  description String?  @db.Text
+  icon        String?
+  image       String?
+  buttonText  String?  @map("button_text") 
+  buttonLink  String?  @map("button_link") 
+  sortOrder   Int      @default(0) @map("sort_order")
+  status      String   @default("draft")
+  contentJson Json?    @map("content_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("cms_how_it_works")
+}
+
+model WorkflowStep {
+  id          String   @id @default(uuid())
+  roleType    String   @map("role_type") 
+  title       String
+  description String   @db.Text
+  icon        String?
+  image       String?
+  status      String   @default("draft") 
+  sortOrder   Int      @default(0) @map("sort_order") 
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("workflow_steps")
+}
+
 model SubscriptionFeature {
   id           String           @id @default(uuid())
   planId       String           @map("plan_id")
@@ -1086,6 +1121,7 @@ model Faq {
   question     String        @db.Text
   answer       String        @db.Text
   category     String?
+  pageKey      String?       @map("page_key")
   categoryId   String?       @map("help_category_id")
   status       String        @default("PUBLISHED")
   featured     Boolean       @default(false)
@@ -1173,6 +1209,7 @@ model Testimonial {
   content   String
   rating    Int       @default(5)
   status    String    @default("active")
+  pageKey   String?   @map("page_key")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
