@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import prisma from "../../lib/prisma";
+import prisma from "../../lib/prisma.js";
 
 // GET /api/v1/public/careers/cms
 export const getCareersCms = async (req: Request, res: Response) => {
