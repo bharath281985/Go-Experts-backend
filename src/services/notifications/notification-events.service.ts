@@ -108,8 +108,7 @@ export const emitToAdmins = async (payload: Omit<NotificationPayload, "userId" |
       where: {
         OR: [
           { role: "admin" },
-          { role: "super_admin" },
-          { type: "admin" }
+          { role: "super_admin" }
         ],
         status: { not: "deleted" }
       },

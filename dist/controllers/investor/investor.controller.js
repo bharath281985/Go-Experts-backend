@@ -124,6 +124,13 @@ export const getInvestorProfile = async (req, res, next) => {
                 ? extra.preferredStage
                 : [];
         const location = extra?.location || [user.city, user.country].filter(Boolean).join(", ");
+        let completionPct = 0;
+        try {
+            const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+            const realCompletion = await resolveProfileCompletion(user.id);
+            completionPct = realCompletion.profileCompletion;
+        }
+        catch (e) { }
         res.json({
             success: true,
             data: {
@@ -148,8 +155,11 @@ export const getInvestorProfile = async (req, res, next) => {
                 preferredStage,
                 deals: user.investorProfile?.deals ?? 0,
                 status: user.status,
+                profileStatus: user.status || "active",
                 verified: Boolean(user.isVerified || user.verified),
+                kycVerified: Boolean(user.isVerified || user.verified),
                 role: user.role,
+                completionPct,
             },
         });
     }
@@ -424,6 +434,20 @@ export const createInvestorInvestment = async (req, res, next) => {
             catch (notifErr) {
                 console.error("Failed to trigger investment notification and message actions:", notifErr);
             }
+        }
+        try {
+            const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+            await emitToAdmins({
+                type: "FUNDING_REQUEST",
+                title: "New Funding Request",
+                message: `${user.fullName} submitted a funding offer of ₹${offer} for ${equity}% equity in "${startup}".`,
+                contextType: "investment",
+                contextId: investment.id,
+                priority: "normal",
+            });
+        }
+        catch (e) {
+            console.error("Admin emit error", e);
         }
         res.status(201).json({ success: true, message: "Investment offer created", data: investment });
     }

@@ -171,7 +171,7 @@ export const requestWithdrawal = async (req: AuthRequest, res: Response, next: N
         };
 
     try {
-      const { emitToAdmins } = await import("../../../../../services/notifications/notification-events.service.js");
+      const { emitToAdmins } = await import("../../../../services/notifications/notification-events.service.js");
       await emitToAdmins({
         type: "WITHDRAWAL_REQUESTED",
         title: "Withdrawal Requested",

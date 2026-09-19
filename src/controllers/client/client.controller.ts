@@ -280,6 +280,13 @@ export const getClientProfile = async (req: AuthenticatedRequest, res: Response,
       }).catch(() => 0);
     }
 
+    let completionPct = 0;
+    try {
+      const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+      const realCompletion = await resolveProfileCompletion(user.id);
+      completionPct = realCompletion.profileCompletion;
+    } catch (e) {}
+
     res.json({
       success: true,
       data: {
@@ -302,8 +309,11 @@ export const getClientProfile = async (req: AuthenticatedRequest, res: Response,
         totalSpend: Number(user.clientProfile?.totalSpend ?? 0),
         projectsPosted,
         status: user.status || "active",
+        profileStatus: user.status || "active",
         verified: Boolean(user.isVerified || user.verified),
+        kycVerified: Boolean(user.isVerified || user.verified),
         role: user.role,
+        completionPct,
       },
     });
   } catch (err) {

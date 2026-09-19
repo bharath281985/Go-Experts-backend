@@ -142,6 +142,13 @@ export const getFounderProfile = async (req: AuthenticatedRequest, res: Response
 
     const details = await getJsonSetting(userId, "founder-profile-details", {});
 
+    let completionPct = 0;
+    try {
+      const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+      const realCompletion = await resolveProfileCompletion(user.id);
+      completionPct = realCompletion.profileCompletion;
+    } catch (e) {}
+
     res.json({
       success: true,
       data: {
@@ -159,8 +166,11 @@ export const getFounderProfile = async (req: AuthenticatedRequest, res: Response
         raised: Number(user.founderProfile?.raised ?? 0),
         teamSize: user.founderProfile?.teamSize ?? 1,
         status: user.status,
+        profileStatus: user.status || "active",
         verified: Boolean(user.isVerified || user.verified),
+        kycVerified: Boolean(user.isVerified || user.verified),
         role: user.role,
+        completionPct,
         ...details,
       },
     });

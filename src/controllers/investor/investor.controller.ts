@@ -159,6 +159,13 @@ export const getInvestorProfile = async (req: AuthenticatedRequest, res: Respons
 
     const location = extra?.location || [user.city, user.country].filter(Boolean).join(", ");
 
+    let completionPct = 0;
+    try {
+      const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+      const realCompletion = await resolveProfileCompletion(user.id);
+      completionPct = realCompletion.profileCompletion;
+    } catch (e) {}
+
     res.json({
       success: true,
       data: {
@@ -183,8 +190,11 @@ export const getInvestorProfile = async (req: AuthenticatedRequest, res: Respons
         preferredStage,
         deals: user.investorProfile?.deals ?? 0,
         status: user.status,
+        profileStatus: user.status || "active",
         verified: Boolean(user.isVerified || user.verified),
+        kycVerified: Boolean(user.isVerified || user.verified),
         role: user.role,
+        completionPct,
       },
     });
   } catch (err) {

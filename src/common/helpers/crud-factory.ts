@@ -106,6 +106,25 @@ export function createCrudRouter(
         investor: investorMap[r.investor] || r.investor,
         startup: startupMap[r.startup] || r.startup,
       }));
+    } else if (String(mName) === "Meeting") {
+      const participantIds = Array.from(new Set(
+        rows.flatMap((r: any) => [r.founder, r.investor]).filter(v => v && v.length > 20)
+      ));
+      const participants = await prisma.user.findMany({
+        where: { id: { in: participantIds as string[] } },
+        select: { id: true, fullName: true, email: true },
+      });
+      const participantMap = Object.fromEntries(
+        participants.map((participant: any) => [participant.id, participant.fullName || participant.email])
+      );
+
+      finalRows = rows.map((r: any) => ({
+        ...r,
+        founderId: r.founder,
+        investorId: r.investor,
+        founder: participantMap[r.founder] || r.founder,
+        investor: participantMap[r.investor] || r.investor,
+      }));
     }
 
     return finalRows;

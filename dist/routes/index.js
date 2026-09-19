@@ -50,6 +50,7 @@ import { sendAccountDeletedEmail } from "../services/mobile/email.service.js";
 import { activateFreeTrialOnKycApproval } from "../services/subscription/free-trial.service.js";
 import subscriptionRoutes from "./subscription/subscription.routes.js";
 import { getVerificationStats } from "../common/helpers/verification.js";
+import tasksRoutes from "./tasks.routes.js";
 import mobileRoutes from "../modules/mobile/index.js";
 import { saveInvestor, unsaveInvestor } from "../modules/mobile/public/public.controller.js";
 const router = Router();
@@ -78,6 +79,7 @@ router.use("/client", clientRoutes);
 router.use("/investor", investorRoutes);
 router.use("/founder", founderRoutes);
 router.use("/referrals", referralRoutes);
+router.use("/tasks", tasksRoutes);
 // Expose OpenAPI specs publicly
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 router.get("/docs/openapi.json", (req, res) => {

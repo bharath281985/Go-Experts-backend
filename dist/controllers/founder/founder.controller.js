@@ -113,6 +113,13 @@ export const getFounderProfile = async (req, res, next) => {
         if (!user)
             return res.status(404).json({ success: false, message: "User not found" });
         const details = await getJsonSetting(userId, "founder-profile-details", {});
+        let completionPct = 0;
+        try {
+            const { resolveProfileCompletion } = await import("../../services/mobile/profile-completion.service.js");
+            const realCompletion = await resolveProfileCompletion(user.id);
+            completionPct = realCompletion.profileCompletion;
+        }
+        catch (e) { }
         res.json({
             success: true,
             data: {
@@ -130,8 +137,11 @@ export const getFounderProfile = async (req, res, next) => {
                 raised: Number(user.founderProfile?.raised ?? 0),
                 teamSize: user.founderProfile?.teamSize ?? 1,
                 status: user.status,
+                profileStatus: user.status || "active",
                 verified: Boolean(user.isVerified || user.verified),
+                kycVerified: Boolean(user.isVerified || user.verified),
                 role: user.role,
+                completionPct,
                 ...details,
             },
         });
@@ -268,6 +278,20 @@ export const updateFounderStartup = async (req, res, next) => {
                     status: data.status || "active",
                 }
             });
+            try {
+                const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+                await emitToAdmins({
+                    type: "STARTUP_APPROVAL_REQUIRED",
+                    title: "Startup Awaiting Approval",
+                    message: `${user.fullName} submitted a new startup: "${startupName}". Review required.`,
+                    contextType: "startup",
+                    contextId: updated.id,
+                    priority: "normal",
+                });
+            }
+            catch (e) {
+                console.error("Admin emit error", e);
+            }
         }
         if (data.startup) {
             await prisma.founderProfile.upsert({

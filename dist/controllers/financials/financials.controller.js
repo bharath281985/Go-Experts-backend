@@ -626,6 +626,20 @@ export async function processRefund(req, res) {
             });
             return { refund, gatewayRefundId, walletBalance: updated.balance };
         });
+        try {
+            const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+            await emitToAdmins({
+                type: "REFUND_REQUESTED",
+                title: "Refund Processed",
+                message: `Refund of ₹${result.walletBalance} credited for payment ${paymentId.slice(0, 8)}.`,
+                contextType: "payment",
+                contextId: paymentId,
+                priority: "high",
+            });
+        }
+        catch (e) {
+            console.error("Admin emit error", e);
+        }
         res.json({ success: true, data: result });
     }
     catch (e) {

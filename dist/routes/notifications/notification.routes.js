@@ -15,8 +15,19 @@ listChannels, updateChannelConfig,
 // Stats & Logs
 getLogs, getNotificationDashboardStats, } from "../../controllers/notifications/notification.controller.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
+const adminOnly = (req, res, next) => {
+    if (!req.user)
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+    // Admin users have type:"admin" in their JWT (set by the adminUser login path).
+    // Their role field can be any named role (super_admin, Admin, etc.).
+    if (req.user.type === "admin" || req.user.role === "super_admin") {
+        return next();
+    }
+    return res.status(403).json({ success: false, message: "Admin access required" });
+};
 const router = Router();
 router.use(authMiddleware);
+router.use(adminOnly);
 // ── Notifications CRUD & Read Status ──
 router.get("/", listNotifications);
 router.post("/", createNotification);

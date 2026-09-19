@@ -331,9 +331,26 @@ export const login = async (req, res, next) => {
         }
         const isMatch = await verifyPassword(password, user.password);
         if (!isMatch) {
-            prisma.loginAttempt
+            await prisma.loginAttempt
                 .create({ data: { email, ipAddress, userAgent, success: false, failReason: "Wrong password" } })
                 .catch(() => { });
+            try {
+                const recentFails = await prisma.loginAttempt.count({
+                    where: { email, success: false, createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) } }
+                });
+                if (recentFails >= 5) {
+                    const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+                    await emitToAdmins({
+                        type: "SECURITY_ALERT",
+                        title: "Multiple Failed Logins",
+                        message: `${recentFails} failed login attempts for ${email} from IP ${ipAddress}.`,
+                        contextType: "security",
+                        contextId: user.id,
+                        priority: "urgent"
+                    });
+                }
+            }
+            catch (e) { }
             return res.status(400).json({ success: false, message: "Invalid email or password" });
         }
         // Upgrade legacy plain-text or bcrypt passwords to AES-256-GCM after a successful login
@@ -827,6 +844,20 @@ export const register = async (req, res, next) => {
             }
             return created;
         });
+        try {
+            const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+            await emitToAdmins({
+                type: "NEW_USER",
+                title: "New User Registered",
+                message: `${user.fullName} (${user.email}) registered as a ${user.role}.`,
+                contextType: "user",
+                contextId: user.id,
+                priority: "normal",
+            });
+        }
+        catch (e) {
+            console.error("Failed to emit to admins for new user", e);
+        }
         // Welcome email is NOT sent here â€” it is sent after all onboarding steps are completed
         const tokenPayload = { id: user.id, email: user.email, role: user.role, type: "portal" };
         const accessToken = signAccessToken(tokenPayload);
