@@ -344,6 +344,19 @@ export const updateUserKyc = async (req: Request, res: Response, next: NextFunct
                         where: { id },
                         data: { verified: true, isVerified: true }
                     });
+                    
+                    try {
+                        const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+                        await emitToAdmins({
+                            type: "KYC_APPROVED",
+                            title: "KYC Approved",
+                            message: `User ${freshUserForCheck.fullName || freshUserForCheck.email} has been fully verified.`,
+                            contextType: "user",
+                            contextId: freshUserForCheck.id,
+                            priority: "low"
+                        });
+                    } catch (e) { console.error("Admin emit error", e); }
+
                     const { sendAccountActiveEmail } = await import("../../services/mobile/email.service.js");
                     if (freshUserForCheck.email) {
                         await sendAccountActiveEmail(freshUserForCheck.email, freshUserForCheck.fullName || 'User');

@@ -101,3 +101,31 @@ export const emitNotification = async (payload: NotificationPayload) => {
     throw error;
   }
 };
+
+export const emitToAdmins = async (payload: Omit<NotificationPayload, "userId" | "role">) => {
+  try {
+    const admins = await prisma.user.findMany({
+      where: {
+        OR: [
+          { role: "admin" },
+          { role: "super_admin" },
+          { type: "admin" }
+        ],
+        status: { not: "deleted" }
+      },
+      select: { id: true }
+    });
+
+    const promises = admins.map(admin => 
+      emitNotification({
+        ...payload,
+        userId: admin.id,
+        role: "admin",
+      })
+    );
+    
+    await Promise.all(promises);
+  } catch (error) {
+    console.error("Error emitting to admins:", error);
+  }
+};

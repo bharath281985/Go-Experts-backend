@@ -22,6 +22,18 @@ export const createReport = async (req: AuthenticatedRequest, res: Response, nex
       }
     });
 
+    try {
+      const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+      await emitToAdmins({
+        type: "USER_REPORTED",
+        title: "User Reported",
+        message: `A user was reported. Reason: ${reason}`,
+        contextType: "report",
+        contextId: report.id,
+        priority: "high",
+      });
+    } catch (e) { console.error("Admin emit error", e); }
+
     res.json({ success: true, report });
   } catch (err) {
     next(err);

@@ -170,6 +170,18 @@ export const requestWithdrawal = async (req: AuthRequest, res: Response, next: N
           upiId: upiDetails!.upiId,
         };
 
+    try {
+      const { emitToAdmins } = await import("../../../../../services/notifications/notification-events.service.js");
+      await emitToAdmins({
+        type: "WITHDRAWAL_REQUESTED",
+        title: "Withdrawal Requested",
+        message: `A freelancer requested a withdrawal of ₹${parsedAmount}. Pending review.`,
+        contextType: "withdrawal",
+        contextId: transaction.id,
+        priority: "high",
+      });
+    } catch (e) { console.error("Admin emit error", e); }
+
     return res.status(201).json(successResponse('Withdrawal request submitted successfully', {
       transactionId: transaction.id,
       amount: parsedAmount,

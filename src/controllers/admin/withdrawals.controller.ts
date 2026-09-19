@@ -129,6 +129,18 @@ export const rejectWithdrawal = async (req: AuthenticatedRequest, res: Response,
       return updatedTxn;
     });
 
+    try {
+      const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+      await emitToAdmins({
+        type: "PAYOUT_FAILED",
+        title: "Withdrawal Rejected",
+        message: `Withdrawal of ₹${txn.amount} by user ${txn.wallet?.userId} was rejected and refunded.`,
+        contextType: "withdrawal",
+        contextId: id,
+        priority: "high",
+      });
+    } catch (e) { console.error("Admin emit error", e); }
+
     res.json({ success: true, message: "Withdrawal rejected and refunded", data: result });
   } catch (err) {
     next(err);

@@ -470,6 +470,18 @@ export const createInvestorInvestment = async (req: AuthenticatedRequest, res: R
       }
     }
 
+    try {
+      const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+      await emitToAdmins({
+        type: "FUNDING_REQUEST",
+        title: "New Funding Request",
+        message: `${user.fullName} submitted a funding offer of ₹${offer} for ${equity}% equity in "${startup}".`,
+        contextType: "investment",
+        contextId: investment.id,
+        priority: "normal",
+      });
+    } catch (e) { console.error("Admin emit error", e); }
+
     res.status(201).json({ success: true, message: "Investment offer created", data: investment });
   } catch (err) {
     handleError(err, res, next);

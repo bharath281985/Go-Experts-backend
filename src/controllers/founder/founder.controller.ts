@@ -289,6 +289,18 @@ export const updateFounderStartup = async (req: AuthenticatedRequest, res: Respo
           status: data.status || "active",
         }
       });
+
+      try {
+        const { emitToAdmins } = await import("../../services/notifications/notification-events.service.js");
+        await emitToAdmins({
+          type: "STARTUP_APPROVAL_REQUIRED",
+          title: "Startup Awaiting Approval",
+          message: `${user.fullName} submitted a new startup: "${startupName}". Review required.`,
+          contextType: "startup",
+          contextId: updated.id,
+          priority: "normal",
+        });
+      } catch (e) { console.error("Admin emit error", e); }
     }
 
     if (data.startup) {
