@@ -17,7 +17,6 @@ async function main() {
         id: uuidv4(),
         name: "Engineering",
         slug: "engineering",
-        description: "Software engineering and technical roles",
         status: "active"
       }
     });
