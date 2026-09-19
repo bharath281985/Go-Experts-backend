@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import { Prisma } from '@prisma/client';
+import { prisma } from '../../config/database.js';
 
 export type ProjectListScope =
   | { kind: 'public' }
@@ -44,7 +45,7 @@ export const parsePagination = (req: Request) => {
   return { page, limit, skip: (page - 1) * limit };
 };
 
-export const parseProjectListQuery = (req: Request, scope: ProjectListScope) => {
+export const parseProjectListQuery = async (req: Request, scope: ProjectListScope) => {
   const { page, limit, skip } = parsePagination(req);
   const q = asString(readParam(req, 'q', 'search'));
   const status = asString(readParam(req, 'status'));
@@ -55,6 +56,8 @@ export const parseProjectListQuery = (req: Request, scope: ProjectListScope) => 
   const categories = [
     ...asStringList(readParam(req, 'category', 'categories')),
     ...asStringList(readParam(req, 'categoryId', 'categoryIds', 'category_id')),
+    ...asStringList(readParam(req, 'industry', 'industries')),
+    ...asStringList(readParam(req, 'industryId', 'industryIds', 'industry_id')),
   ];
   const sortRaw = (
     asString(readParam(req, 'sort', 'sort_by', 'sortBy')) || 'newest'
@@ -76,14 +79,27 @@ export const parseProjectListQuery = (req: Request, scope: ProjectListScope) => 
 
 
   if (q) {
+    const matchingSkills = q.length >= 2
+      ? await prisma.skill.findMany({
+        where: { name: { contains: q }, status: 'active' },
+        select: { id: true, name: true },
+        take: 20,
+      }).catch(() => [])
+      : [];
+    const technologySearchValues = [
+      q,
+      ...matchingSkills.map((skill) => skill.name),
+    ].filter(Boolean);
     const search = { contains: q };
     where.OR = [
       { title: search },
-      { technology: search },
       { description: search },
       { category: search },
       { workMode: search },
       { experienceLevel: search },
+      ...technologySearchValues.map((value) => ({
+        technology: { contains: value },
+      })),
     ];
   }
 

@@ -124,6 +124,12 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean);
+    const availabilityValues = String(
+      req.query.availability || req.query.availabilities || '',
+    )
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
 
     const where: any = {
       role: 'freelancer',
@@ -141,7 +147,6 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
         }).catch(() => [])
         : [];
       const skillProfileFilters = matchingSkills.flatMap((skill) => [
-        { skills: { contains: skill.id } },
         { skills: { contains: skill.name } },
       ]);
 
@@ -208,6 +213,16 @@ export const listFreelancers = async (req: AuthRequest, res: Response, next: Nex
         ...(req.user?.id ? { not: req.user.id } : {}),
         in: filteredIds,
       };
+    }
+    if (availabilityValues.length > 0) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: availabilityValues.map((value) => ({
+            freelancerProfile: { is: { availability: { contains: value } } },
+          })),
+        },
+      ];
     }
 
     const [freelancers, total] = await Promise.all([

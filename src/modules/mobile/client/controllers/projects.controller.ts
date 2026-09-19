@@ -156,7 +156,7 @@ const getSignupBudgetRangeId = async (userId: string): Promise<string | null> =>
 
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, {
+    const { where, orderBy, page, limit, skip } = await parseProjectListQuery(req, {
       kind: 'client',
       clientId: req.user.id,
     });

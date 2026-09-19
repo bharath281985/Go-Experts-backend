@@ -872,6 +872,12 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean);
+    const availabilityValues = String(
+      req.query.availability || req.query.availabilities || '',
+    )
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
 
     const where: any = {
       role: 'freelancer',
@@ -883,31 +889,51 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
       where.id = { not: userId };
     }
     if (search) {
-      const matchingSkills = await (prisma as any).skill?.findMany({
-        where: { name: { contains: search } },
-        select: { id: true, name: true }
-      }).catch(() => []);
+      const matchingSkills = search.length >= 2
+        ? await (prisma as any).skill?.findMany({
+          where: { name: { contains: search } },
+          select: { id: true, name: true },
+          take: 20,
+        }).catch(() => [])
+        : [];
 
-      const skillIdConditions = (matchingSkills || []).map((s: any) => ({
-        freelancerProfile: { is: { skills: { contains: s.id } } }
-      }));
-      const skillNameConditions = (matchingSkills || [])
-        .filter((s: any) => s.name)
-        .map((s: any) => ({
-          freelancerProfile: { is: { skills: { contains: s.name } } }
-        }));
+      const skillProfileFilters = (matchingSkills || []).flatMap((s: any) => [
+        ...(s.name ? [{ skills: { contains: s.name } }] : []),
+      ]);
 
-      where.AND = [
-        { OR: [
-          { fullName: { contains: search } },
-          { city: { contains: search } },
-          { freelancerProfile: { is: { titleHeadline: { contains: search } } } },
-          { freelancerProfile: { is: { skills: { contains: search } } } },
-          { investorProfile: { is: { focusAreas: { contains: search } } } },
-          ...skillIdConditions,
-          ...skillNameConditions,
-        ] },
-      ];
+      const [matchingUsers, matchingProfiles] = await Promise.all([
+        prisma.user.findMany({
+          where: {
+            role: 'freelancer',
+            status: 'active',
+            deletedAt: null,
+            OR: [
+              { fullName: { contains: search } },
+              { city: { contains: search } },
+              { bio: { contains: search } },
+            ],
+          },
+          select: { id: true },
+        }),
+        prisma.freelancerProfile.findMany({
+          where: {
+            OR: [
+              { titleHeadline: { contains: search } },
+              { skills: { contains: search } },
+              ...skillProfileFilters,
+            ],
+          },
+          select: { userId: true },
+        }),
+      ]);
+      const matchingUserIds = new Set([
+        ...matchingUsers.map((user) => user.id),
+        ...matchingProfiles.map((profile) => profile.userId),
+      ]);
+      where.id = {
+        ...(userId ? { not: userId } : {}),
+        in: [...matchingUserIds],
+      };
     }
 
     if (categoryIds.length > 0) {
@@ -937,13 +963,33 @@ export const getFreelancers = async (req: Request, res: Response, next: NextFunc
           : [...categoryUserIds],
       };
     }
+    if (availabilityValues.length > 0) {
+      const availabilityProfiles = await prisma.freelancerProfile.findMany({
+        where: {
+          OR: availabilityValues.map((value) => ({
+            availability: { contains: value },
+          })),
+        },
+        select: { userId: true },
+      });
+      const availabilityUserIds = new Set(
+        availabilityProfiles.map((profile) => profile.userId),
+      );
+      const existingIds = where.id?.in as string[] | undefined;
+      where.id = {
+        ...(userId ? { not: userId } : {}),
+        in: existingIds
+          ? existingIds.filter((id) => availabilityUserIds.has(id))
+          : [...availabilityUserIds],
+      };
+    }
 
     const [freelancers, total] = await Promise.all([
       prisma.user.findMany({
         where,
         select: {
           id: true, fullName: true, avatarUrl: true, city: true, isVerified: true,
-          freelancerProfile: { select: { skills: true, hourlyRate: true, experience: true } }
+          freelancerProfile: { select: { skills: true, hourlyRate: true, experience: true, availability: true } }
         },
         orderBy: { createdAt: 'desc' },
         skip, take: limit
@@ -1160,6 +1206,18 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     const skip = (page - 1) * limit;
     const userId = (req as any).user?.id as string | undefined;
     const search = String(req.query.search || req.query.q || '').trim();
+    const focusFilterValues = String(
+      req.query.focusAreaId ||
+      req.query.focusAreas ||
+      req.query.focusArea ||
+      req.query.industryId ||
+      req.query.categoryId ||
+      req.query.industry ||
+      '',
+    )
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
 
     const where: any = {
       role: 'investor',
@@ -1170,16 +1228,93 @@ export const getInvestors = async (req: Request, res: Response, next: NextFuncti
     if (userId) {
       where.id = { not: userId };
     }
+    const andFilters: any[] = [];
+    const focusSearchValues = new Set<string>();
     if (search) {
-      where.AND = [{
+      focusSearchValues.add(search);
+      const [matchingOptions, matchingIndustries] = await Promise.all([
+        (prisma as any).masterOption.findMany({
+          where: {
+            status: 'active',
+            OR: [
+              { label: { contains: search } },
+              { value: { contains: search } },
+            ],
+          },
+          select: { id: true, label: true, value: true },
+          take: 25,
+        }).catch(() => []),
+        prisma.industry.findMany({
+          where: { status: 'active', name: { contains: search } },
+          select: { id: true, name: true },
+          take: 25,
+        }).catch(() => []),
+      ]);
+      matchingOptions.forEach((item: any) => {
+        if (item.id) focusSearchValues.add(item.id);
+        if (item.label) focusSearchValues.add(item.label);
+        if (item.value) focusSearchValues.add(item.value);
+      });
+      matchingIndustries.forEach((item) => {
+        if (item.id) focusSearchValues.add(item.id);
+        if (item.name) focusSearchValues.add(item.name);
+      });
+    }
+    if (search) {
+      andFilters.push({
         OR: [
           { fullName: { contains: search } },
           { city: { contains: search } },
           { email: { contains: search } },
           { investorProfile: { is: { firm: { contains: search } } } },
-          { investorProfile: { is: { focusAreas: { contains: search } } } },
+          ...[...focusSearchValues].map((value) => ({
+            investorProfile: { is: { focusAreas: { contains: value } } },
+          })),
         ],
-      }];
+      });
+    }
+    if (focusFilterValues.length > 0) {
+      const [matchingOptions, matchingIndustries] = await Promise.all([
+        (prisma as any).masterOption.findMany({
+          where: {
+            status: 'active',
+            OR: [
+              { id: { in: focusFilterValues } },
+              { label: { in: focusFilterValues } },
+              { value: { in: focusFilterValues } },
+            ],
+          },
+          select: { id: true, label: true, value: true },
+        }).catch(() => []),
+        prisma.industry.findMany({
+          where: {
+            status: 'active',
+            OR: [
+              { id: { in: focusFilterValues } },
+              { name: { in: focusFilterValues } },
+            ],
+          },
+          select: { id: true, name: true },
+        }).catch(() => []),
+      ]);
+      const focusFilterSet = new Set(focusFilterValues);
+      matchingOptions.forEach((item: any) => {
+        if (item.id) focusFilterSet.add(item.id);
+        if (item.label) focusFilterSet.add(item.label);
+        if (item.value) focusFilterSet.add(item.value);
+      });
+      matchingIndustries.forEach((item) => {
+        if (item.id) focusFilterSet.add(item.id);
+        if (item.name) focusFilterSet.add(item.name);
+      });
+      andFilters.push({
+        OR: [...focusFilterSet].map((value) => ({
+          investorProfile: { is: { focusAreas: { contains: value } } },
+        })),
+      });
+    }
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
     }
 
     const [investors, total] = await Promise.all([
@@ -1590,7 +1725,7 @@ export const getStartups = async (req: Request, res: Response, next: NextFunctio
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { where, orderBy, page, limit, skip } = parseProjectListQuery(req, { kind: 'public' });
+    const { where, orderBy, page, limit, skip } = await parseProjectListQuery(req, { kind: 'public' });
     const viewerId = (req as any).user?.id as string | undefined;
 
     const activeClients = await prisma.user.findMany({

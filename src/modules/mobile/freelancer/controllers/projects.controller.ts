@@ -5,27 +5,75 @@ import { AuthRequest } from '../../../../middlewares/auth.js';
 import { getJsonSetting, setJsonSetting } from '../../../../common/helpers/portal-shared.js';
 import { shapeProject, shapeProjects } from '../../../../services/mobile/project-shape.service.js';
 
+const parseQueryList = (value: unknown): string[] =>
+  String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 export const listProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
     const skip = (page - 1) * limit;
     const q = ((req.query.q as string) || '').trim();
+    const status = String(req.query.status || '').trim();
+    const categories = [
+      ...parseQueryList(req.query.category || req.query.categories),
+      ...parseQueryList(req.query.categoryId || req.query.categoryIds || req.query.industryId || req.query.industry),
+    ];
+    const workModes = parseQueryList(req.query.workMode || req.query.workModes || req.query.work_mode);
+    const experienceLevels = parseQueryList(
+      req.query.experienceLevel || req.query.experienceLevels || req.query.experience_level,
+    );
+    const andFilters: any[] = [];
 
     const where: any = {
       deletedAt: null,
       OR: [{ freelancer: req.user.id }, { client: req.user.id }],
     };
+    if (status) where.status = status;
 
     if (q) {
-      where.AND = [{ OR: [
+      const matchingSkills = q.length >= 2
+        ? await prisma.skill.findMany({
+          where: { name: { contains: q }, status: 'active' },
+          select: { id: true, name: true },
+          take: 20,
+        }).catch(() => [])
+        : [];
+      const technologySearchValues = [
+        q,
+        ...matchingSkills.map((skill) => skill.name),
+      ].filter(Boolean);
+      andFilters.push({ OR: [
         { title: { contains: q } },
         { description: { contains: q } },
         { category: { contains: q } },
-        { technology: { contains: q } },
         { workMode: { contains: q } },
         { experienceLevel: { contains: q } },
-      ] }];
+        ...technologySearchValues.map((value) => ({
+          technology: { contains: value },
+        })),
+      ] });
+    }
+    if (categories.length === 1) {
+      andFilters.push({ category: categories[0] });
+    } else if (categories.length > 1) {
+      andFilters.push({ category: { in: categories } });
+    }
+    if (workModes.length === 1) {
+      andFilters.push({ workMode: workModes[0] });
+    } else if (workModes.length > 1) {
+      andFilters.push({ workMode: { in: workModes } });
+    }
+    if (experienceLevels.length === 1) {
+      andFilters.push({ experienceLevel: experienceLevels[0] });
+    } else if (experienceLevels.length > 1) {
+      andFilters.push({ experienceLevel: { in: experienceLevels } });
+    }
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
     }
 
     const [projects, total] = await Promise.all([
