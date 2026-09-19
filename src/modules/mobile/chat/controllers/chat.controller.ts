@@ -48,6 +48,19 @@ const findOrCreateDm = async (
   });
 };
 
+const resolveTrueUserId = async (targetId: string): Promise<string | null> => {
+  let user = await prisma.user.findUnique({ where: { id: targetId } }).catch(() => null);
+  if (!user) {
+    const cp = await prisma.clientProfile.findUnique({ where: { id: targetId } }).catch(() => null);
+    if (cp) user = await prisma.user.findUnique({ where: { id: cp.userId } }).catch(() => null);
+  }
+  if (!user) {
+    const fp = await prisma.freelancerProfile.findUnique({ where: { id: targetId } }).catch(() => null);
+    if (fp) user = await prisma.user.findUnique({ where: { id: fp.userId } }).catch(() => null);
+  }
+  return user ? user.id : null;
+};
+
 const resolveConversation = async (
   viewerId: string,
   viewerRole: string,
@@ -65,18 +78,10 @@ const resolveConversation = async (
   let targetId = recipientId || conversationId;
   if (!targetId) return null;
 
-  let user = await prisma.user.findUnique({ where: { id: targetId } }).catch(() => null);
-  if (!user) {
-    const cp = await prisma.clientProfile.findUnique({ where: { id: targetId } }).catch(() => null);
-    if (cp) user = await prisma.user.findUnique({ where: { id: cp.userId } }).catch(() => null);
-  }
-  if (!user) {
-    const fp = await prisma.freelancerProfile.findUnique({ where: { id: targetId } }).catch(() => null);
-    if (fp) user = await prisma.user.findUnique({ where: { id: fp.userId } }).catch(() => null);
-  }
+  const trueUserId = await resolveTrueUserId(targetId);
 
-  if (user) {
-    return findOrCreateDm(viewerId, viewerRole, user.id, projectId);
+  if (trueUserId) {
+    return findOrCreateDm(viewerId, viewerRole, trueUserId, projectId);
   }
 
   return null;
@@ -260,7 +265,71 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
     const { conversationId, text, recipientId, projectId, attachmentUrl } = req.body || {};
     const trimmedText = String(text || '').trim();
 
-    // Find/create conversation without sending a placeholder message.
+    // If starting a new chat via recipientId, intercept to check Connections
+    if (!conversationId && recipientId) {
+      const trueRecipientId = await resolveTrueUserId(recipientId);
+      if (!trueRecipientId) {
+        return res.status(404).json(errorResponse('Recipient not found', 'NOT_FOUND'));
+      }
+
+      const [a, b] = [req.user.id, trueRecipientId].sort();
+      const connection = await prisma.connection.findUnique({
+        where: { userOneId_userTwoId: { userOneId: a, userTwoId: b } }
+      });
+
+      // If NOT connected
+      if (!connection || connection.status !== 'ACTIVE') {
+        const existingInvite = await prisma.connectionInvitation.findFirst({
+          where: {
+            OR: [
+              { senderId: req.user.id, receiverId: trueRecipientId },
+              { senderId: trueRecipientId, receiverId: req.user.id }
+            ]
+          }
+        });
+
+        if (existingInvite) {
+          return res.status(400).json(errorResponse('Connection invitation already exists or was rejected', 'INVITATION_EXISTS'));
+        }
+
+        // Just pre-flight check (empty message)
+        if (!trimmedText && !attachmentUrl) {
+           return res.status(200).json(successResponse('Ready to send connection request', { pendingConnection: true }));
+        }
+
+        // Create Invitation
+        const newInvite = await prisma.connectionInvitation.create({
+          data: {
+            senderId: req.user.id,
+            receiverId: trueRecipientId,
+            firstMessage: trimmedText,
+            status: 'PENDING'
+          },
+          include: { sender: true }
+        });
+        
+        await NotificationEngine.queueNotification({
+          userId: trueRecipientId,
+          type: 'connection_request',
+          title: 'New Connection Request',
+          message: `${newInvite.sender.fullName} sent you a connection request.`,
+          channel: 'all',
+          payload: { invitationId: newInvite.id }
+        });
+
+        const { getIO } = await import('../../../../modules/realtime/socket.js');
+        try {
+          getIO().to(`user:${trueRecipientId}`).emit('connection_request_received', {
+            invitationId: newInvite.id,
+            sender: newInvite.sender
+          });
+        } catch (err) {}
+
+        return res.status(200).json(successResponse('Connection request sent', newInvite));
+      }
+    }
+
+    // Pre-flight check with an existing connection
     if (!trimmedText && !attachmentUrl && (recipientId || conversationId)) {
       const conv = await resolveConversation(
         req.user.id,
