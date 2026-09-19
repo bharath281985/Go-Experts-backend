@@ -2344,7 +2344,7 @@ Object.entries(tableModelMapping).forEach(([tableName, modelName]) => {
   });
 
   router.use(
-    `/admin/${tableName}`,
+    [`/admin/${tableName}`, `/admin/crud/${tableName}`],
     authMiddleware as any,
     auditMiddleware("mutate", tableName) as any,
     crudRouter
