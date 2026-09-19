@@ -241,6 +241,68 @@ export const createOrFindConversation = async (req: AuthenticatedRequest, res: R
       where: whereConditions,
     });
 
+    // --- NEW: Connection & Invitation Check ---
+    if (!conv && contextType !== "SUPPORT" && finalRecipientId && finalRecipientId !== userId) {
+      const [a, b] = [userId, finalRecipientId].sort();
+      const connection = await prisma.connection.findUnique({
+        where: { userOneId_userTwoId: { userOneId: a, userTwoId: b } }
+      });
+      
+      if (!connection || connection.status !== 'ACTIVE') {
+        const existingInvite = await prisma.connectionInvitation.findFirst({
+          where: {
+            OR: [
+              { senderId: userId, receiverId: finalRecipientId },
+              { senderId: finalRecipientId, receiverId: userId }
+            ]
+          }
+        });
+
+        if (existingInvite) {
+          return res.status(400).json({ success: false, message: 'Connection invitation already exists or was rejected' });
+        }
+
+        if (!initialMessage) {
+           return res.json({ success: true, message: 'Ready to send connection request', data: { pendingConnection: true } });
+        }
+
+        const newInvite = await prisma.connectionInvitation.create({
+          data: {
+            senderId: userId,
+            receiverId: finalRecipientId,
+            firstMessage: initialMessage,
+            status: 'PENDING'
+          },
+          include: { sender: true }
+        });
+
+        const title = 'New Connection Request';
+        const body = `${newInvite.sender.fullName} sent you a connection request.`;
+        
+        try {
+          await emitNotification({
+            userId: finalRecipientId,
+            type: 'CONNECTION_REQUEST',
+            title,
+            message: body,
+            contextType: 'CONNECTION',
+            contextId: newInvite.id
+          });
+        } catch(err) {}
+
+        const { getIo } = await import('../../socket/index.js');
+        try {
+          getIo().to(finalRecipientId).emit('connection_request_received', {
+            invitationId: newInvite.id,
+            sender: newInvite.sender
+          });
+        } catch(err) {}
+
+        return res.status(200).json({ success: true, message: 'Connection request sent', data: newInvite });
+      }
+    }
+    // --- END NEW ---
+
     if (!conv) {
       conv = await prisma.conversation.create({
         data: {
@@ -280,7 +342,7 @@ export const createOrFindConversation = async (req: AuthenticatedRequest, res: R
          contextType: contextType,
          contextId: actualContextId,
          actionUrl: "/business/messages?conv=" + conv.id
-      });
+      } as any);
     }
 
     res.status(201).json({ success: true, conversation: conv });
