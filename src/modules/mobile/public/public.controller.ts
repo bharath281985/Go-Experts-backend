@@ -1706,7 +1706,32 @@ export const getPricingPlans = async (req: Request, res: Response, next: NextFun
 };
 
 export const getBlogs = async (req: Request, res: Response, next: NextFunction) => {
-  try { return res.json(successResponse('Blogs retrieved', [])); } catch (error) { next(error); }
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const [blogs, total] = await Promise.all([
+      prisma.blog.findMany({
+        where: { status: 'active' },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.blog.count({
+        where: { status: 'active' }
+      })
+    ]);
+
+    return res.json(successResponse('Blogs retrieved', blogs, {
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }));
+  } catch (error) { next(error); }
 };
 
 export const getFaqs = async (req: Request, res: Response, next: NextFunction) => {

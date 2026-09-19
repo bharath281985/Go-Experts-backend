@@ -1103,15 +1103,21 @@ model CmsPageRevision {
 }
 
 model Blog {
-  id        String    @id @default(uuid())
-  title     String
-  category  String
-  author    String
-  views     Int       @default(0)
-  status    String    @default("active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  id              String    @id @default(uuid())
+  title           String
+  description     String?   @db.Text
+  bannerUrl       String?   @map("banner_url")
+  date            DateTime?
+  location        String?
+  isOnline        Boolean   @default(false) @map("is_online")
+  attendeeAvatars String?   @map("attendee_avatars") @db.Text
+  category        String
+  author          String
+  views           Int       @default(0)
+  status          String    @default("active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
 
   @@map("blogs")
 }

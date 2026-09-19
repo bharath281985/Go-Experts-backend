@@ -503,7 +503,9 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
           nextStepKey: progress.nextStepKey,
           completionPercentage: progress.percentage,
           referralCode,
-          registrationData: b.password ? { ...b, password: encryptPassword(b.password) } : b,
+          registrationData: JSON.stringify(
+            b.password ? { ...b, password: encryptPassword(b.password) } : b
+          ),
         },
       });
 
