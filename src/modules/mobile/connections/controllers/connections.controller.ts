@@ -200,7 +200,7 @@ export const rejectInvitation = async (req: AuthRequest, res: Response, next: Ne
        return res.json(successResponse('Invitation withdrawn successfully', { id }));
     }
 
-    // Receiver is rejecting it -> Update status
+    // Receiver is rejecting it -> Update status and block
     const updated = await prisma.connectionInvitation.update({
       where: { id },
       data: { status: 'REJECTED', rejectedAt: new Date() }
@@ -215,6 +215,14 @@ export const rejectInvitation = async (req: AuthRequest, res: Response, next: Ne
         ],
         projectId: null
       }
+    });
+
+    // Upsert Connection state to BLOCKED
+    const [userOneId, userTwoId] = [invitation.senderId, invitation.receiverId].sort();
+    await prisma.connection.upsert({
+      where: { userOneId_userTwoId: { userOneId, userTwoId } },
+      update: { status: 'BLOCKED' },
+      create: { userOneId, userTwoId, status: 'BLOCKED' }
     });
 
     return res.json(successResponse('Invitation rejected successfully', updated));
