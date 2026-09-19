@@ -110,7 +110,11 @@ export async function deleteJob(req: Request, res: Response, next: NextFunction)
 /* Applications */
 export async function submitCareerApplication(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await careersCmsService.submitCareerApplication(req.body);
+    const inputData = {
+      ...req.body,
+      jobId: req.params.jobId
+    };
+    const result = await careersCmsService.submitCareerApplication(inputData);
     res.status(201).json(result);
   } catch (e: any) {
     res.status(400).json({ success: false, message: e.message || "Failed to submit career application." });

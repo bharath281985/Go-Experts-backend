@@ -618,7 +618,7 @@ export class CareersCmsService {
       throw new Error(`You have already submitted an application for '${job.title}' recently. Reference: ${duplicate.applicationNumber}`);
     }
 
-    const applicationNumber = generateApplicationNumber();
+    const applicationNumber = `GE-${new Date().getFullYear()}-${job.department.substring(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const application = await prisma.careerApplication.create({
       data: {
@@ -643,7 +643,16 @@ export class CareersCmsService {
         resumeUrl: input.resumeUrl.trim(),
         resumeFileName: input.resumeFileName || "Resume.pdf",
         status: "new",
+        activities: {
+          create: {
+            action: "Application Submitted",
+            createdBy: "system"
+          }
+        }
       },
+      include: {
+        activities: true
+      }
     });
 
     // Increment application count on Job
@@ -730,7 +739,15 @@ export class CareersCmsService {
   async getCareerApplicationById(id: string) {
     const app = await prisma.careerApplication.findUnique({
       where: { id },
-      include: { job: true },
+      include: {
+        job: true,
+        activities: {
+          orderBy: { createdAt: 'desc' }
+        },
+        emailLogs: {
+          orderBy: { sentAt: 'desc' }
+        }
+      },
     });
 
     if (!app) throw new Error("Application record not found.");
@@ -744,6 +761,7 @@ export class CareersCmsService {
     id: string,
     updates: {
       status?: string;
+      atsStage?: string;
       rating?: number;
       assignedRecruiterId?: string;
       assignedRecruiter?: string;
@@ -751,6 +769,7 @@ export class CareersCmsService {
     }
   ) {
     const dataToUpdate: any = {};
+    const include: any = {};
 
     if (updates.status) dataToUpdate.status = updates.status;
     if (updates.rating !== undefined) dataToUpdate.rating = Number(updates.rating);
@@ -758,9 +777,22 @@ export class CareersCmsService {
     if (updates.assignedRecruiter !== undefined) dataToUpdate.assignedRecruiter = updates.assignedRecruiter;
     if (updates.internalNotes !== undefined) dataToUpdate.internalNotes = updates.internalNotes;
 
+    if (updates.atsStage) {
+      dataToUpdate.atsStage = updates.atsStage;
+      // Log activity when stage changes
+      dataToUpdate.activities = {
+        create: {
+          action: `Moved to ${updates.atsStage}`,
+          createdBy: "admin"
+        }
+      };
+      include.activities = true;
+    }
+
     const updated = await prisma.careerApplication.update({
       where: { id },
       data: dataToUpdate,
+      include
     });
 
     return { success: true, data: updated };

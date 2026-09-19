@@ -770,9 +770,30 @@ router.post("/contact", submitContactEnquiry);
 
 router.get("/careers-page", getPublicCareersPage);
 router.get("/careers", getPublicCareersPage);
+import { documentUpload, handleUploadError } from "../../middleware/upload.js";
+
 router.get("/jobs", listPublicJobs);
 router.get("/jobs/:slug", getPublicJobBySlug);
 router.post("/jobs/:jobId/apply", submitCareerApplication);
+router.post(
+  "/jobs/upload-resume",
+  documentUpload.single("file"),
+  handleUploadError,
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+    const relativePath = req.file.path.split("uploads")[1]?.replace(/\\/g, "/") || "";
+    res.json({
+      success: true,
+      data: {
+        url: `/uploads${relativePath}`,
+        name: req.file.originalname,
+        size: req.file.size,
+      },
+    });
+  }
+);
 
 const getPublicHelpCenter = async (req: Request, res: Response, next: NextFunction) => {
   try {

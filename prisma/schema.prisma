@@ -172,6 +172,9 @@ model User {
   receivedConnectionInvitations ConnectionInvitation[] @relation("ReceivedConnectionInvitations")
   userConnectionsOne            Connection[]           @relation("UserConnectionsOne")
   userConnectionsTwo            Connection[]           @relation("UserConnectionsTwo")
+  careerApplications            CareerApplication[]
+  savedJobs                     SavedJob[]
+  recruiterNotes                RecruiterNote[]
 
   @@index([role])
   @@index([status])
@@ -579,15 +582,15 @@ model Subscription {
 
 model CmsHowItWorks {
   id          String   @id @default(uuid())
-  sectionName String   @map("section_name") 
-  roleType    String?  @map("role_type") 
+  sectionName String   @map("section_name")
+  roleType    String?  @map("role_type")
   title       String
   subtitle    String?
   description String?  @db.Text
   icon        String?
   image       String?
-  buttonText  String?  @map("button_text") 
-  buttonLink  String?  @map("button_link") 
+  buttonText  String?  @map("button_text")
+  buttonLink  String?  @map("button_link")
   sortOrder   Int      @default(0) @map("sort_order")
   status      String   @default("draft")
   contentJson Json?    @map("content_json")
@@ -599,13 +602,13 @@ model CmsHowItWorks {
 
 model WorkflowStep {
   id          String   @id @default(uuid())
-  roleType    String   @map("role_type") 
+  roleType    String   @map("role_type")
   title       String
   description String   @db.Text
   icon        String?
   image       String?
-  status      String   @default("draft") 
-  sortOrder   Int      @default(0) @map("sort_order") 
+  status      String   @default("draft")
+  sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -2042,39 +2045,55 @@ model ContactEnquiry {
 }
 
 model JobOpening {
-  id                      String              @id @default(uuid())
+  id                      String    @id @default(uuid())
   title                   String
-  slug                    String              @unique
-  jobCode                 String?             @map("job_code")
+  slug                    String    @unique
+  jobCode                 String?   @map("job_code")
   department              String
+  departmentId            String?   @map("department_id")
   category                String?
   location                String
-  workplaceType           String              @default("hybrid") @map("workplace_type")
-  employmentType          String              @default("full_time") @map("employment_type")
-  experienceLevel         String              @default("mid_level") @map("experience_level")
-  minExperience           Int?                @map("min_experience")
-  maxExperience           Int?                @map("max_experience")
-  openings                Int                 @default(1)
-  salaryMin               Float?              @map("salary_min")
-  salaryMax               Float?              @map("salary_max")
-  currency                String              @default("INR")
-  salaryVisibility        Boolean             @default(false) @map("salary_visibility")
-  applicationDeadline     DateTime?           @map("application_deadline")
-  hiringManager           String?             @map("hiring_manager")
+  workplaceType           String    @default("hybrid") @map("workplace_type")
+  employmentType          String    @default("full_time") @map("employment_type")
+  experienceLevel         String    @default("mid_level") @map("experience_level")
+  minExperience           Int?      @map("min_experience")
+  maxExperience           Int?      @map("max_experience")
+  openings                Int       @default(1)
+  salaryMin               Float?    @map("salary_min")
+  salaryMax               Float?    @map("salary_max")
+  currency                String    @default("INR")
+  salaryVisibility        Boolean   @default(false) @map("salary_visibility")
+  applicationDeadline     DateTime? @map("application_deadline")
+  hiringManager           String?   @map("hiring_manager")
   recruiter               String?
-  shortSummary            String              @map("short_summary") @db.Text
-  fullDescription         String              @map("full_description") @db.LongText
-  responsibilities        String?             @db.LongText
-  requirements            String?             @db.LongText
-  preferredQualifications String?             @map("preferred_qualifications") @db.LongText
-  benefits                String?             @db.LongText
-  status                  String              @default("published")
-  featured                Boolean             @default(false)
-  applicationsCount       Int                 @default(0) @map("applications_count")
-  createdAt               DateTime            @default(now()) @map("created_at")
-  updatedAt               DateTime            @updatedAt @map("updated_at")
-  deletedAt               DateTime?           @map("deleted_at")
-  applications            CareerApplication[]
+  shortSummary            String    @map("short_summary") @db.Text
+  fullDescription         String    @map("full_description") @db.LongText
+  responsibilities        String?   @db.LongText
+  requirements            String?   @db.LongText
+  preferredQualifications String?   @map("preferred_qualifications") @db.LongText
+  benefits                String?   @db.LongText
+  status                  String    @default("published")
+  featured                Boolean   @default(false)
+  applicationsCount       Int       @default(0) @map("applications_count")
+  views                   Int       @default(0)
+
+  // SEO Fields
+  seoTitle        String? @map("seo_title")
+  metaDescription String? @map("meta_description") @db.Text
+  metaKeywords    String? @map("meta_keywords") @db.Text
+  canonicalUrl    String? @map("canonical_url")
+
+  ogTitle       String? @map("og_title")
+  ogDescription String? @map("og_description") @db.Text
+  ogImage       String? @map("og_image")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  applications  CareerApplication[]
+  departmentRel Department?         @relation(fields: [departmentId], references: [id])
+  savedBy       SavedJob[]
 
   @@index([slug])
   @@index([status])
@@ -2085,36 +2104,44 @@ model JobOpening {
 }
 
 model CareerApplication {
-  id                  String     @id @default(uuid())
-  applicationNumber   String     @unique @map("application_number")
-  jobId               String     @map("job_id")
-  jobTitle            String     @map("job_title")
-  firstName           String     @map("first_name")
-  lastName            String     @map("last_name")
+  id                  String          @id @default(uuid())
+  applicationNumber   String          @unique @map("application_number")
+  jobId               String          @map("job_id")
+  userId              String?         @map("user_id")
+  jobTitle            String          @map("job_title")
+  firstName           String          @map("first_name")
+  lastName            String          @map("last_name")
   email               String
   phone               String
-  currentLocation     String?    @map("current_location")
-  linkedinUrl         String?    @map("linkedin_url")
-  portfolioUrl        String?    @map("portfolio_url")
-  experienceYears     Float?     @map("experience_years")
-  currentCompany      String?    @map("current_company")
-  currentDesignation  String?    @map("current_designation")
-  currentCtc          String?    @map("current_ctc")
-  expectedCtc         String?    @map("expected_ctc")
-  noticePeriod        String?    @map("notice_period")
-  preferredLocation   String?    @map("preferred_location")
-  coverLetter         String?    @map("cover_letter") @db.Text
-  resumeUrl           String     @map("resume_url") @db.Text
-  resumeFileName      String?    @map("resume_file_name")
-  status              String     @default("new")
-  rating              Int        @default(0)
-  assignedRecruiterId String?    @map("assigned_recruiter_id")
-  assignedRecruiter   String?    @map("assigned_recruiter")
-  internalNotes       String?    @map("internal_notes") @db.Text
-  createdAt           DateTime   @default(now()) @map("created_at")
-  updatedAt           DateTime   @updatedAt @map("updated_at")
-  deletedAt           DateTime?  @map("deleted_at")
-  job                 JobOpening @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  currentLocation     String?         @map("current_location")
+  linkedinUrl         String?         @map("linkedin_url")
+  portfolioUrl        String?         @map("portfolio_url")
+  githubUrl           String?         @map("github_url")
+  experienceYears     Float?          @map("experience_years")
+  currentCompany      String?         @map("current_company")
+  currentDesignation  String?         @map("current_designation")
+  currentCtc          String?         @map("current_ctc")
+  expectedCtc         String?         @map("expected_ctc")
+  noticePeriod        String?         @map("notice_period")
+  preferredLocation   String?         @map("preferred_location")
+  coverLetter         String?         @map("cover_letter") @db.Text
+  resumeUrl           String          @map("resume_url") @db.Text
+  resumeFileName      String?         @map("resume_file_name")
+  source              String?         @map("source")
+  atsStage            String          @default("APPLIED") @map("ats_stage")
+  status              String          @default("new")
+  rating              Int             @default(0)
+  assignedRecruiterId String?         @map("assigned_recruiter_id")
+  assignedRecruiter   String?         @map("assigned_recruiter")
+  internalNotes       String?         @map("internal_notes") @db.Text
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  deletedAt           DateTime?       @map("deleted_at")
+  job                 JobOpening      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user                User?           @relation(fields: [userId], references: [id])
+  notes               RecruiterNote[]
+  activities          ApplicationActivity[]
+  emailLogs           EmailLog[]
 
   @@index([applicationNumber])
   @@index([jobId])
@@ -2476,4 +2503,120 @@ model Connection {
 
   @@unique([userOneId, userTwoId])
   @@map("connections")
+}
+
+// -----------------------------------------------------------------------------
+// CAREERS MODULE
+// -----------------------------------------------------------------------------
+
+model Department {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  slug      String       @unique
+  jobs      JobOpening[]
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@map("departments")
+}
+
+model RecruiterNote {
+  id            String   @id @default(uuid())
+  applicationId String   @map("application_id")
+  authorId      String   @map("author_id")
+  content       String   @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  application CareerApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  author      User              @relation(fields: [authorId], references: [id])
+
+  @@map("recruiter_notes")
+}
+
+model SavedJob {
+  id      String   @id @default(uuid())
+  userId  String   @map("user_id")
+  jobId   String   @map("job_id")
+  savedAt DateTime @default(now()) @map("saved_at")
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  JobOpening @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@map("saved_jobs")
+}
+
+model CmsCareers {
+  id               String  @id @default(uuid())
+  heroTitle        String? @map("hero_title")
+  heroSubtitle     String? @map("hero_subtitle")
+  missionStatement String? @map("mission_statement") @db.Text
+  cultureVideoUrl  String? @map("culture_video_url")
+  benefitsJson     String? @map("benefits_json") @db.Text
+  faqsJson         String? @map("faqs_json") @db.Text
+  teamPhotosJson   String? @map("team_photos_json") @db.Text
+
+  // Advanced SEO Fields
+  seoTitle        String? @map("seo_title")
+  metaDescription String? @map("meta_description") @db.Text
+  metaKeywords    String? @map("meta_keywords") @db.Text
+  canonicalUrl    String? @map("canonical_url")
+
+  ogTitle       String? @map("og_title")
+  ogDescription String? @map("og_description") @db.Text
+  ogImage       String? @map("og_image")
+
+  twitterTitle       String? @map("twitter_title")
+  twitterDescription String? @map("twitter_description") @db.Text
+  twitterImage       String? @map("twitter_image")
+
+  robotsIndex  Boolean @default(true) @map("robots_index")
+  robotsFollow Boolean @default(true) @map("robots_follow")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cms_careers")
+}
+
+model CmsEmailTemplate {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  subject      String
+  bodyHtml     String   @map("body_html") @db.LongText
+  triggerEvent String   @map("trigger_event") @unique // e.g. APPLIED, REVIEWING, INTERVIEWING, OFFER, REJECTED
+  status       String   @default("active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("cms_email_templates")
+}
+
+model ApplicationActivity {
+  id            String            @id @default(uuid())
+  applicationId String            @map("application_id")
+  action        String            // e.g. "Moved to Reviewing"
+  notes         String?           @db.Text
+  createdBy     String?           @map("created_by") // admin ID if done by admin, else system
+  createdAt     DateTime          @default(now()) @map("created_at")
+  application   CareerApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([createdAt])
+  @@map("application_activities")
+}
+
+model EmailLog {
+  id            String            @id @default(uuid())
+  applicationId String            @map("application_id")
+  emailType     String            @map("email_type") // e.g. "CandidateConfirmation", "AdminAlert"
+  recipient     String
+  status        String            // "sent", "failed"
+  errorMessage  String?           @map("error_message") @db.Text
+  sentAt        DateTime          @default(now()) @map("sent_at")
+  application   CareerApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([sentAt])
+  @@map("email_logs")
 }
