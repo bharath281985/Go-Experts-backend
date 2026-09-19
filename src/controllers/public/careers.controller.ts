@@ -40,13 +40,13 @@ export const getJobs = async (req: Request, res: Response) => {
       whereClause.experienceLevel = String(experience);
     }
 
-    const jobs = await prisma.jobPosting.findMany({
+    const jobs = await prisma.jobOpening.findMany({
       where: whereClause,
       include: {
-        department: true,
+        departmentRel: true,
       },
       orderBy: [
-        { isFeatured: 'desc' },
+        { featured: 'desc' },
         { createdAt: 'desc' }
       ]
     });
@@ -64,15 +64,15 @@ export const getJobBySlug = async (req: Request, res: Response) => {
     const { slug } = req.params;
     
     // Increment view count
-    await prisma.jobPosting.updateMany({
+    await prisma.jobOpening.updateMany({
       where: { slug, status: "PUBLISHED" },
       data: { views: { increment: 1 } }
     });
 
-    const job = await prisma.jobPosting.findFirst({
+    const job = await prisma.jobOpening.findFirst({
       where: { slug, status: "PUBLISHED" },
       include: {
-        department: true,
+        departmentRel: true,
       }
     });
 

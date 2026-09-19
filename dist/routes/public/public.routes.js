@@ -6,6 +6,7 @@ import { parseCatalogListBody, parseFreelancersListBody, parseSkillsListBody } f
 import { getPublicFreelancerFilters, listPublicExperienceLevels, listPublicFreelancers, } from "../../services/public/freelancers.service.js";
 import { getPostProjectPagePayload, listPublicProjects, } from "../../services/public/projects.service.js";
 import { getSettingsSection } from "../../services/settings/settings.service.js";
+import { getHowItWorksPage } from "../../controllers/public/how-it-works.controller.js";
 import { sendDeleteAccountOtp, verifyDeleteAccountOtp } from "../../controllers/auth/auth.controller.js";
 import { getCountries, getStates, getSkills, getIndustries, getBudgetRanges, getTeamSizes, getFounderTypes, getBusinessTypes, getInvestorTypes, getTicketSizes, getWorkModes, getHiringGoals, getInvestorStages, getPlatformGoals, getCompanySizes, getExperienceLevels, getDesignations, } from "../../modules/mobile/public/public.controller.js";
 const router = Router();
@@ -13,6 +14,8 @@ router.get("/countries", getCountries);
 router.get("/states", getStates);
 router.get("/skills", getSkills);
 router.get("/industries", getIndustries);
+// How It Works Dynamic Page
+router.get("/how-it-works", getHowItWorksPage);
 router.get("/budget-ranges", getBudgetRanges);
 router.get("/hiring-budgets", getBudgetRanges);
 router.get("/hiring-budget-ranges", getBudgetRanges);
@@ -666,9 +669,24 @@ router.get("/contact", getPublicContactPage);
 router.post("/contact", submitContactEnquiry);
 router.get("/careers-page", getPublicCareersPage);
 router.get("/careers", getPublicCareersPage);
+import { documentUpload, handleUploadError } from "../../middleware/upload.js";
 router.get("/jobs", listPublicJobs);
 router.get("/jobs/:slug", getPublicJobBySlug);
 router.post("/jobs/:jobId/apply", submitCareerApplication);
+router.post("/jobs/upload-resume", documentUpload.single("file"), handleUploadError, (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+    const relativePath = req.file.path.split("uploads")[1]?.replace(/\\/g, "/") || "";
+    res.json({
+        success: true,
+        data: {
+            url: `/uploads${relativePath}`,
+            name: req.file.originalname,
+            size: req.file.size,
+        },
+    });
+});
 const getPublicHelpCenter = async (req, res, next) => {
     try {
         // 1. Load Help Center page settings from CmsPage
